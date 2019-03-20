@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: develop.c,v 1.52 2014/07/30 07:24:15 mavrik Exp $
+ * $Id: develop.c,v 1.56 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -1113,7 +1113,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-#ifdef USE_SDDL
   if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_OWNER))
   {
     char *pcSidOwner = NULL;
@@ -1130,12 +1129,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
       iStatus = ER_NullFields;
     }
   }
-#else
-  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_OWNER))
-  {
-    pcOutData[n++] = '|';
-  }
-#endif
 
   /*-
    *********************************************************************
@@ -1144,7 +1137,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-#ifdef USE_SDDL
   if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_GROUP))
   {
     char *pcSidGroup = NULL;
@@ -1161,12 +1153,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
       iStatus = ER_NullFields;
     }
   }
-#else
-  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_GROUP))
-  {
-    pcOutData[n++] = '|';
-  }
-#endif
 
   /*-
    *********************************************************************
@@ -1175,7 +1161,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-#ifdef USE_SDDL
   if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_DACL))
   {
     char *pcAclDacl = NULL;
@@ -1199,12 +1184,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
       iStatus = ER_NullFields;
     }
   }
-#else
-  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_DACL))
-  {
-    pcOutData[n++] = '|';
-  }
-#endif
 
   /*-
    *********************************************************************

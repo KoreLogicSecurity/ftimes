@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.h,v 1.29 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: dig.h,v 1.33 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -115,6 +115,7 @@ typedef struct _DIG_STRING
 int                 DigAddDigString(char *pcString, int iType, char *pcError);
 void                DigAdjustRegExpOffsets(int iTrimSize);
 void                DigClearCounts(void);
+void                DigClearRegExpOffsets(void);
 //int                 DigDevelopOutput(FTIMES_PROPERTIES *psProperties, DIG_SEARCH_DATA *psSearchData, char *pcError); /* This is declared in ftimes.h. */
 void                DigFreeDigString(DIG_STRING *psDigString);
 int                 DigGetMaxStringLength(void);

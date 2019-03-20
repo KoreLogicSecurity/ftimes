@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.c,v 1.53 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: dig.c,v 1.57 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -81,6 +81,7 @@ DigAddDigString(char *pcString, int iType, char *pcError)
 #ifdef USE_PCRE
   case DIG_STRING_TYPE_REGEXP:
     psHead = DigGetSearchList(iType, DIG_FIRST_CHAIN_INDEX);
+    /* NOTE: Do not set a max string length for this type. Let it default to zero. */
     break;
 #endif
 #ifdef USE_XMAGIC
@@ -146,6 +147,23 @@ DigAdjustRegExpOffsets(int iTrimSize)
 {
   DIG_STRING         *psDigString;
 
+  /*
+   *********************************************************************
+   *
+   * The trim size represents the number of bytes in the current search
+   * buffer that won't be carried forward to the next search buffer. In
+   * the case where the search has produced a match that ends somewhere
+   * in the carry zone (i.e., the last offset (iLastOffset) exceeds the
+   * trim size), we must set the next start location (iOffset) to a value
+   * located some distance (i.e., iLastOffset - iTrimSize) from the start
+   * of the next search buffer. If no match protruded into the carry zone,
+   * then the search buffer was exhausted and iOffset should be set to
+   * zero. In so doing however, we end up retracing some ground, but get
+   * an opportunity to find dig strings that begin in the carry zone and
+   * end in the next data block.
+   *
+   *********************************************************************
+   */
   for (psDigString = DigGetSearchList(DIG_STRING_TYPE_REGEXP, DIG_FIRST_CHAIN_INDEX); psDigString != NULL; psDigString = psDigString->psNext)
   {
     psDigString->iOffset = (psDigString->iLastOffset > iTrimSize) ? psDigString->iLastOffset - iTrimSize : 0;
@@ -181,6 +199,27 @@ DigClearCounts(void)
     }
   }
 }
+
+
+#ifdef USE_PCRE
+/*-
+ ***********************************************************************
+ *
+ * DigClearRegExpOffsets
+ *
+ ***********************************************************************
+ */
+void
+DigClearRegExpOffsets(void)
+{
+  DIG_STRING         *psDigString;
+
+  for (psDigString = DigGetSearchList(DIG_STRING_TYPE_REGEXP, DIG_FIRST_CHAIN_INDEX); psDigString != NULL; psDigString = psDigString->psNext)
+  {
+    psDigString->iOffset = psDigString->iLastOffset = 0;
+  }
+}
+#endif
 
 
 /*-

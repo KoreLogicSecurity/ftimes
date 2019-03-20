@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.42 2012/05/06 01:42:33 mavrik Exp $
+# $Id: Makefile.in,v 1.44 2018/01/12 01:05:48 klm Exp $
 #
 ########################################################################
 #
@@ -22,6 +22,21 @@ SUBDIRS=doc etc lib src tools tests # Note: Keep the tests subdir last.
 SUBDIR_MAKE=cd $${cwd}/$${subdir} && ${MAKE} $@
 
 SUBDIR_TRACE=echo "===> $${subdir}"
+
+FTIMES_SRM_LINKS= \
+decode.c \
+decode.h \
+mask.c \
+mask.h \
+md5.c \
+md5.h \
+options.c \
+options.h \
+sha1.c \
+sha1.h \
+sha256.c \
+sha256.h \
+time.c
 
 FTIMES_XPA_LINKS= \
 md5.c \
@@ -54,7 +69,7 @@ sha1.h
 all clean install test:
 	@cwd=`pwd` ; for subdir in ${SUBDIRS} "end-of-list" ; do \
 		if test $${subdir} != "end-of-list" ; then \
-			${SUBDIR_TRACE} && ${SUBDIR_MAKE} ; \
+			${SUBDIR_TRACE} && ${SUBDIR_MAKE} || if [ "$@" = "all" -o "$@" = "install" ] ; then exit 1 ; fi ; \
 		fi ; \
 	done
 
@@ -86,6 +101,9 @@ mk-links:
 		echo "" ; \
 		exit 1 ; \
 	fi
+	@for file in ${FTIMES_SRM_LINKS} ; do \
+		( cd tools/ftimes-srm && if [ ! -L $${file} ] ; then ln -s -f ../../src/$${file} $${file} ; fi ) ; \
+	done
 	@for file in ${FTIMES_XPA_LINKS} ; do \
 		( cd tools/ftimes-xpa && if [ ! -L $${file} ] ; then ln -s -f ../../src/$${file} $${file} ; fi ) ; \
 	done
@@ -108,6 +126,12 @@ rm-links:
 		echo "" ; \
 		exit 1 ; \
 	fi
+	@for file in ${FTIMES_SRM_LINKS} ; do \
+		( cd tools/ftimes-srm && if [ -L $${file} ] ; then rm -f $${file} ; fi ) ; \
+	done
+	@for file in ${FTIMES_XPA_LINKS} ; do \
+		( cd tools/ftimes-xpa && if [ -L $${file} ] ; then rm -f $${file} ; fi ) ; \
+	done
 	@for file in ${HASHCP_LINKS} ; do \
 		( cd tools/hashcp && if [ -L $${file} ] ; then rm -f $${file} ; fi ) ; \
 	done

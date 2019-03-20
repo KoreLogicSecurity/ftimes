@@ -1,0 +1,20 @@
+=head1 MODES OF OPERATION
+
+The modes of operation described in this section are mutually
+exclusive.  In other words, only one mode may be specified per
+invocation.
+
+=over 5
+
+=item B<{-|snapshot} [snapshot [...]]>
+
+Read the contents of one or more snapshots and selectively remove
+enumerated files using the attributes specified in the B<FieldMask>
+as constraints.
+
+=item B<{-v|--version}>
+
+Display version information and exit.
+
+=back
+

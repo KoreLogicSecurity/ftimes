@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.62 2014/07/30 07:07:30 mavrik Exp $
+ * $Id: analyze.c,v 1.66 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -813,6 +813,9 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBu
   if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
   {
     DigClearCounts();
+#ifdef USE_PCRE
+    DigClearRegExpOffsets();
+#endif
 
     /*-
      *******************************************************************

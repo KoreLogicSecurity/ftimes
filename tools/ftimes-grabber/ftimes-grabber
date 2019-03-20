@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-grabber,v 1.20 2014/07/18 06:40:45 mavrik Exp $
+# $Id: ftimes-grabber,v 1.24 2019/03/14 16:07:43 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2008-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2008-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -18,7 +18,7 @@ use Archive::Zip qw(:ERROR_CODES :CONSTANTS);
 use Digest::MD5;
 use File::Basename;
 use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
-use FTimes::EadRoutines;
+use FTimes::EadRoutines 1.025;
 use Getopt::Std;
 use IO::File;
 

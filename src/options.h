@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: options.h,v 1.6 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: options.h,v 1.10 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2006-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2006-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -107,6 +107,7 @@ int                   OptionsHaveRequiredOptions(OPTIONS_CONTEXT *psOptionsConte
 int                   OptionsHaveSpecifiedOption(OPTIONS_CONTEXT *psOptionsContext, int iId);
 OPTIONS_CONTEXT      *OptionsNewOptionsContext(int iArgumentCount, TCHAR *pptcArgumentVector[], TCHAR *ptcError);
 int                   OptionsProcessOptions(OPTIONS_CONTEXT *psOptionsContext, void *pvProperties, TCHAR *ptcError);
+int                   OptionsProcessOptions2(OPTIONS_CONTEXT *psOptionsContext, void *pvProperties, TCHAR *ptcError);
 void                  OptionsSetArgumentType(OPTIONS_CONTEXT *psOptionsContext, int iType);
 void                  OptionsSetOptions(OPTIONS_CONTEXT *psOptionsContext, OPTIONS_TABLE *psOptions, int iNOptions);
 

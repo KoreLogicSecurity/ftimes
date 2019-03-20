@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-dig2ctx.pl,v 1.41 2014/07/18 06:40:44 mavrik Exp $
+# $Id: ftimes-dig2ctx.pl,v 1.45 2019/03/14 16:07:43 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2002-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2002-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -17,7 +17,7 @@ use strict;
 use File::Basename;
 use File::Path;
 use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
-use FTimes::EadRoutines;
+use FTimes::EadRoutines 1.025;
 use Getopt::Std;
 
 ######################################################################

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sha256.h,v 1.14 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: sha256.h,v 1.18 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2006-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2006-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -96,6 +96,7 @@ int                   SHA256HashToBase64(unsigned char *pucHash, char *pcBase64H
 int                   SHA256HashToHex(unsigned char *pucHash, char *pcHexHash);
 int                   SHA256HashStream(FILE *pFile, unsigned char *pucSHA256, APP_UI64 *pui64Size);
 void                  SHA256HashString(unsigned char *pucData, int iLength, unsigned char *pucSHA256);
+void                  SHA256HexToHash(char *pcHexHash, unsigned char *pucHash);
 void                  SHA256Alpha(SHA256_CONTEXT *psSHA256);
 void                  SHA256Cycle(SHA256_CONTEXT *psSHA256, unsigned char *pucData, APP_UI32 ui32Length);
 void                  SHA256Omega(SHA256_CONTEXT *psSHA256, unsigned char *pucSHA256);

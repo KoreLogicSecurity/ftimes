@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: support.c,v 1.64 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: support.c,v 1.70 2019/03/14 17:45:58 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -187,7 +187,7 @@ SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcListName, char *pcEr
 #endif
 //END (\\?\)
   {
-    while (acLocalPath[iLength - 1] == FTIMES_SLASHCHAR && iLength > 1)
+    while (iLength > 1 && acLocalPath[iLength - 1] == FTIMES_SLASHCHAR)
     {
       acLocalPath[--iLength] = 0;
     }
@@ -509,7 +509,7 @@ SupportEraseFile(char *pcName, char *pcError)
 {
   const char          acRoutine[] = "SupportEraseFile()";
 #define WIPE_BUFSIZE 0x8000
-  char               *apcWipe[WIPE_BUFSIZE];
+  unsigned char       aucWipe[WIPE_BUFSIZE];
   long                lFileLength;
   long                lNWiped;
   FILE               *pFile;
@@ -520,8 +520,8 @@ SupportEraseFile(char *pcName, char *pcError)
     lFileLength = ftell(pFile);
     rewind(pFile);
     lNWiped = 0;
-    memset(apcWipe, 0xa5, WIPE_BUFSIZE);
-    while (((lNWiped += fwrite(apcWipe, 1, WIPE_BUFSIZE, pFile)) <= lFileLength) && !ferror(pFile));
+    memset(aucWipe, 0xa5, sizeof(aucWipe));
+    while (((lNWiped += fwrite(aucWipe, 1, WIPE_BUFSIZE, pFile)) <= lFileLength) && !ferror(pFile));
     fclose(pFile);
   }
 
@@ -639,7 +639,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
    *********************************************************************
    */
   iLength = strlen(pcFullPath);
-  while (pcFullPath[iLength - 1] == FTIMES_SLASHCHAR && iLength > 1)
+  while (iLength > 1 && pcFullPath[iLength - 1] == FTIMES_SLASHCHAR)
   {
     pcFullPath[--iLength] = 0;
   }
@@ -1406,9 +1406,9 @@ char *
 SupportNeuterString(char *pcData, int iLength, char *pcError)
 {
   const char          acRoutine[] = "SupportNeuterString()";
-  char               *pcNeutered;
-  int                 i;
-  int                 n;
+  char               *pcNeutered = NULL;
+  int                 i = 0;
+  int                 n = 0;
 
   /*-
    *********************************************************************
@@ -1428,7 +1428,8 @@ SupportNeuterString(char *pcData, int iLength, char *pcError)
   /*-
    *********************************************************************
    *
-   * Neuter non-printables and [|"'`%+#]. Convert spaces to '+'. Avoid
+   * Encode non-printables and [|"'`%+#]. Conditionally encode '/' and
+   * '\' depending on the target platform. Convert spaces to '+'. Avoid
    * isprint() here because it has led to unexpected results on Windows
    * platforms. In the past, isprint() on certain Windows systems has
    * decided that several characters in the range 0x7f - 0xff are
@@ -1453,6 +1454,11 @@ SupportNeuterString(char *pcData, int iLength, char *pcError)
       case '%':
       case '+':
       case '#':
+#ifdef WINNT
+      case '/':
+#else
+      case '\\':
+#endif
         n += sprintf(&pcNeutered[n], "%%%02x", (unsigned char) pcData[i]);
         break;
       case ' ':

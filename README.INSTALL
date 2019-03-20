@@ -7,15 +7,11 @@
   a manner conducive to intrusion and forensic analysis.  FTimes is
   available at:
 
-  This document explains how to build FTimes, configure an Apache
-  Web server to handle FTimes requests, and perform basic client-server
-  functionality tests.
-
-  FTimes is available at: http://ftimes.sourceforge.net/FTimes/
+  This document explains how to configure and build FTimes.
 
 1.1 Revision
 
-  $Id: README.INSTALL,v 1.25 2010/01/22 02:56:43 mavrik Exp $
+  $Id: README.INSTALL,v 1.26 2019/03/14 17:19:14 klm Exp $
 
 1.2 Table of Contents
 
@@ -29,24 +25,10 @@
   Section 2.2 .................. Unpack the Source Archive
   Section 2.3 .................. Verify Installation of Optional Components
   Section 2.3.1 ................ Verify Installation of PCRE
-  Section 2.3.2 ................ Verify Installation of OpenSSL
   Section 2.4 .................. UNIX Build Instructions
   Section 2.4.1 ................ UNIX Build Gotchas
-  Section 2.5 .................. WINX Visual Studio Build Instructions
-  Section 2.5.1 ................ WINX Visual Studio Build Gotchas
-  Section 2.6 .................. WINX MinGW/MSYS Build Instructions
-  Section 2.6.1 ................ WINX MinGW/MSYS Build Gotchas
-  Section 3 .................... Web Server Configuration
-  Section 3.1 .................. Requirements
-  Section 3.2 .................. CGI Script Setup
-  Section 3.2.1 ................ Environment Variables
-  Section 3.2.2 ................ CGI Directory Setup
-  Section 3.2.3 ................ Script Setup
-  Section 3.2.4 ................ Access Control Setup
-  Section 3.3 .................. Verify Client-Server Connectivity
-  Section 3.3.1 ................ Server Configuration
-  Section 3.3.2 ................ Client Configuration
-  Section 3.3.3 ................ Test Client-Server Connectivity
+  Section 2.5 .................. WINX MinGW/MSYS Build Instructions
+  Section 2.5.1 ................ WINX MinGW/MSYS Build Gotchas
 
 1.3 Background
 
@@ -56,9 +38,8 @@
   intrusion analysis.
 
   FTimes is a lightweight tool in the sense that it doesn't need
-  to be "installed" on a given system to work on that system, it
-  is small enough to fit on a single floppy, and it provides only
-  a command line interface.
+  to be "installed" on a given system to work on that system, has
+  a small footprint, and provides only a command line interface.
 
   Preserving records of all activity that occurs during a snapshot
   is important for intrusion analysis and evidence admissibility.
@@ -75,24 +56,6 @@
   and files on a given file system while looking for a specific
   sequence of bytes.  Respectively, these capabilities are referred
   to as map mode and dig mode.
-
-  FTimes supports two operating environments: workbench and
-  client-server.  In the workbench environment, the operator uses
-  FTimes to do things such as examine evidence (e.g., a disk image
-  or files from a compromised system), analyze snapshots for change,
-  search for files that have specific attributes, verify file
-  integrity, and so on.  In the client-server environment, the focus
-  shifts from what the operator can do locally to how the operator
-  can efficiently monitor, manage, and aggregate snapshot data for
-  many hosts.  In the client-server environment, the primary goal
-  is to move collected data from the host to a centralized system,
-  known as an Integrity Server, in a secure and authenticated
-  fashion.  An Integrity Server is a hardened system that has been
-  configured to handle FTimes GET, PING, and PUT HTTP/S requests.
-
-  The FTimes distribution contains a script called nph-ftimes.cgi
-  that may be used in conjunction with a Web server to implement a
-  public Integrity Server interface.
 
 1.4 Caveats
 
@@ -112,12 +75,10 @@
   Building FTimes in UNIX environments requires:
 
     Make
-      GNU or FreeBSD make is best.  Do not attempt to build with the
-      native version of make under Solaris.
+      GNU make 3.8.0 or higher is recommended.
 
     GCC
-      Most any version will do.  The lowest version currently used for
-      test builds is 2.95.4.
+      Most any version will do.
 
     Perl
       Most any version will do, but it must include pod2man and
@@ -130,23 +91,13 @@
 
   Building FTimes in WINX environments requires:
 
-    MinGW+MSYS or Visual Studio
-      Webjob can be built with PCRE and OpenSSL support under MinGW
-      5.1.4 and MSYS 1.0.10.  Avoid lower versions of MinGW and MSYS,
-      or be prepared to work through the warnings/issues.
+    MinGW+MSYS
+      FTimes can be built with PCRE support under MinGW 5.1.4 and
+      MSYS 1.0.10.  Avoid lower versions of MinGW and MSYS, or be
+      prepared to work through the warnings/issues.
 
-      Webjob can be built with OpenSSL support under Visual Studio
-      6.0.  Avoid higher versions of Visual Studio, or be prepared to
-      work through the compiler warnings/issues.
-
-    Active Perl
-      The lowest version currently used is 5.8.8 build 822.  Also, you
-      must have pod2man and pod2html.  For MinGW/MSYS builds, these
-      tools must be in the MSYS path.
-
-  By default, PCRE and SSL support is enabled in FTimes.  This means
-  that PCRE and OpenSSL must be be installed and/or available on the
-  build system.
+  By default, PCRE support is enabled in FTimes.  This means that
+  PCRE must be be installed and/or available on the build system.
 
 2.2 Unpack the Source Archive
 
@@ -155,7 +106,7 @@
   in this section attempt to unpack the source archive in the current
   working directory.
 
-  On UNIX platforms this can be accomplished as follows:
+  On UNIX/WINX platforms this can be accomplished as follows:
 
     $ tar -zxvf <archive>
 
@@ -163,13 +114,6 @@
   following command pipeline:
 
     $ gunzip -c <archive> | tar -xvf -
-
-  On WINX platforms WinZip may be used to unpack the archive.
-  Since the source archive is actually a gzipped tar file, WinZip
-  will ask if you wish to decompress and open it -- answer yes.
-  The command line syntax for WinZip is given here:
-
-    > winzip32.exe -min -e <archive>
 
 2.3 Verify Installation of Optional Components
 
@@ -180,13 +124,6 @@
   system.  The PCRE project is located at http://www.pcre.org.
   Refer to PCRE's documentation for details on how to do this.
 
-2.3.2 Verify Installation of OpenSSL
-
-  By default, SSL support is enabled in FTimes.  This means that
-  OpenSSL must be installed and/or available on the build system.
-  The OpenSSL project is located at http://www.openssl.org.  Refer
-  to OpenSSL's documentation for details on how to do this.
-
 2.4 UNIX Build Instructions
 
   Typically, the build process is simply a matter of running configure
@@ -196,31 +133,16 @@
 
     $ ./configure && make
 
-  By default, PCRE and SSL support is enabled.  This means that the
-  configure script will attempt to locate PCRE and OpenSSL components
-  (e.g., libraries and include files) on your system.  If either
-  of these components are not found in one of several common
-  locations, the script will abort.  To override that behavior, you
-  can specify alternate locations using the --with-pcre=DIR and
-  --with-ssl=DIR configure options.  For example, if your copy of
-  OpenSSL was installed in /usr/local/my_openssl, the build sequence
-  would be as follows:
+  By default, PCRE support is enabled.  This means that the configure
+  script will attempt to locate PCRE components (e.g., libraries
+  and include files) on your system.  If these components are not
+  found in one of several common locations, the script will abort.
+  To override that behavior, you can specify alternate locations
+  using the --with-pcre=DIR configure option.  For example, if
+  your copy of PCRE was installed in /usr/local/my_pcre, the build
+  sequence would be as follows:
 
-    $ ./configure --with-ssl=/usr/local/my_openssl && make
-
-  To disable SSL support, use the --without-ssl option as follows:
-
-    $ ./configure --without-ssl && make
-
-  To disable PCRE support, use the --without-pcre option as follows:
-
-    $ ./configure --without-pcre && make
-
-  FTimes also supports file typing via XMagic.  If this capability is
-  desired, pass the --enable-xmagic flag to configure.
-
-  Note: As of version 3.6.0, you must enable PCRE support if you wish
-  to include XMagic support.
+    $ ./configure --with-pcre=/usr/local/my_pcre && make
 
   The default FTimes installation directory is /usr/local/ftimes.
   If you want to install in a different location, set the --prefix
@@ -238,7 +160,7 @@
   When the software has been built to your satisfaction, it can be
   tested and installed with the following commands:
 
-    # make test
+    # make -s test
     # make install
 
 2.4.1 UNIX Build Gotchas
@@ -248,10 +170,6 @@
   any intermediate files are removed.  In certain situations, build
   problems could arise if this is not done.
 
-  Do not use the native version of make on Solaris platforms as the
-  build/test process will, in all likelihood, fail.  Use GNU Make 3.80
-  or higher instead (i.e., gmake).
-
   Executing the built-in tests (i.e., the test target) can take a
   considerable amount of time -- especially on older/slower systems.
   Also, these tests may fail if you don't have the necessary Perl
@@ -260,512 +178,29 @@
   Make sure pod2man and pod2html are installed and in your PATH.  The
   documentation will not build properly without these utilities.
 
-  Make sure strip(1) is in your PATH.  Typically, this is only a
-  problem on Solaris platforms where it lives in /usr/ccs/bin.  Also,
-  if /usr/ccs/bin is in your PATH, make sure it follows the path to
-  GNU make -- see above for that gotcha.
+  Make sure strip(1) is in your PATH.
 
-2.5 WINX Visual Studio Build Instructions
-
-  Note: As of version 3.9.0, the preferred build process for WINX
-  platforms is MinGW+MSYS. See section 2.6 for details.
-
-  FTimes has compiled successfully on WINX using Microsoft's Visual
-  Studio 6.0.  The build process is simply a matter of setting up a
-  build environment and running nmake.  WINX binaries are built using
-  the following Makefile: Makefile.vs.  Note that there is no
-  equivalent configure process for NT/2K/XP builds.
-
-  When building FTimes from the command line, you may need to run
-  the batch script VCVARS32.BAT to establish a build environment.
-  One quick test is to check the LIB and INCLUDE variables with:
-
-    > set LIB
-    > set INCLUDE
-
-  If neither variable is defined or you are in doubt, run
-  VCVARS32.BAT.  Usually, this script is kept in Visual Studio's bin
-  directory.  Once you have located the script, simply execute it.
-
-  Because PCRE support is enabled by default, you need to make sure
-  that the PCRE_DIR macro in Makefile.vs has an appropriate value.
-  Basically, Makefile.vs was written with the assumption that your
-  version of PCRE was installed in C:\PCRE.  Adjust PCRE_DIR as
-  necessary, if this is not the case.
-
-  Because SSL support is enabled by default, you need to make sure
-  that the SSL_DIR macro in Makefile.vs has an appropriate value.
-  Basically, Makefile.vs was written with the assumption that your
-  version of OpenSSL was installed in C:\OpenSSL.  Adjust SSL_DIR
-  as necessary, if this is not the case.
-
-  Assuming that you are required to run VCVARS32.BAT and all the
-  required libraries and header files are installed in their default
-  locations, the build sequence would be as follows:
-
-    > VCVARS32.BAT
-    > nmake -f Makefile.vs
-
-  If you don't want PCRE support, set the USE_PCRE macro to 'N'.
-  This can be done from the command line as follows:
-
-    > nmake -f Makefile.vs USE_PCRE=N
-
-  If you don't want SSL support, set the USE_SSL macro to 'N'.  This
-  can be done from the command line as follows:
-
-    > nmake -f Makefile.vs USE_SSL=N
-
-  If you want to turn on debugging, set the BUILD_TYPE macro to
-  'DEBUG'.  This can be done from the command line as follows:
-
-    > nmake -f Makefile.vs BUILD_TYPE=DEBUG
-
-  FTimes also supports file typing via XMagic.  To enable this
-  capability, set the USE_XMAGIC macro to 'Y'.
-
-  Note: As of version 3.6.0, you must enable PCRE support if you wish
-  to include XMagic support.
-
-  The various macros described in this section may be combined in
-  any given build.  For example, to build a debug release without
-  SSL support, invoke nmake as follows:
-
-    > nmake -f Makefile.vs BUILD_TYPE=DEBUG USE_SSL=N
-
-  When the software has been built to your satisfaction, it can be
-  tested and installed with the following commands:
-
-    > nmake -f Makefile.vs test
-    > nmake -f Makefile.vs install
-
-  Note: Testing require ActivePerl.
-
-  FTimes' default installation directory is C:\FTimes.  If you
-  want to install in a different location, adjust the INSTALL_DIR
-  macro as appropriate -- either in the makefile or on the command
-  line.  For example, to install FTimes in the 'Program Files'
-  directory, invoke nmake as follows:
-
-    > nmake -f Makefile.vs install INSTALL_DIR="C:\Program Files\FTimes"
-
-2.5.1 WINX Visual Studio Build Gotchas
-
-  You may have trouble compiling with nmake if your environment
-  settings aren't correct.  When this happens, try running the batch
-  file VCVARS32.BAT provided with Visual Studio.  If all else fails,
-  try creating a Visual Studio project and import the source code.
-
-  When experimenting with different build options (e.g., BUILD_TYPE,
-  USE_SSL, etc.), be sure to do a "make clean-all" between builds.
-
-    > nmake -f Makefile.vs clean-all
-
-  This will ensure that everything is rebuilt correctly.  In certain
-  situations, build problems could arise if this is not done.
-
-  You may have trouble linking against static OpenSSL libraries.
-  If that happens check to see if the OpenSSL Makefile (ms\nt.mak)
-  is using /MT -- by default it uses /MD (as of openssl-0.9.7f).
-
-  Executing the built-in tests (i.e., the test target) can take a
-  considerable amount of time -- especially on older/slower systems.
-  Also, these tests may fail if you don't have ActivePerl and the
-  necessary Perl modules installed.
-
-  Make sure pod2man and pod2html are installed and in your PATH.  The
-  documentation will not build properly without these utilities.
-
-2.6 WINX MinGW/MSYS Build Instructions
+2.5 WINX MinGW/MSYS Build Instructions
 
   Typically, the build process is simply a matter of running configure
-  and make.  Going on the assumption that you have static versions of
-  PCRE (7.6 or higher) and OpenSSL (0.9.8h or higher), the most basic
-  build sequence is as follows:
+  and make.  Going on the assumption that you have a static version of
+  PCRE (7.6 or higher), the most basic build sequence is as follows:
 
     $ ./configure CFLAGS=-DPCRE_STATIC && make
     $ make install
 
-  If you need to build static versions of OpenSSL and PCRE, follow the
-  instructions documented in these recipes:
-
-    http://ftimes.sourceforge.net/Files/Recipes/openssl-compile-mingw.txt
-
-  and
+  If you need to build a static version of PCRE, follow the
+  instructions documented in this recipe:
 
     http://ftimes.sourceforge.net/Files/Recipes/pcre-compile-mingw.txt
 
-2.6.1 WINX MinGW/MSYS Build Gotchas
+2.5.1 WINX MinGW/MSYS Build Gotchas
 
-  The process documented in the previous section is known to work with
-  the stated versions of Active Perl, MinGW, MSYS, OpenSSL, and PCRE.
+  The process documented in the previous section is known to work
+  with the stated versions of Active Perl, MinGW, MSYS, and PCRE.
   Other combinations are not supported at this time.
 
   You may encounter errors building the man pages.  If that happens,
   put copies of pod2man and pod2html in MinGW's bin directory
   (typically C:\MinGW\bin).
-
-3 Web Server Configuration
-
-  This section describes how to configure an Apache Web server
-  running on a UNIX platform to handle FTimes requests.  It is
-  assumed that Apache is installed and running correctly.
-
-  Throughout this section, the terms username and clientid are used
-  interchangeably.  By default, nph-ftimes.cgi expects a clientid
-  to conform to the following regular expression:
-
-    ^[0-9A-Za-z_-]{1,64}$
-
-3.1 Requirements
-
-  To configure a UNIX based Apache Web server to handle FTimes
-  requests you will need nph-ftimes.cgi, Apache, and Perl.
-
-  The name of the FTimes CGI script must begin with the string
-  "nph-".  This naming convention, which stands for Non Parsed
-  Headers, informs the Web server that the CGI application is
-  responsible for generating the entire HTTP response.  Non Parsed
-  Headers are used by this application because they allow it to
-  take full advantage of HTTP status code extensions.  This simplifies
-  client-side error checking without giving up the ability to
-  generate application specific responses.
-
-  The tree structure depicted here is used by the server to support
-  FTimes request processing.  Each top-level directory is explained
-  in the following paragraphs.
-
-  ftimes
-    |
-    - incoming
-    |   |
-    |   - clientid_timestamp_runtype.out
-    |   - clientid_timestamp_runtype.err
-    |   - clientid_timestamp_runtype.env
-    |   - clientid_timestamp_runtype.rdy
-    |   - ...
-    |
-    - logfiles
-    |   |
-    |   - nph-ftimes.log
-    |
-    - profiles
-        |
-        - <clientid-1>
-        |   |
-        |   - cfgfiles
-        |       |
-        |       - dig.cfg
-        |       - map.cfg
-        |
-        - <clientid-2>
-        - ...
-
-  The incoming directory is where uploaded snapshots are stored.
-  Files in this directory are created automatically as snapshots
-  are posted to the server.
-
-  The logfiles directory is self-explanatory.
-
-  The profiles directory contains one directory for each client
-  profile (i.e., clientid) that is managed by the server.  Each
-  clientid directory contains a cfgfiles directory.  This is where
-  the dig and map config files are kept.  Clients may download
-  either of these files by running FTimes in get mode.
-
-3.2 CGI Script Setup
-
- This section describes how to install nph-ftimes.cgi.  It also
- explains how to modify Apache's configuration to recognize the
- script's location and restrict access to the script through basic
- authentication.
-
-3.2.1 Environment Variables
-
-  The variable APACHE_DIR refers to the location where Apache is
-  installed.  This document assumes that APACHE_DIR is set to the
-  value "/usr/local/apache".  You may set this variable on your
-  system as follows:
-
-  Bourne shell variants:
-
-    # export APACHE_DIR=/usr/local/apache
-
-  C shell variants:
-
-    # setenv APACHE_DIR /usr/local/apache
-
-  The variable CGI_DIR refers to the location where nph-ftimes.cgi
-  will be installed.  This document assumes that CGI_DIR is set to
-  the value "${APACHE_DIR}/cgi-client".  You may set this variable
-  on your system as follows:
-
-  Bourne shell variants:
-
-    # export CGI_DIR=${APACHE_DIR}/cgi-client
-
-  C shell variants:
-
-    # setenv CGI_DIR ${APACHE_DIR}/cgi-client
-
-  The variable ETC_DIR refers to the location where nph-ftimes.cfg
-  will be installed.  This document assumes that ETC_DIR is set to
-  the value "${APACHE_DIR}/etc".  You may set this variable on your
-  system as follows:
-
-  Bourne shell variants:
-
-    # export ETC_DIR=${APACHE_DIR}/etc
-
-  C shell variants:
-
-    # setenv ETC_DIR ${APACHE_DIR}/etc
-
-  For the remainder of this document, it is assumed that these
-  variables have been set in your shell.
-
-3.2.2 CGI Directory Setup
-
-  The script nph-ftimes.cgi should be installed in a directory that
-  is strictly dedicated to one purpose: access control.  The major
-  factor here is that this application is designed to write data
-  to the server's local disk.  Whenever access of this kind is
-  allowed by potentially hostile clients, you want to maintain a
-  tight rein.
-
-  If your environment is set up as described in section 3.2.1, you
-  may create a dedicated CGI directory as follows:
-
-    # mkdir -p -m 755 ${CGI_DIR} ${ETC_DIR}
-    # chown 0:0 ${CGI_DIR} ${ETC_DIR}
-
-  Next, assuming that you have just created a script directory that
-  Apache is not yet aware of, you will need to update httpd.conf.
-  Locate this file and place the following snippet in the alias
-  section.  The alias section may be located by searching for the
-  following string: <IfModule mod_alias.c>
-
-  Note: You must manually replace ${CGI_DIR} and ${ETC_DIR} with
-  their literal values.
-
-    --- snippet ---
-    SetEnv FTIMES_PROPERTIES_FILE ${ETC_DIR}/nph-ftimes.cfg
-
-    ScriptAlias /cgi-client/ "${CGI_DIR}/"
-
-    <Directory "${CGI_DIR}">
-        AllowOverride AuthConfig
-        Options None
-        Order allow,deny
-        Allow from all
-    </Directory>
-    --- snippet ---
-
-  After modifying httpd.conf, you should verify its syntax and, if
-  that is successful, signal Apache to restart.  To verify syntax
-  use the following command:
-
-    # apachectl configtest
-
-  If necessary, correct syntax errors.  Otherwise, tell Apache to
-  restart with:
-
-    # apachectl restart
-
-  At this point, you are ready to install nph-ftimes.{cgi,cfg}.
-
-3.2.3 Script Setup
-
-  Locate nph-ftimes.cgi in the FTimes distribution tree.  It should
-  be in the cgi directory.  Change to this directory, and install
-  the script in ${CGI_DIR} as follows:
-
-    # cp nph-ftimes.cgi ${CGI_DIR}
-    # chmod 755 ${CGI_DIR}/nph-ftimes.cgi
-    # chown 0:0 ${CGI_DIR}/nph-ftimes.cgi
-
-  Verify that your Perl interpreter is located at /usr/bin/perl.
-  If this is not the case, modify the first line of the script to
-  reflect the true location of the interpreter.  Typically, that
-  line should look like this:
-
-    --- snippet ---
-    #!/usr/bin/perl -w
-    --- snippet ---
-
-  Locate nph-ftimes.cfg.sample in the FTimes distribution tree.  It
-  should be in the etc directory.  Change to this directory, and
-  install the config file in ${ETC_DIR} as follows:
-
-    # cp nph-ftimes.cfg.sample ${ETC_DIR}/nph-ftimes.cfg
-    # chmod 644 ${ETC_DIR}/nph-ftimes.cfg
-    # chown 0:0 ${ETC_DIR}/nph-ftimes.cfg
-
-  Next, you need to create the following basic tree structure:
-
-  ftimes
-    |
-    - incoming
-    |
-    - logfiles
-    |
-    - profiles
-
-  By default, nph-ftimes.cgi expects to find this tree in the root
-  directory (i.e., /var/ftimes).  If a different location is desired,
-  modify the BaseDirectory property in nph-ftimes.cfg as appropriate.
-  Otherwise, use the following command sequence to create the tree.
-  However, before doing this, you need to determine the uid and/or
-  username that Apache uses.  This document assumes that Apache
-  runs in the context of the www user.  If your configuration is
-  different, replace www with the appropriate username as necessary.
-
-    # mkdir -m 755 /var/ftimes
-    # chown 0:0 /var/ftimes
-    # cd /var/ftimes
-    # mkdir -m 755 incoming logfiles profiles
-    # chown www:0 incoming
-
-  Finally, you need to create the nph-ftimes log file.  This is
-  done as follows:
-
-    # touch /var/ftimes/logfiles/nph-ftimes.log
-    # chown www:0 /var/ftimes/logfiles/nph-ftimes.log
-    # chmod 644 /var/ftimes/logfiles/nph-ftimes.log
-
-  The final configuration objective is to establish an access control
-  mechanism.
-
-3.2.4 Access Control Setup
-
-  By default, nph-ftimes.cgi expects Apache's basic authentication
-  to be enabled.  Therefore, you'll need to create and install an
-  access file in ${CGI_DIR}.  To determine the name of access files
-  on your system, check the AccessFileName directive in httpd.conf.
-  Typically, this directive contains the value .htaccess.  The
-  following snippet may be used to create a suitable access file.
-
-  Note: Be sure to replace ${APACHE_DIR} with its literal value.
-
-    --- snippet ---
-    AuthType Basic
-    AuthName "FTimes Client Realm"
-    AuthUserFile ${APACHE_DIR}/htusers
-    require valid-user
-    --- snippet ---
-
-  Assuming that Apache's AccessFileName directive contains the value
-  .htaccess,  the following command sequence may be used to create
-  and install a suitable access file in ${CGI_DIR}.
-
-    # echo "AuthType Basic" > ${CGI_DIR}/.htaccess
-    # echo "AuthName 'FTimes Client Realm'" >> ${CGI_DIR}/.htaccess
-    # echo "AuthUserFile ${APACHE_DIR}/htusers" >> ${CGI_DIR}/.htaccess
-    # echo "require valid-user" >> ${CGI_DIR}/.htaccess
-    # chmod 644 ${CGI_DIR}/.htaccess
-    # chown 0:0 ${CGI_DIR}/.htaccess
-
-  To complete access control setup, you must create a password file
-  and insert a new user.  The purpose of the AuthUserFile directive
-  is to bind a particular access file to a particular password file.
-  Therefore, be sure to use the filename assigned to AuthUserFile
-  when creating the password file.  The following command will
-  create a password file and insert an entry for the client_1 user.
-  You will be prompted to enter the user's password.
-
-    # htpasswd -c ${APACHE_DIR}/htusers client_1
-
-  Set the permissions and ownership on this file as follows:
-
-    # chmod 644 ${APACHE_DIR}/htusers
-    # chown 0:0 ${APACHE_DIR}/htusers
-
-  Finally, verify that the password file is not accessible to remote
-  Web browsers.
-
-  Once you have established a working authentication scheme, you
-  are ready to begin testing client-server connectivity.
-
-3.3 Verify Client-Server Connectivity
-
-  Before tackling this section, read the FTimes man page.  Pay
-  particular attention to Example 5.
-
-  The purpose of this section is to test connectivity.  This will
-  be done by configuring FTimes to run in get mode and request a
-  config file from the server.  In section 3.2.4 you created an
-  access file on the server and inserted the user client_1.  Get
-  the password for that user handy.  You will need it in the coming
-  sections to complete the verification process.
-
-3.3.1 Server Configuration
-
-  On the server you need to create directories for client_1 and
-  insert the following config file as map.cfg.
-
-  The directories may be created as follows:
-
-    # umask 22
-    # cd /var/ftimes/profiles
-    # mkdir -p -m 755 client_1/cfgfiles
-    # chown -R 0:0 client_1
-
-  Go to /var/ftimes/profiles/client_1/cfgfiles and create map.cfg.
-  Make sure you replace <password> with its real value.  Also, don't
-  forget to modify URLPutURL as appropriate.
-
-    --- map.cfg ---
-    BaseName=client_1
-    OutDir=.
-    URLPutSnapshot=Y
-    URLPutURL=http://web.server.net/cgi-client/nph-ftimes.cgi
-    URLUsername=client_1
-    URLPassword=<password>
-    URLAuthType=basic
-    Include=/tmp # or c:\temp
-    FieldMask=ALL-magic
-    --- map.cfg ---
-
-3.3.2 Client Configuration
-
-  On the client you need to install FTimes, and create the following
-  config file as get.cfg.  Refer to section 2 for more information
-  on how to install FTimes.
-
-  Go to /tmp or some other suitable location, and create get.cfg.
-  Make sure you replace <password> with its real value.  Also, don't
-  forget to modify URLGetURL as appropriate.
-
-    --- get.cfg ---
-    BaseName=client_1
-    GetAndExec=N
-    GetFileName=remote.cfg
-    URLGetURL=http://web.server.net/cgi-client/nph-ftimes.cgi
-    URLUsername=client_1
-    URLPassword=<password>
-    URLAuthType=basic
-    URLGetRequest=MapConfig
-    --- get.cfg ---
-
-  To avoid having to type a long path each time you invoke FTimes,
-  you may want to add /usr/local/ftimes/bin to your path.
-
-3.3.3 Test Client-Server Connectivity
-
-  At this point you are ready to test client-server connectivity.
-  Run the following command from the client.  It should produce a
-  file named remote.cfg in the current directory.
-
-    $ ftimes --get get.cfg
-
-  or (for NT/2K/XP)
-
-    > ftimes --get get.cfg
-
-  If that worked, your almost there.  Enable the GetAndExec control
-  in get.cfg, and rerun FTimes.  This should produce three files
-  in the client's current working directory and three files in the
-  server's incoming directory.  If these files don't exist, double
-  check FTimes' return status.  Also, check Apache's log files and
-  nph-ftimes.log for any signs of trouble.
 

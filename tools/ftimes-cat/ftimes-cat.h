@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes-cat.h,v 1.12 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: ftimes-cat.h,v 1.18 2019/03/14 16:07:43 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2009-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2009-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -20,14 +20,16 @@
  ***********************************************************************
  */
 #define PROGRAM_NAME "ftimes-cat"
-#define VERSION "1.0.0"
+#define VERSION "1.1.0"
 
 #define XER_OK    0
 #define XER_Usage 1
 #define XER_Abort 2
 
-#define FTIMES_CAT_READ_SIZE 32768
+#define FTIMES_CAT_ENCODED_PREFIX "file://"
+#define FTIMES_CAT_ENCODED_PREFIX_LENGTH 7
 #define FTIMES_CAT_EXTENDED_PATH_PREFIX "\\\\?\\"
+#define FTIMES_CAT_READ_SIZE 32768
 
 #define MESSAGE_SIZE 1024
 

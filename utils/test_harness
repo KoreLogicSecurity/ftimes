@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness,v 1.24 2014/07/30 04:59:00 mavrik Exp $
+# $Id: test_harness,v 1.27 2019/03/14 16:07:45 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2005-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2005-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: all-includes.h,v 1.9 2014/07/18 06:40:45 mavrik Exp $
+ * $Id: all-includes.h,v 1.13 2019/03/14 16:07:44 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2008-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2008-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -13,9 +13,10 @@
 #include "config.h"
 #endif
 
-#ifdef USE_SDDL
-  #ifdef MINGW32
+  #if defined(MINGW32) && !defined(MINGW64)
+    #ifndef WINVER
     #define WINVER 0x0500
+    #endif
     #include <windows.h>
     #define SDDL_REVISION_1 1
     WINADVAPI BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorA(PSECURITY_DESCRIPTOR, DWORD, SECURITY_INFORMATION, LPSTR *, PULONG);
@@ -26,13 +27,12 @@
       #define ConvertSecurityDescriptorToStringSecurityDescriptor ConvertSecurityDescriptorToStringSecurityDescriptorA
     #endif
   #else
+    #ifndef _WIN32_WINNT
     #define _WIN32_WINNT 0x0500
+    #endif
     #include <windows.h>
   #endif
   #include <sddl.h>
-#else
-#include <windows.h>
-#endif
 #include <accctrl.h>
 #include <aclapi.h>
 #include <ctype.h>

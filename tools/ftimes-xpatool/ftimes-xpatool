@@ -1,0 +1,1525 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-xpatool,v 1.18 2019/03/14 16:07:44 klm Exp $
+#
+######################################################################
+#
+# Copyright 2009-2019 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Manipulate XPA archives.
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# Adjust @INC. This must be done before any other modules are loaded.
+#
+######################################################################
+
+my @aLibs;
+
+BEGIN
+{
+  use FindBin qw($Bin $RealBin);
+  @aLibs =
+  (
+    "$Bin/../lib/perl5/site_perl",
+    "$RealBin/../lib/perl5/site_perl",
+    "/usr/local/ftimes/lib/perl5/site_perl",
+    "/opt/local/ftimes/lib/perl5/site_perl",
+  );
+}
+
+use lib (@aLibs);
+
+######################################################################
+#
+# Load any remaining modules needed by this script.
+#
+######################################################################
+
+use Digest::MD5;
+use Digest::SHA;
+use File::Basename;
+use File::Path;
+use FileHandle;
+use FTimes::EadRoutines 1.025;
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  ####################################################################
+  #
+  # Initialize regex variables.
+  #
+  ####################################################################
+
+  # Empty
+
+  ####################################################################
+  #
+  # Initialize platform-specific variables.
+  #
+  ####################################################################
+
+  if ($^O =~ /MSWin(32|64)/i)
+  {
+    $hProperties{'ExtensionExe'} = ".exe";
+    $hProperties{'OsClass'} = "WINX";
+    $hProperties{'PathSeparator'} = "\\";
+  }
+  else
+  {
+    $hProperties{'ExtensionExe'} = "";
+    $hProperties{'OsClass'} = "UNIX";
+    $hProperties{'PathSeparator'} = "/";
+  }
+
+  ####################################################################
+  #
+  # Initialize application-specific variables.
+  #
+  ####################################################################
+
+  $hProperties{'BaseDropDir'} = "pound.drop";
+  $hProperties{'BaseKeepDir'} = "pound.keep";
+  $hProperties{'ChunkTypes'} =
+  {
+    'NULL' => "XPA\x00",
+    'HEAD' => "XPA\x01",
+    'HKVP' => "XPA\x02",
+    'DATA' => "XPA\x03",
+    'DKVP' => "XPA\x04",
+    'JOIN' => "XPA\x05",
+    'TKVP' => "XPA\xfe",
+    'TAIL' => "XPA\xff",
+  };
+  $hProperties{'HeaderSize'} = 20;
+  $hProperties{'KeyIdAndValueSize'} = 4;
+  $hProperties{'KeyIds'} =
+  {
+    'Name'          => 0,
+    'Md5'           => 1,
+    'Sha1'          => 2,
+    'DataSize'      => 3,
+    'FileRealSize'  => 4,
+    'FileReadSize'  => 5,
+    'HeadFlags'     => 6,
+    'TailFlags'     => 7,
+    'FileATimeRtue' => 8,
+    'FileMTimeRtue' => 9,
+    'FileCTimeRtue' => 10,
+    'FileUid'       => 11,
+    'FileGid'       => 12,
+    'FileOSid'      => 13,
+    'FileGSid'      => 14,
+    'FileOwner'     => 15,
+    'FileGroup'     => 16,
+    'PathSeparator' => 17,
+  };
+  $hProperties{'VerifyOnFold'} = 1;
+
+  ####################################################################
+  #
+  # Define helper routines.
+  #
+  ####################################################################
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (@sSupportedOptions, %hOptions, $sRunMode);
+
+  $sRunMode = shift || Usage($$phProperties{'Program'});
+
+  if ($sRunMode =~ /^(-d|--dump)$/)
+  {
+    if (!getopts('a:C:o:', \%hOptions))
+    {
+      Usage($$phProperties{'Program'});
+    }
+    @sSupportedOptions =
+    (
+      'ForceWrite',
+    );
+    $$phProperties{'RunMode'} = "dump";
+  }
+  elsif ($sRunMode =~ /^(-f|--fold)$/)
+  {
+    if (!getopts('a:C:o:', \%hOptions))
+    {
+      Usage($$phProperties{'Program'});
+    }
+    @sSupportedOptions =
+    (
+      'ForceWrite',
+    );
+    $$phProperties{'RunMode'} = "fold";
+  }
+  elsif ($sRunMode =~ /^(-l|--list)$/)
+  {
+    if (!getopts('a:', \%hOptions))
+    {
+      Usage($$phProperties{'Program'});
+    }
+    @sSupportedOptions = ();
+    $$phProperties{'RunMode'} = "list";
+  }
+  elsif ($sRunMode =~ /^(-t|--test)$/)
+  {
+    if (!getopts('a:', \%hOptions))
+    {
+      Usage($$phProperties{'Program'});
+    }
+    @sSupportedOptions = ();
+    $$phProperties{'RunMode'} = "test";
+  }
+  else
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # An archive file, '-a', is required.
+  #
+  ####################################################################
+
+  $$phProperties{'Archive'} = (exists($hOptions{'a'})) ? $hOptions{'a'} : undef;
+
+  if (!defined($$phProperties{'Archive'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # A change to directory, '-C', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'ChangeToDirectory'} = (exists($hOptions{'C'})) ? $hOptions{'C'} : ".";
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  foreach my $sOption (@sSupportedOptions)
+  {
+    $$phProperties{$sOption} = 0;
+  }
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (defined($$phProperties{'Options'}))
+  {
+    foreach my $sOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sSupportedOption (@sSupportedOptions)
+      {
+        $sOption = $sSupportedOption if ($sOption =~ /^$sSupportedOption$/i);
+      }
+      if (!exists($$phProperties{$sOption}))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unknown or unsupported option ($sOption).'\n";
+        exit(2);
+      }
+      $$phProperties{$sOption} = 1;
+    }
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Make sure we have the necessary prerequisites.
+  #
+  ####################################################################
+
+  if ($$phProperties{'RunMode'} =~ /^(?:dump|fold)$/ && !-d $$phProperties{'ChangeToDirectory'})
+  {
+    print STDERR "$$phProperties{'Program'}: Error='The output directory \"$$phProperties{'ChangeToDirectory'}\" does not exist.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Open up the archive and initialize various state variables.
+  #
+  ####################################################################
+
+  my ($sError);
+
+  if ($$phProperties{'Archive'} eq "-")
+  {
+    $$phProperties{'ArchiveHandle'} = \*STDIN;
+    $$phProperties{'Seekable'} = 0;
+  }
+  else
+  {
+    $$phProperties{'ArchiveHandle'} = FileHandle->new("< $$phProperties{'Archive'}");
+    if (!defined($$phProperties{'ArchiveHandle'}))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Failed to open \"$$phProperties{'Archive'}\" ($!).'\n";
+      exit(2);
+    }
+    $$phProperties{'Seekable'} = 1;
+  }
+  $$phProperties{'AbsoluteOffset'} = 0;
+  $$phProperties{'EOF'} = 0;
+
+  ####################################################################
+  #
+  # Conditionally change to the specified output directory.
+  #
+  ####################################################################
+
+  if ($$phProperties{'RunMode'} =~ /^(?:dump|fold)$/ && !chdir($$phProperties{'ChangeToDirectory'}))
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Failed to change to \"$$phProperties{'ChangeToDirectory'}\" ($!).'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Do some work.
+  #
+  ####################################################################
+
+  if ($$phProperties{'RunMode'} eq "dump")
+  {
+    if (!defined(DumpMembers($phProperties, \$sError)))
+    {
+      print STDERR $sError, "\n";
+    }
+  }
+  elsif ($$phProperties{'RunMode'} eq "fold")
+  {
+    if (!defined(FoldMembers($phProperties, \$sError)))
+    {
+      print STDERR $sError, "\n";
+    }
+  }
+  elsif ($$phProperties{'RunMode'} eq "list")
+  {
+    if (!defined(ListMembers($phProperties, \$sError)))
+    {
+      print STDERR $sError, "\n";
+    }
+  }
+  elsif ($$phProperties{'RunMode'} eq "test")
+  {
+    if (!defined(TestMembers($phProperties, \$sError)))
+    {
+      print STDERR $sError, "\n";
+    }
+  }
+
+  ####################################################################
+  #
+  # Clean up and go home.
+  #
+  ####################################################################
+
+  $$phProperties{'ArchiveHandle'}->close();
+
+  1;
+
+
+######################################################################
+#
+# ListMembers
+#
+######################################################################
+
+sub ListMembers
+{
+  my ($phProperties, $psError) = @_;
+
+  my $sError;
+  my %hFKvps = ();
+  my %hDKvps = ();
+  $$phProperties{'HeadCount'} = 0;
+  $$phProperties{'TailCount'} = 0;
+
+  while (!$$phProperties{'EOF'})
+  {
+    my $sAbsoluteOffset = $$phProperties{'AbsoluteOffset'};
+    my $sHeader;
+    my $sNRead = ReadHead($phProperties, \$sHeader, $$phProperties{'HeaderSize'}, $psError);
+    if (!defined($sNRead))
+    {
+      return undef;
+    }
+    elsif ($sNRead == 0)
+    {
+      next;
+    }
+    else
+    {
+      my ($sChunkType, $sVersion, $sThisChunkSize, $sLastChunkSize, $sChunkNumber) = unpack("A4NNNN", $sHeader);
+      if ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'NULL'}$/)
+      {
+        $hFKvps{'LowerChunk'} = $sChunkNumber;
+        Skip($phProperties, $sThisChunkSize - $$phProperties{'HeaderSize'});
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'HEAD'}$/) # NOTE: This chunk has no data.
+      {
+        %hFKvps = ();
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        $hFKvps{'LowerChunk'} = 0;
+        $hFKvps{'AbsoluteOffset'} = $sAbsoluteOffset;
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'HKVP'}$/)
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        my $sNRead2 = ReadKvps($phProperties, \%hFKvps, $sSize, \$sError);
+        if (!defined($sNRead2))
+        {
+          $$psError = $sError;
+          return undef;
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'DATA'}$/)
+      {
+        $hFKvps{'LowerChunk'} = $sChunkNumber;
+        Skip($phProperties, $sThisChunkSize - $$phProperties{'HeaderSize'});
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'DKVP'}$/)
+      {
+        $hFKvps{'LowerChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        my $sNRead2 = ReadKvps($phProperties, \%hDKvps, $sSize, \$sError);
+        if (!defined($sNRead2))
+        {
+          $$psError = $sError;
+          return undef;
+        }
+#FIXME Where to unpack KVPS?
+my $sName = '"' . $hFKvps{'Name'} . '"';
+#FIXME Add a switch for printing chunks...
+if (0)
+{
+        print join(
+         "|",
+         "chunk",
+         sprintf("%d.%d", ($sVersion >> 16), ($sVersion & 0x0000ffff)),
+         $sName,
+         sprintf("%08x", $hFKvps{'UpperChunk'}),
+         sprintf("%08x", $hFKvps{'LowerChunk'}),
+         HexifyValue($hDKvps{'Md5'}, 16),
+         HexifyValue($hDKvps{'Sha1'}, 20),
+         unpack("N", $hDKvps{'DataSize'}),
+         "", # head flags
+         "", # tail flags
+         ),
+         "\n";
+}
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'JOIN'}$/) # NOTE: This chunk has no data.
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'TKVP'}$/)
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        my $sNRead2 = ReadKvps($phProperties, \%hFKvps, $sSize, \$sError);
+        if (!defined($sNRead2))
+        {
+          $$psError = $sError;
+          return undef;
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'TAIL'}$/) # NOTE: This chunk has no data.
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        my ($sUpperFileRealSize, $sLowerFileRealSize) = unpack("NN", $hFKvps{'FileRealSize'});
+        my $sFileRealSize = ($sUpperFileRealSize << 32) | $sLowerFileRealSize;
+        my ($sUpperFileReadSize, $sLowerFileReadSize) = unpack("NN", $hFKvps{'FileReadSize'});
+        my $sFileReadSize = ($sUpperFileReadSize << 32) | $sLowerFileReadSize;
+        my $sName = '"' . $hFKvps{'Name'} . '"';
+        my $sFileATimeRtue = undef;
+        my $sFileMTimeRtue = undef;
+        my $sFileCTimeRtue = undef;
+        my $sFileUid = undef;
+        my $sFileGid = undef;
+        my $sFileOSid = undef;
+        my $sFileGSid = undef;
+        my $sFileOwner = undef;
+        my $sFileGroup = undef;
+#       my $sPathSeparator = undef;
+        if ($sVersion >= 0x00000002)
+        {
+          $sFileATimeRtue = SecondsToDateTime((unpack("NN", $hFKvps{'FileATimeRtue'}))[1], 1) if (defined($hFKvps{'FileATimeRtue'}));
+          $sFileMTimeRtue = SecondsToDateTime((unpack("NN", $hFKvps{'FileMTimeRtue'}))[1], 1) if (defined($hFKvps{'FileMTimeRtue'}));
+          $sFileCTimeRtue = SecondsToDateTime((unpack("NN", $hFKvps{'FileCTimeRtue'}))[1], 1) if (defined($hFKvps{'FileCTimeRtue'}));
+          $sFileUid = unpack("N", $hFKvps{'FileUid'}) if (defined($hFKvps{'FileUid'}));
+          $sFileGid = unpack("N", $hFKvps{'FileGid'}) if (defined($hFKvps{'FileGid'}));
+          $sFileOSid = $hFKvps{'FileOSid'} if (defined($hFKvps{'FileOSid'}));
+          $sFileGSid = $hFKvps{'FileGSid'} if (defined($hFKvps{'FileGSid'}));
+          $sFileOwner = $hFKvps{'FileOwner'} if (defined($hFKvps{'FileOwner'}));
+          $sFileGroup = $hFKvps{'FileGroup'} if (defined($hFKvps{'FileGroup'}));
+        }
+#       if ($sVersion >= 0x00000003)
+#       {
+#         $sPathSeparator = $hFKvps{'PathSeparator'} if (defined($hFKvps{'PathSeparator'}));
+#       }
+        print join(
+         "|",
+         "whole",
+         sprintf("%d.%d", ($sVersion >> 16), ($sVersion & 0x0000ffff)),
+         $sName,
+         sprintf("%08x", $hFKvps{'UpperChunk'}),
+         sprintf("%08x", $hFKvps{'LowerChunk'}),
+         $sFileATimeRtue || "",
+         $sFileMTimeRtue || "",
+         $sFileCTimeRtue || "",
+         HexifyValue($hFKvps{'Md5'}, 16),
+         HexifyValue($hFKvps{'Sha1'}, 20),
+         $sFileReadSize,
+         HexifyValue($hFKvps{'HeadFlags'}, 4),
+         HexifyValue($hFKvps{'TailFlags'}, 4),
+         $hFKvps{'AbsoluteOffset'},
+         $$phProperties{'AbsoluteOffset'},
+         ),
+         "\n";
+      }
+      else
+      {
+        my $s;
+        my @aBytes = unpack("C4", $sChunkType);
+        foreach my $sByte (@aBytes)
+        {
+          $s .= sprintf("%02x", $sByte);
+        }
+        $$psError = "Unrecognized chunk type ($s)." if (defined($psError));
+        return undef;
+      }
+    }
+  }
+}
+
+
+######################################################################
+#
+# DumpMembers
+#
+######################################################################
+
+sub DumpMembers
+{
+  my ($phProperties, $psError) = @_;
+
+  my $sError;
+  my %hFKvps = ();
+  my %hDKvps = ();
+  $$phProperties{'HeadCount'} = 0;
+  $$phProperties{'TailCount'} = 0;
+
+  while (!$$phProperties{'EOF'})
+  {
+    my $sAbsoluteOffset = $$phProperties{'AbsoluteOffset'};
+    my $sHeader;
+    my $sNRead = ReadHead($phProperties, \$sHeader, $$phProperties{'HeaderSize'}, $psError);
+    if (!defined($sNRead))
+    {
+      return undef;
+    }
+    elsif ($sNRead == 0)
+    {
+      next;
+    }
+    else
+    {
+      my ($sChunkType, $sVersion, $sThisChunkSize, $sLastChunkSize, $sChunkNumber) = unpack("A4NNNN", $sHeader);
+      if ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'HEAD'}$/) # NOTE: This chunk has no data.
+      {
+        %hFKvps = ();
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        $hFKvps{'LowerChunk'} = 0;
+        $hFKvps{'AbsoluteOffset'} = $sAbsoluteOffset;
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'HKVP'}$/)
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        my $sNRead2 = ReadKvps($phProperties, \%hFKvps, $sSize, \$sError);
+        if (!defined($sNRead2))
+        {
+          $$psError = $sError;
+          return undef;
+        }
+        if (!defined($hFKvps{'Name'}))
+        {
+          die("Name key/value pair is missing or undefined!\n");
+        }
+        else
+        {
+          $hFKvps{'Write'} = 1;
+          if ($hFKvps{'Write'})
+          {
+            CreateTargetHandle($phProperties, \%hFKvps, \$sError);
+            print STDERR "$hFKvps{'TargetDisposition'} --> $hFKvps{'Name'}" . (defined($hFKvps{'DispositionDetail'}) ? " ($hFKvps{'DispositionDetail'})\n" : "\n");
+          }
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'DATA'}$/)
+      {
+        $hFKvps{'LowerChunk'} = $sChunkNumber;
+        my $sData;
+        my $sNRead2 = ReadHead($phProperties, \$sData, $sThisChunkSize - $$phProperties{'HeaderSize'}, $psError);
+        if (!defined($sNRead2))
+        {
+          return undef;
+        }
+#FIXME What about $sNRead2 == 0?
+        if ($hFKvps{'Write'})
+        {
+          $hFKvps{'TargetHandle'}->print($sData) if defined($hFKvps{'TargetHandle'});
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'DKVP'}$/)
+      {
+        $hFKvps{'LowerChunk'} = $sChunkNumber;
+        Skip($phProperties, $sThisChunkSize - $$phProperties{'HeaderSize'});
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'JOIN'}$/) # NOTE: This chunk has no data.
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'TKVP'}$/)
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        my $sNRead2 = ReadKvps($phProperties, \%hFKvps, $sSize, \$sError);
+        if (!defined($sNRead2))
+        {
+          $$psError = $sError;
+          return undef;
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'TAIL'}$/) # NOTE: This chunk has no data.
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        if ($hFKvps{'Write'})
+        {
+          undef($hFKvps{'TargetHandle'}); # This automatically closes the file handle.
+        }
+      }
+      else
+      {
+        my $s;
+        my @aBytes = unpack("C4", $sChunkType);
+        foreach my $sByte (@aBytes)
+        {
+          $s .= sprintf("%02x", $sByte);
+        }
+        $$psError = "Unrecognized chunk type ($s)." if (defined($psError));
+        return undef;
+      }
+    }
+  }
+}
+
+
+######################################################################
+#
+# FoldMembers
+#
+######################################################################
+
+sub FoldMembers
+{
+  my ($phProperties, $psError) = @_;
+
+  my $sError;
+  my %hFKvps = ();
+  my %hDKvps = ();
+  $$phProperties{'HeadCount'} = 0;
+  $$phProperties{'TailCount'} = 0;
+
+  while (!$$phProperties{'EOF'})
+  {
+    my $sAbsoluteOffset = $$phProperties{'AbsoluteOffset'};
+    my $sHeader;
+    my $sNRead = ReadHead($phProperties, \$sHeader, $$phProperties{'HeaderSize'}, $psError);
+    if (!defined($sNRead))
+    {
+      return undef;
+    }
+    elsif ($sNRead == 0)
+    {
+      next;
+    }
+    else
+    {
+      my ($sChunkType, $sVersion, $sThisChunkSize, $sLastChunkSize, $sChunkNumber) = unpack("A4NNNN", $sHeader);
+      if ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'HEAD'}$/) # NOTE: This chunk has no data.
+      {
+        %hFKvps = ();
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        $hFKvps{'LowerChunk'} = 0;
+        $hFKvps{'AbsoluteOffset'} = $sAbsoluteOffset;
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'HKVP'}$/)
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        my $sNRead2 = ReadKvps($phProperties, \%hFKvps, $sSize, \$sError);
+        if (!defined($sNRead2))
+        {
+          $$psError = $sError;
+          return undef;
+        }
+        if (!defined($hFKvps{'Name'}))
+        {
+          die("Name key/value pair is missing or undefined!\n");
+        }
+        else
+        {
+          $hFKvps{'MemberIsCorrupt'} = 0;
+          $hFKvps{'Write'} = 1;
+          if ($hFKvps{'Write'})
+          {
+            if ($$phProperties{'VerifyOnFold'})
+            {
+              $hFKvps{'ReportedMd5Context'} = Digest::MD5->new();
+              $hFKvps{'ReportedSha1Context'} = Digest::SHA->new(1);
+            }
+            CreateTargetHandle($phProperties, \%hFKvps, \$sError);
+            print STDERR "$hFKvps{'TargetDisposition'} --> $hFKvps{'Name'}" . (defined($hFKvps{'DispositionDetail'}) ? " ($hFKvps{'DispositionDetail'})\n" : "\n");
+          }
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'DATA'}$/)
+      {
+        $hFKvps{'LowerChunk'} = $sChunkNumber;
+        my $sData;
+        my $sNRead2 = ReadHead($phProperties, \$sData, $sThisChunkSize - $$phProperties{'HeaderSize'}, $psError);
+        if (!defined($sNRead2))
+        {
+          return undef;
+        }
+#FIXME What about $sNRead2 == 0?
+        if ($hFKvps{'Write'})
+        {
+          if ($$phProperties{'VerifyOnFold'})
+          {
+            $hFKvps{'ReportedMd5Context'}->add($sData);
+            $hFKvps{'ReportedSha1Context'}->add($sData);
+            $hDKvps{'ReportedMd5Context'} = Digest::MD5->new();
+            $hDKvps{'ReportedSha1Context'} = Digest::SHA->new(1);
+            $hDKvps{'ReportedMd5Context'}->add($sData);
+            $hDKvps{'ReportedSha1Context'}->add($sData);
+            $hDKvps{'ReportedMd5'} = $hDKvps{'ReportedMd5Context'}->hexdigest;
+            $hDKvps{'ReportedSha1'} = $hDKvps{'ReportedSha1Context'}->hexdigest;
+          }
+          $hFKvps{'TargetHandle'}->print($sData) if defined($hFKvps{'TargetHandle'});
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'DKVP'}$/)
+      {
+        $hFKvps{'LowerChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        if ($hFKvps{'Write'})
+        {
+          my $sNRead2 = ReadKvps($phProperties, \%hDKvps, $sSize, \$sError);
+          if (!defined($sNRead2))
+          {
+            $$psError = $sError;
+            return undef;
+          }
+          if ($$phProperties{'VerifyOnFold'})
+          {
+            my $sFileReadSize = unpack("N", $hDKvps{'DataSize'});
+            $hDKvps{'ExpectedMd5'} = HexifyValue($hDKvps{'Md5'}, 16);
+            $hDKvps{'ExpectedSha1'} = HexifyValue($hDKvps{'Sha1'}, 20);
+            my $sName = '"' . $hFKvps{'Name'} . '"';
+            if ($hDKvps{'ReportedMd5'} ne $hDKvps{'ExpectedMd5'} || $hDKvps{'ReportedSha1'} ne $hDKvps{'ExpectedSha1'})
+            {
+              $hFKvps{'MemberIsCorrupt'} = 1;
+              print STDERR "chunk|$sName|$hDKvps{'ReportedMd5'} != $hDKvps{'ExpectedMd5'} and/or $hDKvps{'ReportedSha1'} != $hDKvps{'ExpectedSha1'}\n";
+            }
+          }
+        }
+        else
+        {
+          Skip($phProperties, $sSize);
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'JOIN'}$/) # NOTE: This chunk has no data.
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'TKVP'}$/)
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        my $sNRead2 = ReadKvps($phProperties, \%hFKvps, $sSize, \$sError);
+        if (!defined($sNRead2))
+        {
+          $$psError = $sError;
+          return undef;
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'TAIL'}$/) # NOTE: This chunk has no data.
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        if ($hFKvps{'Write'})
+        {
+          if ($$phProperties{'VerifyOnFold'})
+          {
+            my ($sUpperFileRealSize, $sLowerFileRealSize) = unpack("NN", $hFKvps{'FileRealSize'});
+            my $sFileRealSize = ($sUpperFileRealSize << 32) | $sLowerFileRealSize;
+            my ($sUpperFileReadSize, $sLowerFileReadSize) = unpack("NN", $hFKvps{'FileReadSize'});
+            my $sFileReadSize = ($sUpperFileReadSize << 32) | $sLowerFileReadSize;
+            $hFKvps{'ReportedMd5'} = $hFKvps{'ReportedMd5Context'}->hexdigest;
+            $hFKvps{'ReportedSha1'} = $hFKvps{'ReportedSha1Context'}->hexdigest;
+            $hFKvps{'ExpectedMd5'} = HexifyValue($hFKvps{'Md5'}, 16);
+            $hFKvps{'ExpectedSha1'} = HexifyValue($hFKvps{'Sha1'}, 20);
+            my $sName = '"' . $hFKvps{'Name'} . '"';
+            if ($hFKvps{'ReportedMd5'} ne $hFKvps{'ExpectedMd5'} || $hFKvps{'ReportedSha1'} ne $hFKvps{'ExpectedSha1'})
+            {
+              $hFKvps{'MemberIsCorrupt'} = 1;
+              print STDERR "whole|$sName|$hFKvps{'ReportedMd5'} != $hFKvps{'ExpectedMd5'} and/or $hFKvps{'ReportedSha1'} != $hFKvps{'ExpectedSha1'}\n";
+            }
+          }
+          if (defined($hFKvps{'TargetHandle'}))
+          {
+            undef($hFKvps{'TargetHandle'}); # This automatically closes the file handle.
+            my $sPoundPath = CreatePoundPath
+            (
+              (($hFKvps{'MemberIsCorrupt'}) ? $$phProperties{'BaseDropDir'} : $$phProperties{'BaseKeepDir'}),
+              HexifyValue($hFKvps{'Md5'}, 16),
+              HexifyValue($hFKvps{'Sha1'}, 20),
+              \$sError
+            );
+            if (!defined($sPoundPath))
+            {
+              die("$sError\n");
+            }
+            if ($hFKvps{'MemberIsCorrupt'})
+            {
+              rename($hFKvps{'TargetFile'}, $sPoundPath . ".foul");
+            }
+            else
+            {
+              rename($hFKvps{'TargetFile'}, $sPoundPath);
+            }
+          }
+        }
+      }
+      else
+      {
+        my $s;
+        my @aBytes = unpack("C4", $sChunkType);
+        foreach my $sByte (@aBytes)
+        {
+          $s .= sprintf("%02x", $sByte);
+        }
+        $$psError = "Unrecognized chunk type ($s)." if (defined($psError));
+        return undef;
+      }
+    }
+  }
+}
+
+
+######################################################################
+#
+# TestMembers
+#
+######################################################################
+
+sub TestMembers
+{
+  my ($phProperties, $psError) = @_;
+
+  my $sError;
+  my %hFKvps = ();
+  my %hDKvps = ();
+  $$phProperties{'HeadCount'} = 0;
+  $$phProperties{'TailCount'} = 0;
+
+  while (!$$phProperties{'EOF'})
+  {
+    my $sAbsoluteOffset = $$phProperties{'AbsoluteOffset'};
+    my $sHeader;
+    my $sNRead = ReadHead($phProperties, \$sHeader, $$phProperties{'HeaderSize'}, $psError);
+    if (!defined($sNRead))
+    {
+      return undef;
+    }
+    elsif ($sNRead == 0)
+    {
+      next;
+    }
+    else
+    {
+      my ($sChunkType, $sVersion, $sThisChunkSize, $sLastChunkSize, $sChunkNumber) = unpack("A4NNNN", $sHeader);
+      if ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'HEAD'}$/) # NOTE: This chunk has no data.
+      {
+        if ($$phProperties{'HeadCount'} != $$phProperties{'TailCount'})
+        {
+          my $sName = '"' . $hFKvps{'Name'} . '"';
+          print join(
+           "|",
+           "fail",
+           "whole",
+           sprintf("%08x", $hFKvps{'LowerChunk'}),
+           $sName,
+           "",
+           "",
+           "",
+           ),
+           "\n";
+          $$psError = "Head/Tail count mismatch $$phProperties{'HeadCount'} != $$phProperties{'TailCount'}." if (defined($psError));
+          return undef;
+        }
+        $$phProperties{'HeadCount'}++;
+        %hFKvps = ();
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        $hFKvps{'LowerChunk'} = 0;
+        $hFKvps{'AbsoluteOffset'} = $sAbsoluteOffset;
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'HKVP'}$/)
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        my $sNRead2 = ReadKvps($phProperties, \%hFKvps, $sSize, \$sError);
+        if (!defined($sNRead2))
+        {
+          $$psError = $sError;
+          return undef;
+        }
+        if (!defined($hFKvps{'Name'}))
+        {
+          die("Name key/value pair is missing or undefined!\n");
+        }
+        else
+        {
+          $hFKvps{'ReportedMd5Context'} = Digest::MD5->new();
+          $hFKvps{'ReportedSha1Context'} = Digest::SHA->new(1);
+          my $sHeadFlags = unpack("N", $hFKvps{'HeadFlags'});
+          if (($sHeadFlags & 0x00010000) != 0x00010000)
+          {
+          }
+          else
+          {
+            print STDERR "Skipping $hFKvps{'Name'} (runt)\n";
+          }
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'DATA'}$/)
+      {
+        $hFKvps{'LowerChunk'} = $sChunkNumber;
+        my $sData;
+        my $sNRead2 = ReadHead($phProperties, \$sData, $sThisChunkSize - $$phProperties{'HeaderSize'}, $psError);
+        if (!defined($sNRead2))
+        {
+          return undef;
+        }
+#FIXME What about $sNRead2 == 0?
+        $hFKvps{'ReportedMd5Context'}->add($sData);
+        $hFKvps{'ReportedSha1Context'}->add($sData);
+        $hDKvps{'ReportedMd5Context'} = Digest::MD5->new();
+        $hDKvps{'ReportedSha1Context'} = Digest::SHA->new(1);
+        $hDKvps{'ReportedMd5Context'}->add($sData);
+        $hDKvps{'ReportedSha1Context'}->add($sData);
+        $hDKvps{'ReportedMd5'} = $hDKvps{'ReportedMd5Context'}->hexdigest;
+        $hDKvps{'ReportedSha1'} = $hDKvps{'ReportedSha1Context'}->hexdigest;
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'DKVP'}$/)
+      {
+        $hFKvps{'LowerChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        my $sNRead2 = ReadKvps($phProperties, \%hDKvps, $sSize, \$sError);
+        if (!defined($sNRead2))
+        {
+          $$psError = $sError;
+          return undef;
+        }
+        my $sFileReadSize = unpack("N", $hDKvps{'DataSize'});
+        $hDKvps{'ExpectedMd5'} = HexifyValue($hDKvps{'Md5'}, 16);
+        $hDKvps{'ExpectedSha1'} = HexifyValue($hDKvps{'Sha1'}, 20);
+        my $sName = '"' . $hFKvps{'Name'} . '"';
+        my $sStatus = ($hDKvps{'ReportedMd5'} eq $hDKvps{'ExpectedMd5'} && $hDKvps{'ReportedSha1'} eq $hDKvps{'ExpectedSha1'}) ? "pass" : "fail";
+        if ($sStatus ne "pass")
+        {
+          print join
+          (
+            "|",
+            $sStatus,
+            "chunk",
+            sprintf("%08x", $hFKvps{'LowerChunk'}),
+            $sName,
+            $sFileReadSize,
+            $hDKvps{'ExpectedMd5'},
+            $hDKvps{'ExpectedSha1'},
+            $hFKvps{'AbsoluteOffset'},
+            $$phProperties{'AbsoluteOffset'},
+          ),
+          "\n";
+          print STDERR "chunk|$sName|$hDKvps{'ReportedMd5'} != $hDKvps{'ExpectedMd5'} and/or $hDKvps{'ReportedSha1'} != $hDKvps{'ExpectedSha1'}\n";
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'JOIN'}$/) # NOTE: This chunk has no data.
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'TKVP'}$/)
+      {
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        my $sSize = $sThisChunkSize - $$phProperties{'HeaderSize'};
+        my $sNRead2 = ReadKvps($phProperties, \%hFKvps, $sSize, \$sError);
+        if (!defined($sNRead2))
+        {
+          $$psError = $sError;
+          return undef;
+        }
+      }
+      elsif ($sChunkType =~ /^$$phProperties{'ChunkTypes'}{'TAIL'}$/) # NOTE: This chunk has no data.
+      {
+        $$phProperties{'TailCount'}++;
+        $hFKvps{'UpperChunk'} = $sChunkNumber;
+        my ($sUpperFileRealSize, $sLowerFileRealSize) = unpack("NN", $hFKvps{'FileRealSize'});
+        my $sFileRealSize = ($sUpperFileRealSize << 32) | $sLowerFileRealSize;
+        my ($sUpperFileReadSize, $sLowerFileReadSize) = unpack("NN", $hFKvps{'FileReadSize'});
+        my $sFileReadSize = ($sUpperFileReadSize << 32) | $sLowerFileReadSize;
+        $hFKvps{'ReportedMd5'} = $hFKvps{'ReportedMd5Context'}->hexdigest;
+        $hFKvps{'ReportedSha1'} = $hFKvps{'ReportedSha1Context'}->hexdigest;
+        $hFKvps{'ExpectedMd5'} = HexifyValue($hFKvps{'Md5'}, 16);
+        $hFKvps{'ExpectedSha1'} = HexifyValue($hFKvps{'Sha1'}, 20);
+        my $sName = '"' . $hFKvps{'Name'} . '"';
+        my $sStatus = ($hFKvps{'ReportedMd5'} eq $hFKvps{'ExpectedMd5'} && $hFKvps{'ReportedSha1'} eq $hFKvps{'ExpectedSha1'}) ? "pass" : "fail";
+        print join
+        (
+          "|",
+#FIXME FileRealSize is not being set yet in the archive, so we can't test it here.
+#         ($sFileReadSize == $sFileRealSize && $hFKvps{'ReportedMd5'} eq $hFKvps{'ExpectedMd5'} && $hFKvps{'ReportedSha1'} eq $hFKvps{'ExpectedSha1'}) ? "pass" : "fail",
+          $sStatus,
+          "whole",
+          sprintf("%08x", $hFKvps{'LowerChunk'}),
+          $sName,
+          $sFileReadSize,
+          $hFKvps{'ExpectedMd5'},
+          $hFKvps{'ExpectedSha1'},
+          $hFKvps{'AbsoluteOffset'},
+          $$phProperties{'AbsoluteOffset'},
+        ),
+        "\n";
+      }
+      else
+      {
+        my $s;
+        my @aBytes = unpack("C4", $sChunkType);
+        foreach my $sByte (@aBytes)
+        {
+          $s .= sprintf("%02x", $sByte);
+        }
+        $$psError = "Unrecognized chunk type ($s)." if (defined($psError));
+        return undef;
+      }
+    }
+  }
+
+  if ($$phProperties{'HeadCount'} != $$phProperties{'TailCount'})
+  {
+    my $sName = '"' . $hFKvps{'Name'} . '"';
+    print join(
+     "|",
+     "fail",
+     "whole",
+     sprintf("%08x", $hFKvps{'LowerChunk'}),
+     $sName,
+     "",
+     "",
+     "",
+     $hFKvps{'AbsoluteOffset'},
+     $$phProperties{'AbsoluteOffset'},
+     ),
+     "\n";
+    $$psError = "Head/Tail count mismatch $$phProperties{'HeadCount'} != $$phProperties{'TailCount'}." if (defined($psError));
+    return undef;
+  }
+}
+
+
+######################################################################
+#
+# CreateTargetHandle
+#
+######################################################################
+
+sub CreateTargetHandle
+{
+  my ($phProperties, $phFKvps, $psError) = @_;
+
+  ####################################################################
+  #
+  # Automatically skip any archive member that's tagged as a runt.
+  #
+  ####################################################################
+
+  my ($sHeadFlags);
+
+  $sHeadFlags = unpack("N", $$phFKvps{'HeadFlags'});
+  if (($sHeadFlags & 0x00010000) == 0x00010000)
+  {
+    $$phFKvps{'TargetDisposition'} = "skip";
+    $$phFKvps{'DispositionDetail'} = "runt";
+    return;
+  }
+
+  ####################################################################
+  #
+  # Conditionally create a file based on the run mode. Note that any
+  # file not headed to the POUND must have its path/name normalized.
+  #
+  ####################################################################
+
+  my ($sNormalizedPath, $sPathSeparatorRegex, $sTargetFile, $sTargetPath);
+
+  if ($$phProperties{'RunMode'} eq "fold")
+  {
+    $$phFKvps{'TargetDisposition'} = "fold";
+    $$phFKvps{'DispositionDetail'} = undef;
+    $$phFKvps{'TargetFile'} = $sTargetFile = ".data";
+  }
+  else
+  {
+    $$phFKvps{'TargetDisposition'} = "dump";
+    $$phFKvps{'DispositionDetail'} = undef;
+    $sPathSeparatorRegex = (defined($$phFKvps{'PathSeparator'})) ? ($$phFKvps{'PathSeparator'} eq "\\") ? qr{\\} : qr{$$phFKvps{'PathSeparator'}} : qr{[\\/]};
+    $sNormalizedPath = $$phFKvps{'Name'};
+    $sNormalizedPath =~ s,$sPathSeparatorRegex,/,g; # Normalize path separators.
+    $sNormalizedPath =~ s,^((?:[A-Z]:|//[?])?/),,; # Remove absolute path prefixes.
+    $sNormalizedPath = EadFTimesUrlDecode($sNormalizedPath);
+    $sTargetPath = dirname($sNormalizedPath);
+    $$phFKvps{'TargetFile'} = $sTargetFile = $sTargetPath . "/" . basename($sNormalizedPath);
+    eval { mkpath($sTargetPath, 0, 0755) };
+    if ($@)
+    {
+      $$phFKvps{'TargetDisposition'} = "skip";
+      $$phFKvps{'DispositionDetail'} = "no folder";
+      return;
+    }
+    if (-f $sTargetFile)
+    {
+      if (!$$phProperties{'ForceWrite'})
+      {
+        $$phFKvps{'TargetDisposition'} = "skip";
+        $$phFKvps{'DispositionDetail'} = "already exists";
+        return;
+      }
+      $$phFKvps{'DispositionDetail'} = "overwriting";
+    }
+  }
+  my $oTargetHandle = FileHandle->new("> $sTargetFile");
+  if (!defined($oTargetHandle))
+  {
+    $$phFKvps{'TargetDisposition'} = "skip";
+    $$phFKvps{'DispositionDetail'} = "no handle";
+    return;
+  }
+  $$phFKvps{'TargetHandle'} = $oTargetHandle;
+
+  return;
+}
+
+
+######################################################################
+#
+# CreatePoundPath
+#
+######################################################################
+
+sub CreatePoundPath
+{
+  my ($sBaseDir, $sMd5, $sSha1, $psError) = @_;
+
+  if (!defined($sBaseDir) || !defined($sMd5) || !defined($sSha1))
+  {
+    $$psError = "undefined input";
+    return undef;
+  }
+  my $sPoundTree = sprintf
+  (
+    "%s/%s/%s/%s/%s",
+    $sBaseDir,
+    substr($sMd5, 0, 2),
+    substr($sMd5, 2, 2),
+    substr($sMd5, 4, 2),
+    substr($sMd5, 6, 2),
+  );
+  my $sPoundPath = sprintf("%s/%s.%s", $sPoundTree, $sMd5, substr($sSha1, 0, 8));
+  if (!-d $sPoundTree)
+  {
+    eval { mkpath($sPoundTree, 0, 0755) };
+    if ($@)
+    {
+      my $sMessage = $@; $sMessage =~ s/[\r\n]+/ /g; $sMessage =~ s/\s+$//;
+      $$psError = "mkpath($sMessage)";
+      return undef;
+    }
+  }
+
+  return $sPoundPath;
+}
+
+
+######################################################################
+#
+# HexifyValue
+#
+######################################################################
+
+sub HexifyValue
+{
+  my ($sValue, $sSize) = @_;
+
+  my $sHexValue = "";
+  my @aBytes = unpack("C$sSize", $sValue);
+  foreach my $sByte (@aBytes)
+  {
+    $sHexValue .= sprintf("%02x", $sByte);
+  }
+
+  return $sHexValue;
+}
+
+
+######################################################################
+#
+# ReadData
+#
+######################################################################
+
+sub ReadData
+{
+  my ($phProperties, $psData, $sSize, $psError) = @_;
+
+  my $sNRead = $$phProperties{'ArchiveHandle'}->read($$psData, $sSize);
+  if (!defined($sNRead))
+  {
+    $$psError = "Error reading from input stream ($!)" if (defined($psError));
+    return undef;
+  }
+  $$phProperties{'EOF'} = 1 if ($sNRead == 0);
+  $$phProperties{'AbsoluteOffset'} += $sNRead;
+
+  return $sNRead;
+}
+
+
+######################################################################
+#
+# ReadHead
+#
+######################################################################
+
+sub ReadHead
+{
+  my ($phProperties, $psData, $sSize, $psError) = @_;
+
+  my $sNRead = $$phProperties{'ArchiveHandle'}->read($$psData, $sSize);
+  if (!defined($sNRead))
+  {
+    $$psError = "Error reading from input stream ($!)" if (defined($psError));
+    return undef;
+  }
+  $$phProperties{'EOF'} = 1 if ($sNRead == 0);
+  $$phProperties{'AbsoluteOffset'} += $sNRead;
+
+  return $sNRead;
+}
+
+
+######################################################################
+#
+# ReadKvps
+#
+######################################################################
+
+sub ReadKvps
+{
+  my ($phProperties, $phKvps, $sSize, $psError) = @_;
+
+  my $sOffset = 0;
+  my $sNReadTotal = 0;
+  while ($sOffset < $sSize && !$$phProperties{'EOF'})
+  {
+    my $sData;
+    my $sNRead = $$phProperties{'ArchiveHandle'}->read($sData, $$phProperties{'KeyIdAndValueSize'});
+    if (!defined($sNRead))
+    {
+      $$psError = "Error reading from input stream ($!)" if (defined($psError));
+      return undef;
+    }
+#FIXME What do we do when NRead == 0? We should not hit EOF while reading key/value pairs.
+    if ($sNRead != 4)
+    {
+      if ($sNRead == 0)
+      {
+        $$psError = "Unexpected EOF while reading key.";
+        $$phProperties{'EOF'} = 1;
+      }
+      else
+      {
+        $$psError = "Insufficient data while reading key.";
+      }
+      return undef;
+    }
+    $$phProperties{'AbsoluteOffset'} += $sNRead;
+    $sOffset += 4;
+    my $sKeyIdAndValueSize = unpack("N", $sData);
+    my $sKeyId = $sKeyIdAndValueSize >> 20;
+    my $sValueSize = $sKeyIdAndValueSize & 0x000fffff;
+    foreach my $sKey (keys(%{$$phProperties{'KeyIds'}}))
+    {
+      if ($$phProperties{'KeyIds'}{$sKey} == $sKeyId)
+      {
+        my $sNRead = $$phProperties{'ArchiveHandle'}->read($sData, $sValueSize);
+        if (!defined($sNRead))
+        {
+          $$psError = "Error reading from input stream ($!)" if (defined($psError));
+          return undef;
+        }
+#FIXME What do we do when NRead == 0? We should not hit EOF while reading key/value pairs.
+        if ($sNRead != $sValueSize)
+        {
+          if ($sNRead == 0)
+          {
+            $$psError = "Unexpected EOF while reading value.";
+            $$phProperties{'EOF'} = 1;
+          }
+          else
+          {
+            $$psError = "Insufficient data while reading value.";
+          }
+          return undef;
+        }
+        $$phProperties{'AbsoluteOffset'} += $sNRead;
+        $sOffset += $sValueSize;
+        $$phKvps{$sKey} = $sData;
+        last;
+      }
+    }
+  }
+
+  return $sNReadTotal;
+}
+
+
+######################################################################
+#
+# Skip
+#
+######################################################################
+
+sub Skip
+{
+  my ($phProperties, $sSize) = @_;
+
+  if ($$phProperties{'Seekable'})
+  {
+#FIXME What about EOF?
+    if (!$$phProperties{'ArchiveHandle'}->seek($sSize, 1))
+    {
+#FIXME Error;
+    }
+    $$phProperties{'AbsoluteOffset'} += $sSize;
+  }
+  else
+  {
+#FIXME What about EOF?
+    my $sNRead = $$phProperties{'ArchiveHandle'}->read($_, $sSize);
+    if (!defined($sNRead))
+    {
+#FIXME Error;
+    }
+    $$phProperties{'AbsoluteOffset'} += $sNRead;
+  }
+}
+
+
+######################################################################
+#
+# SecondsToDateTime
+#
+######################################################################
+
+sub SecondsToDateTime
+{
+  my ($sSeconds, $sUseGmt) = @_;
+
+  if (defined($sSeconds) && $sSeconds =~ /^\d+$/)
+  {
+    my
+    (
+      $sSecond,
+      $sMinute,
+      $sHour,
+      $sMonthDay,
+      $sMonth,
+      $sYear,
+      $sWeekDay,
+      $sYearDay,
+      $sDaylightSavings
+    ) = ($sUseGmt) ? gmtime($sSeconds) : localtime($sSeconds);
+
+    my $sDateTime = sprintf
+    (
+      "%04s-%02s-%02s %02s:%02s:%02s",
+      $sYear + 1900,
+      $sMonth + 1,
+      $sMonthDay,
+      $sHour,
+      $sMinute,
+      $sSecond
+    );
+
+    return $sDateTime;
+  }
+
+  return undef;
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram {-d|--dump} [-C dir] [-o option[,option[,...]]] -a archive\n";
+  print STDERR "       $sProgram {-f|--fold} [-C dir] [-o option[,option[,...]]] -a archive\n";
+  print STDERR "       $sProgram {-l|--list} -a archive\n";
+  print STDERR "       $sProgram {-t|--test} -a archive\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-xpatool - Manipulate XPA archives
+
+=head1 SYNOPSIS
+
+B<ftimes-xpatool> <{-d|--dump}> B<[-C dir]> B<[-o option[,option[,...]]]> B<-a {archive|-}>
+
+B<ftimes-xpatool> <{-f|--fold}> B<[-C dir]> B<[-o option[,option[,...]]]> B<-a {archive|-}>
+
+B<ftimes-xpatool> <{-l|--list}> B<-a {archive|-}>
+
+B<ftimes-xpatool> <{-t|--test}> B<-a {archive|-}>
+
+=head1 DESCRIPTION
+
+This utility manipulates XPA archives.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-a {archive|-}>
+
+Specifies the name of the XPA archive. A value of '-' will cause
+the program to read from stdin.
+
+=item B<-C dir>
+
+Specifies the name of a directory to change to prior to extracting
+archive members.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item ForceWrite
+
+Force existing files to be overwritten.  By default, no bundle member
+is extracted on top of an existing file.
+
+=back
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes-xpa(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+

@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-filter.pl,v 1.26 2014/07/18 06:40:45 mavrik Exp $
+# $Id: hashdig-filter.pl,v 1.29 2019/03/14 16:07:44 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

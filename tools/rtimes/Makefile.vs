@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.5 2010/06/18 17:53:26 mavrik Exp $
+# $Id: Makefile.vs,v 1.6 2014/11/07 16:55:49 mavrik Exp $
 #
 ########################################################################
 #
@@ -9,17 +9,10 @@
 ########################################################################
 
 BUILD_TYPE		= RELEASE	# [RELEASE|DEBUG]
-USE_SDDL		= Y		# [Y|N]
 
 INSTALL_DIR		= C:\FTimes
 SOURCE_DIR		= .
 OBJECT_DIR		= b
-
-!IF "$(USE_SDDL)" == "Y" || "$(USE_SDDL)" == "y"
-SDDL_COMPILER_FLAGS	= /D USE_SDDL
-!ELSE
-SDDL_COMPILER_FLAGS	=
-!ENDIF
 
 COMPILER		= cl.exe
 
@@ -29,7 +22,6 @@ COMPILER_FLAGS		=\
 			/D _CONSOLE\
 			/D _CRT_SECURE_NO_DEPRECATE\
 			/D WIN32\
-			$(SDDL_COMPILER_FLAGS)\
 			/I"."\
 			/Fo"$(OBJECT_DIR)\\"\
 			/Fd"$(OBJECT_DIR)\\"\

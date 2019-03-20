@@ -1,0 +1,4 @@
+=head1 NAME
+
+B<FTimesSrm> - Selectively remove enumerated files.
+

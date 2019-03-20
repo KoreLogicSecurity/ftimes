@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: properties.c,v 1.67 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: properties.c,v 1.72 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -122,6 +122,7 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
   }
   else
   {
+    char acMessage[MESSAGE_SIZE] = "";
     iError = stat(pcFilename, &statEntry);
     if (iError == -1)
     {
@@ -133,29 +134,31 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
        * generic config file that spans multiple clients or an entire
        * FTimes deployment. If the recursion level is zero, then we are
        * dealing with a command line config file, and in that case, the
-       * file must exist.
+       * file must exist. Log it either way, for the user's benefit.
        *
        *****************************************************************
        */
       if (psProperties->iImportRecursionLevel > 0 && errno == ENOENT)
       {
+        snprintf(acLocalError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, pcFilename, strerror(errno));
+        ErrorHandler(ER_Warning, acLocalError, ERROR_WARNING);
         return ER_OK;
       }
       snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, pcFilename, strerror(errno));
       return ER_ReadPropertiesFile;
     }
-
     if (!((statEntry.st_mode & S_IFMT) == S_IFREG))
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: A regular file is required.", acRoutine, pcFilename);
       return ER_ReadPropertiesFile;
     }
-
     if ((pFile = fopen(pcFilename, "r")) == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, pcFilename, strerror(errno));
       return ER_ReadPropertiesFile;
     }
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%s", ((psProperties->iImportRecursionLevel == 0) ? "Config" : "Import"), pcFilename);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 
   for (acLine[0] = 0, iLineNumber = 1; fgets(acLine, PROPERTIES_MAX_LINE, pFile) != NULL; acLine[0] = 0, iLineNumber++)
@@ -448,6 +451,31 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     DUPLICATE_ERROR(psProperties->sFound.bAnalyzeDeviceFilesFound);
     EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bAnalyzeDeviceFiles);
     psProperties->sFound.bAnalyzeDeviceFilesFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_AnalyzeMaxDepth) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeMaxDepth, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bAnalyzeMaxDepthFound);
+    while (iLength > 0)
+    {
+      if (!isdigit((int) pc[iLength - 1]))
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%s], Value must be an integer.", acRoutine, pcControl, pc);
+        return ER;
+      }
+      iLength--;
+    }
+    iValue = atoi(pc);
+    if (iValue < 0 || iValue > FTIMES_MAX_DEPTH)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%s], Value out of range.", acRoutine, pcControl, pc);
+      return ER;
+    }
+    else
+    {
+      psProperties->iAnalyzeMaxDepth = iValue;
+    }
+    psProperties->sFound.bAnalyzeMaxDepthFound = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_AnalyzeMaxDps) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeMaxDps, iRunMode))
@@ -1314,6 +1342,12 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
   if (RUN_MODE_IS_SET(MODES_AnalyzeDeviceFiles, psProperties->iRunMode))
   {
     snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_AnalyzeDeviceFiles, psProperties->bAnalyzeDeviceFiles ? "Y" : "N");
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+  }
+
+  if (RUN_MODE_IS_SET(MODES_AnalyzeMaxDepth, psProperties->iRunMode))
+  {
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%d", KEY_AnalyzeMaxDepth, psProperties->iAnalyzeMaxDepth);
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 

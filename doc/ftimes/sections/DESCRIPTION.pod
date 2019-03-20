@@ -96,10 +96,11 @@ version - display version information and exit
 =back
 
 B<FTimes> also has many controls which dictate how it will execute.
-Some modes support very few controls while others support quite a
-few.  The following table summarizes what controls apply to each
-mode of operation.  An 'X' indicates that the given control applies
-to the selected mode.
+Some modes support very few controls while others support quite
+a few.  The following table summarizes what controls apply to each
+mode of operation.  An 'R', 'O', or 'C' indicates that the given
+control applies to the selected mode and whether it's required,
+optional, or conditionally required, respectively.
 
                        =======   MODES   =======
                        c  c  d  d  g  m  m  m  v
@@ -110,68 +111,69 @@ to the selected mode.
                        s  r  t     d     t     o
                        t  e  o     e     o     n
    ======   CONTROL    =========================
-   AnalyzeBlockSize    .  .  .  X  .  X  .  X  .
-   AnalyzeByteCount    .  .  .  X  .  X  .  X  .
-   AnalyzeCarrySize    .  .  .  X  .  X  .  .  .
-   AnalyzeDeviceFiles  .  .  .  X  .  X  .  X  .
-   AnalyzeMaxDps       .  .  .  X  .  X  .  X  .
-   AnalyzeRemoteFiles  .  .  .  X  .  X  .  X  .
-   AnalyzeStartOffset  .  .  .  X  .  X  .  X  .
-   AnalyzeStepSize     .  .  .  X  .  X  .  .  .
-   BaseName            .  .  .  X  X  X  .  X  .
-   BaseNameSuffix      .  .  .  X  .  X  .  X  .
-   Compress            .  .  .  .  .  .  .  X  .
-   DigString           .  .  X  X  .  X  .  .  .
-   DigStringNoCase     .  .  X  X  .  X  .  .  .
-   DigStringNormal     .  .  X  X  .  X  .  .  .
-   DigStringRegExp     .  .  X  X  .  X  .  .  .
-   DigStringXMagic     .  .  X  X  .  X  .  .  .
-   EnableRecursion     .  .  .  X  .  X  .  X  .
-   Exclude             .  .  .  X  .  X  .  X  .
-   ExcludeFilter       .  .  .  X  .  X  .  X  .
-   ExcludeFilterMd5    .  .  .  .  .  X  .  X  .
-   ExcludeFilterSha1   .  .  .  .  .  X  .  X  .
-   ExcludeFilterSha256 .  .  .  .  .  X  .  X  .
-   ExcludesMustExist   .  .  .  X  .  X  .  X  .
-   FieldMask           .  X  .  .  .  X  X  X  .
-   FileHook            .  .  .  X  .  X  .  X  .
-   FileSizeLimit       .  .  .  X  .  X  .  X  .
-   GetAndExec          .  .  .  .  X  .  .  .  .
-   GetFileName         .  .  .  .  X  .  .  .  .
-   HashDirectories     .  .  .  .  .  X  .  X  .
-   HashSymbolicLinks   .  .  .  .  .  X  .  X  .
-   Import              .  .  .  X  X  X  .  X  .
-   Include             .  .  .  X  .  X  .  X  .
-   IncludeFilter       .  .  .  X  .  X  .  X  .
-   IncludeFilterMd5    .  .  .  .  .  X  .  X  .
-   IncludeFilterSha1   .  .  .  .  .  X  .  X  .
-   IncludeFilterSha256 .  .  .  .  .  X  .  X  .
-   IncludesMustExist   .  .  .  X  .  X  .  X  .
-   LogDigStrings       .  .  .  X  .  X  .  .  .
-   LogDir              .  .  .  X  .  X  .  X  .
-   MagicFile           .  .  .  .  .  X  .  X  .
-   MapRemoteFiles      .  .  .  X  .  X  .  X  .
-   MatchLimit          .  .  .  X  .  X  .  .  .
-   NewLine             .  .  .  X  .  X  .  X  .
-   OutDir              .  .  .  X  .  X  .  X  .
-   Priority            .  X  X  X  .  X  X  X  .
-   RequirePrivilege    .  .  .  X  .  X  .  X  .
-   RunType             .  .  .  X  .  X  .  X  .
-   StrictControls      .  .  .  X  X  X  .  X  .
-   SSLBundledCAsFile   .  .  .  X  X  X  .  X  .
-   SSLExpectedPeerCN   .  .  .  X  X  X  .  X  .
-   SSLMaxChainLength   .  .  .  X  X  X  .  X  .
-   SSLPassPhrase       .  .  .  X  X  X  .  X  .
-   SSLPrivateKeyFile   .  .  .  X  X  X  .  X  .
-   SSLPublicCertFile   .  .  .  X  X  X  .  X  .
-   SSLUseCertificate   .  .  .  X  X  X  .  X  .
-   SSLVerifyPeerCert   .  .  .  X  X  X  .  X  .
-   URLAuthType         .  .  .  X  X  X  .  X  .
-   URLGetRequest       .  .  .  .  X  .  .  .  .
-   URLGetURL           .  .  .  .  X  .  .  .  .
-   URLPassword         .  .  .  X  X  X  .  X  .
-   URLPutSnapshot      .  .  .  X  .  X  .  X  .
-   URLPutURL           .  .  .  X  .  X  .  X  .
-   URLUnlinkOutput     .  .  .  X  .  X  .  X  .
-   URLUsername         .  .  .  X  X  X  .  X  .
+   AnalyzeBlockSize    .  .  .  O  .  O  .  O  .
+   AnalyzeByteCount    .  .  .  O  .  O  .  O  .
+   AnalyzeCarrySize    .  .  .  O  .  O  .  .  .
+   AnalyzeDeviceFiles  .  .  .  O  .  O  .  O  .
+   AnalyzeMaxDepth     .  .  .  O  .  O  .  O  .
+   AnalyzeMaxDps       .  .  .  O  .  O  .  O  .
+   AnalyzeRemoteFiles  .  .  .  O  .  O  .  O  .
+   AnalyzeStartOffset  .  .  .  O  .  O  .  O  .
+   AnalyzeStepSize     .  .  .  O  .  O  .  .  .
+   BaseName            .  .  .  R  R  R  .  R  .
+   BaseNameSuffix      .  .  .  O  .  O  .  O  .
+   Compress            .  .  .  .  .  .  .  O  .
+   DigString           .  .  C  C  .  C  .  .  .
+   DigStringNoCase     .  .  C  C  .  C  .  .  .
+   DigStringNormal     .  .  C  C  .  C  .  .  .
+   DigStringRegExp     .  .  C  C  .  C  .  .  .
+   DigStringXMagic     .  .  C  C  .  C  .  .  .
+   EnableRecursion     .  .  .  O  .  O  .  O  .
+   Exclude             .  .  .  O  .  O  .  O  .
+   ExcludeFilter       .  .  .  O  .  O  .  O  .
+   ExcludeFilterMd5    .  .  .  .  .  O  .  O  .
+   ExcludeFilterSha1   .  .  .  .  .  O  .  O  .
+   ExcludeFilterSha256 .  .  .  .  .  O  .  O  .
+   ExcludesMustExist   .  .  .  O  .  O  .  O  .
+   FieldMask           .  R  .  .  .  R  R  R  .
+   FileHook            .  .  .  O  .  O  .  O  .
+   FileSizeLimit       .  .  .  O  .  O  .  O  .
+   GetAndExec          .  .  .  .  O  .  .  .  .
+   GetFileName         .  .  .  .  R  .  .  .  .
+   HashDirectories     .  .  .  .  .  O  .  O  .
+   HashSymbolicLinks   .  .  .  .  .  O  .  O  .
+   Import              .  .  .  O  O  O  .  O  .
+   Include             .  .  .  O  .  O  .  O  .
+   IncludeFilter       .  .  .  O  .  O  .  O  .
+   IncludeFilterMd5    .  .  .  .  .  O  .  O  .
+   IncludeFilterSha1   .  .  .  .  .  O  .  O  .
+   IncludeFilterSha256 .  .  .  .  .  O  .  O  .
+   IncludesMustExist   .  .  .  O  .  O  .  O  .
+   LogDigStrings       .  .  .  O  .  O  .  .  .
+   LogDir              .  .  .  O  .  O  .  O  .
+   MagicFile           .  .  .  .  .  O  .  O  .
+   MapRemoteFiles      .  .  .  O  .  O  .  O  .
+   MatchLimit          .  .  .  O  .  O  .  .  .
+   NewLine             .  .  .  O  .  O  .  O  .
+   OutDir              .  .  .  R  .  R  .  R  .
+   Priority            .  O  O  O  .  O  O  O  .
+   RequirePrivilege    .  .  .  O  .  O  .  O  .
+   RunType             .  .  .  O  .  O  .  O  .
+   StrictControls      .  .  .  O  O  O  .  O  .
+   SSLBundledCAsFile   .  .  .  C  C  C  .  C  .
+   SSLExpectedPeerCN   .  .  .  C  C  C  .  C  .
+   SSLMaxChainLength   .  .  .  O  O  O  .  O  .
+   SSLPassPhrase       .  .  .  O  O  O  .  O  .
+   SSLPrivateKeyFile   .  .  .  C  C  C  .  C  .
+   SSLPublicCertFile   .  .  .  C  C  C  .  C  .
+   SSLUseCertificate   .  .  .  O  O  O  .  O  .
+   SSLVerifyPeerCert   .  .  .  O  O  O  .  O  .
+   URLAuthType         .  .  .  O  O  O  .  O  .
+   URLGetRequest       .  .  .  .  R  .  .  .  .
+   URLGetURL           .  .  .  .  R  .  .  .  .
+   URLPassword         .  .  .  O  O  O  .  O  .
+   URLPutSnapshot      .  .  .  O  .  O  .  O  .
+   URLPutURL           .  .  .  O  .  O  .  O  .
+   URLUnlinkOutput     .  .  .  O  .  O  .  O  .
+   URLUsername         .  .  .  O  O  O  .  O  .
 

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sha1.c,v 1.17 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: sha1.c,v 1.23 2019/03/15 00:55:49 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2003-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -147,6 +147,46 @@ SHA1HashString(unsigned char *pucData, int iLength, unsigned char *pucSHA1)
   }
   SHA1Cycle(&sSHA1Context, pucData, iLength);
   SHA1Omega(&sSHA1Context, pucSHA1);
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * SHA1HexToHash
+ *
+ ***********************************************************************
+ */
+void
+SHA1HexToHash(char *pcHexHash, unsigned char *pucHash)
+{
+  char                cNibble = 0;
+  int                 i = 0;
+  int                 j = 0;
+  int                 iLength = (pcHexHash != NULL) ? strlen(pcHexHash) : 0;
+  unsigned char       aucHash[SHA1_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
+  if (iLength == SHA1_HASH_SIZE*2)
+  {
+    for (i = j = 0; i < iLength; i++, j++)
+    {
+      cNibble = tolower(pcHexHash[i]);
+           if ((cNibble >= '0') && (cNibble <= '9')) { aucHash[j] |= (((cNibble - '0')     ) << 4); }
+      else if ((cNibble >= 'a') && (cNibble <= 'f')) { aucHash[j] |= (((cNibble - 'a') + 10) << 4); }
+      else                                           { memset(aucHash, 0, SHA1_HASH_SIZE); break; }
+      i++;
+      cNibble = tolower(pcHexHash[i]);
+           if ((cNibble >= '0') && (cNibble <= '9')) { aucHash[j] |= (((cNibble - '0')     )     ); }
+      else if ((cNibble >= 'a') && (cNibble <= 'f')) { aucHash[j] |= (((cNibble - 'a') + 10)     ); }
+      else                                           { memset(aucHash, 0, SHA1_HASH_SIZE); break; }
+    }
+  }
+  if (pucHash != NULL)
+  {
+    memcpy(pucHash, aucHash, SHA1_HASH_SIZE);
+  }
+
+  return;
 }
 
 

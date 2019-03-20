@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: decode.c,v 1.54 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: decode.c,v 1.58 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -428,6 +428,50 @@ DecodeFreeSnapshotContext(SNAPSHOT_CONTEXT *psSnapshot)
 /*-
  ***********************************************************************
  *
+ * DecodeFreeSnapshotContext2
+ *
+ ***********************************************************************
+ */
+void
+DecodeFreeSnapshotContext2(SNAPSHOT_CONTEXT *psSnapshot)
+{
+  int                 i = 0;
+  int                 j = 0;
+
+  if (psSnapshot != NULL)
+  {
+    if (psSnapshot->pFile != NULL)
+    {
+      fclose(psSnapshot->pFile);
+    }
+    if (psSnapshot->psDecodeMap != NULL)
+    {
+      free(psSnapshot->psDecodeMap);
+    }
+    for (i = 0; i < DECODE_RECORD_COUNT; i++)
+    {
+      if (psSnapshot->asRecords[i].ppcFields != NULL)
+      {
+        for (j = 0; j < psSnapshot->iFieldCount; j++)
+        {
+          if (psSnapshot->asRecords[i].ppcFields[j] != NULL)
+          {
+            free(psSnapshot->asRecords[i].ppcFields[j]);
+          }
+        }
+        free(psSnapshot->asRecords[i].ppcFields);
+      }
+    }
+    free(psSnapshot);
+  }
+
+  return;
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * DecodeGetBase64Hash
  *
  ***********************************************************************
@@ -528,6 +572,93 @@ DecodeNewSnapshotContext(char *pcError)
   }
 
   return psSnapshot;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * DecodeNewSnapshotContext2
+ *
+ ***********************************************************************
+ */
+SNAPSHOT_CONTEXT *
+DecodeNewSnapshotContext2(char *pcSnapshot, char *pcError)
+{
+  const char          acRoutine[] = "DecodeNewSnapshotContext2()";
+  char                acLocalError[MESSAGE_SIZE] = "";
+  SNAPSHOT_CONTEXT   *psSnapshot = NULL;
+  int                 iError = 0;
+  int                 i = 0;
+  int                 j = 0;
+
+  psSnapshot = (SNAPSHOT_CONTEXT *)calloc(sizeof(SNAPSHOT_CONTEXT), 1);
+  if (psSnapshot == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    goto FAIL;
+  }
+
+  psSnapshot->psDecodeMap = (DECODE_TABLE *)calloc(sizeof(DECODE_TABLE), DECODE_TABLE_SIZE);
+  if (psSnapshot->psDecodeMap == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    goto FAIL;
+  }
+
+  for (i = 0; i < DECODE_RECORD_COUNT; i++)
+  {
+    psSnapshot->asRecords[i].ppcFields = (char **)calloc(DECODE_TABLE_SIZE, sizeof(char **));
+    if (psSnapshot->asRecords[i].ppcFields == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+      goto FAIL;
+    }
+
+    for (j = 0; j < DECODE_TABLE_SIZE; j++)
+    {
+      psSnapshot->asRecords[i].ppcFields[j] = (char *)calloc(DECODE_MAX_LINE, 1);
+      if (psSnapshot->asRecords[i].ppcFields[j] == NULL)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+        goto FAIL;
+      }
+    }
+  }
+
+  iError = MaskSetDynamicString(&psSnapshot->pcFile, pcSnapshot, acLocalError);
+  if (iError == ER)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    goto FAIL;
+  }
+
+  psSnapshot->pFile = SupportGetFileHandle(psSnapshot->pcFile, acLocalError);
+  if (psSnapshot->pFile == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber, acLocalError);
+    goto FAIL;
+  }
+
+  if (DecodeReadLine(psSnapshot, acLocalError) == NULL && ferror(psSnapshot->pFile))
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber, acLocalError);
+    goto FAIL;
+  }
+
+  iError = DecodeParseHeader(psSnapshot, acLocalError);
+  if (iError != ER_OK)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber, acLocalError);
+    goto FAIL;
+  }
+
+  return psSnapshot;
+
+FAIL:
+  DecodeFreeSnapshotContext2(psSnapshot);
+
+  return NULL;
 }
 
 

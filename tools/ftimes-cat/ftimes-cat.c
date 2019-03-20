@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes-cat.c,v 1.14 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: ftimes-cat.c,v 1.19 2019/03/14 16:07:43 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2009-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2009-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -22,14 +22,22 @@ int
 main(int iArgumentCount, char *ppcArgumentVector[])
 {
   char                acLocalError[MESSAGE_SIZE] = "";
-  char               *pcEncodedName = NULL;
+  char               *pcDecodedName = NULL;
   FTIMES_CAT_HANDLE  *psHandle = NULL;
-  int                 i = 0;
+  int                 iIndex = 0;
+  int                 iDecoded = 0;
   int                 iNRead = 0;
   int                 iNWritten = 0;
   int                 iStdinCount = 0;
   unsigned char       aucData[FTIMES_CAT_READ_SIZE];
 
+  /*-
+   *********************************************************************
+   *
+   * Punch in and go to work.
+   *
+   *********************************************************************
+   */
 #ifdef WINNT
   if (_setmode(_fileno(stdout), _O_BINARY) == -1)
   {
@@ -38,6 +46,13 @@ main(int iArgumentCount, char *ppcArgumentVector[])
   }
 #endif
 
+  /*-
+   *********************************************************************
+   *
+   * Process command line arguments.
+   *
+   *********************************************************************
+   */
   if (iArgumentCount < 2)
   {
     FTimesCatUsage();
@@ -48,12 +63,20 @@ main(int iArgumentCount, char *ppcArgumentVector[])
     FTimesCatVersion();
   }
 
-  for (i = 1; i < iArgumentCount; i++)
+  /*-
+   *********************************************************************
+   *
+   * Make sure stdin has not been specified more than once.
+   *
+   *********************************************************************
+   */
+  for (iIndex = 1; iIndex < iArgumentCount; iIndex++)
   {
-    pcEncodedName = ppcArgumentVector[i];
     if
     (
-      (strcmp(pcEncodedName, "-") == 0 || strcmp(pcEncodedName, "%2D") == 0 || strcmp(pcEncodedName, "%2d") == 0)
+         strcmp(ppcArgumentVector[iIndex], "-") == 0
+      || strcmp(ppcArgumentVector[iIndex], FTIMES_CAT_ENCODED_PREFIX"%2D") == 0
+      || strcmp(ppcArgumentVector[iIndex], FTIMES_CAT_ENCODED_PREFIX"%2d") == 0
     )
     {
       if (++iStdinCount > 1)
@@ -64,29 +87,75 @@ main(int iArgumentCount, char *ppcArgumentVector[])
     }
   }
 
-  for (i = 1; i < iArgumentCount; i++)
+  /*-
+   *********************************************************************
+   *
+   * Process any files listed on the command line.
+   *
+   *********************************************************************
+   */
+  for (iIndex = 1; iIndex < iArgumentCount; iIndex++)
   {
-    pcEncodedName = ppcArgumentVector[i];
-    psHandle = FTimesCatGetHandle(pcEncodedName, acLocalError);
-    if (psHandle == NULL)
+    /*-
+     *******************************************************************
+     *
+     * Conditionally free up previously allocated resources.
+     *
+     *******************************************************************
+     */
+    if (iDecoded && pcDecodedName != NULL)
     {
-      fprintf(stderr, "%s: Error='Unable to obtain a handle for \"%s\" (%s).'\n", PROGRAM_NAME, pcEncodedName, acLocalError);
-      return XER_Abort;
+      free(pcDecodedName);
+    }
+    iDecoded = 0;
+
+    /*-
+     *******************************************************************
+     *
+     * Conditionally decode the filename.
+     *
+     *******************************************************************
+     */
+    if (strncmp(ppcArgumentVector[iIndex], FTIMES_CAT_ENCODED_PREFIX, FTIMES_CAT_ENCODED_PREFIX_LENGTH) == 0)
+    {
+      pcDecodedName = FTimesCatDecodeString(&ppcArgumentVector[iIndex][FTIMES_CAT_ENCODED_PREFIX_LENGTH], acLocalError);
+      if (pcDecodedName == NULL)
+      {
+        fprintf(stderr, "%s: Error='Unable to decode \"%s\" (%s).'\n", PROGRAM_NAME, ppcArgumentVector[iIndex], acLocalError);
+        continue;
+      }
+      iDecoded = 1;
+    }
+    else
+    {
+      pcDecodedName = ppcArgumentVector[iIndex];
     }
 
+    /*-
+     *******************************************************************
+     *
+     * Process the file.
+     *
+     *******************************************************************
+     */
+    psHandle = FTimesCatGetHandle(pcDecodedName, acLocalError);
+    if (psHandle == NULL)
+    {
+      fprintf(stderr, "%s: Error='Unable to obtain a handle for \"%s\" (%s).'\n", PROGRAM_NAME, ppcArgumentVector[iIndex], acLocalError);
+      return XER_Abort;
+    }
     while ((iNRead = fread(aucData, 1, FTIMES_CAT_READ_SIZE, psHandle->pFile)) == FTIMES_CAT_READ_SIZE)
     {
       iNWritten = fwrite(aucData, 1, iNRead, stdout);
       if (iNWritten != iNRead)
       {
-        fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s).'\n", PROGRAM_NAME, pcEncodedName, strerror(errno));
+        fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s).'\n", PROGRAM_NAME, ppcArgumentVector[iIndex], strerror(errno));
         return XER_Abort;
       }
     }
-
     if (iNRead < FTIMES_CAT_READ_SIZE && ferror(psHandle->pFile))
     {
-      fprintf(stderr, "%s: Error='Read error while processing \"%s\" (%s).'\n", PROGRAM_NAME, pcEncodedName, strerror(errno));
+      fprintf(stderr, "%s: Error='Read error while processing \"%s\" (%s).'\n", PROGRAM_NAME, ppcArgumentVector[iIndex], strerror(errno));
       return XER_Abort;
     }
     else
@@ -94,11 +163,10 @@ main(int iArgumentCount, char *ppcArgumentVector[])
       iNWritten = fwrite(aucData, 1, iNRead, stdout);
       if (iNWritten != iNRead)
       {
-        fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s).'\n", PROGRAM_NAME, pcEncodedName, strerror(errno));
+        fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s).'\n", PROGRAM_NAME, ppcArgumentVector[iIndex], strerror(errno));
         return XER_Abort;
       }
     }
-
     FTimesCatFreeHandle(psHandle);
   }
 
@@ -160,7 +228,7 @@ FTimesCatDecodeString(char *pcEncoded, char *pcError)
       }
       else
       {
-        snprintf(pcError, MESSAGE_SIZE, "bad value in string");
+        snprintf(pcError, MESSAGE_SIZE, "Bad hex value in string");
         free(pcDecoded);
         return NULL;
       }
@@ -296,10 +364,6 @@ FTimesCatFreeHandle(FTIMES_CAT_HANDLE *psHandle)
       free(psHandle->pcFileW);
     }
 #endif
-    if (psHandle->pcDecodedName)
-    {
-      free(psHandle->pcDecodedName);
-    }
     free(psHandle);
   }
 }
@@ -313,28 +377,41 @@ FTimesCatFreeHandle(FTIMES_CAT_HANDLE *psHandle)
  ***********************************************************************
  */
 FTIMES_CAT_HANDLE *
-FTimesCatGetHandle(char *pcEncodedName, char *pcError)
+FTimesCatGetHandle(char *pcDecodedName, char *pcError)
 {
   const char          acRoutine[] = "FTimesCatGetHandle()";
+#ifdef WINNT
   char                acLocalError[MESSAGE_SIZE] = "";
+#endif
   FTIMES_CAT_HANDLE  *psHandle = NULL;
 #ifdef WINNT
   int                 iSize = 0;
   TCHAR              *ptcWinxError = NULL;
 #endif
 
+  /*-
+   *********************************************************************
+   *
+   * Allocate and initialize a new handle structure.
+   *
+   *********************************************************************
+   */
   psHandle = (FTIMES_CAT_HANDLE *) calloc(sizeof(FTIMES_CAT_HANDLE), 1);
   if (psHandle == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
-  psHandle->pcDecodedName = FTimesCatDecodeString(pcEncodedName, acLocalError);
-  if (psHandle->pcDecodedName == NULL)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: FTimesCatDecodeString(): %s", acRoutine, acLocalError);
-    goto ABORT;
-  }
+  psHandle->pcDecodedName = pcDecodedName;
+
+  /*-
+   *********************************************************************
+   *
+   * Open the specified file for binary read access. If the filename is
+   * "-", use stdin.
+   *
+   *********************************************************************
+   */
   if (strcmp(psHandle->pcDecodedName, "-") == 0)
   {
     psHandle->pFile = stdin;
@@ -375,16 +452,16 @@ FTimesCatGetHandle(char *pcEncodedName, char *pcError)
     snprintf(pcError, MESSAGE_SIZE, "%s: CreateFileW(): %s", acRoutine, ptcWinxError);
     goto ABORT;
   }
-  psHandle->iFile = _open_osfhandle((long) psHandle->hFile, 0);
+  psHandle->iFile = _open_osfhandle((intptr_t) psHandle->hFile, 0);
   if (psHandle->iFile == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: _open_osfhandle(): %s", acRoutine, strerror(errno));
     goto ABORT;
   }
-  psHandle->pFile = fdopen(psHandle->iFile, "rb");
+  psHandle->pFile = _fdopen(psHandle->iFile, "rb");
   if (psHandle->pFile == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: fdopen(): %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: _fdopen(): %s", acRoutine, strerror(errno));
     goto ABORT;
   }
 #else

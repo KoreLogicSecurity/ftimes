@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: mask.c,v 1.22 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: mask.c,v 1.26 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2005-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -99,6 +99,14 @@ static MASK_B2S_TABLE gasMapMaskTable[] =
 };
 #endif
 
+static MASK_B2S_TABLE gasSrmMaskTable[] =
+{
+  { "size",       1 },
+  { "md5",        1 },
+  { "sha1",       1 },
+  { "sha256",     1 },
+};
+
 /*-
  ***********************************************************************
  *
@@ -132,6 +140,7 @@ MaskBuildMask(unsigned long ulMask, int iType, char *pcError)
   case MASK_RUNMODE_TYPE_CMP:
   case MASK_RUNMODE_TYPE_DIG:
   case MASK_RUNMODE_TYPE_MAP:
+  case MASK_RUNMODE_TYPE_SRM:
     break;
   default:
     snprintf(pcError, MESSAGE_SIZE, "%s: Invalid type [%d]. That shouldn't happen.", acRoutine, iType);
@@ -231,6 +240,9 @@ MaskGetTableLength(int iType)
   case MASK_RUNMODE_TYPE_MAP:
     return (sizeof(gasMapMaskTable) / sizeof(gasMapMaskTable[0]));
     break;
+  case MASK_RUNMODE_TYPE_SRM:
+    return (sizeof(gasSrmMaskTable) / sizeof(gasSrmMaskTable[0]));
+    break;
   default:
     return 0;
     break;
@@ -258,6 +270,9 @@ MaskGetTableReference(int iType)
     break;
   case MASK_RUNMODE_TYPE_MAP:
     return gasMapMaskTable;
+    break;
+  case MASK_RUNMODE_TYPE_SRM:
+    return gasSrmMaskTable;
     break;
   default:
     return NULL;
@@ -342,6 +357,9 @@ MaskParseMask(char *pcMask, int iType, char *pcError)
     break;
   case MASK_RUNMODE_TYPE_MAP:
     ulAllMask = MAP_ALL_MASK;
+    break;
+  case MASK_RUNMODE_TYPE_SRM:
+    ulAllMask = SRM_ALL_MASK;
     break;
   default:
     snprintf(pcError, MESSAGE_SIZE, "%s: Invalid type [%d]. That shouldn't happen.", acRoutine, iType);
@@ -520,15 +538,15 @@ MaskParseMask(char *pcMask, int iType, char *pcError)
          *
          ***************************************************************
          */
-        if (strcasecmp(pcToken, "hashes") == 0 && (iType == MASK_RUNMODE_TYPE_CMP || iType == MASK_RUNMODE_TYPE_MAP))
+        if (strcasecmp(pcToken, "hashes") == 0 && (iType == MASK_RUNMODE_TYPE_CMP || iType == MASK_RUNMODE_TYPE_MAP || iType == MASK_RUNMODE_TYPE_SRM))
         {
           if (cLastAction == '+')
           {
-            psMask->ulMask |= (iType == MASK_RUNMODE_TYPE_CMP) ? CMP_HASHES_MASK : MAP_HASHES_MASK;
+            psMask->ulMask |= (iType == MASK_RUNMODE_TYPE_CMP) ? CMP_HASHES_MASK : (iType == MASK_RUNMODE_TYPE_MAP) ? MAP_HASHES_MASK : SRM_HASHES_MASK;
           }
           else
           {
-            psMask->ulMask &= (iType == MASK_RUNMODE_TYPE_CMP) ? ~CMP_HASHES_MASK : ~MAP_HASHES_MASK;
+            psMask->ulMask &= (iType == MASK_RUNMODE_TYPE_CMP) ? ~CMP_HASHES_MASK : (iType == MASK_RUNMODE_TYPE_MAP) ? ~MAP_HASHES_MASK : ~SRM_HASHES_MASK;
           }
         }
         else if (strcasecmp(pcToken, "times") == 0 && (iType == MASK_RUNMODE_TYPE_CMP || iType == MASK_RUNMODE_TYPE_MAP))

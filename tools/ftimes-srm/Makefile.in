@@ -1,0 +1,57 @@
+########################################################################
+#
+# $Id: Makefile.in,v 1.1 2018/01/09 21:07:48 klm Exp $
+#
+########################################################################
+#
+# Purpose: Makefile for ftimes-srm.
+#
+########################################################################
+
+#.SILENT:
+
+bindir			= @bindir@
+CC			= @CC@
+CFLAGS			= @CFLAGS@
+exec_prefix		= @exec_prefix@
+EXTENSION		= @extension@
+INSTALL			= @INSTALL@
+INSTALL_PREFIX		= ${DESTDIR}${PREFIX}/bin
+LIBS			= @LIBS@
+PREFIX			= @prefix@
+PROGRAM			= ftimes-srm${EXTENSION}
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
+
+INCFLAGS		= -I.
+
+INCS			= decode.h options.h mask.h md5.h sha1.h sha256.h ftimes-srm.h
+
+LIBFLAGS		= ${LIBS}
+
+OBJS			= ${SRCS:.c=.o}
+
+SRCS			= decode.c options.c mask.c md5.c sha1.c sha256.c ftimes-srm.c time.c
+
+all: ${PROGRAM}
+
+test: ${PROGRAM}
+
+install-prefix:
+	@umask 22 ; if [ ! -d ${INSTALL_PREFIX} ] ; then mkdir -p ${INSTALL_PREFIX} ; fi
+
+install: ${PROGRAM} install-prefix
+	@${INSTALL} -m 755 ${PROGRAM} ${INSTALL_PREFIX}
+
+clean:
+	rm -f ${PROGRAM} ${OBJS} ${PROGRAM}.core core
+
+clean-all: clean
+	rm -f Makefile
+
+${PROGRAM}: ${OBJS}
+	${CC} ${OBJS} -o $@ ${CFLAGS} ${INCFLAGS} ${LIBFLAGS}
+
+.c.o:
+	${CC} ${CFLAGS} ${INCFLAGS} -c $<
+

@@ -1,0 +1,6 @@
+=head1 SYNOPSIS
+
+B<ftimes-srm> B<[OPTION [...]]> -- B<{-|snapshot} [snapshot [...]]>
+
+B<ftimes-srm> B<{-v|--version}>
+

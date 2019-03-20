@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: tarmap.c,v 1.31 2014/07/18 06:40:45 mavrik Exp $
+ * $Id: tarmap.c,v 1.35 2019/03/14 16:07:45 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2005-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -864,7 +864,11 @@ LONGNAME_TAKE2:
     switch (psTar->typeflag)
     {
     case DIRTYPE:
+#ifdef WIN32
+      fprintf(stdout, "\"%s%s%s\"|%o|%d|%d|%I64u|DIRECTORY|DIRECTORY\n",
+#else
       fprintf(stdout, "\"%s%s%s\"|%o|%d|%d|%llu|DIRECTORY|DIRECTORY\n",
+#endif
         (pcNeuteredPrefix[0]) ? pcNeuteredPrefix : "",
         (pcNeuteredPrefix[0]) ? "/" : "",
         pcNeuteredName,
@@ -875,7 +879,11 @@ LONGNAME_TAKE2:
         );
       break;
     case LNKTYPE:
+#ifdef WIN32
+      fprintf(stdout, "\"%s%s%s\"|%o|%d|%d|%I64u|HARDLINK to %s|HARDLINK to %s\n",
+#else
       fprintf(stdout, "\"%s%s%s\"|%o|%d|%d|%llu|HARDLINK to %s|HARDLINK to %s\n",
+#endif
         (pcNeuteredPrefix[0]) ? pcNeuteredPrefix : "",
         (pcNeuteredPrefix[0]) ? "/" : "",
         pcNeuteredName,
@@ -887,7 +895,11 @@ LONGNAME_TAKE2:
       break;
     case SYMTYPE:
       ui64Size = strlen(pcLink); /* The actual size for this type is the length of the link. */
+#ifdef WIN32
+      fprintf(stdout, "\"%s%s%s\"|%o|%d|%d|%I64u|",
+#else
       fprintf(stdout, "\"%s%s%s\"|%o|%d|%d|%llu|",
+#endif
         (pcNeuteredPrefix[0]) ? pcNeuteredPrefix : "",
         (pcNeuteredPrefix[0]) ? "/" : "",
         pcNeuteredName,
@@ -933,7 +945,11 @@ LONGNAME_TAKE2:
       }
       MD5Omega(&sMd5, aucMd5);
       SHA1Omega(&sSha1, aucSha1);
+#ifdef WIN32
+      fprintf(stdout, "\"%s%s%s\"|%o|%d|%d|%I64u|",
+#else
       fprintf(stdout, "\"%s%s%s\"|%o|%d|%d|%llu|",
+#endif
         (pcNeuteredPrefix[0]) ? pcNeuteredPrefix : "",
         (pcNeuteredPrefix[0]) ? "/" : "",
         pcNeuteredName,
@@ -961,7 +977,11 @@ LONGNAME_TAKE2:
     case CHRTYPE:
     case BLKTYPE:
     case FIFOTYPE:
+#ifdef WIN32
+      fprintf(stdout, "\"%s%s%s\"|%o|%d|%d|%I64u|SPECIAL|SPECIAL\n",
+#else
       fprintf(stdout, "\"%s%s%s\"|%o|%d|%d|%llu|SPECIAL|SPECIAL\n",
+#endif
         (pcNeuteredPrefix[0]) ? pcNeuteredPrefix : "",
         (pcNeuteredPrefix[0]) ? "/" : "",
         pcNeuteredName,

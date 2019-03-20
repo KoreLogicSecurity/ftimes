@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: hashcp.c,v 1.10 2014/07/18 06:40:45 mavrik Exp $
+ * $Id: hashcp.c,v 1.14 2019/03/14 16:07:44 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2009-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2009-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -114,7 +114,11 @@ main(int iArgumentCount, char *ppcArgumentVector[])
   SHA1HashToHex(aucSha1, acSha1Hash);
 
   fprintf(stdout, "name|size|md5|sha1\n");
+#ifdef WIN32
+  fprintf(stdout, "\"%s\"|%I64u|%s|%s\n",
+#else
   fprintf(stdout, "\"%s\"|%llu|%s|%s\n",
+#endif
     pcTargetFile,
     (unsigned long long) ui64TotalWritten,
     acMd5Hash,

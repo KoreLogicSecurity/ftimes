@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: map.c,v 1.110 2014/07/30 08:13:33 mavrik Exp $
+ * $Id: map.c,v 1.117 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -837,6 +837,20 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
   /*-
    *********************************************************************
    *
+   * See if we've hit our maximum depth.
+   *
+   *********************************************************************
+   */
+  if (psProperties->iAnalyzeMaxDepth && ++psFTTreeData->iDepth > psProperties->iAnalyzeMaxDepth)
+  {
+    snprintf(acMessage, MESSAGE_SIZE, "FS=%s Directory=%s MaxDepth=Reached", gaacFSType[psFTTreeData->iFSType], psFTTreeData->pcRawPath);
+    MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_WAYPOINT, MESSAGE_WAYPOINT_STRING, acMessage);
+    return ER_OK;
+  }
+
+  /*-
+   *********************************************************************
+   *
    * Let them know where we're at.
    *
    *********************************************************************
@@ -1151,6 +1165,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
       if (S_ISDIR(psFTFileData->sStatEntry.st_mode))
       {
         giDirectories++;
+        psFTFileData->iDepth = psFTTreeData->iDepth;
 #ifdef USE_XMAGIC
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
         {
@@ -1190,7 +1205,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
               ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
               continue;
             }
-            if (!psProperties->bAnalyzeRemoteFiles && (iNewFSType == FSTYPE_NFS || iNewFSType == FSTYPE_NFS3 || iNewFSType == FSTYPE_SMB))
+            if (!psProperties->bAnalyzeRemoteFiles && (iNewFSType == FSTYPE_CIFS || iNewFSType == FSTYPE_NFS || iNewFSType == FSTYPE_NFS3 || iNewFSType == FSTYPE_SMB || iNewFSType == FSTYPE_SMB2))
             {
               snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, psFTFileData->pcNeuteredPath);
               ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
@@ -1415,6 +1430,13 @@ MapGetFileHandleW(wchar_t *pwcPath)
    * to fail. The current value of READ_CONTROL seems to produce the
    * best results.
    *
+   * Update 2: FILE_FLAG_OPEN_REPARSE_POINT was added to suppress any
+   * automatic processing that takes place. According to the MSDN
+   * documentation for CreateFile(), "normal reparse point processing
+   * will not occur" when this flag is set. The documentation also
+   * states that this flag is ignored "if the file is not a reparse
+   * point", so it should be safe to always include it.
+   *
    *********************************************************************
    */
   return CreateFileW(
@@ -1423,7 +1445,7 @@ MapGetFileHandleW(wchar_t *pwcPath)
     FILE_SHARE_READ,
     NULL,
     OPEN_EXISTING,
-    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_SEQUENTIAL_SCAN,
+    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_SEQUENTIAL_SCAN | FILE_FLAG_OPEN_REPARSE_POINT,
     NULL
     );
 }
@@ -1464,6 +1486,20 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
 //  wchar_t            *pwcParentPath = NULL;
 //END (\\?\)
   WIN32_FIND_DATAW    sFindDataW;
+
+  /*-
+   *********************************************************************
+   *
+   * See if we've hit our maximum depth.
+   *
+   *********************************************************************
+   */
+  if (psProperties->iAnalyzeMaxDepth && ++psFTTreeData->iDepth > psProperties->iAnalyzeMaxDepth)
+  {
+    snprintf(acMessage, MESSAGE_SIZE, "FS=%s Directory=%s MaxDepth=Reached", gaacFSType[psFTTreeData->iFSType], psFTTreeData->pcRawPath);
+    MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_WAYPOINT, MESSAGE_WAYPOINT_STRING, acMessage);
+    return ER_OK;
+  }
 
   /*-
    *********************************************************************
@@ -1821,15 +1857,25 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
       if ((psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
       {
         giDirectories++;
+        psFTFileData->iDepth = psFTTreeData->iDepth;
 #ifdef USE_XMAGIC
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
         {
           snprintf(psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, "special/directory");
         }
 #endif
+/* FIXME Need to handle the case where the directory is actually a mount point as opposed to a junction. We should process the former and skip the latter. */
         if (psProperties->bEnableRecursion)
         {
-          MapTree(psProperties, psFTFileData, acLocalError);
+          if (psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+          {
+            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding reparse point. Any files and/or directories below this point must be handled separately.", acRoutine, psFTFileData->pcNeuteredPath);
+            ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+          }
+          else
+          {
+            MapTree(psProperties, psFTFileData, acLocalError);
+          }
         }
 #ifdef USE_PCRE
         if (psFTFileData->iFiltered) /* We're done. */
@@ -2356,7 +2402,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    *********************************************************************
    */
   iFSType = psFTFileData->iFSType;
-  if (!psProperties->bAnalyzeRemoteFiles && (iFSType == FSTYPE_NFS || iFSType == FSTYPE_NFS3 || iFSType == FSTYPE_SMB))
+  if (!psProperties->bAnalyzeRemoteFiles && (iFSType == FSTYPE_CIFS || iFSType == FSTYPE_NFS || iFSType == FSTYPE_NFS3 || iFSType == FSTYPE_SMB || iFSType == FSTYPE_SMB2))
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, psFTFileData->pcNeuteredPath);
     ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
@@ -2426,6 +2472,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   if (S_ISDIR(psFTFileData->sStatEntry.st_mode))
   {
     giDirectories++;
+    psFTFileData->iDepth = 0;
 #ifdef USE_XMAGIC
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
     {
@@ -2788,13 +2835,23 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   if ((psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
   {
     giDirectories++;
+    psFTFileData->iDepth = 0;
 #ifdef USE_XMAGIC
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
     {
       snprintf(psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, "special/directory");
     }
 #endif
-    MapTree(psProperties, psFTFileData, acLocalError);
+/* FIXME Need to handle the case where the directory is actually a mount point as opposed to a junction. We should process the former and skip the latter. */
+    if (psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding reparse point. Any files and/or directories below this point must be handled separately.", acRoutine, psFTFileData->pcNeuteredPath);
+      ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+    }
+    else
+    {
+      MapTree(psProperties, psFTFileData, acLocalError);
+    }
 #ifdef USE_PCRE
     if (psFTFileData->iFiltered) /* We're done. */
     {

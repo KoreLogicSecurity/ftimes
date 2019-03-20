@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.46 2014/07/18 06:40:43 mavrik Exp $
+# $Id: Makefile.vs,v 1.50 2019/03/14 16:07:42 klm Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2000-2019 The FTimes Project, All Rights Reserved.
 #
 ########################################################################
 #
@@ -15,7 +15,6 @@
 BUILD_TYPE		= RELEASE	# [RELEASE|DEBUG]
 PLATFORM_TYPE		= WINNT		# [WINNT]
 USE_PCRE		= Y		# [Y|N]
-USE_SDDL		= Y		# [Y|N]
 USE_SERVER		= N		# [Y|N]
 USE_SSL			= Y		# [Y|N]
 USE_STATIC_SSL_LIBS	= Y		# [Y|N]
@@ -32,12 +31,6 @@ PCRE_LIB_DIR		= $(PCRE_DIR)\lib
 PCRE_INC_DIR		= $(PCRE_DIR)\include
 PCRE_COMPILER_FLAGS	= /D USE_PCRE /D PCRE_STATIC /I"$(PCRE_INC_DIR)"
 PCRE_LINKER_FLAGS	= /libpath:"$(PCRE_LIB_DIR)" pcre.lib pcreposix.lib
-!ENDIF
-
-!IF "$(USE_SDDL)" == "Y" || "$(USE_SDDL)" == "y"
-SDDL_COMPILER_FLAGS	= /D USE_SDDL
-!ELSE
-SDDL_COMPILER_FLAGS	=
 !ENDIF
 
 !IF "$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y"
@@ -74,7 +67,6 @@ COMPILER_FLAGS		=\
 			/D WIN32\
 			/D WINNT\
 			$(PCRE_COMPILER_FLAGS)\
-			$(SDDL_COMPILER_FLAGS)\
 			$(SSL_COMPILER_FLAGS)\
 			$(XMAGIC_COMPILER_FLAGS)\
 			/Fo"$(OBJECT_DIR)\\"\

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: mask.h,v 1.21 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: mask.h,v 1.25 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2005-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -108,11 +108,22 @@
 /*--------------------------------*/
 #endif
 
+/*--------------------------------*/
+#define SRM_SIZE        0x00000001
+#define SRM_MD5         0x00000002
+#define SRM_SHA1        0x00000004
+#define SRM_SHA256      0x00000008
+/*--------------------------------*/
+#define SRM_ALL_MASK    0x0000000f
+#define SRM_HASHES_MASK 0x0000000e
+/*--------------------------------*/
+
 #define MASK_MASK_TYPE_USS 1
 
 #define MASK_RUNMODE_TYPE_CMP 1
 #define MASK_RUNMODE_TYPE_DIG 2
 #define MASK_RUNMODE_TYPE_MAP 3
+#define MASK_RUNMODE_TYPE_SRM 4
 
 #define MASK_TABLE_TYPE_B2S 1
 

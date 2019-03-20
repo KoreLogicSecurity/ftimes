@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: tree_builder,v 1.14 2014/07/18 06:40:46 mavrik Exp $
+# $Id: tree_builder,v 1.18 2019/03/14 16:07:45 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -155,7 +155,7 @@ BEGIN
   if (!$$phProperties{'NoMap'})
   {
     require Digest::MD5;
-    require Digest::SHA1;
+    require Digest::SHA;
   }
 
   ####################################################################
@@ -400,10 +400,10 @@ sub MkFiles
     }
     if (!$$phProperties{'NoMap'})
     {
-      my $oMd5 = Digest::MD5->new;
+      my $oMd5 = Digest::MD5->new();
       $oMd5->add($sName);
       my $sMd5 = $oMd5->hexdigest;
-      my $oSha1 = Digest::SHA1->new;
+      my $oSha1 = Digest::SHA->new(1);
       $oSha1->add($sName);
       my $sSha1 = $oSha1->hexdigest;
       PrintRecord("\"$sFile\"|$sMd5|$sSha1");
@@ -442,10 +442,10 @@ sub MkLinks
     }
     if (!$$phProperties{'NoMap'})
     {
-      my $oMd5 = Digest::MD5->new;
+      my $oMd5 = Digest::MD5->new();
       $oMd5->add($sName);
       my $sMd5 = $oMd5->hexdigest;
-      my $oSha1 = Digest::SHA1->new;
+      my $oSha1 = Digest::SHA->new(1);
       $oSha1->add($sName);
       my $sSha1 = $oSha1->hexdigest;
       PrintRecord("\"$sLink\"|$sMd5|$sSha1");

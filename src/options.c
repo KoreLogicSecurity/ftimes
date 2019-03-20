@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: options.c,v 1.7 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: options.c,v 1.11 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2006-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2006-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -334,6 +334,120 @@ OptionsNewOptionsContext(int iArgumentCount, TCHAR *pptcArgumentVector[], TCHAR 
   psOptionsContext->piArgumentTypes[0] = OPTIONS_ARGUMENT_TYPE_PROGRAM;
 
   return psOptionsContext;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * OptionsProcessOptions2
+ *
+ ***********************************************************************
+ */
+int
+OptionsProcessOptions2(OPTIONS_CONTEXT *psOptionsContext, void *pvProperties, TCHAR *ptcError)
+{
+  TCHAR               atcLocalError[MESSAGE_SIZE] = { 0 };
+  TCHAR              *ptcArgument = NULL;
+  int                 iError = 0;
+  int                 iIndex = 0;
+  OPTIONS_TABLE      *psOptions = psOptionsContext->psOptions;
+
+  /*-
+   *********************************************************************
+   *
+   * Walk the argument list.
+   *
+   *********************************************************************
+   */
+  while ((ptcArgument = OptionsGetNextArgument(psOptionsContext)) != NULL)
+  {
+    /*-
+     *******************************************************************
+     *
+     * Check for the end of options token ("--"). If it is found, save
+     * the current argument index, classify the remaining arguments as
+     * operands, and break.
+     *
+     *******************************************************************
+     */
+    if (_tcscmp(ptcArgument, _T("--")) == 0)
+    {
+      OptionsSetArgumentType(psOptionsContext, OPTIONS_ARGUMENT_TYPE_END_OF_OPTIONS);
+      while ((ptcArgument = OptionsGetNextArgument(psOptionsContext)) != NULL)
+      {
+        OptionsSetArgumentType(psOptionsContext, OPTIONS_ARGUMENT_TYPE_OPERAND);
+      }
+      break;
+    }
+
+    /*-
+     *******************************************************************
+     *
+     * Scan the options table looking for a match on the nick name or
+     * the full name. If a match is found, pass the option and its
+     * argument, if any, to the designated handler.
+     *
+     *******************************************************************
+     */
+    for (iIndex = 0; iIndex < psOptionsContext->iNOptions; iIndex++)
+    {
+      if (
+           (psOptions[iIndex].atcNickName[0] && _tcscmp(ptcArgument, psOptions[iIndex].atcNickName) == 0) ||
+           (psOptions[iIndex].atcFullName[0] && _tcscmp(ptcArgument, psOptions[iIndex].atcFullName) == 0)
+         )
+      {
+        if (psOptions[iIndex].iAllowRepeats == 0 && psOptions[iIndex].iFound == 1)
+        {
+          _sntprintf(ptcError, MESSAGE_SIZE, _T("OptionsProcessOptions(): The %s option may not be specified more than once."), ptcArgument);
+          return OPTIONS_ER;
+        }
+        OptionsSetArgumentType(psOptionsContext, OPTIONS_ARGUMENT_TYPE_OPTION);
+/* TODO: Modify this section (down to the break) to support multiple arguments per option. */
+        if (psOptions[iIndex].iNArguments > 0)
+        {
+          if (OptionsGetArgumentsLeft(psOptionsContext) < 1)
+          {
+            return OPTIONS_USAGE;
+          }
+          ptcArgument = OptionsGetNextArgument(psOptionsContext);
+          OptionsSetArgumentType(psOptionsContext, OPTIONS_ARGUMENT_TYPE_OPTION_ARGUMENT);
+        }
+        else
+        {
+          ptcArgument = NULL;
+        }
+        psOptions[iIndex].iFound = 1;
+        iError = psOptions[iIndex].piHandler(&psOptions[iIndex], ptcArgument, pvProperties, atcLocalError);
+        if (iError != OPTIONS_OK)
+        {
+          _sntprintf(ptcError, MESSAGE_SIZE, _T("OptionsProcessOptions(): %s"), atcLocalError);
+          return OPTIONS_ER;
+        }
+        break;
+      }
+    }
+
+    /*-
+     *******************************************************************
+     *
+     * Reject unmatched arguments that look like options. Treat single
+     * hyphens ("-") as arguments/operands rather than options.
+     *
+     *******************************************************************
+     */
+    if (iIndex == psOptionsContext->iNOptions)
+    {
+      if (ptcArgument[0] == '-' && ptcArgument[1] != 0)
+      {
+        _sntprintf(ptcError, MESSAGE_SIZE, _T("OptionsProcessOptions(): option=[%s]: Unknown option."), ptcArgument);
+        return OPTIONS_ER;
+      }
+      OptionsSetArgumentType(psOptionsContext, OPTIONS_ARGUMENT_TYPE_OPERAND);
+    }
+  }
+
+  return OPTIONS_OK;
 }
 
 

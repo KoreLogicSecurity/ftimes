@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-proximo,v 1.10 2014/07/18 06:40:45 mavrik Exp $
+# $Id: ftimes-proximo,v 1.14 2019/03/14 16:07:44 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2009-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2009-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -16,7 +16,7 @@
 use strict;
 use File::Basename;
 use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
-use FTimes::EadRoutines;
+use FTimes::EadRoutines 1.025;
 use Getopt::Std;
 use Storable qw(dclone);
 

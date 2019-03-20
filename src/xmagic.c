@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: xmagic.c,v 1.109 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: xmagic.c,v 1.113 2019/03/15 01:09:59 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -1373,7 +1373,7 @@ XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
           break;
         case '<':
           psXMagic->sIndirection.iOperator = XMAGIC_WARP_OP_LSHIFT;
-          if (psXMagic->sIndirection.ui32Value < 0 || psXMagic->sIndirection.ui32Value > 31)
+          if (psXMagic->sIndirection.ui32Value > 31) /* This variable is unsigned, thus we assume it can't be < 0. */
           {
             snprintf(pcError, MESSAGE_SIZE, "%s: Y values must be in the range [0-31] for shift operators.", acRoutine);
             return ER;
@@ -1381,7 +1381,7 @@ XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
           break;
         case '>':
           psXMagic->sIndirection.iOperator = XMAGIC_WARP_OP_RSHIFT;
-          if (psXMagic->sIndirection.ui32Value < 0 || psXMagic->sIndirection.ui32Value > 31)
+          if (psXMagic->sIndirection.ui32Value > 31) /* This variable is unsigned, thus we assume it can't be < 0. */
           {
             snprintf(pcError, MESSAGE_SIZE, "%s: Y values must be in the range [0-31] for shift operators.", acRoutine);
             return ER;
@@ -2228,7 +2228,7 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
         break;
       case '<':
         psXMagic->iWarpOperator = XMAGIC_WARP_OP_LSHIFT;
-        if (psXMagic->ui32WarpValue < 0 || psXMagic->ui32WarpValue > 31)
+        if (psXMagic->ui32WarpValue > 31) /* This variable is unsigned, thus we assume it can't be < 0. */
         {
           snprintf(pcError, MESSAGE_SIZE, "%s: Warp values must be in the range [0-31] for shift operators.", acRoutine);
           return ER;
@@ -2236,7 +2236,7 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
         break;
       case '>':
         psXMagic->iWarpOperator = XMAGIC_WARP_OP_RSHIFT;
-        if (psXMagic->ui32WarpValue < 0 || psXMagic->ui32WarpValue > 31)
+        if (psXMagic->ui32WarpValue > 31) /* This variable is unsigned, thus we assume it can't be < 0. */
         {
           snprintf(pcError, MESSAGE_SIZE, "%s: Warp values must be in the range [0-31] for shift operators.", acRoutine);
           return ER;

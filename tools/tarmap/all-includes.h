@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: all-includes.h,v 1.14 2014/07/18 06:40:45 mavrik Exp $
+ * $Id: all-includes.h,v 1.18 2019/03/14 16:07:45 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2005-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -13,6 +13,7 @@
 #include "config.h"
 #endif
 
+#include <ctype.h>
 #ifdef UNIX
 #include <dirent.h>
 #endif
@@ -30,7 +31,6 @@
 
 #ifdef USE_AP_SNPRINTF
 #ifdef FTimes_SOLARIS
-#include <ctype.h>
 #include <stdarg.h>
 #endif
 #include <limits.h>

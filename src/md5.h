@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: md5.h,v 1.21 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: md5.h,v 1.25 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2003-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -69,6 +69,7 @@ int                   MD5HashToBase64(unsigned char *pucHash, char *pcBase64Hash
 int                   MD5HashToHex(unsigned char *pucHash, char *pcHexHash);
 int                   MD5HashStream(FILE *pFile, unsigned char *pucMD5, APP_UI64 *pui64Size);
 void                  MD5HashString(unsigned char *pucData, int iLength, unsigned char *pucMD5);
+void                  MD5HexToHash(char *pcHexHash, unsigned char *pucHash);
 void                  MD5Alpha(MD5_CONTEXT *psMD5);
 void                  MD5Cycle(MD5_CONTEXT *psMD5, unsigned char *pucData, APP_UI32 ui32Length);
 void                  MD5Omega(MD5_CONTEXT *psMD5, unsigned char *pucMD5);

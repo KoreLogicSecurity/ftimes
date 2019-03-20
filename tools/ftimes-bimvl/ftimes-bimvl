@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-bimvl,v 1.1 2014/06/23 18:05:04 mavrik Exp $
+# $Id: ftimes-bimvl,v 1.18 2019/03/14 16:07:43 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2010-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2010-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -14,8 +14,10 @@
 ######################################################################
 
 use strict;
+use Fcntl qw(:DEFAULT :flock);
 use File::Basename;
 use File::Path;
+use FileHandle;
 use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
 use Getopt::Std;
 use IO::Socket;
@@ -65,6 +67,26 @@ BEGIN
   }
 }
 
+END
+{
+  ####################################################################
+  #
+  # Conditionally release the process lock.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  if (defined($$phProperties{'PidHandle'}))
+  {
+    flock($$phProperties{'PidHandle'}, LOCK_UN);
+    undef($$phProperties{'PidHandle'}); # According to the documentation, this will automatically close the file.
+    unlink($$phProperties{'PidFile'});
+  }
+}
+
 ######################################################################
 #
 # Main Routine
@@ -106,7 +128,7 @@ BEGIN
 
   my (%hOptions);
 
-  if (!getopts('d:f:H:i:m:p:Ss:t:', \%hOptions))
+  if (!getopts('d:f:H:i:m:o:p:s:t:', \%hOptions))
   {
     Usage($$phProperties{'Program'});
   }
@@ -139,7 +161,7 @@ BEGIN
   }
   else
   {
-    $$phProperties{'FTimesHome'} = ($$phProperties{'OsClass'} eq "WINX") ? "C:/FTimes" : "/usr/local/ftimes";
+    $$phProperties{'FTimesHome'} = ($$phProperties{'OsClass'} eq "WINX") ? "C:/Program Files/FTimes" : "/usr/local/ftimes";
   }
 
   ####################################################################
@@ -168,6 +190,49 @@ BEGIN
 
   ####################################################################
   #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  my @sSupportedOptions =
+  (
+    'ForceBuild',
+    'ForceClean',
+    'GidDecode',
+    'LogViaUdpSocket',
+    'ModeDecode',
+    'NoDecode',
+    'NoSysLog',
+    'UidDecode',
+    'UseCmp2Diff',
+    'UseBigIntegers',
+  );
+  foreach my $sOption (@sSupportedOptions)
+  {
+    $$phProperties{$sOption} = 0 unless ($$phProperties{$sOption});
+  }
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (defined($$phProperties{'Options'}))
+  {
+    foreach my $sOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sSupportedOption (@sSupportedOptions)
+      {
+        $sOption = $sSupportedOption if ($sOption =~ /^$sSupportedOption$/i);
+      }
+      if (!exists($$phProperties{$sOption}))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unknown or unsupported option ($sOption).'\n";
+        exit(2);
+      }
+      $$phProperties{$sOption} = 1;
+    }
+  }
+
+  ####################################################################
+  #
   # A syslog facility/level, '-p', is optional.
   #
   ####################################################################
@@ -182,20 +247,6 @@ BEGIN
   }
 
   ($$phProperties{'Facility'}, $$phProperties{'Level'}) = split(/\./, $$phProperties{'FacilityLevel'});
-
-  ####################################################################
-  #
-  # The use syslog flag, '-S', is optional.
-  #
-  ####################################################################
-
-  $$phProperties{'UseSyslog'} = (exists($hOptions{'S'})) ? 1 : 0;
-
-  if ($$phProperties{'UseSyslog'})
-  {
-#FIXME Need to handle WINX platforms which may not have this module.
-    use Sys::Syslog;
-  }
 
   ####################################################################
   #
@@ -230,7 +281,7 @@ BEGIN
   #
   ####################################################################
 
-  $$phProperties{'Tag'} = (exists($hOptions{'t'})) ? $hOptions{'t'} : undef;
+  $$phProperties{'Tag'} = (exists($hOptions{'t'})) ? $hOptions{'t'} : $$phProperties{'Program'};
 
   ####################################################################
   #
@@ -260,17 +311,36 @@ BEGIN
 
   ####################################################################
   #
-  # Create the socket if not using Sys::Syslog otherwise open syslog
+  # Acquire a process lock. This is an exclusive lock.
+  #
+  ####################################################################
+
+  my (%hLArgs, $oPidHandle);
+
+  %hLArgs =
+  (
+    'PidFile'  => $$phProperties{'PidFile'},
+    'PidFlags' => LOCK_EX | LOCK_NB,
+  );
+  $oPidHandle = CreatePidFile(\%hLArgs);
+  if (!defined($oPidHandle))
+  {
+    print STDERR "$$phProperties{'Program'}: Error='$hLArgs{'Error'}'\n";
+    exit(2);
+  }
+  $$phProperties{'PidHandle'} = $oPidHandle;
+
+  ####################################################################
+  #
+  # Conditionaly create a socket or open syslog.
   #
   ####################################################################
 
   my ($oSocket);
 
-  if ($$phProperties{'UseSyslog'})
-  {
-    openlog($$phProperties{'Program'}, "pid", $$phProperties{'Facility'});
-  }
-  else
+unless ($$phProperties{'NoSysLog'})
+{
+  if ($$phProperties{'LogViaUdpSocket'})
   {
     $oSocket = new IO::Socket::INET('PeerAddr' => $$phProperties{'Server'}, 'PeerPort' => $$phProperties{'Port'}, Proto => 'udp');
     if (!defined($oSocket))
@@ -279,6 +349,17 @@ BEGIN
       exit(2);
     }
   }
+  else
+  {
+    if ($$phProperties{'OsClass'} eq "WINX")
+    {
+      print STDERR "$$phProperties{'Program'}: Error='The \"LogViaUpdSocket\" option must be enabled for this platform.'\n";
+      exit(2);
+    }
+    require Sys::Syslog; import Sys::Syslog qw(closelog openlog syslog); # Note: We use require/import here to avoid compile-time complications on WINX platforms.
+    openlog($$phProperties{'Tag'}, "pid", $$phProperties{'Facility'});
+  }
+}
 
   ####################################################################
   #
@@ -347,7 +428,7 @@ EOF
     }
     print PH $sConfig;
     close(PH);
-    my $sStatus = ($? >> 8) & 0xff;
+    $sStatus = ($? >> 8) & 0xff;
     if ($sStatus != 0)
     {
       print STDERR "$$phProperties{'Program'}: Error='FTimes map mode returned an exit code of $sStatus, which indicates that the operation failed.'\n";
@@ -384,58 +465,118 @@ EOF
     }
     print PH $sConfig;
     close(PH);
-    my $sStatus = ($? >> 8) & 0xff;
+    $sStatus = ($? >> 8) & 0xff;
     if ($sStatus != 0)
     {
       print STDERR "$$phProperties{'Program'}: Error='FTimes map mode returned an exit code of $sStatus, which indicates that the operation failed.'\n";
       exit(2);
     }
 
-    $sCommandLine = qq("$$phProperties{'FTimesExe'}" --compare $$phProperties{'FieldMask'} "$$phProperties{'Baseline'}" "$$phProperties{'Snapshot'}" -l 6 > "$$phProperties{'Compared'}");
-    $sOutput = qx($sCommandLine);
+    if (!open(FH, "> $$phProperties{'Compared'}"))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Failed to create compared file \"$$phProperties{'Compared'}\" ($!).'\n";
+      exit(2);
+    }
+    $sCommandLine = qq("$$phProperties{'FTimesExe'}" --compare $$phProperties{'FieldMask'} "$$phProperties{'Baseline'}" "$$phProperties{'Snapshot'}" -l 6);
+    if (!open(PH, "$sCommandLine |"))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Failed to launch FTimes in compare mode ($!).'\n";
+      exit(2);
+    }
+    while (my $sRecord = <PH>)
+    {
+      $sRecord =~ s/[\r\n]*$//;
+      if ($sRecord =~ /^category/)
+      {
+        print FH $sRecord, "\n";
+        next;
+      }
+      if (@aPatterns)
+      {
+        my $sMatch = 0;
+        foreach my $sPattern (@aPatterns)
+        {
+          if ($sRecord =~ /$sPattern/)
+          {
+            $sMatch = 1;
+            last;
+          }
+        }
+        next if ($sMatch);
+      }
+      print FH $sRecord, "\n";
+    }
+    close(PH);
     $sStatus = ($? >> 8) & 0xff;
     if ($sStatus != 0)
     {
       print STDERR "$$phProperties{'Program'}: Error='FTimes compare mode returned an exit code of $sStatus, which indicates that the operation failed.'\n";
       exit(2);
     }
-    if (open(FH, "< $$phProperties{'Compared'}"))
+    close(FH);
+
+    if ($$phProperties{'UseCmp2Diff'})
     {
-      while (my $sRecord = <FH>)
+      $sCommandLine = qq("$$phProperties{'FTimesCmp2Diff'}" -m $$phProperties{'FieldMask'} -b "$$phProperties{'Baseline'}" -s "$$phProperties{'Snapshot'}" -c "$$phProperties{'Compared'}");
+      my @aOptions = ();
+      push(@aOptions, 'ForceBuild') if ($$phProperties{'ForceBuild'});
+      push(@aOptions, 'ForceClean') if ($$phProperties{'ForceClean'});
+      push(@aOptions, 'GidDecode') if ($$phProperties{'GidDecode'});
+      push(@aOptions, 'ModeDecode') if ($$phProperties{'ModeDecode'});
+      push(@aOptions, 'NoDecode') if ($$phProperties{'NoDecode'});
+      push(@aOptions, 'UidDecode') if ($$phProperties{'UidDecode'});
+      push(@aOptions, 'UseBigIntegers') if ($$phProperties{'UseBigIntegers'});
+      if (scalar(@aOptions) > 0)
       {
-        $sRecord =~ s/[\r\n]*$//;
-        next if ($sRecord =~ /^category/);
-        if (@aPatterns)
-        {
-          my $sMatch = 0;
-          foreach my $sPattern (@aPatterns)
-          {
-            if ($sRecord =~ /$sPattern/)
-            {
-              $sMatch = 1;
-              last;
-            }
-          }
-          next if ($sMatch);
-        }
-        my @aFields = split(/\|/, $sRecord);
-        my $sTag = (defined($$phProperties{'Tag'})) ? $$phProperties{'Tag'} : $$phProperties{'Program'};
-        if ($$phProperties{'UseSyslog'})
-        {
-          syslog($$phProperties{'Level'}, "%s", "$aFields[0] --> $aFields[1]");
-        }
-        else
-        {
-          $oSocket->print("<$$phProperties{'Priority'}>$sTag\[$$\]: $aFields[0] --> $aFields[1]");
-        }
+        $sCommandLine .= " -o " . join(",", @aOptions);
       }
-      close(FH);
+      $sOutput = qx($sCommandLine > "$$phProperties{'ComparedDiff'}");
+      $sStatus = ($? >> 8) & 0xff;
+      if ($sStatus != 0)
+      {
+        print STDERR "$$phProperties{'Program'}: Error='FTimesCmp2Diff returned an exit code of $sStatus, which indicates that the operation failed.'\n";
+        exit(2);
+      }
+      if (!open(FH, "< $$phProperties{'ComparedDiff'}"))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Failed to open compare file \"$$phProperties{'ComparedDiff'}\" ($!).'\n";
+        exit(2);
+      }
+      my $sHeader = <FH>;
+      my $sHeaderBaseline = <FH>;
+      my $sHeaderSnapshot = <FH>;
     }
     else
     {
-      print STDERR "$$phProperties{'Program'}: Error='Failed to open compare file \"$$phProperties{'Compared'}\" ($!).'\n";
-      exit(2);
+      if (!open(FH, "< $$phProperties{'Compared'}"))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Failed to open compare file \"$$phProperties{'Compared'}\" ($!).'\n";
+        exit(2);
+      }
+      my $sHeader = <FH>;
     }
+    while (my $sRecord = <FH>)
+    {
+      $sRecord =~ s/[\r\n]*$//;
+      my @aFields = split(/\|/, $sRecord);
+      my $sLogMessage = ($$phProperties{'UseCmp2Diff'}) ? $sRecord : "$aFields[0] --> $aFields[1]";
+      if ($$phProperties{'NoSysLog'})
+      {
+        print STDOUT "$sLogMessage\n";
+      }
+      else
+      {
+        if ($$phProperties{'LogViaUdpSocket'})
+        {
+          $oSocket->print("<$$phProperties{'Priority'}>$$phProperties{'Tag'}\[$$\]: $sLogMessage");
+        }
+        else
+        {
+          syslog($$phProperties{'Level'}, "%s", "$sLogMessage");
+        }
+      }
+    }
+    close(FH);
   }
 
   ####################################################################
@@ -444,14 +585,17 @@ EOF
   #
   ####################################################################
 
-  if ($$phProperties{'UseSyslog'})
-  {
-    closelog();
-  }
-  else
+unless ($$phProperties{'NoSysLog'})
+{
+  if ($$phProperties{'LogViaUdpSocket'})
   {
     $oSocket->close();
   }
+  else
+  {
+    closelog();
+  }
+}
 
   1;
 
@@ -484,9 +628,12 @@ sub AdjustRunTimeEnvironment
   (
     "Baseline",
     "Compared",
+    "ComparedDiff",
     "ConfigFile",
+    "FTimesCmp2Diff",
     "FTimesExe",
     "FTimesHome",
+    "PidFile",
     "Snapshot",
     "WorkDirectory",
   );
@@ -498,7 +645,10 @@ sub AdjustRunTimeEnvironment
 
   $$phProperties{'Baseline'} = $$phProperties{'WorkDirectory'} . "/baseline.map";
   $$phProperties{'Compared'} = $$phProperties{'WorkDirectory'} . "/snapshot.cmp";
+  $$phProperties{'ComparedDiff'} = $$phProperties{'WorkDirectory'} . "/snapshot.cmp.cmp2diff";
+  $$phProperties{'FTimesCmp2Diff'} = "$$phProperties{'FTimesHome'}/bin/ftimes-cmp2diff";
   $$phProperties{'FTimesExe'} = "$$phProperties{'FTimesHome'}/bin/ftimes" . $$phProperties{'ExtensionExe'};
+  $$phProperties{'PidFile'} = $$phProperties{'WorkDirectory'} . "/snapshot.pid";
   $$phProperties{'Snapshot'} = $$phProperties{'WorkDirectory'} . "/snapshot.map";
 
   ####################################################################
@@ -511,7 +661,7 @@ sub AdjustRunTimeEnvironment
   {
     foreach my $sKey (@aPathKeys)
     {
-      $$phProperties{$sKey} =~ s,/,\\,g;
+      $$phProperties{$sKey} =~ s,/,\\,g if (defined($$phProperties{$sKey}));
     }
   }
 
@@ -537,6 +687,17 @@ sub AdjustRunTimeEnvironment
   if (!-x _)
   {
     $$psError = "Executable ($$phProperties{'FTimesExe'}) is not executable.";
+    return undef;
+  }
+
+  if (!-f $$phProperties{'FTimesCmp2Diff'})
+  {
+    $$psError = "Script ($$phProperties{'FTimesCmp2Diff'}) does not exist or is not regular.";
+    return undef;
+  }
+  if (!-x _)
+  {
+    $$psError = "Script ($$phProperties{'FTimesCmp2Diff'}) is not executable.";
     return undef;
   }
 
@@ -619,6 +780,69 @@ sub GetSyslogPriority
   }
 
   return undef;
+}
+
+
+######################################################################
+#
+# CreatePidFile
+#
+######################################################################
+
+sub CreatePidFile
+{
+  my ($phPArgs) = @_;
+
+  ####################################################################
+  #
+  # Make sure that required inputs are defined.
+  #
+  ####################################################################
+
+  my ($sPidFile);
+
+  if (!defined($$phPArgs{'PidFile'}) || !length($$phPArgs{'PidFile'}))
+  {
+    $$phPArgs{'Error'} = "Missing PID file argument.";
+    return undef;
+  }
+  $sPidFile = $$phPArgs{'PidFile'};
+
+  ####################################################################
+  #
+  # Assign default values where necessary.
+  #
+  ####################################################################
+
+  my ($sPidFlags, $sPidMode);
+
+  $sPidMode = ($$phPArgs{'PidMode'}) ? $$phPArgs{'PidMode'} : "+>>";
+
+  $sPidFlags = ($$phPArgs{'PidFlags'}) ? $$phPArgs{'PidFlags'} : LOCK_EX;
+
+  ####################################################################
+  #
+  # Open, lock, and populate the specified PID file.
+  #
+  ####################################################################
+
+  my ($oFileHandle, $sModeFile);
+
+  $oFileHandle = FileHandle->new("$sPidMode $sPidFile");
+  if (!defined($oFileHandle))
+  {
+    $$phPArgs{'Error'} = "PID file \"$sPidFile\" could not be opened ($!).";
+    return undef;
+  }
+  if (!flock($oFileHandle, $sPidFlags))
+  {
+    $$phPArgs{'Error'} = "PID file \"$sPidFile\" could not be locked ($!).";
+    return undef;
+  }
+  $oFileHandle->truncate(0);
+  $oFileHandle->print("$$\n");
+
+  return $oFileHandle;
 }
 
 
@@ -813,8 +1037,8 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-S] [-d work-dir] [-f config-file] [-H ftimes-home] [-i ignore-file] [-m mask] [-p priority] [-s server[:port]] [-t tag] include [include ...]\n";
-  print STDERR "       $sProgram [-S] [-d work-dir]  -f config-file  [-H ftimes-home] [-i ignore-file] [-m mask] [-p priority] [-s server[:port]] [-t tag]         [include ...]\n";
+  print STDERR "Usage: $sProgram [-d work-dir] [-f config-file] [-H ftimes-home] [-i ignore-file] [-m mask] [-o option[,option[,...]]] [-p priority] [-s server[:port]] [-t tag] include [include ...]\n";
+  print STDERR "       $sProgram [-d work-dir]  -f config-file  [-H ftimes-home] [-i ignore-file] [-m mask] [-o option[,option[,...]]] [-p priority] [-s server[:port]] [-t tag]         [include ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -828,9 +1052,9 @@ ftimes-bimvl - Take a snapshot, compare it to a baseline, and log the changes.
 
 =head1 SYNOPSIS
 
-B<ftimes-bimvl> B<[-S]> B<[-d work-dir]> B<[-f config-file]> B<[-H ftimes-home]> B<[-i ignore-file]> B<[-m mask]> B<[-p priority]> B<[-s server[:port]]> B<[-t tag]> B<include [include ...]>
+B<ftimes-bimvl> B<[-d work-dir]> B<[-f config-file]> B<[-H ftimes-home]> B<[-i ignore-file]> B<[-m mask]> B<[-o option[,option[,...]]]> B<[-p priority]> B<[-s server[:port]]> B<[-t tag]> B<include [include ...]>
 
-B<ftimes-bimvl> B<[-S]> B<[-d work-dir]> B<[-H ftimes-home]> B<[-i ignore-file]> B<[-m mask]> B<[-p priority]> B<[-s server[:port]]> B<[-t tag]> -f config-file B<[include ...]>
+B<ftimes-bimvl> B<[-d work-dir]> B<[-H ftimes-home]> B<[-i ignore-file]> B<[-m mask]> B<[-o option[,option[,...]]]> B<[-p priority]> B<[-s server[:port]]> B<[-t tag]> -f config-file B<[include ...]>
 
 =head1 DESCRIPTION
 
@@ -850,8 +1074,8 @@ invocation of the utility.
 Specifies a work directory that will be used to store the baseline,
 snapshot, and compare files during runs.  If this directory does not
 exist, it will be created during runtime.  The default location is
-'C:\FTimes\out' and '/usr/local/ftimes/out' for WINX and UNIX
-platforms, respectively.
+'C:\Program Files\FTimes\out' and '/usr/local/ftimes/out' for WINX
+and UNIX platforms, respectively.
 
 =item B<-f config-file>
 
@@ -864,30 +1088,85 @@ associated config file.
 =item B<-H ftimes-home>
 
 Specifies the location of FTimes components on the client system.  The
-default value is 'C:\FTimes' and '/usr/local/ftimes' for WINX and UNIX
-platforms, respectively.
+default value is 'C:\Program Files\FTimes' and '/usr/local/ftimes' for
+WINX and UNIX platforms, respectively.
 
 =item B<-i ignore-file>
 
 Specifies a file containing zero or more patterns, one per line, that
-are to be applied to the compare output. All matched records will be
+are to be applied to the compare output.  All matched records will be
 discarded, and no syslog message will be generated.
 
 =item B<-m mask>
 
 FTimes fieldmask to use.
 
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item ForceBuild
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item ForceClean
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item GidDecode
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item LogViaUdpSocket
+
+Specifies that a direct UDP socket connection should be used for
+sending log messages.  By default, the Sys::Syslog Perl module is
+used, which interfaces directly with the system logger.
+
+=item ModeDecode
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item NoDecode
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item NoSysLog
+
+Specifies that no log messages are to be logged whatsoever (i.e.,
+either via the system logger or a direct UDP socket connection).  If
+this option is enabled, output will be directed to stdout.
+
+=item UidDecode
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item UseBigIntegers
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item UseCmp2Diff
+
+Specifies that ftimes-cmp2diff, rather than ftimes, is to be used for
+comparing snapshots.
+
+=back
+
 =item B<-p priority>
 
 Specifies the syslog facility and level to use for syslog messages.
 The format is facility.level.  Valid values can be found in the
 logger(1) man page.
-
-=item B<-S>
-
-Specifies that the log messages should use the Perl module
-Sys::Syslog for sending messages. The benefit of using this option
-is that messages can use the settings in /etc/syslog.conf.
 
 =item B<-s server[:port]>
 
@@ -907,7 +1186,7 @@ Klayton Monroe and Jason Smith
 
 =head1 SEE ALSO
 
-ftimes(1)
+ftimes(1), ftimes-cmp2diff(1)
 
 =head1 LICENSE
 

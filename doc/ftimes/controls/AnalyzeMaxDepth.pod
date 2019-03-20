@@ -1,0 +1,11 @@
+=item B<AnalyzeMaxDepth>: [0-65536]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeMaxDepth> is optional.  It instructs the analysis engine
+to stop descending a tree once the specified depth, relative to a
+given B<Include> path, has been reached.  The default value is zero,
+which means maximum depth enforcement is disabled.
+
+Note: Support for this control was added in version 3.12.0.
+

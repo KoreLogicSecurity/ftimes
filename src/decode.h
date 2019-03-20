@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: decode.h,v 1.27 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: decode.h,v 1.31 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -165,9 +165,11 @@ void                DecodeClearRecord(DECODE_RECORD *psRecord, int iFieldCount);
 int                 DecodeFormatOutOfBandTime(char *pcToken, int iLength, char *pcOutput, char *pcError);
 int                 DecodeFormatTime(APP_UI32 *pui32Time, char *pcTime);
 void                DecodeFreeSnapshotContext(SNAPSHOT_CONTEXT *psSnapshot);
+void                DecodeFreeSnapshotContext2(SNAPSHOT_CONTEXT *psSnapshot);
 int                 DecodeGetBase64Hash(char *pcData, unsigned char *pucHash, int iLength, char *pcError);
 int                 DecodeGetTableLength(void);
 SNAPSHOT_CONTEXT   *DecodeNewSnapshotContext(char *pcError);
+SNAPSHOT_CONTEXT   *DecodeNewSnapshotContext2(char *pcSnapshot, char *pcError);
 int                 DecodeOpenSnapshot(SNAPSHOT_CONTEXT *psSnapshot, char *pcError);
 int                 DecodeParseHeader(SNAPSHOT_CONTEXT *psSnapshot, char *pcError);
 int                 DecodeParseRecord(SNAPSHOT_CONTEXT *psSnapshot, char *pcError);

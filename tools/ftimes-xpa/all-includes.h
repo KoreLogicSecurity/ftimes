@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: all-includes.h,v 1.4 2014/07/18 06:40:45 mavrik Exp $
+ * $Id: all-includes.h,v 1.9 2019/03/14 16:07:44 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2009-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2009-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -27,10 +27,35 @@
 #include <string.h>
 #ifdef UNIX
 #include <netinet/in.h>
+#include <grp.h>
+#include <pwd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 #ifdef WIN32
 #include <tchar.h>
-#include <windows.h>
+  #if defined(MINGW32) && !defined(MINGW64)
+    #ifndef WINVER
+    #define WINVER 0x0500
+    #endif
+    #include <windows.h>
+    #define SDDL_REVISION_1 1
+    WINADVAPI BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorA(PSECURITY_DESCRIPTOR, DWORD, SECURITY_INFORMATION, LPSTR *, PULONG);
+    WINADVAPI BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorW(PSECURITY_DESCRIPTOR, DWORD, SECURITY_INFORMATION, LPWSTR *, PULONG);
+    #ifdef UNICODE
+      #define ConvertSecurityDescriptorToStringSecurityDescriptor ConvertSecurityDescriptorToStringSecurityDescriptorW
+    #else
+      #define ConvertSecurityDescriptorToStringSecurityDescriptor ConvertSecurityDescriptorToStringSecurityDescriptorA
+    #endif
+  #else
+    #ifndef _WIN32_WINNT
+    #define _WIN32_WINNT 0x0500
+    #endif
+    #include <windows.h>
+  #endif
+  #include <sddl.h>
+  #include <aclapi.h>
 #endif
 
 typedef char APP_SI8;

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sys-includes.h,v 1.27 2014/07/30 08:07:07 mavrik Exp $
+ * $Id: sys-includes.h,v 1.31 2019/03/14 16:07:43 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -23,8 +23,7 @@
 #include <time.h>
 
 #ifdef WIN32
-#ifdef USE_SDDL
-  #ifdef MINGW32
+  #if defined(MINGW32) && !defined(MINGW64)
     #ifndef WINVER
     #define WINVER 0x0500
     #endif
@@ -38,13 +37,12 @@
       #define ConvertSecurityDescriptorToStringSecurityDescriptor ConvertSecurityDescriptorToStringSecurityDescriptorA
     #endif
   #else
+    #ifndef _WIN32_WINNT
     #define _WIN32_WINNT 0x0500
+    #endif
     #include <windows.h>
   #endif
   #include <sddl.h>
-#else
-#include <windows.h>
-#endif
 #include <accctrl.h>
 #include <aclapi.h>
 #include <direct.h>

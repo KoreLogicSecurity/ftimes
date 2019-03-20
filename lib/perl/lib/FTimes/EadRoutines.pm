@@ -1,10 +1,10 @@
 ######################################################################
 #
-# $Id: EadRoutines.pm,v 1.22 2014/07/18 06:40:43 mavrik Exp $
+# $Id: EadRoutines.pm,v 1.43 2019/03/14 16:07:42 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2008-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2008-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -18,19 +18,84 @@ require Exporter;
 
 use 5.008;
 use strict;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
+use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %ghUnixGidMap %ghUnixUidMap);
 
-@EXPORT = qw(EadBase64Decode EadBase64Encode EadFTimesNssDecode EadFTimesNssEncode EadFTimesSssDecode EadFTimesSssEncode EadFTimesUrlDecode EadFTimesUrlEncode EadHexDecode EadHexEncode EadUnixModeDecode EadUrlDecode EadUrlEncode EadWinxAceDecode EadWinxDaclDecode);
-
+@EXPORT = qw
+(
+  EadBase32Decode
+  EadBase32Encode
+  EadBase32ToHex
+  EadBase32ToHexDump
+  EadBase64Decode
+  EadBase64Encode
+  EadBase64ToHex
+  EadBase64ToHexDump
+  EadBase64UrlDecode
+  EadBase64UrlEncode
+  EadBase64UrlToHex
+  EadBase64UrlToHexDump
+  EadFTimesNssDecode
+  EadFTimesNssEncode
+  EadFTimesSssDecode
+  EadFTimesSssEncode
+  EadFTimesUrlDecode
+  EadFTimesUrlEncode
+  EadGetDecoders
+  EadHexDecode
+  EadHexDump
+  EadHexDumpRecords
+  EadHexEncode
+  EadHexToBase32
+  EadHexToBase64
+  EadHexToBase64Url
+  EadHexToHexDump
+  EadNopDecode
+  EadNopEncode
+  EadNotDecode
+  EadNotEncode
+  EadUnixModeDecode
+  EadUnixGidDecode
+  EadUnixUidDecode
+  EadUrlDecode
+  EadUrlEncode
+  EadWinxAceDecode
+  EadWinxAttributesDecode
+  EadWinxDaclDecode
+  EadXformViaAnd
+  EadXformViaNop
+  EadXformViaNot
+  EadXformViaRot13
+  EadXformViaRot47
+  EadXformViaXor
+);
 @EXPORT_OK = ();
 @ISA = qw(Exporter);
-$VERSION = do { my @r = (q$Revision: 1.22 $ =~ /(\d+)/g); sprintf("%d."."%03d" x $#r, @r); };
+$VERSION = do { my @r = (q$Revision: 1.43 $ =~ /(\d+)/g); sprintf("%d."."%03d" x $#r, @r); };
 
 ######################################################################
 #
 # Constants
 #
 ######################################################################
+
+my $gsFILE_ATTRIBUTE_READONLY            = 0x00000001; # RO
+my $gsFILE_ATTRIBUTE_HIDDEN              = 0x00000002; # H
+my $gsFILE_ATTRIBUTE_SYSTEM              = 0x00000004; # S
+# ?                                      = 0x00000008;
+my $gsFILE_ATTRIBUTE_DIRECTORY           = 0x00000010; # D
+my $gsFILE_ATTRIBUTE_ARCHIVE             = 0x00000020; # A
+my $gsFILE_ATTRIBUTE_DEVICE              = 0x00000040; # DEV
+my $gsFILE_ATTRIBUTE_NORMAL              = 0x00000080; # N
+my $gsFILE_ATTRIBUTE_TEMPORARY           = 0x00000100; # T
+my $gsFILE_ATTRIBUTE_SPARSE_FILE         = 0x00000200; # SF
+my $gsFILE_ATTRIBUTE_REPARSE_POINT       = 0x00000400; # RP
+my $gsFILE_ATTRIBUTE_COMPRESSED          = 0x00000800; # C
+my $gsFILE_ATTRIBUTE_OFFLINE             = 0x00001000; # O
+my $gsFILE_ATTRIBUTE_NOT_CONTENT_INDEXED = 0x00002000; # NCI
+my $gsFILE_ATTRIBUTE_ENCRYPTED           = 0x00004000; # E
+my $gsFILE_ATTRIBUTE_INTEGRITY_STREAM    = 0x00008000; # IS
+my $gsFILE_ATTRIBUTE_VIRTUAL             = 0x00010000; # V
+my $gsFILE_ATTRIBUTE_NO_SCRUB_DATA       = 0x00020000; # NSD
 
 my $gsADS_RIGHT_DS_CREATE_CHILD          = 0x00000001;
 my $gsADS_RIGHT_DS_DELETE_CHILD          = 0x00000002;
@@ -108,6 +173,18 @@ my $gsKEY_EXECUTE                        = (($gsKEY_READ) & (~$gsSYNCHRONIZE));
 #
 ######################################################################
 
+my @gaBase32 = split(//, "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567");
+
+my @gaFromBase32;
+for (my $i = 0; $i < 256; $i++)
+{
+  push(@gaFromBase32, -1);
+}
+for (my $i = 0; $i < scalar(@gaBase32); $i++)
+{
+  $gaFromBase32[ord($gaBase32[$i])] = $i;
+}
+
 my @gaBase64 = split(//, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
 
 my @gaFromBase64;
@@ -119,6 +196,28 @@ for (my $i = 0; $i < scalar(@gaBase64); $i++)
 {
   $gaFromBase64[ord($gaBase64[$i])] = $i;
 }
+
+my @gaBase64Url = split(//, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_");
+
+my @gaFromBase64Url;
+for (my $i = 0; $i < 256; $i++)
+{
+  push(@gaFromBase64Url, -1);
+}
+for (my $i = 0; $i < scalar(@gaBase64Url); $i++)
+{
+  $gaFromBase64Url[ord($gaBase64Url[$i])] = $i;
+}
+
+my %ghDecoders =
+(
+  'base32' => \&EadBase32Decode,
+  'base64' => \&EadBase64Decode,
+  'base64url' => \&EadBase64UrlDecode,
+  'hex'    => \&EadHexDecode,
+  'nop'    => \&EadNopDecode,
+  'url'    => \&EadUrlDecode,
+);
 
 my %ghUnixPermissions =
 (
@@ -258,6 +357,158 @@ my %ghWinxAceTypes =
   'OU' => "OBJECT_AUDIT",
 );
 
+my %ghWinxAttributes =
+(
+  $gsFILE_ATTRIBUTE_READONLY            => "RO",
+  $gsFILE_ATTRIBUTE_HIDDEN              => "H",
+  $gsFILE_ATTRIBUTE_SYSTEM              => "S",
+  $gsFILE_ATTRIBUTE_DIRECTORY           => "D",
+  $gsFILE_ATTRIBUTE_ARCHIVE             => "A",
+  $gsFILE_ATTRIBUTE_DEVICE              => "DEV",
+  $gsFILE_ATTRIBUTE_NORMAL              => "N",
+  $gsFILE_ATTRIBUTE_TEMPORARY           => "T",
+  $gsFILE_ATTRIBUTE_SPARSE_FILE         => "SF",
+  $gsFILE_ATTRIBUTE_REPARSE_POINT       => "RP",
+  $gsFILE_ATTRIBUTE_COMPRESSED          => "C",
+  $gsFILE_ATTRIBUTE_OFFLINE             => "O",
+  $gsFILE_ATTRIBUTE_NOT_CONTENT_INDEXED => "NCI",
+  $gsFILE_ATTRIBUTE_ENCRYPTED           => "E",
+  $gsFILE_ATTRIBUTE_INTEGRITY_STREAM    => "IS",
+  $gsFILE_ATTRIBUTE_VIRTUAL             => "V",
+  $gsFILE_ATTRIBUTE_NO_SCRUB_DATA       => "NSD",
+);
+
+
+######################################################################
+#
+# EadBase32Decode
+#
+######################################################################
+
+sub EadBase32Decode
+{
+  my ($sData) = @_;
+
+  ####################################################################
+  #
+  # Make sure we have some input. Then, chop off everything past the
+  # first terminator.
+  #
+  ####################################################################
+
+  if (!defined($sData))
+  {
+    return undef;
+  }
+  $sData =~ s/=.*$//;
+
+  ####################################################################
+  #
+  # Decode the input.
+  #
+  ####################################################################
+
+  my $sDecoded = "";
+  my $sNLeft = 0;
+  my $sValue = 0;
+  foreach my $sByte (split(//, $sData))
+  {
+    if ($gaFromBase32[ord($sByte)] < 0)
+    {
+      return undef; # Invalid input.
+    }
+    $sValue = ($sValue << 5) | $gaFromBase32[ord($sByte)];
+    $sNLeft += 5;
+    while ($sNLeft >= 8)
+    {
+      $sDecoded .= chr(($sValue >> ($sNLeft - 8)) & 0xff);
+      $sNLeft -= 8;
+    }
+  }
+
+  return $sDecoded;
+}
+
+
+######################################################################
+#
+# EadBase32Encode
+#
+######################################################################
+
+sub EadBase32Encode
+{
+  my ($sData) = @_;
+
+  ####################################################################
+  #
+  # Make sure we have some input.
+  #
+  ####################################################################
+
+  if (!defined($sData))
+  {
+    return undef;
+  }
+  my $sLength = length($sData);
+
+  ####################################################################
+  #
+  # Encode the input.
+  #
+  ####################################################################
+
+  my $sEncoded = "";
+  my $sNLeft = 0;
+  my $sNFill = 0;
+  my $sValue = 0;
+  foreach my $sByte (split(//, $sData))
+  {
+    $sValue = ($sValue << 8) | ord($sByte);
+    $sNLeft += 8;
+    while ($sNLeft > 5)
+    {
+      $sEncoded .= $gaBase32[($sValue >> ($sNLeft - 5)) & 0x1f];
+      $sNLeft -= 5;
+    }
+  }
+  if ($sNLeft != 0)
+  {
+    $sEncoded .= $gaBase32[($sValue << (5 - $sNLeft)) & 0x1f];
+  }
+
+  my @aPaddings = ("", "======", "====", "===", "=");
+
+  $sEncoded .= $aPaddings[$sLength % 5];
+
+  return $sEncoded;
+}
+
+
+######################################################################
+#
+# EadBase32ToHex
+#
+######################################################################
+
+sub EadBase32ToHex
+{
+  return EadHexEncode(EadBase32Decode(@_));
+}
+
+
+######################################################################
+#
+# EadBase32ToHexDump
+#
+######################################################################
+
+sub EadBase32ToHexDump
+{
+  return EadHexDump(EadBase32Decode(@_));
+}
+
+
 ######################################################################
 #
 # EadBase64Decode
@@ -362,6 +613,161 @@ sub EadBase64Encode
   }
 
   return $sEncoded;
+}
+
+
+######################################################################
+#
+# EadBase64ToHex
+#
+######################################################################
+
+sub EadBase64ToHex
+{
+  return EadHexEncode(EadBase64Decode(@_));
+}
+
+
+######################################################################
+#
+# EadBase64ToHexDump
+#
+######################################################################
+
+sub EadBase64ToHexDump
+{
+  return EadHexDump(EadBase64Decode(@_));
+}
+
+
+######################################################################
+#
+# EadBase64UrlDecode
+#
+######################################################################
+
+sub EadBase64UrlDecode
+{
+  my ($sData) = @_;
+
+  ####################################################################
+  #
+  # Make sure we have some input. Then, chop off everything past the
+  # first terminator.
+  #
+  ####################################################################
+
+  if (!defined($sData))
+  {
+    return undef;
+  }
+  $sData =~ s/=.*$//;
+
+  ####################################################################
+  #
+  # Decode the input.
+  #
+  ####################################################################
+
+  my $sDecoded = "";
+  my $sNLeft = 0;
+  my $sValue = 0;
+  foreach my $sByte (split(//, $sData))
+  {
+    if ($gaFromBase64Url[ord($sByte)] < 0)
+    {
+      return undef; # Invalid input.
+    }
+    $sValue = ($sValue << 6) | $gaFromBase64Url[ord($sByte)];
+    $sNLeft += 6;
+    while ($sNLeft >= 8)
+    {
+      $sDecoded .= chr(($sValue >> ($sNLeft - 8)) & 0xff);
+      $sNLeft -= 8;
+    }
+  }
+
+  return $sDecoded;
+}
+
+
+######################################################################
+#
+# EadBase64UrlEncode
+#
+######################################################################
+
+sub EadBase64UrlEncode
+{
+  my ($sData) = @_;
+
+  ####################################################################
+  #
+  # Make sure we have some input.
+  #
+  ####################################################################
+
+  if (!defined($sData))
+  {
+    return undef;
+  }
+  my $sLength = length($sData);
+
+  ####################################################################
+  #
+  # Encode the input.
+  #
+  ####################################################################
+
+  my $sEncoded = "";
+  my $sNLeft = 0;
+  my $sNFill = 0;
+  my $sValue = 0;
+  foreach my $sByte (split(//, $sData))
+  {
+    $sValue = ($sValue << 8) | ord($sByte);
+    $sNLeft += 8;
+    while ($sNLeft > 6)
+    {
+      $sEncoded .= $gaBase64Url[($sValue >> ($sNLeft - 6)) & 0x3f];
+      $sNLeft -= 6;
+    }
+  }
+  if ($sNLeft != 0)
+  {
+    $sEncoded .= $gaBase64Url[($sValue << (6 - $sNLeft)) & 0x3f];
+  }
+  $sNFill = ($sLength % 3) ? 3 - ($sLength % 3) : 0;
+  for (my $i = 0; $i < $sNFill; $i++)
+  {
+    $sEncoded .= '=';
+  }
+
+  return $sEncoded;
+}
+
+
+######################################################################
+#
+# EadBase64UrlToHex
+#
+######################################################################
+
+sub EadBase64UrlToHex
+{
+  return EadHexEncode(EadBase64UrlDecode(@_));
+}
+
+
+######################################################################
+#
+# EadBase64UrlToHexDump
+#
+######################################################################
+
+sub EadBase64UrlToHexDump
+{
+  return EadHexDump(EadBase64UrlDecode(@_));
 }
 
 
@@ -474,8 +880,22 @@ sub EadFTimesUrlEncode
 {
   my ($sData) = @_;
   $sData =~ s/([\x00-\x1f\x7f-\xff|"'`%+#])/sprintf("%%%02x", unpack('C',$1))/seg;
+  my $sPathSeparatorRegex = ($^O =~ /MSWin(32|64)/i) ? qr{/} : qr{\\};
+  $sData =~ s#($sPathSeparatorRegex)#sprintf("%%%02x", unpack('C',$1))#seg;
   $sData =~ s/ /+/sg;
   return $sData;
+}
+
+
+######################################################################
+#
+# EadGetDecoders
+#
+######################################################################
+
+sub EadGetDecoders
+{
+  return \%ghDecoders;
 }
 
 
@@ -495,6 +915,77 @@ sub EadHexDecode
 
 ######################################################################
 #
+# EadHexDump
+#
+######################################################################
+
+sub EadHexDump
+{
+  my ($sData) = @_;
+
+  my @aLines = ();
+
+  my $phRecords = EadHexDumpRecords($sData);
+  if (defined($phRecords))
+  {
+    foreach my $phRecord (@{$phRecords})
+    {
+      push(@aLines, join("|", @{$phRecord}));
+    }
+  }
+
+  return \@aLines;
+}
+
+
+######################################################################
+#
+# EadHexDumpRecords
+#
+######################################################################
+
+sub EadHexDumpRecords
+{
+  my ($sData) = @_;
+
+  my @aBytes = split(//, $sData);
+  my @aChars = ();
+  my @aHexes = ();
+  my @aRecords = ();
+  my $sIndex = 0;
+  my $sNBytesProcessed = 0;
+
+  for ($sIndex = 0; $sIndex < scalar(@aBytes); $sIndex++)
+  {
+    my $n = $sIndex % 16;
+    my $b = $aBytes[$sIndex];
+    my $c = chr(unpack('C', $b));
+    if ($sIndex && $n == 0)
+    {
+      push(@aRecords, [ sprintf("0x%08x", $sIndex - $sNBytesProcessed), join(" ", @aHexes), join("", @aChars) ]);
+      @aHexes = ();
+      @aChars = ();
+      $sNBytesProcessed = 0;
+    }
+    $aHexes[$n] = sprintf("%02x", unpack('C', $b));
+    $aChars[$n] = sprintf("%s", ($c =~ /^[[:print:]]$/o) ? $c : ".");
+    $sNBytesProcessed++;
+  }
+  if ($sNBytesProcessed)
+  {
+    for (my $i = $sNBytesProcessed; $i < 16; $i++)
+    {
+      $aHexes[$i] = "  ";
+    }
+    push(@aRecords, [ sprintf("0x%08x", $sIndex - $sNBytesProcessed), join(" ", @aHexes), join("", @aChars) ]);
+  }
+
+  return \@aRecords;
+}
+
+
+######################################################################
+#
 # EadHexEncode
 #
 ######################################################################
@@ -504,6 +995,78 @@ sub EadHexEncode
   my ($sData) = @_;
   $sData =~ s/([\x00-\xff])/sprintf("%02x", unpack('C',$1))/seg;
   return $sData;
+}
+
+
+######################################################################
+#
+# EadHexToBase32
+#
+######################################################################
+
+sub EadHexToBase32
+{
+  return EadBase32Encode(EadHexDecode(@_));
+}
+
+
+######################################################################
+#
+# EadHexToBase64
+#
+######################################################################
+
+sub EadHexToBase64
+{
+  return EadBase64Encode(EadHexDecode(@_));
+}
+
+
+######################################################################
+#
+# EadHexToBase64Url
+#
+######################################################################
+
+sub EadHexToBase64Url
+{
+  return EadBase64UrlEncode(EadHexDecode(@_));
+}
+
+
+######################################################################
+#
+# EadHexToHexDump
+#
+######################################################################
+
+sub EadHexToHexDump
+{
+  return EadHexDump(EadHexDecode(@_));
+}
+
+
+######################################################################
+#
+# EadNopDecode
+#
+######################################################################
+
+sub EadNopDecode
+{
+  return $_[0];
+}
+
+
+######################################################################
+#
+# EadNopEncode
+#
+######################################################################
+
+sub EadNopEncode
+{
+  return $_[0];
 }
 
 
@@ -608,6 +1171,92 @@ sub EadUnixModeDecode
   }
 
   return join("", reverse(@aData));
+}
+
+
+######################################################################
+#
+# EadUnixGidDecode
+#
+######################################################################
+
+sub EadUnixGidDecode
+{
+  my ($sGid, $sGroupFile) = @_;
+
+  if (defined($sGroupFile))
+  {
+    if (-f $sGroupFile)
+    {
+      if (!exists($ghUnixGidMap{$sGroupFile}))
+      {
+        if (open(FH, "< $sGroupFile"))
+        {
+          while (my $sLine = <FH>)
+          {
+            $sLine =~ s/[\r\n]+$//;
+            my @aFields = split(/:/, $sLine);
+            $ghUnixGidMap{$sGroupFile}{$aFields[2]} = $aFields[0] unless (defined($ghUnixGidMap{$sGroupFile}{$aFields[2]})); # Ignore alternae username mappings.
+          }
+          close(FH);
+        }
+      }
+      return (defined($ghUnixGidMap{$sGroupFile}{$sGid})) ? $ghUnixGidMap{$sGroupFile}{$sGid} : $sGid;
+    }
+  }
+  else
+  {
+    if (defined($sGid) && $sGid =~ /^\d+$/o)
+    {
+      my $sGroup = getgrgid($sGid);
+      return (defined($sGroup) && length($sGroup)) ? $sGroup : $sGid;
+    }
+  }
+
+  return "?";
+}
+
+
+######################################################################
+#
+# EadUnixUidDecode
+#
+######################################################################
+
+sub EadUnixUidDecode
+{
+  my ($sUid, $sPasswordFile) = @_;
+
+  if (defined($sPasswordFile))
+  {
+    if (-f $sPasswordFile)
+    {
+      if (!exists($ghUnixUidMap{$sPasswordFile}))
+      {
+        if (open(FH, "< $sPasswordFile"))
+        {
+          while (my $sLine = <FH>)
+          {
+            $sLine =~ s/[\r\n]+$//;
+            my @aFields = split(/:/, $sLine);
+            $ghUnixUidMap{$sPasswordFile}{$aFields[2]} = $aFields[0] unless (defined($ghUnixUidMap{$sPasswordFile}{$aFields[2]})); # Ignore alternae username mappings.
+          }
+          close(FH);
+        }
+      }
+      return (defined($ghUnixUidMap{$sPasswordFile}{$sUid})) ? $ghUnixUidMap{$sPasswordFile}{$sUid} : $sUid;
+    }
+  }
+  else
+  {
+    if (defined($sUid) && $sUid =~ /^\d+$/o)
+    {
+      my $sUser = getpwuid($sUid);
+      return (defined($sUser) && length($sUser)) ? $sUser : $sUid;
+    }
+  }
+
+  return "?";
 }
 
 
@@ -1026,6 +1675,31 @@ sub EadWinxAceDecode
 
 ######################################################################
 #
+# EadWinxAttributesDecode
+#
+######################################################################
+
+sub EadWinxAttributesDecode
+{
+  my ($sData) = @_;
+
+  my @aData = ();
+  if (defined($sData) && $sData =~ /^\d+$/)
+  {
+    for (my $sShift = 0; $sShift < 18; $sShift++)
+    {
+      my $sAttribute = 1 << $sShift;
+      next if ($sAttribute == 0x00000008);
+      push(@aData, $ghWinxAttributes{$sAttribute}) if ($sData & $sAttribute);
+    }
+  }
+
+  return join(",", reverse(@aData));
+}
+
+
+######################################################################
+#
 # EadWinxDaclDecode
 #
 ######################################################################
@@ -1104,6 +1778,128 @@ sub EadWinxDaclDecode
   }
 
   1;
+}
+
+
+######################################################################
+#
+# EadXformViaAnd
+#
+######################################################################
+
+sub EadXformViaAnd
+{
+  my ($sData, $sKey) = @_;
+
+  my @aKeyBytes = split(//, (defined($sKey) && length($sKey) > 0) ? $sKey : "\xff");
+  my $sKeyCount = scalar(@aKeyBytes);
+  my @aDataBytes = split(//, defined($sData) ? $sData : "");
+  my $sDataCount = scalar(@aDataBytes);
+  my @aAndBytes = ();
+  for (my $sIndex = 0; $sIndex < $sDataCount; $sIndex++)
+  {
+    my $sAndByte = $aDataBytes[$sIndex] & $aKeyBytes[$sIndex % $sKeyCount];
+    push(@aAndBytes, $sAndByte);
+  }
+
+  return join("", @aAndBytes);
+}
+
+
+######################################################################
+#
+# EadXformViaNop
+#
+######################################################################
+
+sub EadXformViaNop
+{
+  return $_[0];
+}
+
+
+######################################################################
+#
+# EadXformViaNot
+#
+######################################################################
+
+sub EadXformViaNot
+{
+  my ($sData) = @_;
+
+  my @aDataBytes = split(//, defined($sData) ? $sData : "");
+  my $sDataCount = scalar(@aDataBytes);
+  my @aNotBytes = ();
+  for (my $sIndex = 0; $sIndex < $sDataCount; $sIndex++)
+  {
+    push(@aNotBytes, ~$aDataBytes[$sIndex]);
+  }
+
+  return join("", @aNotBytes);
+}
+
+
+######################################################################
+#
+# EadXformViaRot13
+#
+######################################################################
+
+sub EadXformViaRot13
+{
+  my ($sData) = @_;
+  $sData =~ tr/A-Za-z/N-ZA-Mn-za-m/;
+  return $sData;
+}
+
+
+######################################################################
+#
+# EadXformViaRot47
+#
+######################################################################
+
+sub EadXformViaRot47
+{
+  my ($sData) = @_;
+  $sData =~ tr/!-~/P-~!-O/;
+  return $sData;
+}
+
+
+######################################################################
+#
+# EadXformViaXor
+#
+######################################################################
+
+sub EadXformViaXor
+{
+  my ($sData, $sKey, $sPadding) = @_;
+
+  my @aKeyBytes = split(//, (defined($sKey) && length($sKey) > 0) ? $sKey : "\x00");
+  my $sKeyCount = scalar(@aKeyBytes);
+  my $sRemainder = length($sData) % $sKeyCount;
+  if ($sRemainder && defined($sPadding))
+  {
+    my @aPadBytes = split(//, $sPadding);
+    my $sPadCount = scalar(@aPadBytes);
+    for (my $sIndex = 0; $sIndex < $sKeyCount - $sRemainder; $sIndex++)
+    {
+      $sData .= $aPadBytes[$sIndex % $sPadCount];
+    }
+  }
+  my @aDataBytes = split(//, defined($sData) ? $sData : "");
+  my $sDataCount = scalar(@aDataBytes);
+  my @aXorBytes = ();
+  for (my $sIndex = 0; $sIndex < $sDataCount; $sIndex++)
+  {
+    my $sXorByte = $aDataBytes[$sIndex] ^ $aKeyBytes[$sIndex % $sKeyCount];
+    push(@aXorBytes, $sXorByte);
+  }
+
+  return join("", @aXorBytes);
 }
 
 1;

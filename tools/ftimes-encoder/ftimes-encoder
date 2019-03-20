@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-encoder,v 1.19 2014/07/18 06:40:45 mavrik Exp $
+# $Id: ftimes-encoder,v 1.35 2019/03/14 16:07:43 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2008-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2008-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -16,7 +16,7 @@
 use strict;
 use File::Basename;
 use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
-use FTimes::EadRoutines 1.004;
+use FTimes::EadRoutines 1.025;
 use Getopt::Std;
 
 BEGIN
@@ -65,7 +65,7 @@ BEGIN
 
   my (%hOptions);
 
-  if (!getopts('f:m:o:t:', \%hOptions))
+  if (!getopts('f:m:o:t:x:', \%hOptions))
   {
     Usage($$phProperties{'Program'});
   }
@@ -83,9 +83,9 @@ BEGIN
     Usage($$phProperties{'Program'});
   }
 
-  if ($$phProperties{'Mode'} !~ /^(?:[de]|(?:en|de)c(ode)?|c(?:onvert)?)$/i)
+  if ($$phProperties{'Mode'} !~ /^(?:[de]|(?:en|de)c(ode)?|c(?:on|onvert)?)$/i)
   {
-    print STDERR "$$phProperties{'Program'}: Error='Invalid mode ($$phProperties{'Mode'}). Use one of {e|enc|encode}, {d|dec|decode}, {c|convert}.'\n";
+    print STDERR "$$phProperties{'Program'}: Error='Invalid mode ($$phProperties{'Mode'}). Use one of {e|enc|encode}, {d|dec|decode}, {c|con|convert}.'\n";
     exit(2);
   }
 
@@ -163,10 +163,36 @@ BEGIN
     Usage($$phProperties{'Program'});
   }
 
-  if ($$phProperties{'Type'} !~ /^(?:base64|ftimes-(?:nss|sss|url)|hex|url)(?::(?:base64|ftimes-(?:nss|sss|url)|hex|url))?$/i)
+  if ($$phProperties{'Type'} !~ /^(?:b(?:ase)?(?:32|64)(?:[_-]?url)?|ftimes-(?:nss|sss|url)|hex|url)(?::(?:b(?:ase)?(?:32|64)(?:[_-]?url)?|ftimes-(?:nss|sss|url)|hex|url))?$/i)
   {
-    print STDERR "$$phProperties{'Program'}: Error='Invalid type ($$phProperties{'Type'}). Use one of {base64|ftimes-nss|ftimes-sss|ftimes-url|hex|url}.'\n";
+    print STDERR "$$phProperties{'Program'}: Error='Invalid type ($$phProperties{'Type'}). See man page for a list of valid types.'\n";
     exit(2);
+  }
+
+  ####################################################################
+  #
+  # The transformer tuple, '-x', is optional. Once Getopt::Long is in
+  # play, allow this option to be specified multiple times.
+  #
+  ####################################################################
+
+  my ($sLastSlotUsed, $sSlot) = (0, 0);
+
+  $$phProperties{'XformerTuple'} = (exists($hOptions{'x'})) ? $hOptions{'x'} : undef;
+
+  if (defined($$phProperties{'XformerTuple'}))
+  {
+    my $sError;
+    my $phXformer = ParseXformerTuple($$phProperties{'XformerTuple'}, \$sError);
+    if (!defined($phXformer))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='$sError'\n";
+      exit(2);
+    }
+    $sSlot = 1;
+    $$phProperties{'Routines'}{$sSlot}{'Routine'} = $$phXformer{'Routine'};
+    $$phProperties{'Routines'}{$sSlot}{'Arguments'} = $$phXformer{'Arguments'};
+    $sLastSlotUsed = $sSlot;
   }
 
   ####################################################################
@@ -199,81 +225,194 @@ BEGIN
 
   if ($$phProperties{'Mode'} =~ /^(?:d|dec|decode)$/i)
   {
-    if ($$phProperties{'Type'} =~ /^base64$/i)
+    $sSlot = 0;
+    $$phProperties{'Routines'}{$sSlot}{'Arguments'} = [];
+    if ($$phProperties{'Type'} =~ /^b(?:ase)?32$/i)
     {
-      $$phProperties{'Routine'} = \&EadBase64Decode;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase32Decode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^b(?:ase)?64$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64Decode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^b(?:ase)?64[_-]?url$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64UrlDecode;
     }
     elsif ($$phProperties{'Type'} =~ /^ftimes-nss$/i)
     {
-      $$phProperties{'Routine'} = \&EadFTimesNssDecode;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesNssDecode;
     }
     elsif ($$phProperties{'Type'} =~ /^ftimes-sss$/i)
     {
-      $$phProperties{'Routine'} = \&EadFTimesSssDecode;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesSssDecode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^ftimes-url$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesUrlDecode;
     }
     elsif ($$phProperties{'Type'} =~ /^hex$/i)
     {
-      $$phProperties{'Routine'} = \&EadHexDecode;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
     }
     elsif ($$phProperties{'Type'} =~ /^url$/i)
     {
-      $$phProperties{'Routine'} = \&EadUrlDecode;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadUrlDecode;
     }
     else
     {
-      $$phProperties{'Routine'} = \&EadFTimesUrlDecode;
-    }
-  }
-  elsif ($$phProperties{'Mode'} =~ /^(?:c|convert)$/i)
-  {
-    if ($$phProperties{'Type'} =~ /^ftimes-url:hex$/i)
-    {
-      $$phProperties{'Routine'} = \&FTimesUrlToHex;
-    }
-    elsif ($$phProperties{'Type'} =~ /^hex:ftimes-url$/i)
-    {
-      $$phProperties{'Routine'} = \&HexToFTimesUrl;
-    }
-    elsif ($$phProperties{'Type'} =~ /^hex:url$/i)
-    {
-      $$phProperties{'Routine'} = \&HexToUrl;
-    }
-    elsif ($$phProperties{'Type'} =~ /^url:hex$/i)
-    {
-      $$phProperties{'Routine'} = \&UrlToHex;
-    }
-    else
-    {
-      print STDERR "$$phProperties{'Program'}: Error='Invalid type ($$phProperties{'Type'}). Use one of {ftimes-url:hex|hex:ftimes-url|hex:url|url:hex}.'\n";
+      print STDERR "$$phProperties{'Program'}: Error='Invalid decoder ($$phProperties{'Type'}). See man page for a list of supported decoders.'\n";
       exit(2);
     }
   }
-  else
+  elsif ($$phProperties{'Mode'} =~ /^(?:c|con|convert)$/i)
   {
-    if ($$phProperties{'Type'} =~ /^base64$/i)
+    $sSlot = 0;
+    $$phProperties{'Routines'}{$sSlot}{'Arguments'} = [];
+    if ($$phProperties{'Type'} =~ /^b(?:ase)?32:b(?:ase)?32$/i)
     {
-      $$phProperties{'Routine'} = \&EadBase64Encode;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase32Decode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase32Encode;
     }
-    elsif ($$phProperties{'Type'} =~ /^ftimes-nss$/i)
+    elsif ($$phProperties{'Type'} =~ /^b(?:ase)?32:hex$/i)
     {
-      $$phProperties{'Routine'} = \&EadFTimesNssEncode;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase32Decode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
     }
-    elsif ($$phProperties{'Type'} =~ /^ftimes-sss$/i)
+    elsif ($$phProperties{'Type'} =~ /^b(?:ase)?64:b(?:ase)?64$/i)
     {
-      $$phProperties{'Routine'} = \&EadFTimesSssEncode;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64Decode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64Encode;
     }
-    elsif ($$phProperties{'Type'} =~ /^hex$/i)
+    elsif ($$phProperties{'Type'} =~ /^b(?:ase)?64:hex$/i)
     {
-      $$phProperties{'Routine'} = \&EadHexEncode;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64Decode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
     }
-    elsif ($$phProperties{'Type'} =~ /^url$/i)
+    elsif ($$phProperties{'Type'} =~ /^b(?:ase)?64[_-]?url:b(?:ase)?64[_-]?url$/i)
     {
-      $$phProperties{'Routine'} = \&EadUrlEncode;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64UrlDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64UrlEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^b(?:ase)?64[_-]?url:hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64UrlDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^ftimes-url:ftimes-url$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesUrlDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesUrlEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^ftimes-url:hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesUrlDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex:b(?:ase)?32$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase32Encode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex:b(?:ase)?64$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64Encode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex:b(?:ase)?64[_-]?url$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64UrlEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex:ftimes-url$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesUrlEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex:hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex:url$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadUrlEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^url:hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadUrlDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^url:url$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadUrlDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadUrlEncode;
     }
     else
     {
-      $$phProperties{'Routine'} = \&EadFTimesUrlEncode;
+      print STDERR "$$phProperties{'Program'}: Error='Invalid conversion tuple ($$phProperties{'Type'}). See man page for a list of supported tuples.'\n";
+      exit(2);
     }
+    $$phProperties{'Routines'}{$sSlot}{'Arguments'} = [];
+  }
+  else
+  {
+    $sSlot = $sLastSlotUsed + 1;
+    if ($$phProperties{'Type'} =~ /^b(?:ase)?32$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase32Encode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^b(?:ase)?64$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64Encode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^b(?:ase)?64[_-]?url$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64UrlEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^ftimes-nss$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesNssEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^ftimes-sss$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesSssEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^ftimes-url$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesUrlEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^url$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadUrlEncode;
+    }
+    else
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Invalid encoder ($$phProperties{'Type'}). See man page for a list of supported encoders.'\n";
+      exit(2);
+    }
+    $$phProperties{'Routines'}{$sSlot}{'Arguments'} = [];
   }
 
   ####################################################################
@@ -290,14 +429,24 @@ BEGIN
     {
       $sOffset += $sNRead;
     }
-    print $$phProperties{'Routine'}($sData), $$phProperties{'Newline'};
+    foreach my $sSlot (sort({ $a <=> $b } keys(%{$$phProperties{'Routines'}})))
+    {
+      my $pfRoutine = $$phProperties{'Routines'}{$sSlot}{'Routine'};
+      $sData = &$pfRoutine($sData, @{$$phProperties{'Routines'}{$sSlot}{'Arguments'}});
+    }
+    print $sData, $$phProperties{'Newline'};
   }
   else
   {
-    while (my $sLine = <$sFileHandle>)
+    while (my $sData = <$sFileHandle>)
     {
-      $sLine =~ s/[\r\n]+$//;
-      print $$phProperties{'Routine'}($sLine), $$phProperties{'Newline'};
+      $sData =~ s/[\r\n]+$//;
+      foreach my $sSlot (sort({ $a <=> $b } keys(%{$$phProperties{'Routines'}})))
+      {
+        my $pfRoutine = $$phProperties{'Routines'}{$sSlot}{'Routine'};
+        $sData = &$pfRoutine($sData, @{$$phProperties{'Routines'}{$sSlot}{'Arguments'}});
+      }
+      print $sData, $$phProperties{'Newline'};
     }
   }
 
@@ -314,49 +463,89 @@ BEGIN
 
 ######################################################################
 #
-# HexToFTimesUrl
+# ParseXformerTuple
 #
 ######################################################################
 
-sub HexToFTimesUrl
+sub ParseXformerTuple
 {
-  return EadFTimesUrlEncode(EadHexDecode($_[0]));
-}
+  my ($sXformerTuple, $psError) = @_;
 
+  my %hTransformerMap =
+  (
+    'and'        =>
+    {
+      'Routine'  => \&EadXformViaAnd,
+      'MaxArgs'  => 2,
+      'RegExp'   => qq(and(?:(?::(?<arg01>|[0-9A-Fa-f]+))(?::(?<slot>|[0-9]+))?)?),
+    },
+    'nop'        =>
+    {
+      'Routine'  => \&EadXformViaNop,
+      'MaxArgs'  => 1,
+      'RegExp'   => qq(nop(?::(?<slot>|[0-9]+))?),
+    },
+    'not'        =>
+    {
+      'Routine'  => \&EadXformViaNot,
+      'MaxArgs'  => 1,
+      'RegExp'   => qq(not(?::(?<slot>|[0-9]+))?),
+    },
+    'rot13'      =>
+    {
+      'Routine'  => \&EadXformViaRot13,
+      'MaxArgs'  => 1,
+      'RegExp'   => qq(rot13(?::(?<slot>|[0-9]+))?),
+    },
+    'rot47'      =>
+    {
+      'Routine'  => \&EadXformViaRot47,
+      'MaxArgs'  => 1,
+      'RegExp'   => qq(rot47(?::(?<slot>|[0-9]+))?),
+    },
+    'xor'        =>
+    {
+      'Routine'  => \&EadXformViaXor,
+      'MaxArgs'  => 3,
+      'RegExp'   => qq(xor(?:(?::(?<arg01>|[0-9A-Fa-f]+))|:(?<arg01>|[0-9A-Fa-f]+),(?<arg02>|[0-9A-Fa-f]+)(?::(?<slot>|[0-9]+))?)?),
+    },
+  );
 
-######################################################################
-#
-# FTimesUrlToHex
-#
-######################################################################
+  if (!defined($sXformerTuple))
+  {
+    $$psError = "Transformer not defined.";
+    return undef;
+  }
 
-sub FTimesUrlToHex
-{
-  return EadHexEncode(EadFTimesUrlDecode($_[0]));
-}
+  if ($sXformerTuple !~ /^(and|nop|not|rot(?:13|47)|xor)(?:|:.+)$/o)
+  {
+    $$psError = "Transformer ($sXformerTuple) not supported.";
+    return undef;
+  }
+  my $sName = $1;
+  my %hTransformer =
+  (
+    'Name'      => $sName,
+    'Slot'      => undef,
+    'Routine'   => $hTransformerMap{$sName}{'Routine'},
+    'Arguments' => [],
+  );
 
+  if ($sXformerTuple !~ /^$hTransformerMap{$sName}{'RegExp'}$/)
+  {
+    $$psError = "Transformer ($sXformerTuple) does not pass muster.";
+    return undef;
+  }
 
-######################################################################
-#
-# HexToUrl
-#
-######################################################################
+  $hTransformer{'Slot'} = $+{'slot'} if (defined($+{'slot'}) && length($+{'slot'}) && $+{'slot'} > 0);
 
-sub HexToUrl
-{
-  return EadUrlEncode(EadHexDecode($_[0]));
-}
+  foreach my $sPosition (1..$hTransformerMap{$sName}{'MaxArgs'}) # The data argument (i.e., arg00) is not specified in the tuple.
+  {
+    my $sArg = sprintf("arg%02d", $sPosition);
+    push(@{$hTransformer{'Arguments'}}, (defined($+{$sArg}) ? EadHexDecode($+{$sArg}) : undef));
+  }
 
-
-######################################################################
-#
-# UrlToHex
-#
-######################################################################
-
-sub UrlToHex
-{
-  return EadHexEncode(EadUrlDecode($_[0]));
+  return \%hTransformer;
 }
 
 
@@ -370,7 +559,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-o option[,option[,...]]] [-t type] -m mode -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-o option[,option[,...]]] [-t type] [-x xformer[[:arg[,arg[...]][:slot]]] -m mode -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -384,7 +573,7 @@ ftimes-encoder - Encode/Decode strings/records using various algorithms
 
 =head1 SYNOPSIS
 
-B<ftimes-encoder> B<[-o option[,option[,...]]]> B<[-t type]> B<-m mode> B<-f {file|-}>
+B<ftimes-encoder> B<[-o option[,option[,...]]]> B<[-t type]> B<[-x xformer[[:arg[,arg[...]][:slot]]]> B<-m mode> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
@@ -403,7 +592,16 @@ program to read from stdin.
 =item B<-m mode>
 
 Specifies the mode of operation.  The mode can be one of
-{e|enc|encode}, {d|dec|decode}, or {c|convert}.
+{e|enc|encode}, {d|dec|decode}, or {c|con|convert}.  Note that the
+following conversion tuples are supported:
+
+    hex:base32      or  base32:hex
+    hex:base64      or  base64:hex
+    hex:base64url   or  base64url:hex
+    hex:ftimes-url  or  ftimes-url:hex
+    hex:url         or  url:hex
+
+Additionally, any type may be converted to itself (e.g., hex:hex).
 
 =item B<-o option,[option[,...]]>
 
@@ -431,9 +629,94 @@ easily be stored in memeory.
 =item B<-t type>
 
 Specifies the type of encoding or decoding to apply.  The type can be
-one of base64, ftimes-nss, ftimes-sss, ftimes-url, hex, or url.  NSS
-is short for Neuter Safe String, and SSS is short for Shell Safe
-String.
+one of {b32,base32}, {b64,base64}, {b64url,base64url}, ftimes-nss,
+ftimes-sss, ftimes-url, hex, or url.  NSS is short for Neuter Safe
+String, and SSS is short for Shell Safe String.
+
+=item B<-x xformer[[:arg[,arg[...]][:slot]]>
+
+Specifies a transformer tuple used to manipulate the data before,
+between, or after the requested encoder, converter, or decoder
+operation where
+
+=over 4
+
+=item B<xformer[:arg[,arg[...]]]>
+
+Specifies a transformer function (including arguments if any) that is
+to be used to manipulate the data before encoding (in encode mode),
+after decoding (in decode mode), or between decoding/encoding (in
+convert mode).  Refer to the B<TRANSFORMERS> section for details
+on supported functions and their arguments.
+
+=item B<slot>
+
+Specifies the slot (or relative order) of this particular transformer
+when multiple transformers are in play.  For example, transformers
+with user-specified slots of 1, 2, and 3 will be executed 1st, 2nd,
+and 3rd, respectively.  If B<slot> is not specified, it will be
+assigned based on the order in which B<-x> arguments are processed.
+Numbering begins at 1 and increments by 1 thereafter.
+
+Note that the B<slot> designator is reserved for future use.  Thus,
+only one B<-x> argument per invocation is supported at this time.
+If multiple B<-x> arguments are specified, only the last one will
+be recognized.
+
+=back
+
+=back
+
+=head1 TRANSFORMERS
+
+Each transformer has an implicit B<data> argument, which is supplied
+as the first argument by this script.
+
+=over 4
+
+=item B<and(key)>
+
+This transformer ANDs each byte (or block of bytes) using the
+specified B<key>, which is expected to be a hex byte sequence of
+arbitrary size.  The size of the B<key> establishes the block size.
+If not specified, a default value of 0xff is used as the B<key>,
+which effectively makes this transformer perform the same as nop().
+
+=item B<nop()>
+
+This transformer does nothing.
+
+=item B<rot13()>
+
+This transformer performs the ROT13 substitution cipher on qualified
+bytes (i.e., bytes that map to characters in the set [A-Za-z]).
+
+=item B<rot47()>
+
+This transformer performs the ROT47 substitution cipher on qualified
+bytes (i.e., bytes that map to characters in the set [!-~]).
+
+=item B<not()>
+
+This transformer inverts (i.e., performs a 1's complement on)
+every byte.
+
+=item B<xor(key, padding)>
+
+This transformer XORs each byte (or block of bytes) using the
+specified B<key>, which is expected to be a hex byte sequence of
+arbitrary size.  The size of the B<key> establishes the block size.
+If not specified, a default value of 0x00 is used as the B<key>,
+which effectively makes this transformer perform the same as nop().
+
+If B<padding> is required, it must be specified as a hex byte
+sequence of arbitrary size.  Note that padding is only appended to
+B<data> if the result of (B<data> % B<key>) yields a remainder.
+Since any number mod 1 equals 0, do not expect padding to be
+appended when the key size is 1 byte.  Extra padding (i.e., anything
+beyond what is needed to reach the next block boundary) is ignored.
+If the B<data> buffer size is already an integral multiple of the
+block size, no padding will be added (even if it was specified).
 
 =back
 

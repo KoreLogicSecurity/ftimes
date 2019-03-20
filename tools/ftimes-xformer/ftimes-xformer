@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-xformer,v 1.43 2014/07/18 06:40:45 mavrik Exp $
+# $Id: ftimes-xformer,v 1.61 2019/03/14 16:07:44 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2007-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2007-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -17,7 +17,7 @@ use strict;
 use Cwd;
 use File::Basename;
 use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
-use FTimes::EadRoutines 1.007;
+use FTimes::EadRoutines 1.025;
 use Getopt::Std;
 
 BEGIN
@@ -56,6 +56,10 @@ BEGIN
 
   $$phProperties{'Program'} = basename(__FILE__);
 
+  $$phProperties{'OctFormat'} = "0%o";
+  $$phProperties{'DecFormat'} = "%d";
+  $$phProperties{'HexFormat'} = "0x%x";
+
   $$phProperties{'Newline'} = "\n";
 
   ####################################################################
@@ -66,6 +70,7 @@ BEGIN
 
   my %hFTimesFields =
   (
+    'action'      => 0, # ftimes-srm (common)
     'altstreams'  => 0, # ftimes map (WINX)
     'ams'         => 0, # ftimes map (WINX)
     'atime'       => 0, # ftimes map (common)
@@ -108,11 +113,13 @@ BEGIN
     'offset'      => 0, # ftimes dig
     'osid'        => 0, # ftimes compare and map (WINX); rtimes map
     'rdev'        => 0, # ftimes map (UNIX)
+    'reason'      => 0, # ftimes-srm (common)
     'records'     => 0, # ftimes compare
     'rh_length'   => 0, # ftimes-dig2ctx
     'sha1'        => 0, # ftimes map (common)
     'sha256'      => 0, # ftimes map (common)
     'size'        => 0, # ftimes map (common)
+    'status'      => 0, # ftimes-srm (common)
     'string'      => 0, # ftimes dig
     'tag'         => 0, # ftimes dig
     'type'        => 0, # ftimes dig; rtimes map
@@ -319,29 +326,52 @@ BEGIN
   #
   ####################################################################
 
-  $$phProperties{'BeQuiet'}  = 0;
-  $$phProperties{'DecodeMode'} = 0;
-  $$phProperties{'DeNeuter'} = 0;
-  $$phProperties{'DeriveFields'} = 0;
-  $$phProperties{'DeriveHeader'} = 0;
-  $$phProperties{'NoHeader'} = 0;
-  $$phProperties{'NoQuotes'} = 0;
-  $$phProperties{'ParseName'} = 0;
+  my @sSupportedOptions =
+  (
+    'AddDepth',
+    'BeQuiet',
+    'CountTops',
+    'DecodeAttributes',
+    'DecodeMode',
+    'DeNeuter',
+    'DeNeuter:name',
+    'DeNeuter:string',
+    'DeriveFields',
+    'DeriveHeader',
+    'HexDump:string',
+    'NoHeader',
+    'NoQuotes',
+    'ParseName',
+    'ParseOffset',
+  );
+  foreach my $sOption (@sSupportedOptions)
+  {
+    $$phProperties{$sOption} = 0;
+  }
 
   $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
 
-  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  if (defined($$phProperties{'Options'}))
   {
-    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    foreach my $sOption (split(/,/, $$phProperties{'Options'}))
     {
-      foreach my $sTargetOption ('BeQuiet', 'DecodeMode', 'DeNeuter', 'DeriveFields', 'DeriveHeader', 'NoHeader', 'NoQuotes', 'ParseName')
+      foreach my $sSupportedOption (@sSupportedOptions)
       {
-        if ($sActualOption =~ /^$sTargetOption$/i)
-        {
-          $$phProperties{$sTargetOption} = 1;
-        }
+        $sOption = $sSupportedOption if ($sOption =~ /^$sSupportedOption$/i);
       }
+      if (!exists($$phProperties{$sOption}))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unknown or unsupported option ($sOption).'\n";
+        exit(2);
+      }
+      $$phProperties{$sOption} = 1;
     }
+  }
+  $$phProperties{'AddDepth'} = 1 if ($$phProperties{'CountTops'});
+  if ($$phProperties{'DeNeuter'})
+  {
+    $$phProperties{'DeNeuter:name'} = 1;
+    $$phProperties{'DeNeuter:string'} = 1;
   }
 
   ####################################################################
@@ -440,6 +470,20 @@ BEGIN
 
   ####################################################################
   #
+  # Conditionally log top counts.
+  #
+  ####################################################################
+
+  if ($$phProperties{'CountTops'})
+  {
+    foreach my $sTop (sort({ $$phProperties{'NameTops'}{$b} <=> $$phProperties{'NameTops'}{$a} || $a cmp $b } keys(%{$$phProperties{'NameTops'}})))
+    {
+      print STDERR "Top='$sTop'; Count='$$phProperties{'NameTops'}{$sTop}';\n";
+    }
+  }
+
+  ####################################################################
+  #
   # Clean up and go home.
   #
   ####################################################################
@@ -447,6 +491,79 @@ BEGIN
   close($$phProperties{'FileHandle'});
 
   1;
+
+
+######################################################################
+#
+# Depth
+#
+######################################################################
+
+sub Depth
+{
+  my ($sPath, $sType) = @_;
+
+  ####################################################################
+  #
+  # Return a depth of zero if the path is not defined.
+  #
+  ####################################################################
+
+  if (!defined($sPath))
+  {
+    return 0;
+  }
+
+  ####################################################################
+  #
+  # Conditionally assign a default value for path type.
+  #
+  ####################################################################
+
+  if (!defined($sType) || $sType !~ /^(winx|unix)$/io)
+  {
+    $sType = "unix";
+  }
+
+  ####################################################################
+  #
+  # Conditionally remove quotes.
+  #
+  ####################################################################
+
+  if ($sPath =~ /^(?:"[^"]+"|'[^']+')$/o)
+  {
+    $sPath =~ s/^["']//;
+    $sPath =~ s/["']$//;
+  }
+
+  ####################################################################
+  #
+  # Split path into pieces.
+  #
+  ####################################################################
+
+  my @aPieces = ($sType =~ /^winx$/i) ? split(/\\/, $sPath) : split(/\//, $sPath);
+
+  ####################################################################
+  #
+  # Return the depth (subtract 1 for WINX paths that include a drive).
+  #
+  ####################################################################
+
+  my $sDepth = scalar(@aPieces);
+  if
+  (
+       ($sType =~ /^unix$/io && (!defined($aPieces[0]) || $aPieces[0] eq ""))
+    || ($sType =~ /^winx$/io && (!defined($aPieces[0]) || $aPieces[0] =~ /^(?:|[A-Z]:)$/io)))
+  {
+    shift(@aPieces);
+    $sDepth--;
+  }
+  GetProperties()->{'NameTops'}{$aPieces[0]}++ if ($sDepth > 0);
+
+  return $sDepth;
+}
 
 
 ######################################################################
@@ -503,6 +620,18 @@ sub ProcessHeader
       ################################################################
 
       if (defined($$phProperties{'IgnorePattern'}) && $sLine =~ /$$phProperties{'IgnorePattern'}/)
+      {
+        $$phProperties{'LineNumber'}++;
+        next;
+      }
+
+      ################################################################
+      #
+      # Ignore FTimes log output (assumes combined output streams).
+      #
+      ################################################################
+
+      if ($sLine =~ /^[*+<@-]{3}  (?:DEBUGGER|WAYPOINT|LANDMARK|PROPERTY|LOG_WARN|LOG_FAIL|LOG_CRIT|LOG_HOOK|HEX_DUMP)  [*+>@-]{3}[|]/)
       {
         $$phProperties{'LineNumber'}++;
         next;
@@ -574,6 +703,19 @@ sub ProcessHeader
 
   ####################################################################
   #
+  # Conditionally insert {oct,dec,hex}_offset fields.
+  #
+  ####################################################################
+
+  if ($$phProperties{'ParseOffset'} && defined($$phHeaderFields{'offset'}))
+  {
+    $$phHeaderFields{'oct_offset'} = "oct_offset";
+    $$phHeaderFields{'dec_offset'} = "dec_offset";
+    $$phHeaderFields{'hex_offset'} = "hex_offset";
+  }
+
+  ####################################################################
+  #
   # Conditionally insert directory, filename, basename, and extension
   # fields.
   #
@@ -585,6 +727,17 @@ sub ProcessHeader
     $$phHeaderFields{'filename'} = "filename";
     $$phHeaderFields{'basename'} = "basename";
     $$phHeaderFields{'extension'} = "extension";
+  }
+
+  ####################################################################
+  #
+  # Conditionally insert depth field.
+  #
+  ####################################################################
+
+  if ($$phProperties{'AddDepth'} && defined($$phHeaderFields{'name'}))
+  {
+    $$phHeaderFields{'depth'} = "depth";
   }
 
   ####################################################################
@@ -761,6 +914,17 @@ sub ProcessData
 
     ##################################################################
     #
+    # Ignore FTimes log output (assumes combined output streams).
+    #
+    ##################################################################
+
+    if ($sLine =~ /^[*+<@-]{3}  (?:DEBUGGER|WAYPOINT|LANDMARK|PROPERTY|LOG_WARN|LOG_FAIL|LOG_CRIT|LOG_HOOK|HEX_DUMP)  [*+>@-]{3}[|]/)
+    {
+      next;
+    }
+
+    ##################################################################
+    #
     # Conditionally execute the pre-record eval statement.
     #
     ##################################################################
@@ -824,31 +988,6 @@ sub ProcessData
 
     ##################################################################
     #
-    # Conditionally execute the split-record eval statement.
-    #
-    ##################################################################
-
-    if (defined($$phProperties{'SplitRecordEval'}))
-    {
-      eval $$phProperties{'SplitRecordEval'};
-      if ($@)
-      {
-        print STDERR $@;
-        $$psError = "Problem with post-record eval.";
-        return undef;
-      }
-      if (!%R)
-      {
-        if (!$$phProperties{'BeQuiet'})
-        {
-          print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded due to the split-record eval.'\n";
-        }
-        next;
-      }
-    }
-
-    ##################################################################
-    #
     # Conditionally strip leading directories.
     #
     ##################################################################
@@ -906,22 +1045,40 @@ sub ProcessData
 
     ##################################################################
     #
-    # Conditionally deneuter filenames.
+    # Conditionally deneuter neutered fields.
     #
     ##################################################################
 
-    if ($$phProperties{'DeNeuter'})
+    foreach my $sField ("name", "string")
     {
-      if (!defined($$phRecordFields{'name'}))
+      my $sOption = "DeNeuter:$sField";
+      if ($$phProperties{$sOption})
       {
-        if (!$$phProperties{'BeQuiet'})
+        if (!defined($$phRecordFields{$sField}))
         {
-          print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='The name field must be defined to support the DeNeuter option.'\n";
+          if (!$$phProperties{'BeQuiet'})
+          {
+            print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='The $sField field must be defined to support the DeNeuter or DeNeuter:$sField option.'\n";
+          }
+        }
+        else
+        {
+          $$phRecordFields{$sField} = EadFTimesUrlDecode($$phRecordFields{$sField});
         }
       }
-      else
+    }
+
+    ##################################################################
+    #
+    # Conditionally decode attributes.
+    #
+    ##################################################################
+
+    if ($$phProperties{'DecodeAttributes'})
+    {
+      if (defined($$phRecordFields{'attributes'}))
       {
-        $$phRecordFields{'name'} = EadFTimesUrlDecode($$phRecordFields{'name'});
+        $$phRecordFields{'attributes'} = EadWinxAttributesDecode($$phRecordFields{'attributes'});
       }
     }
 
@@ -937,6 +1094,20 @@ sub ProcessData
       {
         $$phRecordFields{'mode'} = EadUnixModeDecode($$phRecordFields{'mode'});
       }
+    }
+
+    ##################################################################
+    #
+    # Conditionally parse offset.
+    #
+    ##################################################################
+
+    if ($$phProperties{'ParseOffset'} && defined($$phRecordFields{'offset'}))
+    {
+      my $sOffset = ($$phRecordFields{'offset'} =~ /^0[xb]?/o) ? oct($$phRecordFields{'offset'}) : $$phRecordFields{'offset'};
+      $$phRecordFields{'oct_offset'} = sprintf($$phProperties{'OctFormat'}, $sOffset);
+      $$phRecordFields{'dec_offset'} = sprintf($$phProperties{'DecFormat'}, $sOffset);
+      $$phRecordFields{'hex_offset'} = sprintf($$phProperties{'HexFormat'}, $sOffset);
     }
 
     ##################################################################
@@ -963,6 +1134,42 @@ sub ProcessData
         $$phRecordFields{'filename'} = '"' . $$phRecordFields{'filename'} . '"';
         $$phRecordFields{'basename'} = '"' . $$phRecordFields{'basename'} . '"';
         $$phRecordFields{'extension'} = '"' . $$phRecordFields{'extension'} . '"';
+      }
+    }
+
+    ##################################################################
+    #
+    # Conditionally compute depth.
+    #
+    ##################################################################
+
+    if ($$phProperties{'AddDepth'} && defined($$phRecordFields{'name'}))
+    {
+      $$phRecordFields{'depth'} = Depth($$phRecordFields{'name'}, ($$phRecordFields{'name'} =~ /\\/o) ? "winx" : "unix");
+    }
+
+    ##################################################################
+    #
+    # Conditionally execute the split-record eval statement.
+    #
+    ##################################################################
+
+    if (defined($$phProperties{'SplitRecordEval'}))
+    {
+      eval $$phProperties{'SplitRecordEval'};
+      if ($@)
+      {
+        print STDERR $@;
+        $$psError = "Problem with post-record eval.";
+        return undef;
+      }
+      if (!%R)
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded due to the split-record eval.'\n";
+        }
+        next;
       }
     }
 
@@ -1062,6 +1269,29 @@ sub ProcessData
     ##################################################################
 
     print $sOutput, $$phProperties{'Newline'};
+
+    ##################################################################
+    #
+    # Spit out an optional hex dump for selected fields.
+    #
+    ##################################################################
+
+    if ($$phProperties{'HexDump:string'})
+    {
+      my $sDecoder = ($$phRecordFields{'tag'} =~ /^(\w+)(?::\w+)?$/) ? $1 : "nop";
+      my $fDecoder = (defined(EadGetDecoders()->{$sDecoder})) ? EadGetDecoders()->{$sDecoder} : \&EadNopDecode;
+      my $paRecords = ($$phProperties{'DeNeuter:string'}) ? EadHexDumpRecords(&$fDecoder($$phRecordFields{'string'})) : EadHexDumpRecords(&$fDecoder(EadFTimesUrlDecode($$phRecordFields{'string'})));
+      if (defined($paRecords))
+      {
+        my $sBaseOffset = (defined($$phRecordFields{'offset'})) ? $$phRecordFields{'offset'} : 0;
+        my $sLineOffset = $sBaseOffset;
+        foreach my $paRecord (@{$paRecords})
+        {
+          $sLineOffset += hex($$paRecord[0]);
+          printf("@@@  HEX_DUMP  @@@|string|0x%08x|%s|%s%s", $sLineOffset, $$paRecord[1], $$paRecord[2], $$phProperties{'Newline'});
+        }
+      }
+    }
   }
 
   1;
@@ -1191,20 +1421,50 @@ options are supported:
 
 =over 4
 
+=item AddDepth
+
+Count the number of path elements in the name field and place the
+result into the depth field.  Note that the root path (i.e., '/')
+is not considered a path element for this calculation.  For Windows
+paths, the drive specification (e.g., 'C:') is deemed to be part
+of the root path.  Consequently, names such as '/foo', '\foo', and
+'C:\foo' will yield a depth of one.
+
 =item BeQuiet
 
 Don't print warning messages.
 
+=item CountTops
+
+Count the number of records that belong to each top-level (i.e.,
+left-most) path element in a given name as calculated by the depth
+function.  Note that the 'AddDepth' option is implicitly activated
+whenever this option is enabled.  Once all record processing is
+complete, a set of key/value pairs in the format shown below is
+logged to stderr in descending count order.
+
+    Top='<top>'; Count='<count>';
+
+=item DecodeAttributes
+
+Convert attributes into a human-readable form.
+
 =item DecodeMode
 
-Convert mode into its human readable form -- similar to the output
+Convert mode into a human-readable form -- similar to the output
 produced by ls(1).
 
 =item DeNeuter
 
-Remove URL encoding from the name field.  Note that this may cause
-issues with how the output is rendered on your terminal.  For example,
-the actual name field may contain special or non-printable characters.
+Remove URL encoding from the name and string fields, when present.
+Note that this may cause issues with how the output is rendered
+on your terminal (e.g., neutered values can contain special or
+non-printable characters).  You may selectively deneuter a given
+field using the following qualifying syntax:
+
+    -o DeNeuter:<field>
+
+where <field> is one of 'name' or 'string'.
 
 =item DeriveFields
 
@@ -1227,6 +1487,11 @@ input delimiter (see B<-d> option).  Once inserted into the input
 stream, this header is subject to pre- and post-header eval-block
 operations (see B<-B> and B<-A> options, respectively).
 
+=item HexDump[:{string}]
+
+Insert a hex dump of the specified field's bytes into the output
+stream.
+
 =item NoHeader
 
 Don't print an output header.  Note that this overrides all other
@@ -1243,6 +1508,22 @@ the following fields: directory, filename, basename, and extension.
 The following regular expression is used to pick off the extension:
 
     [.][^.]*$
+
+=item ParseOffset
+
+Convert the offset field from its default base to octal, decimal,
+and hexadecimal and place the results into the following fields,
+respectively: oct_offset, dec_offset, and hex_offset.  Values
+prefixed with '0x' will be treated as hexadecimal; those prefixed
+with a single leading '0' will be treated as octal; all others will
+be treated as decimal.  The default format for each field is "%o",
+"%d", and "%x", respectively.  If a different format is desired
+the 'OctFormat', 'DecFormat', or 'HexFormat' properties may be
+altered using a pre-header eval-block (i.e., B<-B>).  For example,
+the eval-block shown below causes the hex_offset field to be padded
+with leading zeros out to 8 upper case digits.
+
+    -B '$$phProperties{"HexFormat"} = "%08X";'
 
 =back
 
@@ -1280,21 +1561,25 @@ of '\n', '\r', or '\t' will be converted to newline, carriage return,
 and tab, respectively.  The value '%%' will be converted to '%'.
 
 The following tokens, given that they are defined, may be used to
-create custom templates: %altstreams, %ams, %atime, %attributes, %basename
-%category, %changed, %chms, %chtime, %cms, %ctime, %ctx_offset,
-%ctx_string, %dev, %dig_name, %dig_offset, %dig_string, %directory,
-%extension, %filename, %findex, %gid, %hostname, %inode, %joiner,
-%lh_length, %magic, %md5, %mh_length, %mms, %mode, %mtime, %name,
-%nlink, %offset, %rdev, %records, %rh_length, %sha1, %sha256, %size,
-%string, %tag, %type, %uid, %unknown, %volume, %z_altstreams, %z_ams,
-%z_atime, %z_attributes, %z_chms, %z_chtime, %z_cms, %z_ctime, %z_dev,
-%z_findex, %z_gid, %z_inode, %z_magic, %z_md5, %z_mms, %z_mode,
-%z_mtime, %z_name, %z_nlink, %z_rdev, %z_sha1, %z_sha256, %z_size,
-%z_uid, and %z_volume.
+create custom templates: %altstreams, %ams, %atime, %attributes,
+%basename %category, %changed, %chms, %chtime, %cms, %ctime,
+%ctx_offset, %ctx_string, %dev, %depth, %dig_name, %dig_offset,
+%dig_string, %directory, %extension, %filename, %findex, %gid,
+%hostname, %inode, %joiner, %lh_length, %magic, %md5, %mh_length,
+%mms, %mode, %mtime, %name, %nlink, %offset, %rdev, %records,
+%rh_length, %sha1, %sha256, %size, %string, %tag, %type, %uid,
+%unknown, %volume, %z_altstreams, %z_ams, %z_atime, %z_attributes,
+%z_chms, %z_chtime, %z_cms, %z_ctime, %z_dev, %z_findex, %z_gid,
+%z_inode, %z_magic, %z_md5, %z_mms, %z_mode, %z_mtime, %z_name,
+%z_nlink, %z_rdev, %z_sha1, %z_sha256, %z_size, %z_uid, and
+%z_volume.
 
 Note that the %directory, %filename, %basename, and %extension fields
 are defined only when the name field is in the input stream and the
 'ParseName' option is enabled.
+
+Note that the %depth field is defined only when the name field is
+in the input stream and the 'AddDepth' option is enabled.
 
 If the B<DeriveFields> option was specified, the tokens %1, %2, etc.
 will also be available for use.

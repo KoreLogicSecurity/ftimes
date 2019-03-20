@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ssl.c,v 1.22 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: ssl.c,v 1.27 2019/03/14 16:07:43 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2001-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -251,13 +251,40 @@ SslInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  psProperties->psslCTX = SSL_CTX_new(SSLv3_client_method());
+  psProperties->psslCTX = SSL_CTX_new(SSLv23_client_method());
   if (psProperties->psslCTX == NULL)
   {
     ERR_error_string(ERR_get_error(), acLocalError);
     snprintf(pcError, MESSAGE_SIZE, "%s: SSL_CTX_new(): %s", acRoutine, acLocalError);
     return NULL;
   }
+
+  /*-
+   *********************************************************************
+   *
+   * Disable protocol versions that are no longer safe to use.
+   *
+   *********************************************************************
+   */
+  SSL_CTX_set_options
+  (
+    psProperties->psslCTX,
+    (
+        0
+#ifdef  SSL_OP_NO_SSLv2
+      | SSL_OP_NO_SSLv2
+#endif
+#ifdef  SSL_OP_NO_SSLv3
+      | SSL_OP_NO_SSLv3
+#endif
+#ifdef  SSL_OP_NO_TLSv1
+      | SSL_OP_NO_TLSv1
+#endif
+#ifdef  SSL_OP_NO_TLSv1_1
+      | SSL_OP_NO_TLSv1_1
+#endif
+    )
+  );
 
   /*-
    *********************************************************************

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes-xpa.c,v 1.5 2014/07/18 06:40:45 mavrik Exp $
+ * $Id: ftimes-xpa.c,v 1.13 2019/03/14 16:07:44 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2009-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2009-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -33,11 +33,12 @@ main(int iArgumentCount, char *ppcArgumentVector[])
   char                acLine[PROPERTIES_MAX_LINE];
   char                acLocalError[MESSAGE_SIZE] = "";
   char               *pc = NULL;
-  char               *pcEncodedName = NULL;
+  char               *pcDecodedName = NULL;
+  char               *pcTargetFile = NULL;
   FILE               *pListFile = NULL;
   FTIMES_XPA_PROPERTIES *psProperties = NULL;
+  int                 iDecoded = 0;
   int                 iError = 0;
-  int                 iIndex = 0;
   int                 iLineNumber = 0;
   int                 iLineLength = 0;
   int                 iSaveLength = 0;
@@ -85,6 +86,13 @@ main(int iArgumentCount, char *ppcArgumentVector[])
     return XER_Abort;
   }
 
+  psProperties->pucData = (unsigned char *) malloc(psProperties->ui32Blocksize);
+  if (psProperties->pucData == NULL)
+  {
+    fprintf(stderr, "%s: Error='Unable to allocate chunk buffer (%s).'\n", PROGRAM_NAME, strerror(errno));
+    return XER_Abort;
+  }
+
   /*-
    *********************************************************************
    *
@@ -110,6 +118,19 @@ main(int iArgumentCount, char *ppcArgumentVector[])
 
     for (acLine[0] = 0, iLineNumber = 1; fgets(acLine, PROPERTIES_MAX_LINE, pListFile) != NULL; acLine[0] = 0, iLineNumber++)
     {
+      /*-
+       *****************************************************************
+       *
+       * Conditionally free up previously allocated resources.
+       *
+       *****************************************************************
+       */
+      if (iDecoded && pcDecodedName != NULL)
+      {
+        free(pcDecodedName);
+      }
+      iDecoded = 0;
+
       /*-
        *****************************************************************
        *
@@ -182,7 +203,8 @@ main(int iArgumentCount, char *ppcArgumentVector[])
       /*-
        *****************************************************************
        *
-       * Make sure the name is properly quoted. Then, remove the quotes.
+       * Make sure the filename is properly quoted. If it is, drop the
+       * quotes and decode the filename.
        *
        *****************************************************************
        */
@@ -193,16 +215,22 @@ main(int iArgumentCount, char *ppcArgumentVector[])
       }
       acLine[iLineLength - 1] = 0;
       iLineLength -= 2;
-      pcEncodedName = &acLine[1];
+      pcDecodedName = FTimesXpaDecodeString(&acLine[1], acLocalError);
+      if (pcDecodedName == NULL)
+      {
+        fprintf(stderr, "%s: Error='Unable to decode \"%s\" on line %d (%s).'\n", PROGRAM_NAME, &acLine[1], iLineNumber, acLocalError);
+        continue;
+      }
+      iDecoded = 1;
 
       /*-
        *****************************************************************
        *
-       * Process the name that remains.
+       * Process the file.
        *
        *****************************************************************
        */
-      FTimesXpaAddMember(pcEncodedName, psProperties->pucData, psProperties->ui32Blocksize, acLocalError);
+      FTimesXpaAddMember(pcDecodedName, psProperties->pucData, psProperties->ui32Blocksize, acLocalError);
     }
     if (ferror(pListFile))
     {
@@ -219,10 +247,51 @@ main(int iArgumentCount, char *ppcArgumentVector[])
    *
    *********************************************************************
    */
-  for (iIndex = 0; iIndex < psProperties->iFileCount; iIndex++)
+  while ((pcTargetFile = OptionsGetNextOperand(psProperties->psOptionsContext)) != NULL)
   {
-    pcEncodedName = psProperties->ppcFileVector[iIndex];
-    FTimesXpaAddMember(pcEncodedName, psProperties->pucData, psProperties->ui32Blocksize, acLocalError);
+    /*-
+     *******************************************************************
+     *
+     * Conditionally free up previously allocated resources.
+     *
+     *******************************************************************
+     */
+    if (iDecoded && pcDecodedName != NULL)
+    {
+      free(pcDecodedName);
+    }
+    iDecoded = 0;
+
+    /*-
+     *******************************************************************
+     *
+     * Conditionally decode the filename.
+     *
+     *******************************************************************
+     */
+    if (strncmp(pcTargetFile, FTIMES_XPA_ENCODED_PREFIX, FTIMES_XPA_ENCODED_PREFIX_LENGTH) == 0)
+    {
+      pcDecodedName = FTimesXpaDecodeString(&pcTargetFile[FTIMES_XPA_ENCODED_PREFIX_LENGTH], acLocalError);
+      if (pcDecodedName == NULL)
+      {
+        fprintf(stderr, "%s: Error='Unable to decode \"%s\" (%s).'\n", PROGRAM_NAME, pcTargetFile, acLocalError);
+        continue;
+      }
+      iDecoded = 1;
+    }
+    else
+    {
+      pcDecodedName = pcTargetFile;
+    }
+
+    /*-
+     *******************************************************************
+     *
+     * Process the file.
+     *
+     *******************************************************************
+     */
+    FTimesXpaAddMember(pcDecodedName, psProperties->pucData, psProperties->ui32Blocksize, acLocalError);
   }
 
   /*-
@@ -306,7 +375,7 @@ FTimesXpaDecodeString(char *pcEncoded, char *pcError)
       }
       else
       {
-        snprintf(pcError, MESSAGE_SIZE, "bad value in string");
+        snprintf(pcError, MESSAGE_SIZE, "Bad hex value in string");
         free(pcDecoded);
         return NULL;
       }
@@ -322,6 +391,86 @@ FTimesXpaDecodeString(char *pcEncoded, char *pcError)
   pcDecoded[n] = 0;
 
   return pcDecoded;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * FTimesXpaEncodeString
+ *
+ ***********************************************************************
+ */
+char *
+FTimesXpaEncodeString(char *pcData, int iLength, char *pcError)
+{
+  char               *pcEncoded = NULL;
+  int                 i = 0;
+  int                 n = 0;
+
+  /*-
+   *********************************************************************
+   *
+   * The caller is expected to free this memory.
+   *
+   *********************************************************************
+   */
+  pcEncoded = malloc((3 * iLength) + 1);
+  if (pcEncoded == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s", strerror(errno));
+    return NULL;
+  }
+  pcEncoded[0] = 0;
+
+  /*-
+   *********************************************************************
+   *
+   * Encode non-printables and [|"'`%+#]. Conditionally encode '/' and
+   * '\' depending on the target platform. Convert spaces to '+'. Avoid
+   * isprint() here because it has led to unexpected results on Windows
+   * platforms. In the past, isprint() on certain Windows systems has
+   * decided that several characters in the range 0x7f - 0xff are
+   * printable.
+   *
+   *********************************************************************
+   */
+  for (i = n = 0; i < iLength; i++)
+  {
+    if (pcData[i] > '~' || pcData[i] < ' ')
+    {
+      n += sprintf(&pcEncoded[n], "%%%02x", (unsigned char) pcData[i]);
+    }
+    else
+    {
+      switch (pcData[i])
+      {
+      case '|':
+      case '"':
+      case '\'':
+      case '`':
+      case '%':
+      case '+':
+      case '#':
+#ifdef WINNT
+      case '/':
+#else
+      case '\\':
+#endif
+        n += sprintf(&pcEncoded[n], "%%%02x", (unsigned char) pcData[i]);
+        break;
+      case ' ':
+        pcEncoded[n++] = '+';
+        break;
+      default:
+        pcEncoded[n++] = pcData[i];
+        break;
+      }
+    }
+  }
+  pcEncoded[n] = 0;
+
+  return pcEncoded;
 }
 
 
@@ -451,10 +600,6 @@ FTimesXpaFreeHandle(FTIMES_XPA_HANDLE *psHandle)
       free(psHandle->pcFileW);
     }
 #endif
-    if (psHandle->pcDecodedName)
-    {
-      free(psHandle->pcDecodedName);
-    }
     free(psHandle);
   }
 }
@@ -468,28 +613,41 @@ FTimesXpaFreeHandle(FTIMES_XPA_HANDLE *psHandle)
  ***********************************************************************
  */
 FTIMES_XPA_HANDLE *
-FTimesXpaGetHandle(char *pcEncodedName, char *pcError)
+FTimesXpaGetHandle(char *pcDecodedName, char *pcError)
 {
   const char          acRoutine[] = "FTimesXpaGetHandle()";
+#ifdef WINNT
   char                acLocalError[MESSAGE_SIZE] = "";
+#endif
   FTIMES_XPA_HANDLE  *psHandle = NULL;
 #ifdef WINNT
   int                 iSize = 0;
   TCHAR              *ptcWinxError = NULL;
 #endif
 
+  /*-
+   *********************************************************************
+   *
+   * Allocate and initialize a new handle structure.
+   *
+   *********************************************************************
+   */
   psHandle = (FTIMES_XPA_HANDLE *) calloc(sizeof(FTIMES_XPA_HANDLE), 1);
   if (psHandle == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
-  psHandle->pcDecodedName = FTimesXpaDecodeString(pcEncodedName, acLocalError);
-  if (psHandle->pcDecodedName == NULL)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: FTimesXpaDecodeString(): %s", acRoutine, acLocalError);
-    goto ABORT;
-  }
+  psHandle->pcDecodedName = pcDecodedName;
+
+  /*-
+   *********************************************************************
+   *
+   * Open the specified file for binary read access. If the filename is
+   * "-", use stdin.
+   *
+   *********************************************************************
+   */
   if (strcmp(psHandle->pcDecodedName, "-") == 0)
   {
     psHandle->pFile = stdin;
@@ -530,7 +688,7 @@ FTimesXpaGetHandle(char *pcEncodedName, char *pcError)
     snprintf(pcError, MESSAGE_SIZE, "%s: CreateFileW(): %s", acRoutine, ptcWinxError);
     goto ABORT;
   }
-  psHandle->iFile = _open_osfhandle((long) psHandle->hFile, 0);
+  psHandle->iFile = _open_osfhandle((intptr_t) psHandle->hFile, 0);
   if (psHandle->iFile == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: _open_osfhandle(): %s", acRoutine, strerror(errno));
@@ -812,19 +970,29 @@ FTimesXpaWriteKvp(FILE *pFile, int iKeyId, void *pvValue, int iValueLength, char
   case FTIMES_XPA_KEY_ID_NAME:
   case FTIMES_XPA_KEY_ID_MD5:
   case FTIMES_XPA_KEY_ID_SHA1:
+  case FTIMES_XPA_KEY_ID_FILE_OSID:
+  case FTIMES_XPA_KEY_ID_FILE_GSID:
+  case FTIMES_XPA_KEY_ID_FILE_OWNER:
+  case FTIMES_XPA_KEY_ID_FILE_GROUP:
+  case FTIMES_XPA_KEY_ID_PATH_SEPARATOR:
     memcpy(&pucKvp[iIndex], (unsigned char *) pvValue, iValueLength);
     break;
   case FTIMES_XPA_KEY_ID_DATA_SIZE:
   case FTIMES_XPA_KEY_ID_HEAD_FLAGS:
   case FTIMES_XPA_KEY_ID_TAIL_FLAGS:
+  case FTIMES_XPA_KEY_ID_FILE_UID:
+  case FTIMES_XPA_KEY_ID_FILE_GID:
     ui32Value = *((APP_UI32 *) pvValue);
     for (i = 0; i < sizeof(ui32Value); i++)
     {
       pucKvp[iIndex++] = (unsigned char) ((ui32Value >> ((sizeof(ui32Value) - (i + 1)) * 8)) & 0xff);
     }
     break;
-  case FTIMES_XPA_KEY_ID_EXPECTED_SIZE:
-  case FTIMES_XPA_KEY_ID_REPORTED_SIZE:
+  case FTIMES_XPA_KEY_ID_FILE_REAL_SIZE:
+  case FTIMES_XPA_KEY_ID_FILE_READ_SIZE:
+  case FTIMES_XPA_KEY_ID_FILE_ATIME_RTUE:
+  case FTIMES_XPA_KEY_ID_FILE_MTIME_RTUE:
+  case FTIMES_XPA_KEY_ID_FILE_CTIME_RTUE:
     ui64Value = *((APP_UI64 *) pvValue);
     for (i = 0; i < sizeof(ui64Value); i++)
     {
@@ -867,10 +1035,11 @@ FTimesXpaWriteKvp(FILE *pFile, int iKeyId, void *pvValue, int iValueLength, char
  ***********************************************************************
  */
 void
-FTimesXpaAddMember(char *pcEncodedName, unsigned char *pucData, APP_UI32 ui32Blocksize, char *pcError)
+FTimesXpaAddMember(char *pcDecodedName, unsigned char *pucData, APP_UI32 ui32Blocksize, char *pcError)
 {
   const char          acRoutine[] = "FTimesXpaAddMember()";
   char                acLocalError[MESSAGE_SIZE] = "";
+  char               *pcEncodedName = NULL;
   FILE               *pFile = stdout;
   FTIMES_XPA_HANDLE  *psHandle = NULL;
   FTIMES_XPA_HEADER   sFileHeader = { 0 };
@@ -883,23 +1052,65 @@ FTimesXpaAddMember(char *pcEncodedName, unsigned char *pucData, APP_UI32 ui32Blo
   MD5_CONTEXT         sFinalMd5 = { 0 };
   SHA1_CONTEXT        sFinalSha1 = { 0 };
   int                 iError = 0;
-  int                 iNameLength = strlen(pcEncodedName);
+  int                 iNameLength = strlen(pcDecodedName);
   int                 iNRead = 0;
   APP_UI32            ui32HeadFlags = 0;
   APP_UI32            ui32TailFlags = 0;
   APP_UI32            ui32LowerChunkId = 0;
   APP_UI32            ui32UpperChunkId = 0;
-  APP_UI64            ui64ExpectedSize = 0;
-  APP_UI64            ui64ReportedSize = 0;
+  APP_UI64            ui64FileRealSize = 0;
+  APP_UI64            ui64FileReadSize = 0;
+  APP_UI64            ui64FileATimeRtue = 0;
+  APP_UI64            ui64FileMTimeRtue = 0;
+  APP_UI64            ui64FileCTimeRtue = 0;
+
+#ifdef WINNT
+  BY_HANDLE_FILE_INFORMATION sFileInfo = {};
+  char               *pcSidGroup = NULL;
+  char               *pcSidOwner = NULL;
+  DWORD               dwSize1 = 0;
+  DWORD               dwSize2 = 0;
+  DWORD               dwStatus = 0;
+  SECURITY_DESCRIPTOR *psSd;
+  SID                *psSidGroup;
+  SID                *psSidOwner;
+  SID_NAME_USE        sSidType;
+  TCHAR               ptcGroupDomain[FTIMES_XPA_OWNER_NAME_SIZE] = {};
+  TCHAR               ptcGroup[FTIMES_XPA_OWNER_NAME_SIZE] = {};
+  TCHAR               ptcOwnerDomain[FTIMES_XPA_OWNER_NAME_SIZE] = {};
+  TCHAR               ptcOwner[FTIMES_XPA_OWNER_NAME_SIZE] = {};
+  TCHAR              *ptcWinxError = NULL;
+#else
+  APP_UI32            ui32FileUid = 0;
+  APP_UI32            ui32FileGid = 0;
+  struct passwd      *psOwner = NULL;
+  struct group       *psGroup = NULL;
+  struct stat         sStatEntry = {};
+#endif
 
   /*-
    *********************************************************************
    *
-   * Get the party started.
+   * Encode the filename.
    *
    *********************************************************************
    */
-  psHandle = FTimesXpaGetHandle(pcEncodedName, acLocalError);
+  pcEncodedName = FTimesXpaEncodeString(pcDecodedName, iNameLength, acLocalError);
+  if (pcEncodedName == NULL)
+  {
+    fprintf(stderr, "%s: Error='Unable to encode \"%s\" (%s).'\n", PROGRAM_NAME, pcDecodedName, acLocalError);
+    FTimesXpaAbort();
+  }
+  iNameLength = strlen(pcEncodedName);
+
+  /*-
+   *********************************************************************
+   *
+   * Open the file, initialize hashes, and get selected attributes.
+   *
+   *********************************************************************
+   */
+  psHandle = FTimesXpaGetHandle(pcDecodedName, acLocalError);
   if (psHandle == NULL)
   {
     fprintf(stderr, "%s: Error='Unable to obtain a handle for \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
@@ -909,6 +1120,101 @@ FTimesXpaAddMember(char *pcEncodedName, unsigned char *pucData, APP_UI32 ui32Blo
   {
     MD5Alpha(&sFinalMd5);
     SHA1Alpha(&sFinalSha1);
+#ifdef WINNT
+    if (!GetFileInformationByHandle(psHandle->hFile, &sFileInfo))
+    {
+      FTimesXpaFormatWinxError(GetLastError(), &ptcWinxError);
+      fprintf(stderr, "%s: Error='Unable to obtain one or more attributes for \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, ptcWinxError);
+      ui32HeadFlags |= FTIMES_XPA_MEMBER_HEAD_FLAG_ATTR_ERROR;
+    }
+    else
+    {
+      ui64FileATimeRtue = (((APP_UI64)sFileInfo.ftLastAccessTime.dwHighDateTime) << 32) | (APP_UI64)sFileInfo.ftLastAccessTime.dwLowDateTime;
+      ui64FileATimeRtue -= UNIX_EPOCH_IN_NT_TIME;
+      ui64FileATimeRtue /= 10;
+      ui64FileATimeRtue /= 1000000;
+      ui64FileMTimeRtue = (((APP_UI64)sFileInfo.ftLastWriteTime.dwHighDateTime) << 32) | (APP_UI64)sFileInfo.ftLastWriteTime.dwLowDateTime;
+      ui64FileMTimeRtue -= UNIX_EPOCH_IN_NT_TIME;
+      ui64FileMTimeRtue /= 10;
+      ui64FileMTimeRtue /= 1000000;
+      ui64FileCTimeRtue = (((APP_UI64)sFileInfo.ftCreationTime.dwHighDateTime) << 32) | (APP_UI64)sFileInfo.ftCreationTime.dwLowDateTime;
+      ui64FileCTimeRtue -= UNIX_EPOCH_IN_NT_TIME;
+      ui64FileCTimeRtue /= 10;
+      ui64FileCTimeRtue /= 1000000;
+      ui64FileRealSize = (((APP_UI64)sFileInfo.nFileSizeHigh) << 32) | (APP_UI64)sFileInfo.nFileSizeLow;
+    }
+    dwStatus = GetSecurityInfo
+    (
+      psHandle->hFile,
+      SE_FILE_OBJECT,
+      OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+      (PSID) &psSidOwner,
+      (PSID) &psSidGroup,
+      NULL, /* This pointer is not required to obtain DACL information. */
+      NULL,
+#if (WINVER <= 0x500)
+      &psSd
+#else
+      (PSECURITY_DESCRIPTOR) &psSd
+#endif
+    );
+    if (dwStatus != ERROR_SUCCESS || !IsValidSecurityDescriptor(psSd))
+    {
+      FTimesXpaFormatWinxError(dwStatus, &ptcWinxError); /* According to MSDN, GetSecurityInfo() returns a nonzero error code defined in WinError.h when it fails. */
+      fprintf(stderr, "%s: Error='Unable to obtain one or more attributes for \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, ptcWinxError);
+      ui32HeadFlags |= FTIMES_XPA_MEMBER_HEAD_FLAG_ATTR_ERROR;
+    }
+    else
+    {
+      ConvertSidToStringSidA(psSidOwner, &pcSidOwner);
+      ConvertSidToStringSidA(psSidGroup, &pcSidGroup);
+      dwSize1 = FTIMES_XPA_OWNER_NAME_SIZE;
+      dwSize2 = FTIMES_XPA_OWNER_NAME_SIZE;
+      if (!LookupAccountSid(NULL, psSidOwner, ptcOwner, &dwSize1, ptcOwnerDomain, &dwSize2, &sSidType))
+      {
+        FTimesXpaFormatWinxError(GetLastError(), &ptcWinxError);
+        fprintf(stderr, "%s: Error='Unable to resolve owner SID for \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, ptcWinxError);
+        ui32HeadFlags |= FTIMES_XPA_MEMBER_HEAD_FLAG_ATTR_ERROR;
+      }
+      dwSize1 = FTIMES_XPA_OWNER_NAME_SIZE;
+      dwSize2 = FTIMES_XPA_OWNER_NAME_SIZE;
+      if (!LookupAccountSid(NULL, psSidGroup, ptcGroup, &dwSize1, ptcGroupDomain, &dwSize2, &sSidType))
+      {
+        FTimesXpaFormatWinxError(GetLastError(), &ptcWinxError);
+        fprintf(stderr, "%s: Error='Unable to resolve group SID for \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, ptcWinxError);
+        ui32HeadFlags |= FTIMES_XPA_MEMBER_HEAD_FLAG_ATTR_ERROR;
+      }
+    }
+#else
+    if (fstat(fileno(psHandle->pFile), &sStatEntry) != ER_OK)
+    {
+      fprintf(stderr, "%s: Error='Unable to obtain one or more attributes for \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, strerror(errno));
+      ui32HeadFlags |= FTIMES_XPA_MEMBER_HEAD_FLAG_ATTR_ERROR;
+    }
+    else
+    {
+      ui64FileATimeRtue = (APP_UI64)sStatEntry.st_atime;
+      ui64FileMTimeRtue = (APP_UI64)sStatEntry.st_mtime;
+      ui64FileCTimeRtue = (APP_UI64)sStatEntry.st_ctime;
+      ui64FileRealSize = (APP_UI64)sStatEntry.st_size;
+      ui32FileUid = (APP_UI32)sStatEntry.st_uid;
+      ui32FileGid = (APP_UI32)sStatEntry.st_gid;
+      errno = 0;
+      psOwner = getpwuid(sStatEntry.st_uid);
+      if (psOwner == NULL)
+      {
+        fprintf(stderr, "%s: Error='Unable to resolve owner name for \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, ((errno == 0) ? "Owner name is not mapped" : strerror(errno)));
+        ui32HeadFlags |= FTIMES_XPA_MEMBER_HEAD_FLAG_ATTR_ERROR;
+      }
+      errno = 0;
+      psGroup = getgrgid(sStatEntry.st_gid);
+      if (psGroup == NULL)
+      {
+        fprintf(stderr, "%s: Error='Unable to resolve group name for \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, ((errno == 0) ? "Group name is not mapped" : strerror(errno)));
+        ui32HeadFlags |= FTIMES_XPA_MEMBER_HEAD_FLAG_ATTR_ERROR;
+      }
+    }
+#endif
   }
 
   /*-
@@ -940,7 +1246,27 @@ FTimesXpaAddMember(char *pcEncodedName, unsigned char *pucData, APP_UI32 ui32Blo
   sFileHeader.ui32Magic = FTIMES_XPA_CHUNK_TYPE_HKVP;
   sFileHeader.ui32Version = FTIMES_XPA_VERSION;
   sFileHeader.ui32LastChunkSize = sFileHeader.ui32ThisChunkSize;
-  sFileHeader.ui32ThisChunkSize = FTIMES_XPA_HEADER_SIZE + 4 + iNameLength + 4 + 8 + 4 + 4;
+  sFileHeader.ui32ThisChunkSize =
+      FTIMES_XPA_HEADER_SIZE
+    + (4 + iNameLength)
+    + (4 + 8) // FileRealSize
+    + (4 + 8) // FileATimeRtue
+    + (4 + 8) // FileMTimeRtue
+    + (4 + 8) // FileCTimeRtue
+    + (4 + 4) // HeadFlags
+#ifdef WINNT
+    + ((pcSidOwner) ? (4 + strlen(pcSidOwner)) : 0) // FileSidOwner
+    + ((pcSidGroup) ? (4 + strlen(pcSidGroup)) : 0) // FileSidGroup
+    + ((ptcOwner[0]) ? (4 + strlen(ptcOwner)) : 0) // FileOwner
+    + ((ptcGroup[0]) ? (4 + strlen(ptcGroup)) : 0) // FileGroup
+#else
+    + (4 + 4) // FileUid
+    + (4 + 4) // FileGid
+    + ((psOwner) ? (4 + strlen(psOwner->pw_name)) : 0) // FileOwner
+    + ((psGroup) ? (4 + strlen(psGroup->gr_name)) : 0) // FileGroup
+#endif
+    + (4 + FTIMES_XPA_PATH_SEPARATOR_LENGTH)
+    ;
   sFileHeader.ui32ChunkId = ui32UpperChunkId;
   iError = FTimesXpaWriteHeader(pFile, &sFileHeader, acLocalError);
   if (iError != ER_OK)
@@ -954,13 +1280,110 @@ FTimesXpaAddMember(char *pcEncodedName, unsigned char *pucData, APP_UI32 ui32Blo
     fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
     FTimesXpaAbort();
   }
-  iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_EXPECTED_SIZE, (void *) &ui64ExpectedSize, sizeof(ui64ExpectedSize), acLocalError);
+  iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_REAL_SIZE, (void *) &ui64FileRealSize, sizeof(ui64FileRealSize), acLocalError);
+  if (iError != ER_OK)
+  {
+    fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+    FTimesXpaAbort();
+  }
+  iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_ATIME_RTUE, (void *) &ui64FileATimeRtue, sizeof(ui64FileATimeRtue), acLocalError);
+  if (iError != ER_OK)
+  {
+    fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+    FTimesXpaAbort();
+  }
+  iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_MTIME_RTUE, (void *) &ui64FileMTimeRtue, sizeof(ui64FileMTimeRtue), acLocalError);
+  if (iError != ER_OK)
+  {
+    fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+    FTimesXpaAbort();
+  }
+  iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_CTIME_RTUE, (void *) &ui64FileCTimeRtue, sizeof(ui64FileCTimeRtue), acLocalError);
   if (iError != ER_OK)
   {
     fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
     FTimesXpaAbort();
   }
   iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_HEAD_FLAGS, (void *) &ui32HeadFlags, sizeof(ui32HeadFlags), acLocalError);
+  if (iError != ER_OK)
+  {
+    fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+    FTimesXpaAbort();
+  }
+#ifdef WINNT
+  if (pcSidOwner)
+  {
+    iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_OSID, (void *) pcSidOwner, strlen(pcSidOwner), acLocalError);
+    if (iError != ER_OK)
+    {
+      fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+      FTimesXpaAbort();
+    }
+    LocalFree(pcSidOwner);
+  }
+  if (pcSidGroup)
+  {
+    iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_GSID, (void *) pcSidGroup, strlen(pcSidGroup), acLocalError);
+    if (iError != ER_OK)
+    {
+      fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+      FTimesXpaAbort();
+    }
+    LocalFree(pcSidGroup);
+  }
+//FIXME TCHAR/char mismatch and we'll probably need to utf8 encode the string.
+  if (ptcOwner[0])
+  {
+    iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_OWNER, (void *) ptcOwner, strlen(ptcOwner), acLocalError);
+    if (iError != ER_OK)
+    {
+      fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+      FTimesXpaAbort();
+    }
+  }
+//FIXME TCHAR/char mismatch and we'll probably need to utf8 encode the string.
+  if (ptcGroup[0])
+  {
+    iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_GROUP, (void *) ptcGroup, strlen(ptcGroup), acLocalError);
+    if (iError != ER_OK)
+    {
+      fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+      FTimesXpaAbort();
+    }
+  }
+#else
+  iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_UID, (void *) &ui32FileUid, sizeof(ui32FileUid), acLocalError);
+  if (iError != ER_OK)
+  {
+    fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+    FTimesXpaAbort();
+  }
+  iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_GID, (void *) &ui32FileGid, sizeof(ui32FileGid), acLocalError);
+  if (iError != ER_OK)
+  {
+    fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+    FTimesXpaAbort();
+  }
+  if (psOwner)
+  {
+    iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_OWNER, (void *) psOwner->pw_name, strlen(psOwner->pw_name), acLocalError);
+    if (iError != ER_OK)
+    {
+      fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+      FTimesXpaAbort();
+    }
+  }
+  if (psGroup)
+  {
+    iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_GROUP, (void *) psGroup->gr_name, strlen(psGroup->gr_name), acLocalError);
+    if (iError != ER_OK)
+    {
+      fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+      FTimesXpaAbort();
+    }
+  }
+#endif
+  iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_PATH_SEPARATOR, (void *) FTIMES_XPA_PATH_SEPARATOR, FTIMES_XPA_PATH_SEPARATOR_LENGTH, acLocalError);
   if (iError != ER_OK)
   {
     fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
@@ -999,7 +1422,7 @@ FTimesXpaAddMember(char *pcEncodedName, unsigned char *pucData, APP_UI32 ui32Blo
       {
         break; /* We're done. */
       }
-      ui64ReportedSize += (APP_UI64) iNRead;
+      ui64FileReadSize += (APP_UI64) iNRead;
 
       /*-
        *****************************************************************
@@ -1136,6 +1559,12 @@ FTimesXpaAddMember(char *pcEncodedName, unsigned char *pucData, APP_UI32 ui32Blo
     fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
     FTimesXpaAbort();
   }
+  iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_FILE_READ_SIZE, (void *) &ui64FileReadSize, sizeof(ui64FileReadSize), acLocalError);
+  if (iError != ER_OK)
+  {
+    fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
+    FTimesXpaAbort();
+  }
   iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_MD5, (void *) aucFinalMd5, MD5_HASH_SIZE, acLocalError);
   if (iError != ER_OK)
   {
@@ -1143,12 +1572,6 @@ FTimesXpaAddMember(char *pcEncodedName, unsigned char *pucData, APP_UI32 ui32Blo
     FTimesXpaAbort();
   }
   iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_SHA1, (void *) aucFinalSha1, SHA1_HASH_SIZE, acLocalError);
-  if (iError != ER_OK)
-  {
-    fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
-    FTimesXpaAbort();
-  }
-  iError = FTimesXpaWriteKvp(pFile, FTIMES_XPA_KEY_ID_REPORTED_SIZE, (void *) &ui64ReportedSize, sizeof(ui64ReportedSize), acLocalError);
   if (iError != ER_OK)
   {
     fprintf(stderr, "%s: Error='Write error while processing \"%s\" (%s: %s).'\n", PROGRAM_NAME, pcEncodedName, acRoutine, acLocalError);
@@ -1180,6 +1603,11 @@ FTimesXpaAddMember(char *pcEncodedName, unsigned char *pucData, APP_UI32 ui32Blo
     FTimesXpaAbort();
   }
 
+  if (pcEncodedName != NULL)
+  {
+    free(pcEncodedName);
+  }
+
   return;
 }
 
@@ -1197,8 +1625,6 @@ FTimesXpaProcessArguments(int iArgumentCount, char *ppcArgumentVector[], FTIMES_
   char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcMode = NULL;
   int                 iError = 0;
-  int                 iOperandIndex = 0;
-  int                 iOperandCount = 0;
   OPTIONS_CONTEXT    *psOptionsContext = NULL;
   OPTIONS_TABLE       asArchiveOptions[] =
   {
@@ -1213,7 +1639,7 @@ FTimesXpaProcessArguments(int iArgumentCount, char *ppcArgumentVector[], FTIMES_
    *
    *********************************************************************
    */
-  psOptionsContext = OptionsNewOptionsContext(iArgumentCount, ppcArgumentVector, acLocalError);
+  psProperties->psOptionsContext = psOptionsContext = OptionsNewOptionsContext(iArgumentCount, ppcArgumentVector, acLocalError);
   if (psOptionsContext == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -1256,7 +1682,7 @@ FTimesXpaProcessArguments(int iArgumentCount, char *ppcArgumentVector[], FTIMES_
    *
    *********************************************************************
    */
-  iError = OptionsProcessOptions(psOptionsContext, (void *) psProperties, acLocalError);
+  iError = OptionsProcessOptions2(psOptionsContext, (void *) psProperties, acLocalError);
   switch (iError)
   {
   case OPTIONS_ER:
@@ -1274,31 +1700,16 @@ FTimesXpaProcessArguments(int iArgumentCount, char *ppcArgumentVector[], FTIMES_
   /*-
    *********************************************************************
    *
-   * Handle any special cases and/or remaining arguments.
+   * Handle any special cases.
    *
    *********************************************************************
    */
-  iOperandCount = OptionsGetArgumentsLeft(psOptionsContext);
   switch (psProperties->iRunMode)
   {
   case FTIMES_XPA_ARCHIVE_MODE:
-    if (iOperandCount < 1)
-    {
-      psProperties->ppcFileVector = NULL;
-      psProperties->iFileCount = 0;
-    }
-    else
-    {
-      iOperandIndex = OptionsGetArgumentIndex(psOptionsContext) + 1;
-      psProperties->ppcFileVector = &ppcArgumentVector[iOperandIndex];
-      psProperties->iFileCount = iOperandCount;
-    }
     break;
   default:
-    if (iOperandCount > 0)
-    {
-      FTimesXpaUsage();
-    }
+    FTimesXpaUsage();
     break;
   }
 
@@ -1529,6 +1940,10 @@ FTimesXpaFreeProperties(FTIMES_XPA_PROPERTIES *psProperties)
     if (psProperties->pucData)
     {
       free(psProperties->pucData);
+    }
+    if (psProperties->psOptionsContext != NULL)
+    {
+      OptionsFreeOptionsContext(psProperties->psOptionsContext);
     }
     free(psProperties);
   }

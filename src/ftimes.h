@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.167 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: ftimes.h,v 1.172 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -110,7 +110,7 @@ typedef enum _FTIMES_OPTION_IDS
 //#define FTIMES_MAX_PATH                  260
 #define FTIMES_MAX_PATH                 4096
 //END (\\?\)
-#define FTIMES_MAX_ACL_SIZE             1024 /* This is an arbitrary limit. An ACL consists of zero or more ACEs, but the output buffer is fixed, so a limit must be imposed. */
+#define FTIMES_MAX_ACL_SIZE             4096 /* An ACL consists of zero or more ACEs. According to MSDN, the maximum size of an ACL is 64 KB (approximately 1,820 ACEs). The limit set here is arbitrary, but it must be imposed because the size of the output buffer is fixed. */
 #define FTIMES_MAX_SID_SIZE              192 /* S-255-18446744073709551615-4294967295[-4294967295]{0,14} --> 1 + (1 + 3) + (1 + 20) + ((1 + 10) * 15) + 1 */
 #else
 #define FTIMES_ROOT_PATH                  "/"
@@ -126,6 +126,7 @@ typedef enum _FTIMES_OPTION_IDS
 
 #define FTIMES_MIN_BLOCK_SIZE              1
 #define FTIMES_MAX_BLOCK_SIZE     1073741824 /* 1 GB */
+#define FTIMES_MAX_DEPTH               65536
 #define FTIMES_MAX_KBPS              2097152 /* 2^31/1024 */
 
 #define FTIMES_MIN_STRING_REPEATS          0
@@ -218,6 +219,7 @@ typedef struct _FTIMES_FILE_DATA
   FILETIME            sFTCTime;
   FILETIME            sFTChTime;
   FILETIME            sFTMTime;
+  int                 iDepth;
   int                 iFileExists;
   int                 iFiltered;
   int                 iFSType;
@@ -242,6 +244,7 @@ typedef struct _FTIMES_FILE_DATA
   char                acType[FTIMES_FILETYPE_BUFSIZE];
   char               *pcNeuteredPath;
   char               *pcRawPath;
+  int                 iDepth;
   int                 iFileExists;
   int                 iFiltered;
   int                 iFSType;
@@ -307,6 +310,7 @@ typedef struct _FILTER_LIST
 #define MODES_AnalyzeStepSize     (FTIMES_DIGMAD)
 #endif
 #define MODES_AnalyzeDeviceFiles  (FTIMES_DIGMADMAP)
+#define MODES_AnalyzeMaxDepth     (FTIMES_DIGMADMAP)
 #define MODES_AnalyzeMaxDps       (FTIMES_DIGMADMAP)
 #define MODES_AnalyzeRemoteFiles  (FTIMES_DIGMADMAP)
 #define MODES_AnalyzeStartOffset  (FTIMES_DIGMADMAP)
@@ -385,6 +389,7 @@ typedef struct _FILTER_LIST
 #define KEY_AnalyzeStepSize     "AnalyzeStepSize"
 #endif
 #define KEY_AnalyzeDeviceFiles  "AnalyzeDeviceFiles"
+#define KEY_AnalyzeMaxDepth     "AnalyzeMaxDepth"
 #define KEY_AnalyzeMaxDps       "AnalyzeMaxDps"
 #define KEY_AnalyzeRemoteFiles  "AnalyzeRemoteFiles"
 #define KEY_AnalyzeStartOffset  "AnalyzeStartOffset"
@@ -466,6 +471,7 @@ typedef struct _CONTROLS_FOUND
   BOOL                bAnalyzeStepSizeFound;
 #endif
   BOOL                bAnalyzeDeviceFilesFound;
+  BOOL                bAnalyzeMaxDepthFound;
   BOOL                bAnalyzeMaxDpsFound;
   BOOL                bAnalyzeRemoteFilesFound;
   BOOL                bAnalyzeStartOffsetFound;
@@ -609,6 +615,7 @@ typedef struct _FTIMES_PROPERTIES
   HTTP_URL           *psPutURL;
   int                 iAnalyzeBlockSize;
   int                 iAnalyzeCarrySize;
+  int                 iAnalyzeMaxDepth;
   int                 iAnalyzeMaxDps;
 #ifdef USE_XMAGIC
   int                 iAnalyzeStepSize;

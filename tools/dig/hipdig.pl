@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hipdig.pl,v 1.51 2014/07/18 06:40:44 mavrik Exp $
+# $Id: hipdig.pl,v 1.57 2019/03/14 16:07:43 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -16,9 +16,27 @@
 use strict;
 use File::Basename;
 use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
-use FTimes::EadRoutines;
+use FTimes::EadRoutines 1.025;
 use Getopt::Std;
 use vars qw($sDigStringRegExp);
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
 
 ######################################################################
 #
@@ -32,9 +50,11 @@ use vars qw($sDigStringRegExp);
   #
   ####################################################################
 
-  my ($sProgram);
+  my ($phProperties);
 
-  $sProgram = basename(__FILE__);
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
 
   ####################################################################
   #
@@ -44,131 +64,137 @@ use vars qw($sDigStringRegExp);
 
   my (%hOptions);
 
-  if (!getopts('D:HhqRrs:T:t:x', \%hOptions))
+  if (!getopts('D:l:o:r:s:T:t:', \%hOptions))
   {
-    Usage($sProgram);
+    Usage($$phProperties{'Program'});
   }
 
   ####################################################################
   #
-  # The DumpType flag, '-D', is optional.
+  # The dump type information command, '-D', is optional.
   #
   ####################################################################
 
-  my ($sDumpType);
+  $$phProperties{'DumpType'} = (exists($hOptions{'D'})) ? uc($hOptions{'D'}) : undef;
 
-  $sDumpType = (exists($hOptions{'D'})) ? $hOptions{'D'} : undef;
-
-  if (defined($sDumpType))
+  if (defined($$phProperties{'DumpType'}))
   {
-    if ($sDumpType =~ /^DOMAIN|HOST$/i)
+    if ($$phProperties{'DumpType'} =~ /^(?:DOMAIN|HOST)$/o)
     {
       DumpDomainInformation(0);
       exit(0);
     }
-    elsif ($sDumpType =~ /^(SSN|SOCIAL)$/i)
+    elsif ($$phProperties{'DumpType'} =~ /^DOMAIN_REGEX$/o)
+    {
+      DumpDomainInformation(1);
+      exit(0);
+    }
+    elsif ($$phProperties{'DumpType'} =~ /^(SSN|SOCIAL)$/o)
     {
       DumpSSNInformation();
       exit(0);
     }
-    elsif ($sDumpType =~ /^(STATE)$/i)
+    elsif ($$phProperties{'DumpType'} =~ /^(STATE)$/o)
     {
       DumpStateInformation();
       exit(0);
     }
-    elsif ($sDumpType =~ /^(EIN|TIN)$/i)
+    elsif ($$phProperties{'DumpType'} =~ /^(EIN|TIN)$/o)
     {
       DumpEinInformation();
       exit(0);
     }
     else
     {
-      print STDERR "$sProgram: DumpType='$sDumpType' Error='Invalid dump type.'\n";
+      print STDERR "$$phProperties{'Program'}: Error='Invalid dump type ($$phProperties{'DumpType'}).'\n";
       exit(2);
     }
   }
 
   ####################################################################
   #
-  # The PrintHex flag, '-H', is optional.
+  # The stdin label, '-l', is optional.
   #
   ####################################################################
 
-  my ($sPrintHex);
-
-  $sPrintHex = (exists($hOptions{'H'})) ? 1 : 0;
+  $$phProperties{'StdinLabel'} = (exists($hOptions{'l'})) ? $hOptions{'l'} : "-";
 
   ####################################################################
   #
-  # The PrintHeader flag, '-h', is optional.
+  # The option list, '-o', is optional.
   #
   ####################################################################
 
-  my ($sPrintHeader);
-
-  $sPrintHeader = (exists($hOptions{'h'})) ? 1 : 0;
-
-  ####################################################################
-  #
-  # The BeQuiet flag, '-q', is optional.
-  #
-  ####################################################################
-
-  my ($sBeQuiet);
-
-  $sBeQuiet = (exists($hOptions{'q'})) ? 1 : 0;
-
-  ####################################################################
-  #
-  # The DumpDomainRegexInformation flag, '-R', is optional.
-  #
-  ####################################################################
-
-  if (exists($hOptions{'R'}))
+  my @sSupportedOptions =
+  (
+    'BeQuiet',
+    'MadMode',
+    'NoHeader',
+    'RegularFilesOnly',
+  );
+  foreach my $sOption (@sSupportedOptions)
   {
-    DumpDomainInformation(1);
-    exit(0);
+    $$phProperties{$sOption} = 0;
+  }
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (defined($$phProperties{'Options'}))
+  {
+    foreach my $sOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sSupportedOption (@sSupportedOptions)
+      {
+        $sOption = $sSupportedOption if ($sOption =~ /^$sSupportedOption$/i);
+      }
+      if (!exists($$phProperties{$sOption}))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unknown or unsupported option ($sOption).'\n";
+        exit(2);
+      }
+      $$phProperties{$sOption} = 1;
+    }
   }
 
   ####################################################################
   #
-  # The RegularOnly flag, '-r', is optional.
+  # A read buffer size, '-r', is optional.
   #
   ####################################################################
 
-  my ($sRegularOnly);
+  $$phProperties{'ReadBufferSize'} = (exists($hOptions{'r'})) ? $hOptions{'r'} : 32768;
 
-  $sRegularOnly = (exists($hOptions{'r'})) ? 1 : 0;
-
-  ####################################################################
-  #
-  # The SaveLength flag, '-s', is optional.
-  #
-  ####################################################################
-
-  my ($sSaveLength);
-
-  $sSaveLength = (exists($hOptions{'s'})) ? $hOptions{'s'} : 64;
-
-  if ($sSaveLength !~ /^\d{1,10}$/ || $sSaveLength <= 0)
+  if ($$phProperties{'ReadBufferSize'} !~ /^\d{1,10}$/ || $$phProperties{'ReadBufferSize'} <= 0)
   {
-    print STDERR "$sProgram: SaveLength='$sSaveLength' Error='Invalid save length.'\n";
+    print STDERR "$$phProperties{'Program'}: Error='Invalid read buffer size ($$phProperties{'ReadBufferSize'}).'\n";
     exit(2);
   }
 
   ####################################################################
   #
-  # The DigTag flag, '-T', is optional.
+  # A save buffer size, '-s', is optional.
   #
   ####################################################################
 
-  my ($sDigTag);
+  $$phProperties{'SaveBufferSize'} = (exists($hOptions{'s'})) ? $hOptions{'s'} : 64;
 
-  $sDigTag = (exists($hOptions{'T'})) ? $hOptions{'T'} : undef;
+  if ($$phProperties{'SaveBufferSize'} !~ /^\d{1,10}$/ || $$phProperties{'SaveBufferSize'} <= 0)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid save buffer size ($$phProperties{'SaveBufferSize'}).'\n";
+    exit(2);
+  }
 
   ####################################################################
   #
-  # The DigType flag, '-t', is optional.
+  # A dig tag, '-T', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'DigTag'} = (exists($hOptions{'T'})) ? $hOptions{'T'} : undef;
+
+  ####################################################################
+  #
+  # A dig type, '-t', is optional.
   #
   ####################################################################
 
@@ -176,67 +202,57 @@ use vars qw($sDigStringRegExp);
 
   $sDigType = (exists($hOptions{'t'})) ? $hOptions{'t'} : "IP";
 
-  if ($sDigType =~ /^\s*CUSTOM\s*=\s*(.+)\s*$/i)
+  if ($sDigType =~ /^\s*CUSTOM\s*([=~])\s*(.+)\s*$/i)
   {
-    $sDigStringRegExp = $1;
+    $sDigStringRegExp = ($1 eq "=") ? "($2)" : "$2";
     $sDigRoutine = \&Dig4Custom;
-    $sDigTag = "" if (!defined($sDigTag));
+    $$phProperties{'DigTag'} = "" if (!defined($$phProperties{'DigTag'}));
   }
   elsif ($sDigType =~ /^HOST$/i)
   {
     $sDigRoutine = \&Dig4Domains;
-    $sDigTag = "domain" if (!defined($sDigTag));
+    $$phProperties{'DigTag'} = "domain" if (!defined($$phProperties{'DigTag'}));
   }
   elsif ($sDigType =~ /^IP$/i)
   {
     $sDigRoutine = \&Dig4IPs;
-    $sDigTag = "ip" if (!defined($sDigTag));
+    $$phProperties{'DigTag'} = "ip" if (!defined($$phProperties{'DigTag'}));
   }
   elsif ($sDigType =~ /^(PASS|PASSWORD)$/i)
   {
     $sDigRoutine = \&Dig4Passwords;
-    $sDigTag = "password" if (!defined($sDigTag));
+    $$phProperties{'DigTag'} = "password" if (!defined($$phProperties{'DigTag'}));
   }
   elsif ($sDigType =~ /^(SSN|SOCIAL)$/i)
   {
     $sDigRoutine = \&Dig4SSN;
-    $sDigTag = "ssn" if (!defined($sDigTag));
+    $$phProperties{'DigTag'} = "ssn" if (!defined($$phProperties{'DigTag'}));
   }
   elsif ($sDigType =~ /^(T1|TRACK1)$/i)
   {
     $sDigRoutine = \&Dig4Track1;
-    $sDigTag = "track1" if (!defined($sDigTag));
+    $$phProperties{'DigTag'} = "track1" if (!defined($$phProperties{'DigTag'}));
   }
   elsif ($sDigType =~ /^(T1S|TRACK1-STRICT)$/i)
   {
     $sDigRoutine = \&Dig4Track1Strict;
-    $sDigTag = "track1strict" if (!defined($sDigTag));
+    $$phProperties{'DigTag'} = "track1strict" if (!defined($$phProperties{'DigTag'}));
   }
   elsif ($sDigType =~ /^(T2|TRACK2)$/i)
   {
     $sDigRoutine = \&Dig4Track2;
-    $sDigTag = "track2" if (!defined($sDigTag));
+    $$phProperties{'DigTag'} = "track2" if (!defined($$phProperties{'DigTag'}));
   }
   elsif ($sDigType =~ /^(T2S|TRACK2-STRICT)$/i)
   {
     $sDigRoutine = \&Dig4Track2Strict;
-    $sDigTag = "track2strict" if (!defined($sDigTag));
+    $$phProperties{'DigTag'} = "track2strict" if (!defined($$phProperties{'DigTag'}));
   }
   else
   {
-    print STDERR "$sProgram: DigType='$sDigType' Error='Invalid dig type.'\n";
+    print STDERR "$$phProperties{'Program'}: Error='Invalid dig type ($sDigType).'\n";
     exit(2);
   }
-
-  ####################################################################
-  #
-  # The Expert flag, '-x', is optional.
-  #
-  ####################################################################
-
-  my ($sExpert);
-
-  $sExpert = (exists($hOptions{'x'})) ? 1 : 0;
 
   ####################################################################
   #
@@ -246,56 +262,64 @@ use vars qw($sDigStringRegExp);
 
   if (scalar(@ARGV) < 1)
   {
-    Usage($sProgram);
+    Usage($$phProperties{'Program'});
   }
 
   ####################################################################
   #
-  # Check/Finalize custom dig string expression. If expert mode is
-  # not enabled, wrap the expression in '()'s to preserve $1. Then,
-  # eval the expression to ensure that Perl groks it.
+  # Do a sanity check on the read/save buffer sizes.
+  #
+  ####################################################################
+
+  if ($$phProperties{'SaveBufferSize'} * 10 > $$phProperties{'ReadBufferSize'})
+  {
+    print STDERR "$$phProperties{'Program'}: Error='The save buffer size is more than 1/10th the read buffer size. Either increase the read buffer or decrease the save buffer.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Check custom dig string expression to ensure that Perl groks it.
   #
   ####################################################################
 
   if (defined($sDigStringRegExp))
   {
-    $sDigStringRegExp = "($sDigStringRegExp)" if (!$sExpert);
     eval { "This is a test." =~ m/$sDigStringRegExp/gso; };
     if ($@)
     {
-      chomp($@);
-      print STDERR "$sProgram: Error='Expression check failed: $@'\n";
+      my $sMessage = $@; $sMessage =~ s/[\r\n]+/ /g; $sMessage =~ s/\s+$//;
+      print STDERR "$$phProperties{'Program'}: Error='Expression check failed ($sMessage).'\n";
       exit(2);
     }
   }
 
   ####################################################################
   #
-  # Set print format.
+  # Set header/record print formats.
   #
   ####################################################################
 
-  my ($sFormat);
+  my ($sHeaderFormat, $sRecordFormat);
 
-  if ($sPrintHex)
+  if ($$phProperties{'MadMode'})
   {
-    $sFormat = "\"%s\"|regexp|$sDigTag|0x%x|%s\n";
+    $sHeaderFormat = "dig|name|type|tag|offset|string\n";
+    $sRecordFormat = "dig|\"%s\"|regexp|$$phProperties{'DigTag'}|%d|%s\n";
   }
   else
   {
-    $sFormat = "\"%s\"|regexp|$sDigTag|%d|%s\n";
+    $sHeaderFormat = "name|type|tag|offset|string\n";
+    $sRecordFormat = "\"%s\"|regexp|$$phProperties{'DigTag'}|%d|%s\n";
   }
 
   ####################################################################
   #
-  # Print out a header line.
+  # Conditionally print out a header line.
   #
   ####################################################################
 
-  if ($sPrintHeader)
-  {
-    print "name|type|tag|offset|string\n";
-  }
+  print $sHeaderFormat unless ($$phProperties{'NoHeader'});
 
   ####################################################################
   #
@@ -303,27 +327,40 @@ use vars qw($sDigStringRegExp);
   #
   ####################################################################
 
-  foreach my $sFile (@ARGV)
+  my ($sHandle, $sStdinExhausted);
+
+  $sStdinExhausted = 0;
+
+  foreach my $sCandidateFile (@ARGV)
   {
-    if ($sRegularOnly && !-f $sFile)
+    my $sFile = ($sCandidateFile =~ m{^file://(.+)$}o) ? EadFTimesUrlDecode($1) : $sCandidateFile;
+
+    if ($sFile eq "-")
     {
-      if (!$sBeQuiet)
+      if ($sStdinExhausted)
       {
-        print STDERR "$sProgram: File='$sFile' Error='File is not regular.'\n";
+        next;
       }
-      next;
+      $sHandle = \*STDIN;
+      $sStdinExhausted = 1;
+      $sFile = $$phProperties{'StdinLabel'};
+    }
+    else
+    {
+      if ($$phProperties{'RegularFilesOnly'} && !-f $sFile)
+      {
+        print STDERR "$$phProperties{'Program'}: Warning='File \"$sFile\" is not regular, and was skipped.'\n" unless ($$phProperties{'BeQuiet'});
+        next;
+      }
+      if (!open(FH, "< $sFile"))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='File \"$sFile\" could not be opened ($!).'\n";
+        next;
+      }
+      $sHandle = \*FH;
     }
 
-    if (!open(FH, "< $sFile"))
-    {
-      if (!$sBeQuiet)
-      {
-        print STDERR "$sProgram: File='$sFile' Error='$!'\n";
-      }
-      next;
-    }
-
-    binmode(FH); # Enable binmode for WIN32 platforms.
+    binmode($sHandle); # Enable binmode for WIN32 platforms.
 
     ##################################################################
     #
@@ -347,24 +384,21 @@ use vars qw($sDigStringRegExp);
 
     $sReadOffset = $sDataOffset = 0;
 
-    while ($sNRead = read(FH, $sData, 0x8000, $sDataOffset))
+    while ($sNRead = read($sHandle, $sData, $$phProperties{'ReadBufferSize'}, $sDataOffset))
     {
       $sDataLength = $sDataOffset + $sNRead;
-      $sLastOffset = &$sDigRoutine(\$sData, $sDataOffset, $sReadOffset, $sFile, $sFormat);
-      $sDataOffset = ($sDataLength - $sLastOffset > $sSaveLength) ? $sSaveLength : $sDataLength - $sLastOffset;
+      $sLastOffset = &$sDigRoutine(\$sData, $sDataOffset, $sReadOffset, $sFile, $sRecordFormat);
+      $sDataOffset = ($sDataLength - $sLastOffset > $$phProperties{'SaveBufferSize'}) ? $$phProperties{'SaveBufferSize'} : $sDataLength - $sLastOffset;
       $sData = substr($sData, ($sDataLength - $sDataOffset), $sDataOffset);
       $sReadOffset += $sNRead;
     }
 
     if (!defined($sNRead))
     {
-      if (!$sBeQuiet)
-      {
-        print STDERR "$sProgram: File='$sFile' Error='$!'\n";
-      }
+      print STDERR "$$phProperties{'Program'}: Error='File \"$sFile\" could not be read ($!).'\n";
     }
 
-    close(FH);
+    close($sHandle);
   }
 
   ####################################################################
@@ -391,7 +425,9 @@ sub Dig4Custom
   # Select user-defined strings. Set the g flag to match all values
   # in the buffer. Set the s flag to ignore newline boundaries. Set
   # the o flag to compile the expression once. Note: The expression
-  # is expected to have at least one set of capturing parentheses.
+  # is expected to have at least one set of capturing parentheses,
+  # but in case it doesn't, the special arrays @- and @+ are used to
+  # construct the appropriate value for $1.
   #
   ####################################################################
 
@@ -403,9 +439,10 @@ sub Dig4Custom
 
   while ($$psData =~ m/$sDigStringRegExp/gso)
   {
+    my $sValue = (scalar(@-) < 2) ? substr($$psData, $-[0], $+[0] - $-[0]) : $1;
     $sMatchOffset = pos($$psData);
-    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
+    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($sValue) + $sAdjustment));
+    printf("$sFormat", EadFTimesUrlEncode($sFilename), $sAbsoluteOffset, EadFTimesUrlEncode($sValue));
   }
 
   return $sMatchOffset;
@@ -480,7 +517,7 @@ sub Dig4Domains
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
+    printf("$sFormat", EadFTimesUrlEncode($sFilename), $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -528,7 +565,7 @@ sub Dig4IPs
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
+    printf("$sFormat", EadFTimesUrlEncode($sFilename), $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -574,7 +611,7 @@ sub Dig4Passwords
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
+    printf("$sFormat", EadFTimesUrlEncode($sFilename), $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -634,7 +671,7 @@ sub Dig4Track1
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
+    printf("$sFormat", EadFTimesUrlEncode($sFilename), $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -687,7 +724,7 @@ sub Dig4Track1Strict
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
+    printf("$sFormat", EadFTimesUrlEncode($sFilename), $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -741,7 +778,7 @@ sub Dig4Track2
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
+    printf("$sFormat", EadFTimesUrlEncode($sFilename), $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -791,7 +828,7 @@ sub Dig4Track2Strict
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
+    printf("$sFormat", EadFTimesUrlEncode($sFilename), $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -841,7 +878,7 @@ sub Dig4SSN
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
+    printf("$sFormat", EadFTimesUrlEncode($sFilename), $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -1405,7 +1442,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-HhqRrx] [-D type] [-s length] [-T tag] [-t {type|custom=regexp}] file [file ...]\n";
+  print STDERR "Usage: $sProgram [-D type] [-l stdin-label] [-o option[,option[,...]]] [-r read-buffer-size] [-s save-buffer-size] [-T dig-tag] [-t {type|custom[=~]regexp}] -- {-|file} [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -1419,20 +1456,36 @@ hipdig.pl - Dig for hosts, IPs, passwords, and more...
 
 =head1 SYNOPSIS
 
-B<hipdig.pl> B<[-HhqRrx]> B<[-D type]> B<[-s length]> B<[-T tag]> B<[-t {type|custom=regexp}]> B<file [file ...]>
+B<hipdig.pl> B<[-D type]> B<-l stdin-label> B<[-o option[,option[,...]]]> B<[-r read-buffer-size]> B<[-s save-buffer-size]> B<[-T dig-tag]> B<[-t {type|custom[=~]regexp}]> -- B<{-|file} [file ...]>
 
 =head1 DESCRIPTION
 
 This utility performs regular expression searches across one or
-more files. Output is written to stdout in FTimes dig format which
+more files.  Output is written to stdout in FTimes dig format which
 has the following fields:
 
-    name|type|offset|string
+    name|type|tag|offset|string
 
-where string is the URL encoded form of the raw data.
+where name and string are the FTimes-encoded form of the raw data.
 
 Feeding the output of this utility to ftimes-dig2ctx(1) allows you
 to extract a variable amount of context surrounding each hit.
+
+Feeding the output of this utility to ftimes-xformer(1) allows you
+to isolate and/or manipulate field data.  Note that previous versions
+of this script would print offsets in hexadecimal when the B<-H>
+option was set.  Since that option is no longer supported, below is
+an example of how you may achieve the equivalent result:
+
+    hipdig.pl ... | ftimes-xformer -l name,type,tag,hex_offset,string \
+        -o ParseOffset -f -
+
+Filenames supplied as arguments may be expressed as either a
+native or FTimes-encoded path/name.  If the latter form is used,
+the path/name must be prefixed with 'file://' as shown in the
+example below.
+
+    file://some/path/that+has+been/neutered%25.txt
 
 =head1 OPTIONS
 
@@ -1440,78 +1493,104 @@ to extract a variable amount of context surrounding each hit.
 
 =item B<-D>
 
-Dump the specified type information to stdout and exit. Currently, the
-following types are supported: DOMAIN|HOST, EIN|TIN, SSN|SOCIAL, and
-STATE.
+Dump the specified type information to stdout and exit.  Currently,
+the following types are supported: {DOMAIN|HOST}, DOMAIN_REGEX,
+{EIN|TIN}, {SSN|SOCIAL}, and STATE.
 
-=item B<-H>
+=item B<-l stdin-label>
 
-Print offsets in hex.  If not set, offsets will be printed in
-decimal.
+Specifies an alternate label to use instead of "-" when digging
+on stdin.
 
-=item B<-h>
+=item B<-o option,[option[,...]]>
 
-Print a header line.
+Specifies the list of options to apply.  Currently, the following
+options are supported:
 
-=item B<-q>
+=over 4
 
-Don't report errors (i.e., be quiet) while processing files.
+=item BeQuiet
 
-=item B<-R>
+Don't report warnings (i.e., be quiet) while processing files.
 
-Dump domain regex information to stdout and exit.
+=item MadMode
 
-=item B<-r>
+Alter the output format to match FTimes made mode output.
 
-Operate on regular files only.
+=item NoHeader
 
-=item B<-s length>
+Don't print an output header.
 
-Specifies the save length. This is the maximum number of bytes to
-carry over from one search buffer to the next.
+=item RegularFilesOnly
 
-=item B<-T tag>
+Operate on regular files only (i.e., no directories, specials, etc.).
+Note that a symbolic link that resolve to a regular file is allowed.
 
-Specifies a tag that is used to identify the dig string.  Each
-internally defined search type has a default tag value.  This option
-would typically be used to assign a tag to a CUSTOM search type.
+=back
 
-Note: The default tag, if any, is trumped by this value.
+=item B<-r read-buffer-size>
 
-=item B<-t {type|custom=regexp}>
+Specifies the read buffer size.  The default value is 32,768 bytes.
 
-Specifies the type of search that is to be conducted. Currently,
-the following types are supported: CUSTOM, HOST, IP, PASS|PASSWORD,
-SSN|SOCIAL, T1|TRACK1, T1S|TRACK1-STRICT, T2|TRACK2, and
-T2S|TRACK2-STRICT.  The default value is IP.  The value for this
+=item B<-s save-buffer-size>
+
+Specifies the save buffer size.  This is the maximum number of bytes
+to carry over from one search buffer to the next.  The default value
+is 64 bytes.  This value is limited to 1/10th the read buffer size.
+
+=item B<-T dig-tag>
+
+Specifies a tag that is assigned to each dig string.  This option is
+intended for use with the CUSTOM search type since internally-defined
+search types have a default tag value.  Note however, that the default
+tag value is trumped by this value, if specified.
+
+=item B<-t {type|custom[=~]regexp}>
+
+Specifies the type of search that is to be conducted.  Currently,
+the following types are supported: CUSTOM, HOST, IP, {PASS|PASSWORD},
+{SSN|SOCIAL}, {T1|TRACK1}, {T1S|TRACK1-STRICT}, {T2|TRACK2}, and
+{T2S|TRACK2-STRICT}.  The default value is IP.  The value for this
 option is not case sensitive.
 
-If the specified type is CUSTOM, then it must be accompanied by a
-valid regular expression. The required format for this argument is:
+If the specified type is CUSTOM, then it must be accompanied by
+a valid Perl regular expression.  The required format for this
+argument is:
 
-    custom = <regexp>
+    custom=<regex>
+
+or
+
+    custom~<regex>
+
+where B<custom> is the literal string 'custom' and B<regex> is Perl
+regular expression.  Note that if the '=' operator is specified,
+then the expression is automatically wrapped in a set of capturing
+parentheses such that $1 will be populated upon a successful match.
+If you wish to control what constitutes $1 (i.e., either the entire
+match or a particular submatch), you must use the '~' operator and
+explicitly place at least one set of capturing parentheses in the
+expression.
 
 Any whitespace surrounding these tokens is ignored, but whitespace
 within <regexp> is not.  Proper quoting is essential when specifying
 custom expressions.  When in doubt, use single quotes like so:
 
-    'custom=(?i)abc123'
+    'custom=(?i)abc 123'
 
-Custom expressions are automatically wrapped in a single set of
-capturing parentheses.  Therefore, the value of $1 (i.e., the entire
-pattern) is copied directly to the output stream.  You can control
-which subpattern constitutes $1 by enabling expert mode (see B<-x>).
+or
 
-=item B<-x>
+    'custom~(?i)abc (123)'
 
-Enable expert mode.  When this mode is active, custom expressions
-are not automatically wrapped in a single set of capturing parentheses.
-However, since $1 is still required, you must specify at least one
-set of capturing parentheses in your expression.  For example, the
-following expression allows you to match on the string '123' when
-it is prefixed by any form of 'abc' or 'def':
+To control $1 when more than one set of parentheses is required
+for grouping, use '?:' as demonstrated in the following example,
+which only returns '123' in $1 upon a successful match.
 
-    'custom=(?i)(?:abc|def)(123)'
+    'custom~(?i)(?:abc|def) (123) (?:pdq|xyz)'
+
+Since searches are block-oriented, the use of begin/end anchors
+(i.e., '^' and '$') are of little value unless the pattern you seek
+is know to begin or end on a block boundary.
 
 =back
 
@@ -1521,7 +1600,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-ftimes(1), ftimes-dig2ctx(1)
+ftimes(1), ftimes-dig2ctx(1), ftimes-xformer(1)
 
 =head1 LICENSE
 

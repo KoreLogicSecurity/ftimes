@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-sizimus,v 1.9 2014/07/18 06:40:45 mavrik Exp $
+# $Id: ftimes-sizimus,v 1.14 2019/03/14 16:07:44 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2007-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2007-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -73,9 +73,11 @@ BEGIN
     'chtime'      => 0, # ftimes map (WINX)
     'cms'         => 0, # ftimes map (WINX)
     'ctime'       => 0, # ftimes map (common)
+    'dacl'        => 0, # ftimes map (WINX)
     'dev'         => 0, # ftimes map (UNIX)
     'findex'      => 0, # ftimes map (WINX)
     'gid'         => 0, # ftimes map (UNIX)
+    'gsid'        => 0, # ftimes map (WINX)
     'hostname'    => 0, # ftimes-map2dbi
     'inode'       => 0, # ftimes map (UNIX)
     'joiner'      => 0, # ftimes-map2dbi
@@ -86,6 +88,7 @@ BEGIN
     'mtime'       => 0, # ftimes map (common)
     'name'        => 0, # ftimes map (common)
     'nlink'       => 0, # ftimes map (UNIX)
+    'osid'        => 0, # ftimes map (WINX)
     'rdev'        => 0, # ftimes map (UNIX)
     'sha1'        => 0, # ftimes map (common)
     'sha256'      => 0, # ftimes map (common)
@@ -451,7 +454,30 @@ sub ProcessHeader
   }
   else
   {
-    $sLine = <$sFileHandle>;
+    while ($sLine = <$sFileHandle>)
+    {
+      $sLine =~ s/[\r\n]+$//;
+
+      ################################################################
+      #
+      # Ignore FTimes log output (assumes combined output streams).
+      #
+      ################################################################
+
+      if ($sLine =~ /^[*+<@-]{3}  (?:DEBUGGER|WAYPOINT|LANDMARK|PROPERTY|LOG_WARN|LOG_FAIL|LOG_CRIT|LOG_HOOK)  [*+>@-]{3}[|]/)
+      {
+        $$phProperties{'LineNumber'}++;
+        next;
+      }
+
+      ################################################################
+      #
+      # The first valid line is assumed to be the header.
+      #
+      ################################################################
+
+      last;
+    }
   }
 
   if (!defined($sLine))
@@ -459,7 +485,6 @@ sub ProcessHeader
     $$psError = "Header was not defined.";
     return undef;
   }
-  $sLine =~ s/[\r\n]+$//;
 
   ####################################################################
   #
@@ -594,6 +619,17 @@ sub ProcessData
       {
         next;
       }
+    }
+
+    ##################################################################
+    #
+    # Ignore FTimes log output (assumes combined output streams).
+    #
+    ##################################################################
+
+    if ($sLine =~ /^[*+<@-]{3}  (?:DEBUGGER|WAYPOINT|LANDMARK|PROPERTY|LOG_WARN|LOG_FAIL|LOG_CRIT|LOG_HOOK)  [*+>@-]{3}[|]/)
+    {
+      next;
     }
 
     ##################################################################
@@ -786,13 +822,13 @@ Klayton Monroe
 
 ftimes(1) and tarmap(1)
 
-=head1 HISTORY 
+=head1 HISTORY
 
 This utility was initially written to assist in sizing calculations in
 a case where we needed to pull a lot of files from a number of servers
 in a production environment.
 
-This utility first appeared in FTimes 3.9.0. 
+This utility first appeared in FTimes 3.9.0.
 
 =head1 LICENSE
 

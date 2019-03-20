@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: md5.c,v 1.27 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: md5.c,v 1.33 2019/03/15 00:55:49 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2003-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -46,6 +46,7 @@ MD5HashToBase64(unsigned char *pucHash, char *pcBase64Hash)
 
   return n;
 }
+
 
 /*-
  ***********************************************************************
@@ -145,6 +146,46 @@ MD5HashString(unsigned char *pucData, int iLength, unsigned char *pucMD5)
   }
   MD5Cycle(&sMD5Context, pucData, iLength);
   MD5Omega(&sMD5Context, pucMD5);
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * MD5HexToHash
+ *
+ ***********************************************************************
+ */
+void
+MD5HexToHash(char *pcHexHash, unsigned char *pucHash)
+{
+  char                cNibble = 0;
+  int                 i = 0;
+  int                 j = 0;
+  int                 iLength = (pcHexHash != NULL) ? strlen(pcHexHash) : 0;
+  unsigned char       aucHash[MD5_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
+  if (iLength == MD5_HASH_SIZE*2)
+  {
+    for (i = j = 0; i < iLength; i++, j++)
+    {
+      cNibble = tolower(pcHexHash[i]);
+           if ((cNibble >= '0') && (cNibble <= '9')) { aucHash[j] |= (((cNibble - '0')     ) << 4); }
+      else if ((cNibble >= 'a') && (cNibble <= 'f')) { aucHash[j] |= (((cNibble - 'a') + 10) << 4); }
+      else                                           { memset(aucHash, 0, MD5_HASH_SIZE); break; }
+      i++;
+      cNibble = tolower(pcHexHash[i]);
+           if ((cNibble >= '0') && (cNibble <= '9')) { aucHash[j] |= (((cNibble - '0')     )     ); }
+      else if ((cNibble >= 'a') && (cNibble <= 'f')) { aucHash[j] |= (((cNibble - 'a') + 10)     ); }
+      else                                           { memset(aucHash, 0, MD5_HASH_SIZE); break; }
+    }
+  }
+  if (pucHash != NULL)
+  {
+    memcpy(pucHash, aucHash, MD5_HASH_SIZE);
+  }
+
+  return;
 }
 
 

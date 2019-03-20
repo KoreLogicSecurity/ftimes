@@ -1,0 +1,7 @@
+=head1 DESCRIPTION
+
+The B<FTimesSrm> utility reads the contents of stdin and/or one or
+more FTimes snapshots and selectively removes the files enumerated
+within each.  Removal constraints are controlled through the
+B<FieldMask>, which has a default value of 'none+size+md5+sha1'.
+

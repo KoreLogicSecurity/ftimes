@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: version2string,v 1.7 2014/07/18 06:40:46 mavrik Exp $
+# $Id: version2string,v 1.10 2019/03/14 16:07:45 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2008-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2008-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

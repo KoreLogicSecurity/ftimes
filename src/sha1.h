@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sha1.h,v 1.15 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: sha1.h,v 1.19 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2003-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -76,6 +76,7 @@ int                   SHA1HashToBase64(unsigned char *pucHash, char *pcBase64Has
 int                   SHA1HashToHex(unsigned char *pucHash, char *pcHexHash);
 int                   SHA1HashStream(FILE *pFile, unsigned char *pucSHA1, APP_UI64 *pui64Size);
 void                  SHA1HashString(unsigned char *pucData, int iLength, unsigned char *pucSHA1);
+void                  SHA1HexToHash(char *pcHexHash, unsigned char *pucHash);
 void                  SHA1Alpha(SHA1_CONTEXT *psSHA1);
 void                  SHA1Cycle(SHA1_CONTEXT *psSHA1, unsigned char *pucData, APP_UI32 ui32Length);
 void                  SHA1Omega(SHA1_CONTEXT *psSHA1, unsigned char *pucSHA1);

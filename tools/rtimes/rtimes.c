@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: rtimes.c,v 1.24 2014/07/18 06:40:45 mavrik Exp $
+ * $Id: rtimes.c,v 1.28 2019/03/14 16:07:44 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2008-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2008-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -620,7 +620,11 @@ RTIMES_DO_OVER:
     (PSID) &psSidGroup,
     NULL, /* This pointer is not required to obtain DACL information. */
     NULL,
+#if (WINVER <= 0x500)
     &psSd
+#else
+    (PSECURITY_DESCRIPTOR) &psSd
+#endif
     );
   if (dwReturnCode != ERROR_SUCCESS)
   {
@@ -634,33 +638,21 @@ RTIMES_DO_OVER:
   }
   else
   {
-#ifdef USE_SDDL
     ConvertSidToStringSid(psSidOwner, &ptcSidOwner);
-#else
-    ptcSidOwner = RTimesSidToString(psSidOwner, atcLocalError);
-#endif
     if (ptcSidOwner == NULL)
     {
       dwFlags |= RTIMES_FLAG_OWNER_MISSING;
     }
-#ifdef USE_SDDL
     ConvertSidToStringSid(psSidGroup, &ptcSidGroup);
-#else
-    ptcSidGroup = RTimesSidToString(psSidGroup, atcLocalError);
-#endif
     if (ptcSidGroup == NULL)
     {
       dwFlags |= RTIMES_FLAG_GROUP_MISSING;
     }
-#ifdef USE_SDDL
     ConvertSecurityDescriptorToStringSecurityDescriptor(psSd, SDDL_REVISION_1, DACL_SECURITY_INFORMATION, &ptcAclDacl, NULL);
     if (ptcAclDacl == NULL)
     {
       dwFlags |= RTIMES_FLAG_DACL_MISSING;
     }
-#else
-    dwFlags |= RTIMES_FLAG_DACL_OMITTED;
-#endif
   }
 
   /*-
@@ -677,9 +669,7 @@ RTIMES_DO_OVER:
     _ftprintf(stderr, _T("%s: Error encoding the specified path: %s\n"), _T(PROGRAM), atcLocalError);
     LocalFree(ptcSidOwner);
     LocalFree(ptcSidGroup);
-#ifdef USE_SDDL
     LocalFree(ptcAclDacl);
-#endif
     return ER;
   }
 
@@ -769,9 +759,7 @@ RTIMES_DO_OVER:
   free(ptcNeuteredPath);
   LocalFree(ptcSidOwner);
   LocalFree(ptcSidGroup);
-#ifdef USE_SDDL
   LocalFree(ptcAclDacl);
-#endif
 
   return ER_OK;
 }

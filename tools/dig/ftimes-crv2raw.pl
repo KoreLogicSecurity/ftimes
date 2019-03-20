@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-crv2raw.pl,v 1.22 2014/07/18 06:40:44 mavrik Exp $
+# $Id: ftimes-crv2raw.pl,v 1.27 2019/03/14 16:07:43 klm Exp $
 #
 ######################################################################
 #
-# Copyright 2006-2014 The FTimes Project, All Rights Reserved.
+# Copyright 2006-2019 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -15,11 +15,11 @@
 
 use strict;
 use Digest::MD5;
-use Digest::SHA1;
+use Digest::SHA;
 use File::Basename;
 use File::Path;
 use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
-use FTimes::EadRoutines;
+use FTimes::EadRoutines 1.025;
 use Getopt::Std;
 
 ######################################################################
@@ -429,8 +429,8 @@ use Getopt::Std;
 
     $sName = $sOutFile;
     $sSize = 0;
-    $oSha1 = Digest::SHA1->new;
-    $oMd5 = Digest::MD5->new;
+    $oSha1 = Digest::SHA->new(1);
+    $oMd5 = Digest::MD5->new();
 
     ##################################################################
     #

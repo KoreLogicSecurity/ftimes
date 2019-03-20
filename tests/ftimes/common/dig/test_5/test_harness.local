@@ -1,0 +1,230 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2019/02/28 15:39:44 klm Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "5";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "regexp_bad_offset",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'regexp_bad_offset' => "tests regexp for PCRE_ERROR_BADOFFSET using default blocksize/carrysize",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+  );
+
+1;
+
+
+######################################################################
+#
+# TestGroup_regexp_bad_offset
+#
+######################################################################
+
+sub Hitch_regexp_bad_offset
+{
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'DigType'} = "regexp";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  $$phTestTargetValues{'regexp_bad_offset'} =
+  {
+    'TargetDigRecords'   => 3,
+    'TargetFailures'     => 0,
+    'TargetReturnStatus' => 0,
+  };
+}
+
+
+sub Check_regexp_bad_offset
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringRegExp=A{16}\n";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /pcre/)
+  {
+    return "skip";
+  }
+
+  my @aFiles = ();
+  foreach my $sSuffix ("a", "b")
+  {
+    my $sABFile = $sFile . "_" . $sSuffix;
+    push(@aFiles, $sABFile);
+  }
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my $sConfig = dirname($$phTestProperties{'File'}) . "/" . "_config_" . $$phTestProperties{'Name'};
+
+  if (!CreateConfig($sConfig, $phTestProperties))
+  {
+    return undef;
+  }
+
+  my $sCommand = "$$phProperties{'TargetProgram'} --dig $sConfig -l 0 " . join(" ", @aFiles) . " 2>&1";
+  $sCommand =~ s/\//\\\\/g if ($^O =~ /MSWin32/); # Required for MinGW testing.
+  DebugPrint(3, "Command=$sCommand");
+  if (!open(PH, "$sCommand |"))
+  {
+    DebugPrint(4, "LaunchError=$!");
+    return "fail";
+  }
+  my @aLines = <PH>;
+  close(PH);
+  my $sStatus = ($? >> 8) & 0xff;
+  if ($sStatus !~ /^0$/)
+  {
+    DebugPrint(4, "TargetReturnStatus=$$phTestTargetValues{$sName}{'TargetReturnStatus'}");
+    DebugPrint(4, "ActualReturnStatus=$sStatus");
+    return "fail";
+  }
+  my $sActualDigRecords = 0;
+  my $sActualFailures = 0;
+  my $sBadOffsetError = 0;
+  foreach my $sLine (@aLines)
+  {
+    $sLine =~ s/[\r\n]+$//;
+    if ($sLine =~ /^[<]{3}  PROPERTY  [>]{3}[|]DigRecords=(\d+)$/)
+    {
+      $sActualDigRecords = $1;
+    }
+    elsif ($sLine =~ /^[<]{3}  PROPERTY  [>]{3}[|]Failures=(\d+)$/)
+    {
+      $sActualFailures = $1;
+    }
+    elsif ($sLine =~ /^[*]{3}  LOG_FAIL  [*]{3}[|].+pcre_exec.+Unexpected return value \[-24\][.]/)
+    {
+      $sBadOffsetError = 1;
+    }
+  }
+
+  if ($sActualFailures > 0 && $sBadOffsetError)
+  {
+    DebugPrint(4, "TargetFailures=$$phTestTargetValues{$sName}{'TargetFailures'}");
+    DebugPrint(4, "ActualFailures=$sActualFailures");
+    DebugPrint(4, "BadOffsetError=$sBadOffsetError");
+    return "fail";
+  }
+
+  if ($sActualDigRecords != $$phTestTargetValues{$sName}{'TargetDigRecords'})
+  {
+    DebugPrint(4, "TargetDigRecords=$$phTestTargetValues{$sName}{'TargetDigRecords'}");
+    DebugPrint(4, "ActualDigRecords=$sActualDigRecords");
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Clean_regexp_bad_offset
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  foreach my $sSuffix ("a", "b")
+  {
+    my $sABFile = $sFile . "_" . $sSuffix;
+    if (-f $sABFile && !unlink($sABFile))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Setup_regexp_bad_offset
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my ($sData) = sprintf("%s", chr(0) x 32768); # This value must match ANALYZE_BLOCK_SIZE as defined in analyze.c.
+
+  foreach my $sOffset (0, 32700) # The last value must be greater than ANALYZE_BLOCK_SIZE - ANALYZE_CARRY_SIZE as defined in analyze.c.
+  {
+    substr($sData, $sOffset, 16) = "A"x16;
+  }
+
+  foreach my $sSuffix ("a", "b")
+  {
+    my $sABFile = $sFile . "_" . $sSuffix;
+    $sData = substr($sData, 0, 32755) if ($sSuffix eq "a"); # The final "a" file size must be less than ANALYZE_BLOCK_SIZE and greater than 32700+16.
+    $sData = substr($sData, 0,   100) if ($sSuffix eq "b"); # The final "b" file size must be less than 32716-(32768-1024).
+    if (!defined(FillFile($sABFile, $sData, 1)))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}

@@ -1,0 +1,30 @@
+=head1 OPTIONS
+
+=over 5
+
+=item B<{-1|--log-to-stdout}>
+
+Log errors to stdout rather than stderr, which is the default.
+
+=item B<{-m|--mask} {all|none}[{+|-}<field>[...]]>
+
+The B<FieldMask> specifies the attributes to be used in determining
+whether or not a given file is removed.  If the current set of
+attributes matches those specified in a given snapshot, the file is
+slated for removal.  Otherwise, the file's removal is abandoned.  A
+mask of 'none' causes files to be removed based on their name alone.
+The following fields are supported:
+
+    md5
+    sha1
+    sha256
+    size
+
+=item B<{-n|--dry-run}>
+
+Perform a dry run.  Don't actually remove any files.  Rather,
+generate output indicating what action(s) would be taken barring
+any technical issues.
+
+=back
+

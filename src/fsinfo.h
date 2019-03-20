@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.h,v 1.47 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: fsinfo.h,v 1.56 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -25,6 +25,7 @@ enum eFSTypes
 {
   FSTYPE_UNSUPPORTED = 0,
   FSTYPE_AIX,
+  FSTYPE_APFS,
   FSTYPE_CDFS,
   FSTYPE_CIFS,
   FSTYPE_CRAMFS,
@@ -37,6 +38,7 @@ enum eFSTypes
   FSTYPE_GETDATAFS,
   FSTYPE_HFS,
   FSTYPE_JFS,
+  FSTYPE_JFFS2,
   FSTYPE_MINIX,
   FSTYPE_NA,
   FSTYPE_NFS,
@@ -48,12 +50,15 @@ enum eFSTypes
   FSTYPE_NWCOMPAT_REMOTE,
   FSTYPE_NWFS,
   FSTYPE_NWFS_REMOTE,
+  FSTYPE_OVERLAYFS,
   FSTYPE_PTS,
   FSTYPE_RAMFS,
   FSTYPE_REISER,
   FSTYPE_SMB,
+  FSTYPE_SMB2,
   FSTYPE_SQUASHFS,
   FSTYPE_TMPFS,
+  FSTYPE_UBIFS,
   FSTYPE_UDF,
   FSTYPE_UFS,
   FSTYPE_UFS2,
@@ -61,7 +66,8 @@ enum eFSTypes
   FSTYPE_VZFS,
   FSTYPE_XFS,
   FSTYPE_YAFFS,
-  FSTYPE_ZFS
+  FSTYPE_ZFS,
+  FSTYPE_AUTOFS
 };
 
 
@@ -121,6 +127,9 @@ enum eFSTypes
 #ifndef JFS_SUPER_MAGIC
 #define JFS_SUPER_MAGIC   0x3153464a /* JFS1 */
 #endif
+#ifndef JFFS2_SUPER_MAGIC
+#define JFFS2_SUPER_MAGIC     0x72b6
+#endif
 #ifndef MINIX_SUPER_MAGIC
 #define MINIX_SUPER_MAGIC     0x138f
 #endif
@@ -136,11 +145,17 @@ enum eFSTypes
 #ifndef NTFS3G_SUPER_MAGIC
 #define NTFS3G_SUPER_MAGIC 0x65735546
 #endif
+#ifndef OVERLAYFS_SUPER_MAGIC
+#define OVERLAYFS_SUPER_MAGIC 0x794c7630
+#endif
 #ifndef PROC_SUPER_MAGIC
 #define PROC_SUPER_MAGIC      0x9fa0
 #endif
 #ifndef PTS_SUPER_MAGIC
 #define PTS_SUPER_MAGIC       0x1cd1
+#endif
+#ifndef UBIFS_SUPER_MAGIC
+#define UBIFS_SUPER_MAGIC 0x24051905
 #endif
 #ifndef UFS_MAGIC
 #define UFS_MAGIC         0x00011954
@@ -153,6 +168,9 @@ enum eFSTypes
 #endif
 #ifndef SMB_SUPER_MAGIC
 #define SMB_SUPER_MAGIC       0x517B
+#endif
+#ifndef SMB2_SUPER_MAGIC
+#define SMB2_SUPER_MAGIC 0xfe534d42
 #endif
 #ifndef SQUASHFS_SUPER_MAGIC
 #define SQUASHFS_SUPER_MAGIC 0x71736873

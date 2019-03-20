@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: configure.in,v 1.112 2014/07/18 06:31:42 mavrik Exp $
+# $Id: configure.in,v 1.120 2019/03/14 22:15:08 klm Exp $
 #
 ########################################################################
 
@@ -70,12 +70,17 @@ case "${target_os}" in
   esac
   ;;
 *mingw32*)
-  OS_CFLAGS="-DWINNT -DWIN32 -DMINGW32 -DUSE_SDDL"
+  OS_CFLAGS="-DWINNT -DWIN32 -DMINGW32"
   LIBS="-lwsock32"
   AC_DEFINE(FTimes_MINGW32, 1, [Define to 1 if the target OS is MinGW32.])
   ac_cv_func_malloc_0_nonnull="yes"
   additional_ftimes_testdirs="common_windows_ads"
   extension=".exe"
+  case `gcc -v 2>&1 | awk -F: '{print $2}'` in
+  *x86_64*)
+    OS_CFLAGS="${OS_CFLAGS} -DMINGW64"
+    ;;
+  esac
   ;;
 *solaris*)
   OS_CFLAGS="-DUNIX"
@@ -154,6 +159,19 @@ AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+
+AC_MSG_CHECKING([for major CC version known to support -Wformat-truncation])
+compiler_major_version=`${CC} -v 2>&1 | ${AWK} '/^g?cc version [[0-9]]+[[.]]/ { split($3,a,"."); print a[[1]] }'`
+if test -n "${compiler_major_version}" ; then
+  if test "${compiler_major_version}" -ge 7 ; then
+    CFLAGS="${CFLAGS} -Wformat-truncation=0"
+    AC_MSG_RESULT(supported)
+  else
+    AC_MSG_RESULT(unsupported)
+  fi
+else
+  AC_MSG_RESULT(undefined)
+fi
 
 dnl ####################################################################
 dnl #
@@ -310,29 +328,29 @@ AC_ARG_WITH(ssl,
     dnl ################################################################
     case `echo ${withval} | tr "A-Z" "a-z"` in
     no)
-      use_ssl="0"
+      use_ssl="2"
+      ;;
+    yes)
+      use_ssl="1"
+      dnl # Search common OpenSSL locations.
+      for basedir in /usr /usr/local /usr/pkg /opt /opt/local ; do
+        for dir in ${basedir} ${basedir}/openssl ${basedir}/ssl ; do
+          CheckSslComponents ${dir} && break 2
+        done
+      done
       ;;
     *)
       use_ssl="1"
+      dnl # Search specified OpenSSL location.
       CheckSslComponents "${withval}"
       ;;
     esac
   ],
   [
-    dnl ################################################################
-    dnl #
-    dnl # Search common OpenSSL locations.
-    dnl #
-    dnl ################################################################
-    use_ssl="1"
-    for basedir in /usr /usr/local /usr/pkg /opt /opt/local ; do
-      for dir in ${basedir} ${basedir}/openssl ${basedir}/ssl ; do
-        CheckSslComponents ${dir} && break 2
-      done
-    done
+    use_ssl="0"
   ]
 )
-if test ${use_ssl} -ne 0 ; then
+if test ${use_ssl} -eq 1 ; then
   AC_DEFINE(USE_SSL, 1, [Define to 1 if OpenSSL support is enabled.])
   if test -z "${ssldir}" ; then
     AC_MSG_RESULT(missing or incomplete)
@@ -367,8 +385,10 @@ if test ${use_ssl} -ne 0 ; then
     AC_SUBST(ssl_incflags)
     AC_SUBST(ssl_libflags)
   fi
-else
+elif test ${use_ssl} -eq 2 ; then
   AC_MSG_RESULT(check explicitly disabled)
+else
+  AC_MSG_RESULT(not enabled)
 fi
 
 dnl ####################################################################
@@ -792,6 +812,7 @@ test_makefiles="
   tests/ftimes/common/dig/test_2/Makefile
   tests/ftimes/common/dig/test_3/Makefile
   tests/ftimes/common/dig/test_4/Makefile
+  tests/ftimes/common/dig/test_5/Makefile
   tests/ftimes/common/map/Makefile
   tests/ftimes/common/map/test_1/Makefile
   tests/ftimes/common/map/test_2/Makefile
@@ -1001,6 +1022,7 @@ tests/hipdig/common/Makefile
 tests/hipdig/common/dig/Makefile
 tests/hipdig/common/dig/test_1/Makefile
 "
+  install_lib_perl="1"
 else
   AC_MSG_RESULT(no)
 fi
@@ -1074,14 +1096,14 @@ AC_ARG_WITH(map-tools,
 )
 if test ${install_map} -ne 0 ; then
   AC_MSG_RESULT(yes)
-  map_list="ftimes-bimvl ftimes-cat ftimes-cmp2dbi ftimes-cmp2diff ftimes-encoder ftimes-grabber ftimes-map2dbi ftimes-map2mac ftimes-proximo ftimes-sizimus ftimes-sortini ftimes-xformer ftimes-xpa hashcp tarmap zipmap"
+  map_list="ftimes-bimvl ftimes-cat ftimes-cmp2dbi ftimes-cmp2diff ftimes-encoder ftimes-grabber ftimes-map2dbi ftimes-map2mac ftimes-proximo ftimes-sizimus ftimes-sortini ftimes-srm ftimes-xformer ftimes-xpa ftimes-xpatool hashcp tarmap zipmap"
   doc_subdirs="${doc_subdirs} ${map_list}"
   doc_makefiles="${doc_makefiles} "`{ for item in ${map_list} ; do echo ${item} | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
   html_files="${html_files} "`{ for item in ${map_list} ; do echo ${item} | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
   man1_files="${man1_files} "`{ for item in ${map_list} ; do echo ${item} | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
-  tool_subdirs="${tool_subdirs} ftimes-bimvl ftimes-cat ftimes-cmp2diff ftimes-encoder ftimes-grabber ftimes-proximo ftimes-sizimus ftimes-sortini ftimes-xformer ftimes-xpa hashcp map tarmap zipmap"
-  tool_config_subdirs="${tool_config_subdirs} ftimes-cat ftimes-xpa hashcp tarmap"
-  tool_makefiles="${tool_makefiles} tools/ftimes-bimvl/Makefile tools/ftimes-cat/Makefile tools/ftimes-cmp2diff/Makefile tools/ftimes-encoder/Makefile tools/ftimes-grabber/Makefile tools/ftimes-proximo/Makefile tools/ftimes-sizimus/Makefile tools/ftimes-sortini/Makefile tools/ftimes-xformer/Makefile tools/ftimes-xpa/Makefile tools/hashcp/Makefile tools/map/Makefile tools/tarmap/Makefile tools/zipmap/Makefile"
+  tool_subdirs="${tool_subdirs} ftimes-bimvl ftimes-cat ftimes-cmp2diff ftimes-encoder ftimes-grabber ftimes-proximo ftimes-sizimus ftimes-sortini ftimes-srm ftimes-xformer ftimes-xpa ftimes-xpatool hashcp map tarmap zipmap"
+  tool_config_subdirs="${tool_config_subdirs} ftimes-cat ftimes-srm ftimes-xpa ftimes-xpatool hashcp tarmap"
+  tool_makefiles="${tool_makefiles} tools/ftimes-bimvl/Makefile tools/ftimes-cat/Makefile tools/ftimes-cmp2diff/Makefile tools/ftimes-encoder/Makefile tools/ftimes-grabber/Makefile tools/ftimes-proximo/Makefile tools/ftimes-sizimus/Makefile tools/ftimes-sortini/Makefile tools/ftimes-srm/Makefile tools/ftimes-xformer/Makefile tools/ftimes-xpa/Makefile tools/ftimes-xpatool/Makefile tools/hashcp/Makefile tools/map/Makefile tools/tarmap/Makefile tools/zipmap/Makefile"
   additional_testdirs="${additional_testdirs} ftimes-encoder ftimes-xformer tarmap"
   test_makefiles="
 ${test_makefiles}

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.53 2014/07/18 06:40:44 mavrik Exp $
+ * $Id: fsinfo.c,v 1.62 2019/03/14 16:07:42 klm Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2019 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -25,6 +25,7 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
 {
   "UNSUPPORTED",
   "AIX",
+  "APFS",
   "CDFS",
   "CIFS",
   "CRAMFS",
@@ -37,6 +38,7 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "GETDATAFS",
   "HFS",
   "JFS",
+  "JFFS2",
   "MINIX",
   "NA",
   "NFS",
@@ -48,12 +50,15 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "NWCOMPAT_Remote",
   "NWFS",
   "NWFS_Remote",
+  "OVERLAYFS",
   "PTS",
   "RAMFS",
   "REISER",
   "SMB",
+  "SMB2",
   "SQUASHFS",
   "TMPFS",
+  "UBIFS",
   "UDF",
   "UFS",
   "UFS2",
@@ -61,7 +66,8 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "VZFS",
   "XFS",
   "YAFFS",
-  "ZFS"
+  "ZFS",
+  "AUTOFS"
 };
 
 
@@ -171,6 +177,9 @@ GetFileSystemType(char *pcPath, char *pcError)
     case NTFS3G_SUPER_MAGIC:
       return FSTYPE_NTFS3G;
       break;
+    case OVERLAYFS_SUPER_MAGIC:
+      return FSTYPE_OVERLAYFS;
+      break;
     case PTS_SUPER_MAGIC:
       return FSTYPE_PTS;
       break;
@@ -180,11 +189,17 @@ GetFileSystemType(char *pcPath, char *pcError)
     case SMB_SUPER_MAGIC:
       return FSTYPE_SMB;
       break;
+    case SMB2_SUPER_MAGIC:
+      return FSTYPE_SMB2;
+      break;
     case SQUASHFS_SUPER_MAGIC:
       return FSTYPE_SQUASHFS;
       break;
     case JFS_SUPER_MAGIC:
       return FSTYPE_JFS;
+      break;
+    case JFFS2_SUPER_MAGIC:
+      return FSTYPE_JFFS2;
       break;
     case MINIX_SUPER_MAGIC:
       return FSTYPE_MINIX;
@@ -206,6 +221,9 @@ GetFileSystemType(char *pcPath, char *pcError)
       break;
     case XFS_SUPER_MAGIC:
       return FSTYPE_XFS;
+      break;
+    case UBIFS_SUPER_MAGIC:
+      return FSTYPE_UBIFS;
       break;
     case UDF_SUPER_MAGIC:
       return FSTYPE_UDF;
@@ -337,6 +355,14 @@ GetFileSystemType(char *pcPath, char *pcError)
     else if (strstr(acFSName, "ZFS") != NULL)
     {
       return FSTYPE_ZFS;
+    }
+    else if (strstr(acFSName, "AUTOFS") != NULL)
+    {
+      return FSTYPE_AUTOFS;
+    }
+    else if (strstr(acFSName, "APFS") != NULL)
+    {
+      return FSTYPE_APFS;
     }
     else
     {
