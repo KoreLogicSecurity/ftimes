@@ -46,7 +46,7 @@ abort.
 This is a previously created and possibly compressed map file that
 is being supplied as input.  In compare mode it represents an
 uncompressed map file and applies to both the B<baseline> and
-B<snapshot> arguments.  In decoder mode it represents a compressed
+B<snapshot> arguments.  In decode mode it represents a compressed
 map file.
 
 =item XMagic

@@ -1,0 +1,4 @@
+=head1 NAME
+
+B<HashCp> - Hash and copy the contents of a file or stdin.
+

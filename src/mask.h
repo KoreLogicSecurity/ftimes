@@ -1,14 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: mask.h,v 1.10 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: mask.h,v 1.19 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2005-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _MASK_H_INCLUDED
+#define _MASK_H_INCLUDED
 
 /*-
  ***********************************************************************
@@ -45,8 +47,11 @@
 #define CMP_SHA1        0x00400000
 #define CMP_SHA256      0x00800000
 #define CMP_MAGIC       0x01000000
+#define CMP_OWNER       0x02000000
+#define CMP_GROUP       0x04000000
+#define CMP_DACL        0x08000000
 /*--------------------------------*/
-#define CMP_ALL_MASK    0x01fffffe /* The name field is excluded because it's a mandatory field. */
+#define CMP_ALL_MASK    0x0ffffffe /* The name field is excluded because it's a mandatory field. */
 #define CMP_HASHES_MASK 0x00e00000
 #define CMP_TIMES_MASK  0x0007f800
 /*--------------------------------*/
@@ -70,8 +75,11 @@
 #define MAP_SHA1        0x00000400
 #define MAP_SHA256      0x00000800
 #define MAP_MAGIC       0x00001000
+#define MAP_OWNER       0x00002000
+#define MAP_GROUP       0x00004000
+#define MAP_DACL        0x00008000
 /*--------------------------------*/
-#define MAP_ALL_MASK    0x00001fff
+#define MAP_ALL_MASK    0x0000ffff
 #define MAP_HASHES_MASK 0x00000e00
 #define MAP_TIMES_MASK  0x00000078
 /*--------------------------------*/
@@ -95,6 +103,7 @@
 /*--------------------------------*/
 #define MAP_ALL_MASK    0x00007fff
 #define MAP_HASHES_MASK 0x00003800
+#define MAP_LSTAT_MASK  0x000007ff
 #define MAP_TIMES_MASK  0x00000380
 /*--------------------------------*/
 #endif
@@ -150,3 +159,5 @@ MASK_USS_MASK      *MaskNewMask(char *pcError);
 MASK_USS_MASK      *MaskParseMask(char *pcMask, int iType, char *pcError);
 int                 MaskSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError);
 int                 MaskSetMask(MASK_USS_MASK *psMask, char *pcMask, char *pcError);
+
+#endif /* !_MASK_H_INCLUDED */

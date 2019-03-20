@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ssl.c,v 1.10 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: ssl.c,v 1.19 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2001-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -14,12 +14,12 @@
 /*-
  ***********************************************************************
  *
- * SSLBoot
+ * SslBoot
  *
  ***********************************************************************
  */
 void
-SSLBoot(void)
+SslBoot(void)
 {
   unsigned char       aucSeed[SSL_SEED_LENGTH];
 
@@ -32,22 +32,22 @@ SSLBoot(void)
    */
   SSL_library_init();
   SSL_load_error_strings();
-  RAND_seed(SSLGenerateSeed(aucSeed, SSL_SEED_LENGTH), SSL_SEED_LENGTH);
+  RAND_seed(SslGenerateSeed(aucSeed, SSL_SEED_LENGTH), SSL_SEED_LENGTH);
 }
 
 
 /*-
  ***********************************************************************
  *
- * SSLConnect
+ * SslConnect
  *
  ***********************************************************************
  */
 SSL *
-SSLConnect(int iSocket, SSL_CTX *psslCTX, char *pcError)
+SslConnect(int iSocket, SSL_CTX *psslCTX, char *pcError)
 {
-  const char          acRoutine[] = "SSLConnect()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  const char          acRoutine[] = "SslConnect()";
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
   SSL                 *pssl;
 
@@ -84,40 +84,40 @@ SSLConnect(int iSocket, SSL_CTX *psslCTX, char *pcError)
 /*-
  ***********************************************************************
  *
- * SSLFreeProperties
+ * SslFreeProperties
  *
  ***********************************************************************
  */
 void
-SSLFreeProperties(SSL_PROPERTIES *psSSLProperties)
+SslFreeProperties(SSL_PROPERTIES *psSslProperties)
 {
-  if (psSSLProperties != NULL)
+  if (psSslProperties != NULL)
   {
-    if (psSSLProperties->pcPublicCertFile != NULL)
+    if (psSslProperties->pcPublicCertFile != NULL)
     {
-      free(psSSLProperties->pcPublicCertFile);
+      free(psSslProperties->pcPublicCertFile);
     }
-    if (psSSLProperties->pcPrivateKeyFile != NULL)
+    if (psSslProperties->pcPrivateKeyFile != NULL)
     {
-      free(psSSLProperties->pcPrivateKeyFile);
+      free(psSslProperties->pcPrivateKeyFile);
     }
-    if (psSSLProperties->pcPassPhrase != NULL)
+    if (psSslProperties->pcPassPhrase != NULL)
     {
-      free(psSSLProperties->pcPassPhrase);
+      free(psSslProperties->pcPassPhrase);
     }
-    if (psSSLProperties->pcBundledCAsFile != NULL)
+    if (psSslProperties->pcBundledCAsFile != NULL)
     {
-      free(psSSLProperties->pcBundledCAsFile);
+      free(psSslProperties->pcBundledCAsFile);
     }
-    if (psSSLProperties->pcExpectedPeerCN != NULL)
+    if (psSslProperties->pcExpectedPeerCN != NULL)
     {
-      free(psSSLProperties->pcExpectedPeerCN);
+      free(psSslProperties->pcExpectedPeerCN);
     }
-    if (psSSLProperties->psslCTX != NULL)
+    if (psSslProperties->psslCTX != NULL)
     {
-      SSL_CTX_free(psSSLProperties->psslCTX);
+      SSL_CTX_free(psSslProperties->psslCTX);
     }
-    free(psSSLProperties);
+    free(psSslProperties);
   }
 }
 
@@ -125,12 +125,12 @@ SSLFreeProperties(SSL_PROPERTIES *psSSLProperties)
 /*-
  ***********************************************************************
  *
- * SSLGenerateSeed
+ * SslGenerateSeed
  *
  ***********************************************************************
  */
 unsigned char *
-SSLGenerateSeed(unsigned char *pucSeed, unsigned long iLength)
+SslGenerateSeed(unsigned char *pucSeed, unsigned long iLength)
 {
   unsigned long       i;
   unsigned long       j;
@@ -156,15 +156,83 @@ SSLGenerateSeed(unsigned char *pucSeed, unsigned long iLength)
 /*-
  ***********************************************************************
  *
- * SSLInitializeCTX
+ * SslGetVersion
+ *
+ ***********************************************************************
+ */
+char *
+SslGetVersion(void)
+{
+  static char         acSslVersion[SSL_MAX_VERSION_LENGTH] = "";
+  static char         acSslPatch[2] = "";
+  static char         acSslPatchCodes[] = " abcdefghijklmnopqrstuvwxyz";
+  int                 iPatch = (OPENSSL_VERSION_NUMBER >> 4) & 0xff;
+
+  /*-
+   *********************************************************************
+   *
+   *  The OpenSSL version number allocates 8 bits to the major number,
+   *  8 bits to the minor number, 8 bits to the fix number, 8 bits to
+   *  the patch number, and 4 bits to the status number. This has the
+   *  following breakout.
+   *
+   *    +--------+--------+--------+--------+----+
+   *    |33333322|22222222|11111111|11      |    |
+   *    |54321098|76543210|98765432|10987654|3210|
+   *    |--------|--------|--------|--------|----+
+   *    |MMMMMMMM|mmmmmmmm|ffffffff|pppppppp|ssss|
+   *    +--------+--------+--------|--------+----+
+   *     ^^^^^^^^ ^^^^^^^^ ^^^^^^^^ ^^^^^^^^ ^^^^
+   *            |        |       |         |    |
+   *            |        |       |         |    +-----> s - status (0.....15)
+   *            |        |       |         +----------> p - patch  (0....255)
+   *            |        |       +--------------------> f - fix    (0....255)
+   *            |        +----------------------------> m - minor  (0....255)
+   *            +-------------------------------------> M - major  (0....255)
+   *
+   *    Note that this represents a 36-bit number, which may require
+   *    64-bit handling at some point. See OPENSSL_VERSION_NUMBER(3)
+   *    for details,
+   *
+   *********************************************************************
+   */
+  if (iPatch == 0)
+  {
+    acSslPatch[0] = 0;
+  }
+  else if (iPatch > 0 && iPatch < 27)
+  {
+    acSslPatch[0] = acSslPatchCodes[iPatch];
+  }
+  else
+  {
+    acSslPatch[0] = '?';
+  }
+  acSslPatch[1] = 0;
+
+  snprintf(acSslVersion, SSL_MAX_VERSION_LENGTH, "ssl(%d.%d.%d%s)",
+    (int)((OPENSSL_VERSION_NUMBER >> 28) & 0xff),
+    (int)((OPENSSL_VERSION_NUMBER >> 20) & 0xff),
+    (int)((OPENSSL_VERSION_NUMBER >> 12) & 0xff),
+    acSslPatch
+    );
+
+  return acSslVersion;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * SslInitializeCTX
  *
  ***********************************************************************
  */
 SSL_CTX *
-SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
+SslInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
 {
-  const char          acRoutine[] = "SSLInitializeCTX()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  const char          acRoutine[] = "SslInitializeCTX()";
+  char                acLocalError[MESSAGE_SIZE] = "";
 
   /*-
    *********************************************************************
@@ -243,13 +311,13 @@ SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
     static unsigned char aucTaps[SSL_POOL_TAPS];
     SSL_NEW_POOL(aucPool, SSL_POOL_SIZE, SSL_POOL_SEED);
     SSL_TAP_POOL(aucTaps, aucPool);
-    SSL_CTX_set_default_passwd_cb(psProperties->psslCTX, SSLPassPhraseHandler);
+    SSL_CTX_set_default_passwd_cb(psProperties->psslCTX, SslPassPhraseHandler);
     SSL_CTX_set_default_passwd_cb_userdata(psProperties->psslCTX, (void *) aucTaps);
   }
 
   if (psProperties->pcPassPhrase != NULL && psProperties->pcPassPhrase[0])
   {
-    SSL_CTX_set_default_passwd_cb(psProperties->psslCTX, SSLPassPhraseHandler);
+    SSL_CTX_set_default_passwd_cb(psProperties->psslCTX, SslPassPhraseHandler);
     SSL_CTX_set_default_passwd_cb_userdata(psProperties->psslCTX, (void *) psProperties->pcPassPhrase);
   }
 
@@ -298,77 +366,77 @@ SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
 /*-
  ***********************************************************************
  *
- * SSLNewProperties
+ * SslNewProperties
  *
  ***********************************************************************
  */
 SSL_PROPERTIES *
-SSLNewProperties(char *pcError)
+SslNewProperties(char *pcError)
 {
-  const char          acRoutine[] = "SSLNewProperties()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  const char          acRoutine[] = "SslNewProperties()";
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
-  SSL_PROPERTIES     *psSSLProperties;
+  SSL_PROPERTIES     *psSslProperties;
 
-  psSSLProperties = (SSL_PROPERTIES *) malloc(sizeof(SSL_PROPERTIES));
-  if (psSSLProperties == NULL)
+  psSslProperties = (SSL_PROPERTIES *) malloc(sizeof(SSL_PROPERTIES));
+  if (psSslProperties == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
-  memset(psSSLProperties, 0, sizeof(SSL_PROPERTIES));
+  memset(psSslProperties, 0, sizeof(SSL_PROPERTIES));
 
-  iError = SSLSetPublicCertFile(psSSLProperties, "", acLocalError);
+  iError = SslSetPublicCertFile(psSslProperties, "", acLocalError);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    SSLFreeProperties(psSSLProperties);
+    SslFreeProperties(psSslProperties);
     return NULL;
   }
-  iError = SSLSetPrivateKeyFile(psSSLProperties, "", acLocalError);
+  iError = SslSetPrivateKeyFile(psSslProperties, "", acLocalError);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    SSLFreeProperties(psSSLProperties);
+    SslFreeProperties(psSslProperties);
     return NULL;
   }
-  iError = SSLSetPassPhrase(psSSLProperties, "", acLocalError);
+  iError = SslSetPassPhrase(psSslProperties, "", acLocalError);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    SSLFreeProperties(psSSLProperties);
+    SslFreeProperties(psSslProperties);
     return NULL;
   }
-  iError = SSLSetBundledCAsFile(psSSLProperties, "", acLocalError);
+  iError = SslSetBundledCAsFile(psSslProperties, "", acLocalError);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    SSLFreeProperties(psSSLProperties);
+    SslFreeProperties(psSslProperties);
     return NULL;
   }
-  iError = SSLSetExpectedPeerCN(psSSLProperties, "", acLocalError);
+  iError = SslSetExpectedPeerCN(psSslProperties, "", acLocalError);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    SSLFreeProperties(psSSLProperties);
+    SslFreeProperties(psSslProperties);
     return NULL;
   }
 
-  psSSLProperties->iMaxChainLength = SSL_DEFAULT_CHAIN_LENGTH;
+  psSslProperties->iMaxChainLength = SSL_DEFAULT_CHAIN_LENGTH;
 
-  return psSSLProperties;
+  return psSslProperties;
 }
 
 
 /*-
  ***********************************************************************
  *
- * SSLPassPhraseHandler
+ * SslPassPhraseHandler
  *
  ***********************************************************************
  */
 int
-SSLPassPhraseHandler(char *pcPassPhrase, int iSize, int iRWFlag, void *pUserData)
+SslPassPhraseHandler(char *pcPassPhrase, int iSize, int iRWFlag, void *pUserData)
 {
   int                 iLength;
 
@@ -389,15 +457,15 @@ SSLPassPhraseHandler(char *pcPassPhrase, int iSize, int iRWFlag, void *pUserData
 /*-
  ***********************************************************************
  *
- * SSLRead
+ * SslRead
  *
  ***********************************************************************
  */
 int
-SSLRead(SSL *ssl, char *pcData, int iLength, char *pcError)
+SslRead(SSL *ssl, char *pcData, int iLength, char *pcError)
 {
-  const char          acRoutine[] = "SSLRead()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  const char          acRoutine[] = "SslRead()";
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iDone;
   int                 iNRead;
   int                 iRRetries;
@@ -480,12 +548,12 @@ SSLRead(SSL *ssl, char *pcData, int iLength, char *pcError)
 /*-
  ***********************************************************************
  *
- * SSLSessionCleanup
+ * SslSessionCleanup
  *
  ***********************************************************************
  */
 void
-SSLSessionCleanup(SSL *ssl)
+SslSessionCleanup(SSL *ssl)
 {
   if (ssl != NULL)
   {
@@ -498,24 +566,24 @@ SSLSessionCleanup(SSL *ssl)
 /*-
  ***********************************************************************
  *
- * SSLSetBundledCAsFile
+ * SslSetBundledCAsFile
  *
  ***********************************************************************
  */
 int
-SSLSetBundledCAsFile(SSL_PROPERTIES *psProperties, char *pcBundledCAsFile, char *pcError)
+SslSetBundledCAsFile(SSL_PROPERTIES *psProperties, char *pcBundledCAsFile, char *pcError)
 {
-  const char          acRoutine[] = "SSLSetBundledCAsFile()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  const char          acRoutine[] = "SslSetBundledCAsFile()";
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
 
   if (psProperties == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSLProperties.", acRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SslProperties.", acRoutine);
     return -1;
   }
 
-  iError = SSLSetDynamicString(&psProperties->pcBundledCAsFile, pcBundledCAsFile, acLocalError);
+  iError = SslSetDynamicString(&psProperties->pcBundledCAsFile, pcBundledCAsFile, acLocalError);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -529,14 +597,14 @@ SSLSetBundledCAsFile(SSL_PROPERTIES *psProperties, char *pcBundledCAsFile, char 
 /*-
  ***********************************************************************
  *
- * SSLSetDynamicString
+ * SslSetDynamicString
  *
  ***********************************************************************
  */
 int
-SSLSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
+SslSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
 {
-  const char          acRoutine[] = "SSLSetDynamicString()";
+  const char          acRoutine[] = "SslSetDynamicString()";
   char               *pcTempValue;
   int                 iLength;
 
@@ -566,24 +634,24 @@ SSLSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
 /*-
  ***********************************************************************
  *
- * SSLSetExpectedPeerCN
+ * SslSetExpectedPeerCN
  *
  ***********************************************************************
  */
 int
-SSLSetExpectedPeerCN(SSL_PROPERTIES *psProperties, char *pcExpectedPeerCN, char *pcError)
+SslSetExpectedPeerCN(SSL_PROPERTIES *psProperties, char *pcExpectedPeerCN, char *pcError)
 {
-  const char          acRoutine[] = "SSLSetExpectedPeerCN()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  const char          acRoutine[] = "SslSetExpectedPeerCN()";
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
 
   if (psProperties == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSLProperties.", acRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SslProperties.", acRoutine);
     return -1;
   }
 
-  iError = SSLSetDynamicString(&psProperties->pcExpectedPeerCN, pcExpectedPeerCN, acLocalError);
+  iError = SslSetDynamicString(&psProperties->pcExpectedPeerCN, pcExpectedPeerCN, acLocalError);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -597,24 +665,24 @@ SSLSetExpectedPeerCN(SSL_PROPERTIES *psProperties, char *pcExpectedPeerCN, char 
 /*-
  ***********************************************************************
  *
- * SSLSetPassPhrase
+ * SslSetPassPhrase
  *
  ***********************************************************************
  */
 int
-SSLSetPassPhrase(SSL_PROPERTIES *psProperties, char *pcPassPhrase, char *pcError)
+SslSetPassPhrase(SSL_PROPERTIES *psProperties, char *pcPassPhrase, char *pcError)
 {
-  const char          acRoutine[] = "SSLSetPassPhrase()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  const char          acRoutine[] = "SslSetPassPhrase()";
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
 
   if (psProperties == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSLProperties.", acRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SslProperties.", acRoutine);
     return -1;
   }
 
-  iError = SSLSetDynamicString(&psProperties->pcPassPhrase, pcPassPhrase, acLocalError);
+  iError = SslSetDynamicString(&psProperties->pcPassPhrase, pcPassPhrase, acLocalError);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -628,24 +696,24 @@ SSLSetPassPhrase(SSL_PROPERTIES *psProperties, char *pcPassPhrase, char *pcError
 /*-
  ***********************************************************************
  *
- * SSLSetPrivateKeyFile
+ * SslSetPrivateKeyFile
  *
  ***********************************************************************
  */
 int
-SSLSetPrivateKeyFile(SSL_PROPERTIES *psProperties, char *pcPrivateKeyFile, char *pcError)
+SslSetPrivateKeyFile(SSL_PROPERTIES *psProperties, char *pcPrivateKeyFile, char *pcError)
 {
-  const char          acRoutine[] = "SSLSetPrivateKeyFile()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  const char          acRoutine[] = "SslSetPrivateKeyFile()";
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
 
   if (psProperties == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSLProperties.", acRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SslProperties.", acRoutine);
     return -1;
   }
 
-  iError = SSLSetDynamicString(&psProperties->pcPrivateKeyFile, pcPrivateKeyFile, acLocalError);
+  iError = SslSetDynamicString(&psProperties->pcPrivateKeyFile, pcPrivateKeyFile, acLocalError);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -659,24 +727,24 @@ SSLSetPrivateKeyFile(SSL_PROPERTIES *psProperties, char *pcPrivateKeyFile, char 
 /*-
  ***********************************************************************
  *
- * SSLSetPublicCertFile
+ * SslSetPublicCertFile
  *
  ***********************************************************************
  */
 int
-SSLSetPublicCertFile(SSL_PROPERTIES *psProperties, char *pcPublicCertFile, char *pcError)
+SslSetPublicCertFile(SSL_PROPERTIES *psProperties, char *pcPublicCertFile, char *pcError)
 {
-  const char          acRoutine[] = "SSLSetPublicCertFile()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  const char          acRoutine[] = "SslSetPublicCertFile()";
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
 
   if (psProperties == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSLProperties.", acRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SslProperties.", acRoutine);
     return -1;
   }
 
-  iError = SSLSetDynamicString(&psProperties->pcPublicCertFile, pcPublicCertFile, acLocalError);
+  iError = SslSetDynamicString(&psProperties->pcPublicCertFile, pcPublicCertFile, acLocalError);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -690,14 +758,14 @@ SSLSetPublicCertFile(SSL_PROPERTIES *psProperties, char *pcPublicCertFile, char 
 /*-
  ***********************************************************************
  *
- * SSLVerifyCN
+ * SslVerifyCN
  *
  ***********************************************************************
  */
 int
-SSLVerifyCN(SSL *ssl, char *pcCN, char *pcError)
+SslVerifyCN(SSL *ssl, char *pcCN, char *pcError)
 {
-  const char          acRoutine[] = "SSLVerifyCN()";
+  const char          acRoutine[] = "SslVerifyCN()";
   char                acPeerCN[SSL_MAX_COMMON_NAME_LENGTH];
   X509               *psX509Cert;
 
@@ -731,15 +799,15 @@ SSLVerifyCN(SSL *ssl, char *pcCN, char *pcError)
 /*-
  ***********************************************************************
  *
- * SSLWrite
+ * SslWrite
  *
  ***********************************************************************
  */
 int
-SSLWrite(SSL *ssl, char *pcData, int iLength, char *pcError)
+SslWrite(SSL *ssl, char *pcData, int iLength, char *pcError)
 {
-  const char          acRoutine[] = "SSLWrite()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  const char          acRoutine[] = "SslWrite()";
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iNSent;
   int                 iOffset;
   int                 iToSend;

@@ -1,0 +1,25 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${DESTDIR}${PREFIX}/man/man1
+
+HTML_FILE=ftimes-dbm-bash.html
+
+MAN_FILE=ftimes-dbm-bash.1
+
+MAN_TITLE=FTimes Documentation
+
+POD_FILE=ftimes-dbm-bash.pod
+
+SRC_FILE=${SRCDIR}/../../tools/ftimes-dbm-bash/ftimes-dbm-bash
+
+include ${PROJECT_ROOT}/Mk/common-doc-perl.mk
+

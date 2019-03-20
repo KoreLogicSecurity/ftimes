@@ -1,0 +1,498 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.2 2008/05/19 21:02:44 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# DigUnitTest
+#
+######################################################################
+
+sub DigUnitTest
+{
+  my $phProperties = GetProperties();
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my $phTestProperties = GetTestProperties();
+
+  my %hMatches;
+
+  my $sMissing = 0;
+
+  my $sCommand="perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -h -x -t custom='$$phTestProperties{'DigString'}' $$phTestProperties{'File'}";
+  DebugPrint(3, $sCommand);
+
+  if (!open(PH, "$sCommand |"))
+  {
+    return undef;
+  }
+  binmode(PH);
+  my @aLines = <PH>;
+  close(PH);
+
+  if (scalar(@aLines) < 2)
+  {
+    return undef;
+  }
+  shift(@aLines);
+
+  foreach my $sLine (@aLines)
+  {
+    $sLine =~ s/[\r\n]*$//;
+
+    if ($sLine !~ /[\/\\]$$phTestProperties{'Name'}"\|$$phTestProperties{'DigType'}\|[^|]*\|(\d+)\|(.+)$/)
+    {
+      DebugPrint(2, "---> $sLine -- Line failed regular expression check.");
+      return undef;
+    }
+    my ($sOffset, $sValue) = ($1, $2);
+
+    if (!exists($$phTestTargetValues{$$phTestProperties{'Name'}}{$sOffset}))
+    {
+      DebugPrint(2, "---> $sLine -- Offset ($sOffset) does not exist in target value list.");
+      return undef;
+    }
+    if ($sValue ne $$phTestTargetValues{$$phTestProperties{'Name'}}{$sOffset})
+    {
+      my $sTargetData = join("|",
+        $sOffset,
+        $$phTestTargetValues{$$phTestProperties{'Name'}}{$sOffset},
+        $$phTestProperties{'BlockSize'},
+        $$phTestProperties{'CarrySize'}
+        );
+      DebugPrint(2, "---> $sLine -- $sTargetData");
+      return undef;
+    }
+    $hMatches{$sOffset}++;
+
+    if ($$phProperties{'DebugLevel'} >= 3)
+    {
+      my $sTargetData = join("|",
+        $sOffset, # NOTE: Using $sOffset here is ok, since it's already been validated.
+        $sValue, # NOTE: Using $sValue here is ok, since it's already been validated.
+        $$phTestProperties{'BlockSize'},
+        $$phTestProperties{'CarrySize'}
+        );
+      DebugPrint(3, "$sLine -- $sTargetData");
+    }
+  }
+
+  foreach my $sOffset (sort({ $a <=> $b } keys(%{$$phTestTargetValues{$$phTestProperties{'Name'}}})))
+  {
+    if (!exists($hMatches{$sOffset}))
+    {
+      DebugPrint(2, "---> expected a match at $sOffset");
+      $sMissing++;
+    }
+  }
+  if ($sMissing > 0)
+  {
+    DebugPrint(2, "---> missing $sMissing");
+    return undef;
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# GetModeName
+#
+######################################################################
+
+sub GetModeName
+{
+  return "dig";
+}
+
+
+######################################################################
+#
+# TestGroup_1_byte_regexp
+#
+######################################################################
+
+sub Hitch_1_byte_regexp
+{
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'DigType'} = "regexp";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  foreach my $sOffset (0..255)
+  {
+    $$phTestTargetValues{'1_byte_regexp'}{$sOffset} = FTimesUrlEncode(pack("C", $sOffset));
+  }
+}
+
+
+sub Check_1_byte_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "([\\x00-\\xff])";
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_1_byte_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_1_byte_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (!defined(FillFile($sFile, "fill_byte_loop", 256)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_2_byte_regexp
+#
+######################################################################
+
+sub Hitch_2_byte_regexp
+{
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'DigType'} = "regexp";
+
+  1;
+}
+
+
+sub Check_2_byte_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my $sLastLByte;
+
+  foreach my $sValue (0..65535)
+  {
+    my $sHByte = pack("C", (($sValue >> 8) & 0xff));
+    my $sLByte = pack("C", (($sValue >> 0) & 0xff));
+    my $sOffset = $sValue * 2;
+    $$phTestTargetValues{$sName}{$sOffset} = FTimesUrlEncode($sHByte . $sLByte);
+  }
+
+  $$phTestProperties{'DigString'} = "([\\x00-\\xff]{2})";
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_2_byte_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_2_byte_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (!defined(FillFile($sFile, "fill_2_byte_loop", 65536)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_abc123_regexp
+#
+######################################################################
+
+sub Hitch_abc123_regexp
+{
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'DigType'} = "regexp";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  $$phTestTargetValues{'abc123_regexp'} =
+  {
+       0 => "abc123",
+    1022 => "Abc123",
+    3840 => "aBc123",
+    4090 => "abC123",
+    4096 => "ABC123",
+    5119 => "ABc123",
+    7937 => "aBC123",
+    8191 => "AbC123",
+  };
+}
+
+
+sub Check_abc123_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "(?i)(abc123)";
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_abc123_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_abc123_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my ($sData) = sprintf("%s", chr(0) x 16384);
+
+  my ($phTestTargetValues) = GetTestTargetValues();
+
+  foreach my $sOffset (sort({ $a <=> $b } keys(%{$$phTestTargetValues{$sName}})))
+  {
+    substr($sData, $sOffset, length($$phTestTargetValues{$sName}{$sOffset})) = $$phTestTargetValues{$sName}{$sOffset};
+  }
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_abcdef_with_backrefs_regexp
+#
+######################################################################
+
+sub Hitch_abcdef_with_backrefs_regexp
+{
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'DigType'} = "regexp";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  $$phTestTargetValues{'abcdef_with_backrefs_regexp'} =
+  {
+    # Note: These offsets are not significant in this test.
+       0 => FTimesUrlEncode("abcdef"),
+      16 => FTimesUrlEncode("a b c;d.e.f"),
+      32 => FTimesUrlEncode("a-b-c|d,e,f"),
+    1022 => FTimesUrlEncode("AbcDef"),
+    1038 => FTimesUrlEncode("A b c;D.e.f"),
+    1054 => FTimesUrlEncode("A-b-c|D,e,f"),
+    3840 => FTimesUrlEncode("aBcdEf"),
+    3856 => FTimesUrlEncode("a B c;d.E.f"),
+    3872 => FTimesUrlEncode("a-B-c|d,E,f"),
+    4090 => FTimesUrlEncode("abCdeF"),
+    5006 => FTimesUrlEncode("a b C;d.e.F"),
+    5022 => FTimesUrlEncode("a-b-C|d,e,F"),
+    5100 => FTimesUrlEncode("ABCDEF"),
+    5116 => FTimesUrlEncode("A B C;D.E.F"),
+    5132 => FTimesUrlEncode("A-B-C|D,E,F"),
+    5200 => FTimesUrlEncode("ABcDEf"),
+    5216 => FTimesUrlEncode("A B c;D.E.f"),
+    5232 => FTimesUrlEncode("A-B-c|D,E,f"),
+    7937 => FTimesUrlEncode("aBCdEF"),
+    7953 => FTimesUrlEncode("a B C;d.E.F"),
+    7969 => FTimesUrlEncode("a-B-C|d,E,F"),
+    8191 => FTimesUrlEncode("AbCDeF"),
+    8207 => FTimesUrlEncode("A b C;D.e.F"),
+    8223 => FTimesUrlEncode("A-b-C|D,e,F"),
+  };
+}
+
+
+sub Check_abcdef_with_backrefs_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "(?i)(a([\\x20-]?)b\\2c([;|]?)d([.,]?)e\\4f)";
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_abcdef_with_backrefs_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_abcdef_with_backrefs_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my ($sData) = sprintf("%s", chr(0) x 16384);
+
+  my ($phTestTargetValues) = GetTestTargetValues();
+
+  foreach my $sOffset (sort({ $a <=> $b } keys(%{$$phTestTargetValues{$sName}})))
+  {
+    my $sValue = UrlDecode($$phTestTargetValues{$sName}{$sOffset});
+    substr($sData, $sOffset, length($sValue)) = $sValue;
+  }
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+1;

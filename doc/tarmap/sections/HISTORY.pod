@@ -8,5 +8,5 @@ to temporary storage first would have been impractical.  This utility,
 allowed us to avoid that issue by directly processing an uncompressed
 stream of the backup (e.g., via gunzip or bunzip2).
 
-B<TarMap> first appeared in B<FTimes> 3.8.0.
+This utility first appeared in B<FTimes> 3.8.0.
 

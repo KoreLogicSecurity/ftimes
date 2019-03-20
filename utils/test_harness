@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness,v 1.12 2007/03/26 16:37:32 mavrik Exp $
+# $Id: test_harness,v 1.20 2012/01/04 03:12:40 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2005-2007 The FTimes Project, All Rights Reserved.
+# Copyright 2005-2012 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -147,13 +147,18 @@ BEGIN
   }
   if ($$phProperties{'RunMode'} =~ /^check$/)
   {
-    if ($$phProperties{'OsClass'} =~ /^WINDOWS$/ && $sTargetProgram !~ /\.exe$/)
+    if ($$phProperties{'OsClass'} =~ /^WINDOWS$/ && !-f $sTargetProgram && $sTargetProgram !~ /\.exe$/)
     {
       $sTargetProgram .= ".exe"
     }
-    if (!-f $sTargetProgram || !-x _)
+    if (!-f $sTargetProgram)
     {
-      print STDERR "$$phProperties{'Program'}: Error='The target program ($sTargetProgram) is not a file, does not exist, or is not executable.'\n";
+      print STDERR "$$phProperties{'Program'}: Error='The target program ($sTargetProgram) is not a file or does not exist.'\n";
+      exit(2);
+    }
+    if ($$phProperties{'OsClass'} =~ /^UNIX$/ && !-x $sTargetProgram)
+    {
+      print STDERR "$$phProperties{'Program'}: Error='The target program ($sTargetProgram) is not executable.'\n";
       exit(2);
     }
   }
@@ -190,7 +195,7 @@ BEGIN
 
   ####################################################################
   #
-  # If there's any arguments left, it's an error.
+  # If any arguments remain, it's an error.
   #
   ####################################################################
 
@@ -245,7 +250,7 @@ BEGIN
 
   $phTestNumbers = GetTestNumbers();
 
-  foreach my $sSubTest (sort(keys(%$phTestNumbers)))
+  foreach my $sSubTest (sort({ $a <=> $b } keys(%$phTestNumbers)))
   {
     my $sRoutine = \&{("Hitch_" . $$phTestNumbers{$sSubTest})};
     &$sRoutine();
@@ -257,14 +262,15 @@ BEGIN
   #
   ####################################################################
 
-  my ($phTestDescriptions, $sErrors);
+  my ($phTestDescriptions, $sFailCount, $sPassCount, $sSkipCount, $sTestCount);
 
   $phTestDescriptions = GetTestDescriptions();
 
-  $sErrors = 0;
+  $sFailCount = $sPassCount = $sSkipCount = $sTestCount = 0;
 
-  foreach my $sSubTest (sort(keys(%$phTestNumbers)))
+  foreach my $sSubTest (sort({ $a <=> $b } keys(%$phTestNumbers)))
   {
+    $sTestCount++;
     my $sRoutine = \&{(MakeModeName($$phProperties{'RunMode'}) . $$phTestNumbers{$sSubTest})};
     my $sResults = &$sRoutine($phProperties);
     if ($$phProperties{'DebugLevel'} >= 2)
@@ -280,22 +286,59 @@ BEGIN
         $$phTestDescriptions{$$phTestNumbers{$sSubTest}},
         );
     }
-    if ($sResults !~ /^(?:pass|skip)$/)
+    if ($sResults =~ /^pass$/)
     {
-      $sErrors++;
+      $sPassCount++;
+    }
+    elsif ($sResults =~ /^skip$/)
+    {
+      $sSkipCount++;
+    }
+    else
+    {
+      $sFailCount++;
     }
   }
 
   ####################################################################
   #
-  # Print out the test results.
+  # Print out the test results. A single failure renders the entire
+  # test group a failure. If all tests were skipped, then the group
+  # is deemed to be a skip. If there was a combination of pass/skip
+  # results, the group is deemed to be a pass.
   #
   ####################################################################
+
+  my ($sGroupResults);
+
+  if ($sFailCount)
+  {
+    $sGroupResults = "fail";
+  }
+  else
+  {
+    if ($sTestCount == $sSkipCount)
+    {
+      $sGroupResults = "skip";
+    }
+    else
+    {
+      if ($sTestCount == ($sPassCount + $sSkipCount))
+      {
+        $sGroupResults = "pass";
+      }
+      else
+      {
+        print STDERR "$$phProperties{'Program'}: Error='The test results don't add up ($sTestCount != $sPassCount + $sSkipCount). That should not happen.'\n";
+        exit(2);
+      }
+    }
+  }
 
   if ($$phProperties{'DebugLevel'} >= 1)
   {
     printf("%s %s %s,%s,%s,%d\n",
-      ($sErrors == 0) ? "pass" : "fail",
+      $sGroupResults,
       $$phProperties{'RunMode'},
       GetToolName(),
       GetPlatformName(),
@@ -310,7 +353,7 @@ BEGIN
   #
   ####################################################################
 
-  if ($sErrors == 0)
+  if ($sFailCount == 0)
   {
     CreateDoneFile($$phProperties{'RunMode'});
   }
@@ -321,7 +364,7 @@ BEGIN
   #
   ####################################################################
 
-  exit(($sErrors == 0) ? 0 : 3);
+  exit(($sFailCount == 0) ? 0 : 3);
 
 
 ######################################################################

@@ -1,0 +1,20 @@
+=item B<StrictControls>: [Y|N]
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<StrictControls> is optional.  When enabled ('Y' or 'y'), any unknown
+or unsupported configuration controls will cause the program to abort.
+When disabled ('N' or 'n'), any unknown or unsupported controls will
+be silently ignored.  The default value is 'N'.
+
+Note: If you want to enforce strict controls within a single config
+file (or chain of config files), B<StrictControls> must be the first
+control processed.  You may also enable/disable this control multiple
+times.  This allows you to control the strictness of certain sections
+or starting at a particular point in the entire configuration.  Once
+set, this control takes effect immediately.
+
+Note: For versions 3.8.0 and below, this control was not supported,
+and the default behavior was to abort on any unknown or unsupported
+configuration control.
+

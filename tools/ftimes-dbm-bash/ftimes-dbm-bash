@@ -1,0 +1,389 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-dbm-bash,v 1.4 2012/01/04 03:12:36 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Bash one Berkeley database against another.
+#
+######################################################################
+
+use strict;
+use DB_File;
+use File::Basename;
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('i:M:m:o:r:s:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # The iterator, '-i', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Iterator'} = (exists($hOptions{'i'})) ? $hOptions{'i'} : undef;
+
+  if (defined($$phProperties{'Iterator'}) && $$phProperties{'Iterator'} !~ /^(R(?:EF(?:ERENCE)?)?|S(?:UB(?:JECT)?)?)$/i)
+  {
+    print STDERR "$$phProperties{'Program'}: Iterator='$$phProperties{'Iterator'}' Error='Invalid iterator.'\n";
+    exit(2);
+  }
+  $$phProperties{'Iterator'} = uc($1);
+
+  ####################################################################
+  #
+  # A match pattern, '-M', is optional.
+  #
+  ####################################################################
+
+  my (@aPatterns);
+
+  $$phProperties{'Pattern'} = (exists($hOptions{'M'})) ? $hOptions{'M'} : undef;
+
+  if (defined($$phProperties{'Pattern'}))
+  {
+    $$phProperties{'MatchPatterns'} = 1;
+    push(@aPatterns, $$phProperties{'Pattern'});
+  }
+
+  ####################################################################
+  #
+  # A match pattern file, '-m', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'PatternFile'} = (exists($hOptions{'m'})) ? $hOptions{'m'} : undef;
+
+  if (defined($$phProperties{'PatternFile'}))
+  {
+    if (!open(MH, "< $$phProperties{'PatternFile'}"))
+    {
+      print STDERR "$$phProperties{'Program'}: PatternFile='$$phProperties{'PatternFile'}' Error='$!'\n";
+      exit(2);
+    }
+    while (my $sLine = <MH>)
+    {
+      $sLine =~ s/[\r\n]+$//;
+      next if ($sLine =~ /^#/ || $sLine =~ /^\s*$/);
+      push(@aPatterns, $sLine);
+    }
+    close(MH);
+    $$phProperties{'MatchPatterns'} = 1;
+  }
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'InvertMatch'} = 0;
+  $$phProperties{'KeysOnly'} = 0;
+  $$phProperties{'MatchKeys'} = 0;
+  $$phProperties{'ReverseFields'} = 0;
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  {
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('InvertMatch', 'KeysOnly', 'MatchKeys', 'ReverseFields')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # A reference db, '-r', is required.
+  #
+  ####################################################################
+
+  if (!exists($hOptions{'r'}) || !defined($hOptions{'r'}) || length($hOptions{'r'}) < 1)
+  {
+    Usage($$phProperties{'Program'});
+  }
+  $$phProperties{'RefDbFile'} = $hOptions{'r'}; # The "R" is for Reference.
+
+  ####################################################################
+  #
+  # A subject db, '-s', is required.
+  #
+  ####################################################################
+
+  if (!exists($hOptions{'s'}) || !defined($hOptions{'s'}) || length($hOptions{'s'}) < 1)
+  {
+    Usage($$phProperties{'Program'});
+  }
+  $$phProperties{'SubDbFile'} = $$phProperties{'TagDbFile'} = $hOptions{'s'};
+
+  if ($$phProperties{'SubDbFile'} eq $$phProperties{'RefDbFile'})
+  {
+    print STDERR "$$phProperties{'Program'}: Reference='$$phProperties{'RefDbFile'}' Subject='$$phProperties{'SubDbFile'}' Error='Reference and subject databases must not be the same.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Tie OnDiskRefList to the reference db.
+  #
+  ####################################################################
+
+  my (%hOnDiskRefList);
+
+  if (!tie(%hOnDiskRefList, "DB_File", $$phProperties{'RefDbFile'}, O_RDONLY, 0644, $DB_BTREE))
+  {
+    print STDERR "$$phProperties{'Program'}: File='$$phProperties{'RefDbFile'}' Error='$!'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Tie OnDiskSubList to the subject db.
+  #
+  ####################################################################
+
+  my (%hOnDiskSubList);
+
+  if (!tie(%hOnDiskSubList, "DB_File", $$phProperties{'SubDbFile'}, O_RDONLY, 0644, $DB_BTREE))
+  {
+    print STDERR "$$phProperties{'Program'}: File='$$phProperties{'SubDbFile'}' Error='$!'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Tie OnDiskTagList to the tag db.
+  #
+  ####################################################################
+
+  my (%hOnDiskTagList);
+
+  if (!tie(%hOnDiskTagList, "DB_File", $$phProperties{'TagDbFile'}, O_RDWR, 0644, $DB_BTREE))
+  {
+    print STDERR "$$phProperties{'Program'}: File='$$phProperties{'TagDbFile'}' Error='$!'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Figure out which db will be the iterator.
+  #
+  ####################################################################
+
+  my ($sOnDiskRefSize, $sOnDiskSubSize, $sUseSubject);
+
+  if (!defined($$phProperties{'Iterator'}))
+  {
+    $sOnDiskRefSize = -s $$phProperties{'RefDbFile'};
+    $sOnDiskSubSize = -s $$phProperties{'SubDbFile'};
+    if (!defined($sOnDiskRefSize) || !defined($sOnDiskSubSize))
+    {
+      $$phProperties{'Iterator'} = "S";
+    }
+    else
+    {
+      $$phProperties{'Iterator'} = ($sOnDiskRefSize >= $sOnDiskSubSize) ? "S" : "R";
+    }
+  }
+
+  ####################################################################
+  #
+  # Start slinging values. Reference values trump subject values.
+  #
+  ####################################################################
+
+  my ($sBashed, $sTagged) = (0, 0);
+
+  if ($$phProperties{'Iterator'} eq "S")
+  {
+    while (my ($sKey, $sValue) = each(%hOnDiskSubList))
+    {
+      if (exists($hOnDiskRefList{$sKey}))
+      {
+        $hOnDiskTagList{$sKey} = $hOnDiskRefList{$sKey};
+        $sTagged++;
+      }
+      $sBashed++;
+    }
+  }
+  else
+  {
+    while (my ($sKey, $sValue) = each(%hOnDiskRefList))
+    {
+      if (exists($hOnDiskSubList{$sKey}))
+      {
+        $hOnDiskTagList{$sKey} = $sValue;
+        $sTagged++;
+      }
+      $sBashed++;
+    }
+  }
+
+  ####################################################################
+  #
+  # Print activity report.
+  #
+  ####################################################################
+
+  my (@aCounts);
+
+  push(@aCounts, "Bashed='$sBashed'");
+  push(@aCounts, "Tagged='$sTagged'");
+  print join(' ', @aCounts), "\n";
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  untie(%hOnDiskRefList);
+  untie(%hOnDiskSubList);
+  untie(%hOnDiskTagList);
+
+  1;
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-i {REFERENCE|SUBJECT}] -r db -s db\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-dbm-bash - Bash one Berkeley database against another
+
+=head1 SYNOPSIS
+
+B<ftimes-dbm-bash> B<[-i {REFERENCE|SUBJECT}]> B<-r db> B<-s db>
+
+=head1 DESCRIPTION
+
+This utility compares keys in the subject database to those in the
+reference database and updates subject values with values from the
+reference database.  The primary rule of engagement is that the value
+for a given reference key trumps the value for the corresponding
+subject key.  The reference database is not altered during this
+process.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-i {REFERENCE|SUBJECT}>
+
+Specifies the database, reference or subject, that will serve as the
+iterator during analysis.  By default, the smallest database is used.
+This decision is based on file size rather than the number of actual
+records -- checking the file size is quicker than counting the number
+of records.  Note, however, that some databases can have a deceivingly
+large size -- especially those that have been weeded.  The value for
+this option is not case sensitive.  Also, the following aliases are
+supported: 'R', 'REF', 'S', and 'SUB'.
+
+=item B<-r db>
+
+Specifies the name of the reference database.
+
+=item B<-s db>
+
+Specifies the name of the subject database.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes-dbm-dump(1), ftimes-dbm-make(1), ftimes-dbm-weed(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

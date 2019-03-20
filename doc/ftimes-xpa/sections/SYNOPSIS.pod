@@ -1,0 +1,6 @@
+=head1 SYNOPSIS
+
+B<ftimes-xpa> B<{-a|--archive}> B<[{-b|--blocksize} bytes]> B<[{-l|--list} {file|-}]> -- B<[target [...]]>
+
+B<ftimes-xpa> B<{-v|--version}>
+

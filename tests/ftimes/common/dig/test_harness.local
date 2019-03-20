@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+# $Id: test_harness.local,v 1.7 2009/03/20 17:24:38 mavrik Exp $
 #
 ######################################################################
 
@@ -34,7 +34,7 @@ sub DigEncode
 {
   my ($sData) = @_;
 
-  $sData =~ s/([\x00-\x1f\x7f-\xff|"'`%+])/sprintf("%%%02x", unpack('C',$1))/seg;
+  $sData =~ s/([\x00-\x1f\x7f-\xff|"'`%+#])/sprintf("%%%02x", unpack('C',$1))/seg;
   $sData =~ s/ /+/sg;
 
   return $sData;
@@ -59,14 +59,17 @@ sub DigUnitTest
 
   my $sMissing = 0;
 
-  my $sConfig = "_config_" . $$phTestProperties{'Name'};
+  my $sConfig = dirname($$phTestProperties{'File'}) . "/" . "_config_" . $$phTestProperties{'Name'};
 
   if (!CreateConfig($sConfig, $phTestProperties))
   {
     return undef;
   }
 
-  if (!open(PH, "$$phProperties{'TargetProgram'} --diglean $sConfig -l 6 $$phTestProperties{'File'} |"))
+  my $sCommand="$$phProperties{'TargetProgram'} --dig $sConfig -l 6 $$phTestProperties{'File'}";
+  DebugPrint(3, $sCommand);
+
+  if (!open(PH, "$sCommand |"))
   {
     return undef;
   }
@@ -86,13 +89,14 @@ sub DigUnitTest
 
     if ($sLine !~ /[\/\\]$$phTestProperties{'Name'}"\|$$phTestProperties{'DigType'}\|[^|]*\|(\d+)\|(.+)$/)
     {
+      DebugPrint(2, "---> $sLine -- Line failed regular expression check.");
       return undef;
     }
     my ($sOffset, $sValue) = ($1, $2);
 
     if (!exists($$phTestTargetValues{$$phTestProperties{'Name'}}{$sOffset}))
     {
-      DebugPrint(2, "---> $sLine -- offset ($sOffset) does not exist in target value list.");
+      DebugPrint(2, "---> $sLine -- Offset ($sOffset) does not exist in target value list.");
       return undef;
     }
     if ($sValue ne $$phTestTargetValues{$$phTestProperties{'Name'}}{$sOffset})
@@ -1050,6 +1054,2007 @@ sub Setup_abc123_regexp
   }
 
   if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_abcdef_with_backrefs_regexp
+#
+######################################################################
+
+sub Hitch_abcdef_with_backrefs_regexp
+{
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'DigType'} = "regexp";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  $$phTestTargetValues{'abcdef_with_backrefs_regexp'} =
+  {
+    # Note: These offsets are not significant in this test.
+       0 => UrlEncode("abcdef"),
+      16 => UrlEncode("a b c;d.e.f"),
+      32 => UrlEncode("a-b-c|d,e,f"),
+    1022 => UrlEncode("AbcDef"),
+    1038 => UrlEncode("A b c;D.e.f"),
+    1054 => UrlEncode("A-b-c|D,e,f"),
+    3840 => UrlEncode("aBcdEf"),
+    3856 => UrlEncode("a B c;d.E.f"),
+    3872 => UrlEncode("a-B-c|d,E,f"),
+    4090 => UrlEncode("abCdeF"),
+    5006 => UrlEncode("a b C;d.e.F"),
+    5022 => UrlEncode("a-b-C|d,e,F"),
+    5100 => UrlEncode("ABCDEF"),
+    5116 => UrlEncode("A B C;D.E.F"),
+    5132 => UrlEncode("A-B-C|D,E,F"),
+    5200 => UrlEncode("ABcDEf"),
+    5216 => UrlEncode("A B c;D.E.f"),
+    5232 => UrlEncode("A-B-c|D,E,f"),
+    7937 => UrlEncode("aBCdEF"),
+    7953 => UrlEncode("a B C;d.E.F"),
+    7969 => UrlEncode("a-B-C|d,E,F"),
+    8191 => UrlEncode("AbCDeF"),
+    8207 => UrlEncode("A b C;D.e.F"),
+    8223 => UrlEncode("A-b-C|D,e,F"),
+  };
+}
+
+
+sub Check_abcdef_with_backrefs_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringRegExp=(?i)(a([\\x20-]?)b\\2c([;|]?)d([.,]?)e\\4f)\n";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /pcre/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_abcdef_with_backrefs_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_abcdef_with_backrefs_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my ($sData) = sprintf("%s", chr(0) x 16384);
+
+  my ($phTestTargetValues) = GetTestTargetValues();
+
+  foreach my $sOffset (sort({ $a <=> $b } keys(%{$$phTestTargetValues{$sName}})))
+  {
+    my $sValue = UrlDecode($$phTestTargetValues{$sName}{$sOffset});
+    substr($sData, $sOffset, length($sValue)) = $sValue;
+  }
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_1_byte_xmagic_byte
+#
+######################################################################
+
+sub Hitch_1_byte_xmagic_byte
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my @aOffsets;
+
+#FIXME Extend this to the full range (255).
+  foreach my $sOffset (0..127)
+  {
+    push(@aOffsets, $sOffset);
+  }
+
+  $$phTestTargetValues{'1_byte_xmagic_byte'} =
+  {
+    0 => "matches:" . join(",", @aOffsets),
+  };
+
+  1;
+}
+
+
+sub Check_1_byte_xmagic_byte
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_1_byte_xmagic_byte
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_1_byte_xmagic_byte
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+#FIXME Extend this to the full range (255).
+  foreach my $sOffset (0..127)
+  {
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sOffset byte = $sOffset matches:$sOffset\n";
+      $sFirst = 0;
+      $sLevel = ">";
+    }
+    else
+    {
+      $sXMagicConfig .= "$sLevel$sOffset byte = $sOffset \\b,$sOffset\n";
+    }
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, "fill_byte_loop", 256)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_2_byte_xmagic_beshort
+#
+######################################################################
+
+sub Hitch_2_byte_xmagic_beshort
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my @aOffsets;
+
+#FIXME Extend this to the full range (65535).
+  foreach my $sOffset (0..127)
+  {
+    push(@aOffsets, $sOffset);
+  }
+
+  $$phTestTargetValues{'2_byte_xmagic_beshort'} =
+  {
+    0 => "matches:" . join(",", @aOffsets),
+  };
+
+  1;
+}
+
+
+sub Check_2_byte_xmagic_beshort
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_2_byte_xmagic_beshort
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_2_byte_xmagic_beshort
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+#FIXME Extend this to the full range (65535).
+  foreach my $sOffset (0..127)
+  {
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sOffset beshort = $sOffset matches:$sOffset\n";
+      $sFirst = 0;
+      $sLevel = ">";
+    }
+    else
+    {
+      my $sRealOffset = $sOffset * 2;
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort = $sOffset \\b,$sOffset\n";
+    }
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, "fill_2_byte_loop", 256)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_4_byte_xmagic_belong
+#
+######################################################################
+
+sub Hitch_4_byte_xmagic_belong
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my @aOffsets;
+
+  foreach my $sOffset (0..127)
+  {
+    push(@aOffsets, $sOffset);
+  }
+
+  $$phTestTargetValues{'4_byte_xmagic_belong'} =
+  {
+    0 => "matches:" . join(",", @aOffsets),
+  };
+
+  1;
+}
+
+
+sub Check_4_byte_xmagic_belong
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_4_byte_xmagic_belong
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_4_byte_xmagic_belong
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+  foreach my $sOffset (0..127)
+  {
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sOffset belong = $sOffset matches:$sOffset\n";
+      $sFirst = 0;
+      $sLevel = ">";
+    }
+    else
+    {
+      my $sRealOffset = $sOffset * 4;
+      $sXMagicConfig .= "$sLevel$sRealOffset belong = $sOffset \\b,$sOffset\n";
+    }
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, "fill_4_byte_loop", 256)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_abc123_xmagic_string
+#
+######################################################################
+
+sub Hitch_abc123_xmagic_string
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  $$phTestTargetValues{'abc123_xmagic_string'} =
+  {
+    0 => "matches:0,1022,3840,4090,4096,5119,7937,8191",
+  };
+
+  1;
+}
+
+
+sub Check_abc123_xmagic_string
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_abc123_xmagic_string
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_abc123_xmagic_string
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my ($sData) = sprintf("%s", chr(0) x 16384);
+
+  my ($phTestTargetValues) = GetTestTargetValues();
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+  my ($sValue, $sOffsets) = split(/:/, $$phTestTargetValues{$sName}{'0'});
+  foreach my $sOffset (split(/,/, $sOffsets))
+  {
+    substr($sData, $sOffset, length("abc123")) = "abc123"; # Poke the target string into the buffer.
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sOffset string = abc123 matches:$sOffset\n";
+      $sFirst = 0;
+      $sLevel = ">";
+    }
+    else
+    {
+      $sXMagicConfig .= "$sLevel$sOffset string = abc123 \\b,$sOffset\n";
+    }
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_ABC123_xmagic_regexp
+#
+######################################################################
+
+sub Hitch_ABC123_xmagic_regexp
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  $$phTestTargetValues{'ABC123_xmagic_regexp'} =
+  {
+    0 => "matches:0,1022,3840,4090,4096,5119,7937,8191",
+  };
+
+  1;
+}
+
+
+sub Check_ABC123_xmagic_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_ABC123_xmagic_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_ABC123_xmagic_regexp
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my ($sData) = sprintf("%s", chr(0) x 16384);
+
+  my ($phTestTargetValues) = GetTestTargetValues();
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+  my ($sValue, $sOffsets) = split(/:/, $$phTestTargetValues{$sName}{'0'});
+  foreach my $sOffset (split(/,/, $sOffsets))
+  {
+    substr($sData, $sOffset, length("ABC123")) = "ABC123"; # Poke the target regexp into the buffer.
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sOffset regexp =~ ABC123 matches:$sOffset\n";
+      $sFirst = 0;
+      $sLevel = ">";
+    }
+    else
+    {
+      $sXMagicConfig .= "$sLevel$sOffset regexp =~ ABC123 \\b,$sOffset\n";
+    }
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_1_byte_xmagic_warped_byte
+#
+######################################################################
+
+sub Hitch_1_byte_xmagic_warped_byte
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my @aOffsets;
+
+#FIXME Extend this to the full range (255).
+  foreach my $sOffset (0..63)
+  {
+    push(@aOffsets, $sOffset . ("+" x 10));
+  }
+
+  $$phTestTargetValues{'1_byte_xmagic_warped_byte'} =
+  {
+    0 => "matches:" . join(",", @aOffsets),
+  };
+
+  1;
+}
+
+
+sub Check_1_byte_xmagic_warped_byte
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_1_byte_xmagic_warped_byte
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_1_byte_xmagic_warped_byte
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+#FIXME Extend this to the full range (255).
+  foreach my $sOffset (0..63)
+  {
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sOffset byte x - matches:\n";
+      $sLevel = ">";
+      $sXMagicConfig .= "$sLevel$sOffset byte = $sOffset \\b$sOffset\n";
+      $sLevel = ">>";
+      $sXMagicConfig .= "$sLevel$sOffset byte%1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte%1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte&0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte&0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte*0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte*0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte+1 = " . (($sOffset + 1) & 0x000000ff) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte+1 != " . (($sOffset + 1) & 0x000000ff) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte-$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte-$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte/1 = $sOffset \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte/1 != $sOffset \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte>1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte>1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte<1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte<1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte^$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte^$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte|0xff = 0xff \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset byte|0xff != 0xff \\b-\n";
+      $sFirst = 0;
+      $sLevel = ">";
+    }
+    else
+    {
+      my $sRealOffset = $sOffset * 1;
+      $sXMagicConfig .= "$sLevel$sRealOffset byte = $sOffset \\b,$sOffset\n";
+      $sLevel = ">>";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte%1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte%1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte&0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte&0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte*0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte*0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte+1 = " . (($sOffset + 1) & 0x000000ff) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte+1 != " . (($sOffset + 1) & 0x000000ff) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte-$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte-$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte/1 = $sOffset \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte/1 != $sOffset \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte>1 = " . int($sOffset / 2) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte>1 != " . int($sOffset / 2) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte<1 = " . ($sOffset * 2) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte<1 != " . ($sOffset * 2) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte^$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte^$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte|0xff = 0xff \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset byte|0xff != 0xff \\b-\n";
+      $sLevel = ">";
+    }
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, "fill_byte_loop", 256)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_2_byte_xmagic_warped_beshort
+#
+######################################################################
+
+sub Hitch_2_byte_xmagic_warped_beshort
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my @aOffsets;
+
+#FIXME Extend this to the full range (65535).
+  foreach my $sOffset (0..63)
+  {
+    push(@aOffsets, $sOffset . ("+" x 10));
+  }
+
+  $$phTestTargetValues{'2_byte_xmagic_warped_beshort'} =
+  {
+    0 => "matches:" . join(",", @aOffsets),
+  };
+
+  1;
+}
+
+
+sub Check_2_byte_xmagic_warped_beshort
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_2_byte_xmagic_warped_beshort
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_2_byte_xmagic_warped_beshort
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+#FIXME Extend this to the full range (65535).
+  foreach my $sOffset (0..63)
+  {
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sOffset beshort x - matches:\n";
+      $sLevel = ">";
+      $sXMagicConfig .= "$sLevel$sOffset beshort = $sOffset \\b$sOffset\n";
+      $sLevel = ">>";
+      $sXMagicConfig .= "$sLevel$sOffset beshort%1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort%1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort&0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort&0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort*0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort*0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort+1 = " . (($sOffset + 1) & 0x0000ffff) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort+1 != " . (($sOffset + 1) & 0x0000ffff) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort-$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort-$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort/1 = $sOffset \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort/1 != $sOffset \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort>1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort>1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort<1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort<1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort^$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort^$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort|0xffff = 0xffff \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset beshort|0xffff != 0xffff \\b-\n";
+      $sFirst = 0;
+      $sLevel = ">";
+    }
+    else
+    {
+      my $sRealOffset = $sOffset * 2;
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort = $sOffset \\b,$sOffset\n";
+      $sLevel = ">>";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort%1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort%1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort&0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort&0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort*0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort*0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort+1 = " . (($sOffset + 1) & 0x0000ffff) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort+1 != " . (($sOffset + 1) & 0x0000ffff) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort-$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort-$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort/1 = $sOffset \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort/1 != $sOffset \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort>1 = " . int($sOffset / 2) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort>1 != " . int($sOffset / 2) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort<1 = " . ($sOffset * 2) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort<1 != " . ($sOffset * 2) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort^$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort^$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort|0xffff = 0xffff \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort|0xffff != 0xffff \\b-\n";
+      $sLevel = ">";
+    }
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, "fill_2_byte_loop", 256)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_4_byte_xmagic_warped_belong
+#
+######################################################################
+
+sub Hitch_4_byte_xmagic_warped_belong
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my @aOffsets;
+
+  foreach my $sOffset (0..63)
+  {
+    push(@aOffsets, $sOffset . ("+" x 10));
+  }
+
+  $$phTestTargetValues{'4_byte_xmagic_warped_belong'} =
+  {
+    0 => "matches:" . join(",", @aOffsets),
+  };
+
+  1;
+}
+
+
+sub Check_4_byte_xmagic_warped_belong
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_4_byte_xmagic_warped_belong
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_4_byte_xmagic_warped_belong
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+  foreach my $sOffset (0..63)
+  {
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sOffset belong x - matches:\n";
+      $sLevel = ">";
+      $sXMagicConfig .= "$sLevel$sOffset belong = $sOffset \\b$sOffset\n";
+      $sLevel = ">>";
+      $sXMagicConfig .= "$sLevel$sOffset belong%1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong%1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong&0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong&0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong*0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong*0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong+1 = " . (($sOffset + 1) & 0xffffffff) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong+1 != " . (($sOffset + 1) & 0xffffffff) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong-$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong-$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong/1 = $sOffset \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong/1 != $sOffset \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong>1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong>1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong<1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong<1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong^$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong^$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong|0xffffffff = 0xffffffff \\b+\n";
+      $sXMagicConfig .= "$sLevel$sOffset belong|0xffffffff != 0xffffffff \\b-\n";
+      $sFirst = 0;
+      $sLevel = ">";
+    }
+    else
+    {
+      my $sRealOffset = $sOffset * 4;
+      $sXMagicConfig .= "$sLevel$sRealOffset belong = $sOffset \\b,$sOffset\n";
+      $sLevel = ">>";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong%1 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong%1 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong&0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong&0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong*0 = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong*0 != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong+1 = " . (($sOffset + 1) & 0xffffffff) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong+1 != " . (($sOffset + 1) & 0xffffffff) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong-$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong-$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong/1 = $sOffset \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong/1 != $sOffset \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong>1 = " . int($sOffset / 2) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong>1 != " . int($sOffset / 2) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong<1 = " . ($sOffset * 2) . " \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong<1 != " . ($sOffset * 2) . " \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong^$sOffset = 0 \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong^$sOffset != 0 \\b-\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong|0xffffffff = 0xffffffff \\b+\n";
+      $sXMagicConfig .= "$sLevel$sRealOffset belong|0xffffffff != 0xffffffff \\b-\n";
+      $sLevel = ">";
+    }
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, "fill_4_byte_loop", 256)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_1_byte_xmagic_warped_indirect_B
+#
+######################################################################
+
+sub Hitch_1_byte_xmagic_warped_indirect_B
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my @aOffsets;
+
+#FIXME Extend this to the full range (255).
+  foreach my $sOffset (0..15)
+  {
+    push(@aOffsets, $sOffset . ("+" x 10));
+  }
+
+  $$phTestTargetValues{'1_byte_xmagic_warped_indirect_B'} =
+  {
+    0 => "matches:" . join(",", @aOffsets),
+  };
+
+  1;
+}
+
+
+sub Check_1_byte_xmagic_warped_indirect_B
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_1_byte_xmagic_warped_indirect_B
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_1_byte_xmagic_warped_indirect_B
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+  $sXMagicConfig .= "0 byte x - matches:\n";
+  $sLevel = ">";
+#FIXME Extend this to the full range (255).
+  foreach my $sOffset (0..15)
+  {
+    my $sRealOffset = $sOffset * 1;
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sRealOffset byte = $sOffset \\b$sOffset\n";
+      $sFirst = 0;
+    }
+    else
+    {
+      $sXMagicConfig .= "$sLevel$sRealOffset byte = $sOffset \\b,$sOffset\n";
+    }
+    $sLevel = ">>";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B%1) byte = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B%1) byte != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B&0) byte = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B&0) byte != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B*0) byte = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B*0) byte != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B+1) byte = " . (($sOffset + 1) & 0x000000ff) . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B+1) byte != " . (($sOffset + 1) & 0x000000ff) . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B-$sOffset) byte = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B-$sOffset) byte != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B/1) byte = $sOffset \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B/1) byte != $sOffset \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B>1) byte = " . int($sOffset / 2) . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B>1) byte != " . int($sOffset / 2) . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B<1) byte = " . ($sOffset * 2) . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B<1) byte != " . ($sOffset * 2) . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B^$sOffset) byte = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B^$sOffset) byte != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B|$sOffset) byte = $sOffset \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.B|$sOffset) byte != $sOffset \\b-\n";
+    $sLevel = ">";
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, "fill_byte_loop", 256)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_2_byte_xmagic_warped_indirect_S
+#
+######################################################################
+
+sub Hitch_2_byte_xmagic_warped_indirect_S
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my @aOffsets;
+
+#FIXME Extend this to the full range (65535).
+  foreach my $sOffset (0..15)
+  {
+    push(@aOffsets, $sOffset . ("+" x 10));
+  }
+
+  $$phTestTargetValues{'2_byte_xmagic_warped_indirect_S'} =
+  {
+    0 => "matches:" . join(",", @aOffsets),
+  };
+
+  1;
+}
+
+
+sub Check_2_byte_xmagic_warped_indirect_S
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_2_byte_xmagic_warped_indirect_S
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_2_byte_xmagic_warped_indirect_S
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my @aAddValues =
+  (
+    0x0000, #  0
+    0x0001, #  1
+    0x0100, #  2
+    0x0002, #  3
+    0x0200, #  4
+    0x0003, #  5
+    0x0300, #  6
+    0x0004, #  7
+    0x0400, #  8
+    0x0005, #  9
+    0x0500, # 10
+    0x0006, # 11
+    0x0600, # 12
+    0x0007, # 13
+    0x0700, # 14
+    0x0008, # 15
+  );
+  my @aDivValues =
+  (
+    0x0000, #  0
+    0x0000, #  1
+    0x0001, #  2
+    0x0100, #  3
+    0x0002, #  4
+    0x0200, #  5
+    0x0003, #  6
+    0x0300, #  7
+    0x0004, #  8
+    0x0400, #  9
+    0x0005, # 10
+    0x0500, # 11
+    0x0006, # 12
+    0x0600, # 13
+    0x0007, # 14
+    0x0700, # 15
+  );
+  my @aRShiftValues =
+  (
+    0x0000, #  0
+    0x0000, #  1
+    0x0000, #  2
+    0x0000, #  3
+    0x0001, #  4
+    0x0001, #  5
+    0x0100, #  6
+    0x0100, #  7
+    0x0002, #  8
+    0x0002, #  9
+    0x0200, # 10
+    0x0200, # 11
+    0x0003, # 12
+    0x0003, # 13
+    0x0300, # 14
+    0x0300, # 15
+  );
+  my @aLShiftValues =
+  (
+    0x0000, #  0
+    0x0001, #  1
+    0x0002, #  2
+    0x0003, #  3
+    0x0004, #  4
+    0x0005, #  5
+    0x0006, #  6
+    0x0007, #  7
+    0x0008, #  8
+    0x0009, #  9
+    0x000a, # 10
+    0x000b, # 11
+    0x000c, # 12
+    0x000d, # 13
+    0x000e, # 14
+    0x000f, # 15
+  );
+  my @aOrValues = @aDivValues;
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+  $sXMagicConfig .= "0 beshort x - matches:\n";
+  $sLevel = ">";
+#FIXME Extend this to the full range (65535).
+  foreach my $sOffset (0..15)
+  {
+    my $sRealOffset = $sOffset * 2;
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort = $sOffset \\b$sOffset\n";
+      $sFirst = 0;
+    }
+    else
+    {
+      $sXMagicConfig .= "$sLevel$sRealOffset beshort = $sOffset \\b,$sOffset\n";
+    }
+    $sLevel = ">>";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S%1) beshort = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S%1) beshort != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S&0) beshort = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S&0) beshort != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S*0) beshort = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S*0) beshort != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S+1) beshort = " . $aAddValues[$sOffset] . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S+1) beshort != " . $aAddValues[$sOffset] . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S-$sOffset) beshort = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S-$sOffset) beshort != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S/1) beshort = " . $aDivValues[$sOffset] . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S/1) beshort != " . $aDivValues[$sOffset] . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S>1) beshort = " . $aRShiftValues[$sOffset] . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S>1) beshort != " . $aRShiftValues[$sOffset] . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S<1) beshort = " . $aLShiftValues[$sOffset] . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S<1) beshort != " . $aLShiftValues[$sOffset] . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S^$sOffset) beshort = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S^$sOffset) beshort != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S|$sOffset) beshort = " . $aOrValues[$sOffset] . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.S|$sOffset) beshort != " . $aOrValues[$sOffset] . " \\b-\n";
+    $sLevel = ">";
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, "fill_2_byte_loop", 256)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_4_byte_xmagic_warped_indirect_L
+#
+######################################################################
+
+sub Hitch_4_byte_xmagic_warped_indirect_L
+{
+  my ($sFile, $sName) = MakeTestName(GetProperties());
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigType'} = "xmagic";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my @aOffsets;
+
+  foreach my $sOffset (0..15)
+  {
+    push(@aOffsets, $sOffset . ("+" x 10));
+  }
+
+  $$phTestTargetValues{'4_byte_xmagic_warped_indirect_L'} =
+  {
+    0 => "matches:" . join(",", @aOffsets),
+  };
+
+  1;
+}
+
+
+sub Check_4_byte_xmagic_warped_indirect_L
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  foreach my $sBlockAndCarrySize (@{$$phTestProperties{'BlockSizes'}})
+  {
+    my ($sBlockSize, $sCarrySize) = split(":", $sBlockAndCarrySize);
+    $$phTestProperties{'BlockSize'} = $sBlockSize;
+    $$phTestProperties{'CarrySize'} = $sCarrySize;
+
+    if (!defined(DigUnitTest()))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_4_byte_xmagic_warped_indirect_L
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_4_byte_xmagic_warped_indirect_L
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my @aAddValues =
+  (
+    0x00000000, #  0
+    0x00000000, #  1
+    0x00000000, #  2
+    0x00000001, #  3
+    0x00000100, #  4
+    0x00010000, #  5
+    0x01000000, #  6
+    0x00000002, #  7
+    0x00000200, #  8
+    0x00020000, #  9
+    0x02000000, # 10
+    0x00000003, # 11
+    0x00000300, # 12
+    0x00030000, # 13
+    0x03000000, # 14
+    0x00000004, # 15
+  );
+  my @aDivValues =
+  (
+    0x00000000, #  0
+    0x00000000, #  1
+    0x00000000, #  2
+    0x00000000, #  3
+    0x00000001, #  4
+    0x00000100, #  5
+    0x00010000, #  6
+    0x01000000, #  7
+    0x00000002, #  8
+    0x00000200, #  9
+    0x00020000, # 10
+    0x02000000, # 11
+    0x00000003, # 12
+    0x00000300, # 13
+    0x00030000, # 14
+    0x03000000, # 15
+  );
+  my @aRShiftValues =
+  (
+    0x00000000, #  0
+    0x00000000, #  1
+    0x00000000, #  2
+    0x00000000, #  3
+    0x00000000, #  4
+    0x00000000, #  5
+    0x00000000, #  6
+    0x00000000, #  7
+    0x00000001, #  8
+    0x00000001, #  9
+    0x00000100, # 10
+    0x00000100, # 11
+    0x00010000, # 12
+    0x00010000, # 13
+    0x01000000, # 14
+    0x01000000, # 15
+  );
+  my @aLShiftValues =
+  (
+    0x00000000, #  0
+    0x00000000, #  1
+    0x00000001, #  2
+    0x00010000, #  3
+    0x00000002, #  4
+    0x00020000, #  5
+    0x00000003, #  6
+    0x00030000, #  7
+    0x00000004, #  8
+    0x00040000, #  9
+    0x00000005, # 10
+    0x00050000, # 11
+    0x00000006, # 12
+    0x00060000, # 13
+    0x00000007, # 14
+    0x00070000, # 15
+  );
+  my @aOrValues = @aDivValues;
+
+  my $sFirst = 1;
+  my $sLevel = "";
+  my $sXMagicFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicConfig = "# XMagic\n";
+  $sXMagicConfig .= "0 belong x - matches:\n";
+  $sLevel = ">";
+  foreach my $sOffset (0..15)
+  {
+    my $sRealOffset = $sOffset * 4;
+    if ($sFirst)
+    {
+      $sXMagicConfig .= "$sLevel$sRealOffset belong = $sOffset \\b$sOffset\n";
+      $sFirst = 0;
+    }
+    else
+    {
+      $sXMagicConfig .= "$sLevel$sRealOffset belong = $sOffset \\b,$sOffset\n";
+    }
+    $sLevel = ">>";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L%1) belong = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L%1) belong != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L&0) belong = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L&0) belong != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L*0) belong = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L*0) belong != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L+1) belong = " . $aAddValues[$sOffset] . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L+1) belong != " . $aAddValues[$sOffset] . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L-$sOffset) belong = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L-$sOffset) belong != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L/1) belong = " . $aDivValues[$sOffset] . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L/1) belong != " . $aDivValues[$sOffset] . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L>1) belong = " . $aRShiftValues[$sOffset] . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L>1) belong != " . $aRShiftValues[$sOffset] . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L<1) belong = " . $aLShiftValues[$sOffset] . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L<1) belong != " . $aLShiftValues[$sOffset] . " \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L^$sOffset) belong = 0 \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L^$sOffset) belong != 0 \\b-\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L|$sOffset) belong = " . $aOrValues[$sOffset] . " \\b+\n";
+    $sXMagicConfig .= "$sLevel($sRealOffset.L|$sOffset) belong != " . $aOrValues[$sOffset] . " \\b-\n";
+    $sLevel = ">";
+  }
+  if (!defined(FillFile($sXMagicFile, $sXMagicConfig, 1)))
+  {
+    return "fail";
+  }
+
+  if (!defined(FillFile($sFile, "fill_4_byte_loop", 256)))
   {
     return "fail";
   }

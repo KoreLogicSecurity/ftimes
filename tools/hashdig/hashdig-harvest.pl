@@ -1,15 +1,15 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-harvest.pl,v 1.33 2007/02/23 00:22:36 mavrik Exp $
+# $Id: hashdig-harvest.pl,v 1.43 2012/01/04 03:12:39 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2012 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
-# Purpose: Harvest hashes from a one or more files.
+# Purpose: Harvest hashes from a one or more input files.
 #
 ######################################################################
 
@@ -41,14 +41,14 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('a:c:d:h:o:qs:T:t:', \%hOptions))
+  if (!getopts('a:c:d:h:o:qS:s:T:t:', \%hOptions))
   {
     Usage($sProgram);
   }
 
   ####################################################################
   #
-  # A HashType, '-a', is optional. The 'a' is short for algorithm.
+  # A hash type, '-a', is optional. The 'a' is short for algorithm.
   #
   ####################################################################
 
@@ -66,7 +66,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Category flag, '-c', is optional.
+  # A category, '-c', is optional.
   #
   ####################################################################
 
@@ -83,7 +83,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # A Delimiter, '-d', optional. To make the delimiter be a tab, the
+  # A delimiter, '-d', optional. To make the delimiter be a tab, the
   # user must literally specify "\t" on the command line.
   #
   ####################################################################
@@ -101,7 +101,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # A HashField, '-h', is optional.
+  # A hash field, '-h', is optional.
   #
   ####################################################################
 
@@ -109,7 +109,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # A filename, '-o', is required, and can be '-' or a regular file.
+  # An output filename, '-o', is required.
   #
   ####################################################################
 
@@ -124,7 +124,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The BeQuiet flag, '-q', is optional.
+  # The be quiet flag, '-q', is optional.
   #
   ####################################################################
 
@@ -132,18 +132,27 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Sort flag, '-s', is optional.
+  # A sort buffer size, '-S', is optional.
   #
   ####################################################################
 
-  my ($sSort);
+  my ($sSortBufferSize);
 
-  $sSort = (exists($hOptions{'s'})) ? $hOptions{'s'} : "sort";
+  $sSortBufferSize = (exists($hOptions{'S'})) ? $hOptions{'S'} : undef;
 
   ####################################################################
   #
-  # The TmpDir flag, '-T', is optional.
-  # or if that is not defined, fall back to "/tmp".
+  # A sort utility, '-s', is optional.
+  #
+  ####################################################################
+
+  my ($sSortExe);
+
+  $sSortExe = (exists($hOptions{'s'})) ? $hOptions{'s'} : "sort";
+
+  ####################################################################
+  #
+  # A temporary directory for the sort utility, '-T', is optional.
   #
   ####################################################################
 
@@ -153,7 +162,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The FileType flag, '-t', is required.
+  # A file type, '-t', is required.
   #
   ####################################################################
 
@@ -301,7 +310,8 @@ use Getopt::Std;
 
   my ($sCommand);
 
-  $sCommand = "$sSort -u -T $sTmpDir";
+  $sCommand = "$sSortExe -u -T $sTmpDir";
+  $sCommand .= " -S $sSortBufferSize" if (defined($sSortBufferSize));
   if ($sFilename ne "-")
   {
     $sCommand .= " -o $sFilename";
@@ -1434,7 +1444,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-a hash-type] [-c {K|U}] [-d delimiter] [-h hash-field] [-q] [-s file] [-T dir] -t file-type -o {file|-} file [file ...]\n";
+  print STDERR "Usage: $sProgram [-a hash-type] [-c {K|U}] [-d delimiter] [-h hash-field] [-q] [-S sort-buffer-size] [-s sort-utility] [-T sort-temp-dir] -t file-type -o {file|-} file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -1444,19 +1454,19 @@ sub Usage
 
 =head1 NAME
 
-hashdig-harvest.pl - Harvest hashes from a one or more files
+hashdig-harvest.pl - Harvest hashes from a one or more input files
 
 =head1 SYNOPSIS
 
-B<hashdig-harvest.pl> B<[-a hash-type]> B<[-c {K|U}]> B<[-d delimiter]> B<[-h hash-field]> B<[-q]> B<[-s file]> B<[-T dir]> B<-t file-type> B<-o {file|-}> B<file [file ...]>
+B<hashdig-harvest.pl> B<[-a hash-type]> B<[-c {K|U}]> B<[-d delimiter]> B<[-h hash-field]> B<[-q]> B<[-S sort-buffer-size]> B<[-s sort-utility]> B<[-T sort-temp-dir]> B<-t file-type> B<-o {file|-}> B<file [file ...]>
 
 =head1 DESCRIPTION
 
-This utility extracts hashes of the specified B<hash-type> from
-one or more input files of the specified B<file-type>, tags them (see
-B<-c>), and writes them to the specified output file (see B<-o>).
-Output is a sorted list of hash/category pairs having the following
-format:
+This utility extracts hashes of the specified B<hash-type> from one or
+more input files having the specified B<file-type>, tags them as known
+or unknown (see B<-c>), and writes them to an output file (see B<-o>)
+as a sorted list of hash/category pairs.  The resulting output file
+(a.k.a. hashdig or hd file) will have the following format:
 
     hash|category
 
@@ -1466,64 +1476,73 @@ format:
 
 =item B<-a hash-type>
 
-Specifies the type of hashes that are to be harvested. Currently, the
+Specifies the type of hashes that are to be harvested.  Currently, the
 following hash types (or algorithms) are supported: 'MD5', 'SHA1', and
-'SHA256'. The default hash type is that specified by the HASH_TYPE
-environment variable or 'MD5' if HASH_TYPE is not set. The value for
+'SHA256'.  The default hash type is that specified by the HASH_TYPE
+environment variable or 'MD5' if HASH_TYPE is not set.  The value for
 this option is not case sensitive.
 
 =item B<-c category>
 
-Specifies the category, {K|U}, that is to be assigned to each hash.
-Currently, the following categories are supported: known (K) and
-unknown (U). The default category is unknown. The value for this
-option is not case sensitive.
+Specifies the category that is to be assigned to each hash.
+Currently, the following categories are supported: known (indicated by
+a 'K') and unknown (indicated by a 'U').  The value for this option is
+not case sensitive, and the default category is unknown (i.e., 'U').
 
 =item B<-d delimiter>
 
-Specifies the input field delimiter. This option is ignored unless
-used in conjunction with the GENERIC data type. Valid delimiters
+Specifies the input field delimiter.  This option is ignored unless
+used in conjunction with the 'GENERIC' data type.  Valid delimiters
 include the following characters: tab '\t', space ' ', comma ',',
-semi-colon ';', and pipe '|'. The default delimiter is a pipe. Note
+semi-colon ';', and pipe '|'.  The default delimiter is a pipe.  Note
 that parse errors are likely to occur if the specified delimiter
 appears in any of the field values.
 
 =item B<-h hash-field>
 
-Specifies the name of the field that contains the hash value. This
-option is ignored unless used in conjunction with the GENERIC data
-type. The default value for this option is "hash".
+Specifies the name of the field that contains the hash value.  This
+option is ignored unless used in conjunction with the 'GENERIC' data
+type.  The default value for this option is 'hash'.
 
 =item B<-o {file|-}>
 
-Specifies the name of the output file. A value of '-' will cause
-the program to write to stdout.
+Specifies the name of the output file.  A value of '-' will cause the
+program to write to stdout.
 
 =item B<-q>
 
 Don't report errors (i.e., be quiet) while processing files.
 
-=item B<-s file>
+=item B<-S sort-buffer-size>
 
-Specifies the name of an alternate sort utility. Relative paths are
-affected by your PATH environment variable. Alternate sort utilities
-must support the C<-o>, C<-T> and C<-u> options. This program was
-designed to work with GNU sort.
+Specifies the buffer size the sort utility should use for its main
+memory buffer.  This option is not passed to the sort utility unless
+specified as a command line argument.  Refer to the sort(1) man page
+for details regarding this argument and its syntax.
 
-=item B<-T dir>
+=item B<-s sort-utility>
 
-Specifies the directory sort should use as a temporary work area.
-The default directory is that specified by the TMPDIR environment
-variable or /tmp if TMPDIR is not set.
+Specifies the name of an alternate sort utility.  If this argument is
+specified as a relative path, the current PATH will be used to locate
+the executable.  Note that this script was designed to work with GNU
+sort(1).  Therefore, any alternate sort utility specified must support
+the C<-o>, C<-S>, C<-T> and C<-u> options.
+
+=item B<-T sort-temp-dir>
+
+Specifies the directory the sort utility should use as a temporary
+work area.  The default directory is that specified by the TMPDIR
+environment variable or /tmp if that variable is not set.
 
 =item B<-t file-type>
 
-Specifies the type of files that are to be processed. All files
-processed in a given invocation must be of the same type. Currently,
-the following types are supported: FTIMES, FTK, GENERIC,
-HK|HASHKEEPER, KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM, NSRL1, NSRL2,
-OPENSSL, PLAIN, RPM, SHA1, SHA1DEEP, SHA1SUM, SHA256, SHA256DEEP, and
-SHA256SUM. The value for this option is not case sensitive.
+Specifies the type of input file that will be processed.  Note that
+all files processed in a single invocation must be of the same type.
+Currently, the following types are supported: 'FTIMES', 'FTK',
+'GENERIC', 'HK' or 'HASHKEEPER', 'KG' or 'KNOWNGOODS', 'MD5',
+'MD5DEEP', 'MD5SUM', 'NSRL1', 'NSRL2', 'OPENSSL', 'PLAIN', 'RPM',
+'SHA1', 'SHA1DEEP', 'SHA1SUM', 'SHA256', 'SHA256DEEP', and
+'SHA256SUM'.  The value for this option is not case sensitive.
 
 =back
 
@@ -1533,11 +1552,11 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-ftimes(1), hashdig-make(1), md5(1), md5sum(1), md5deep(1), openssl(1), rpm(8), sha1(1), sha1sum(1), sha1deep(1)
+ftimes(1), hashdig-make(1), md5(1), md5sum(1), md5deep(1), openssl(1), rpm(8), sha1(1), sha1sum(1), sha1deep(1), sort(1)
 
 =head1 LICENSE
 
-All HashDig documentation and code is distributed under same terms
-and conditions as FTimes.
+All documentation and code are distributed under same terms and
+conditions as FTimes.
 
 =cut

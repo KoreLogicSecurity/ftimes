@@ -1,0 +1,25 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${DESTDIR}${PREFIX}/man/man1
+
+HTML_FILE=ftimes-dbm-weed.html
+
+MAN_FILE=ftimes-dbm-weed.1
+
+MAN_TITLE=FTimes Documentation
+
+POD_FILE=ftimes-dbm-weed.pod
+
+SRC_FILE=${SRCDIR}/../../tools/ftimes-dbm-weed/ftimes-dbm-weed
+
+include ${PROJECT_ROOT}/Mk/common-doc-perl.mk
+

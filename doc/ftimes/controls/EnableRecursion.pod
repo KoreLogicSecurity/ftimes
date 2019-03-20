@@ -1,6 +1,6 @@
 =item B<EnableRecursion>: [Y|N]
 
-Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<EnableRecursion> is optional.  When enabled ('Y' or 'y'), it
 instructs B<FTimes> to recursively process directories.  The default

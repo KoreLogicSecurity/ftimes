@@ -29,7 +29,7 @@
 
 1.1 Revision
 
-  $Id: README,v 1.19 2006/10/04 03:14:37 mavrik Exp $
+  $Id: README,v 1.21 2008/05/12 03:45:43 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -181,7 +181,7 @@
 
   Sun's online fingerprint database is available here:
 
-    http://sunsolve.sun.com/pub-cgi/fileFingerprints.pl
+    http://sunsolve.sun.com/fileFingerprints.do
 
   To create an MD5 Sun reference database, you must first acquire some
   hashes -- Sun's online interface does not allow you to request
@@ -691,7 +691,7 @@
 
     hash  name
 
-4.17 SHA256 
+4.17 SHA256
 
   The SHA256 format refers to data collected with the sha256 utility
   that is distributed with FreeBSD.
@@ -752,6 +752,6 @@
 
 6 License
 
-  All HashDig documentation and code is distributed under same terms
-  and conditions as FTimes.
+  All documentation and code are distributed under same terms and
+  conditions as FTimes.
 

@@ -1,0 +1,9 @@
+MANIFEST
+Makefile.PL
+Makefile.PL.in
+README
+config
+lib/FTimes/EadRoutines.pm
+lib/FTimes/Properties.pm
+t/FTimes-EadRoutines.t
+t/FTimes-Properties.t

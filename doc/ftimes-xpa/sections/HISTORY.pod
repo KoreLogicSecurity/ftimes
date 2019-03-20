@@ -1,0 +1,12 @@
+=head1 HISTORY
+
+This utility was initially written to support a forensic gig where we
+needed to create cross-platform archives with built-in integrity
+attributes that could be streamed over the network (e.g., via SSH).
+We also needed to harvest alternate data streams and handle files with
+awkward or mischievous names (i.e., names requiring special handling
+to prevent terminal rendering issues and errors in various tools and
+shell scripts).
+
+This utility first appeared in B<FTimes> 3.9.0.
+

@@ -1,6 +1,6 @@
 =item B<Compress>: [Y|N]
 
-Applies to B<mapfull> and B<maplean>.
+Applies to B<mad> and B<map>.
 
 B<Compress> is optional.  When enabled ('Y' or 'y'), it activates
 a form of lossless ASCII compression.  This yields a compression

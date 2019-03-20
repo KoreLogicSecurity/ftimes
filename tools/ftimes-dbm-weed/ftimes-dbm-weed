@@ -1,0 +1,296 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-dbm-weed,v 1.4 2012/01/04 03:12:38 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Delete records from a Berkeley database.
+#
+######################################################################
+
+use strict;
+use DB_File;
+use File::Basename;
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('d:f:o:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # A database, '-d', is required.
+  #
+  ####################################################################
+
+  if (!exists($hOptions{'d'}) || !defined($hOptions{'d'}) || length($hOptions{'d'}) < 1)
+  {
+    Usage($$phProperties{'Program'});
+  }
+  $$phProperties{'DbFile'} = $hOptions{'d'};
+  $$phProperties{'DbFile'} = $hOptions{'d'};
+
+  ####################################################################
+  #
+  # A filename, '-f', is required, and can be '-' or a regular file.
+  #
+  ####################################################################
+
+  my ($sFileHandle, $sFilename);
+
+  if (!exists($hOptions{'f'}) || !defined($hOptions{'f'}) || length($hOptions{'f'}) < 1)
+  {
+    Usage($$phProperties{'Program'});
+  }
+  $sFilename = $hOptions{'f'};
+
+  if ($sFilename eq '-')
+  {
+    $sFileHandle = \*STDIN;
+  }
+  else
+  {
+    if (!-f $sFilename)
+    {
+      print STDERR "$$phProperties{'Program'}: File='$sFilename' Error='File must exist and be regular.'\n";
+      exit(2);
+    }
+    if (!open(FH, "< $sFilename"))
+    {
+      print STDERR "$$phProperties{'Program'}: File='$sFilename' Error='$!'\n";
+      exit(2);
+    }
+    $sFileHandle = \*FH;
+  }
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'BeQuiet'} = 0;
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  {
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('BeQuiet')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Tie OnDiskList to the db.
+  #
+  ####################################################################
+
+  my (%hOnDiskList);
+
+  if (!tie(%hOnDiskList, "DB_File", $$phProperties{'DbFile'}, O_RDWR, 0644, $DB_BTREE))
+  {
+    print STDERR "$$phProperties{'Program'}: File='$$phProperties{'DbFile'}' Error='$!'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Read input and weed db.
+  #
+  ####################################################################
+
+  my ($sAccepted, $sDeleted, $sKeyRegex, $sRejected) = (0, 0, "(.+)", 0);
+
+  while (my $sRecord = <$sFileHandle>)
+  {
+    $sRecord =~ s/[\r\n]+$//;
+    if (my ($sKey) = $sRecord =~ /^$sKeyRegex$/)
+    {
+      if (exists($hOnDiskList{$sKey}))
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: File='$sFilename' Record='$sRecord' Info='Record deleted.'\n";
+        }
+        delete($hOnDiskList{$sKey});
+        $sDeleted++;
+      }
+      $sAccepted++;
+    }
+    else
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'Program'}: File='$sFilename' Record='$sRecord' Error='Record did not parse properly.'\n";
+      }
+      $sRejected++;
+    }
+  }
+
+  ####################################################################
+  #
+  # Print activity report.
+  #
+  ####################################################################
+
+  my (@aCounts);
+
+  push(@aCounts, "Accepted='$sAccepted'");
+  push(@aCounts, "Rejected='$sRejected'");
+  push(@aCounts, "Deleted='$sDeleted'");
+  print join(' ', @aCounts), "\n";
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  untie(%hOnDiskList);
+
+  1;
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-o option[,option[,...]]] -d db -f {file|-}\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-dbm-weed - Delete records from a Berkeley database
+
+=head1 SYNOPSIS
+
+B<ftimes-dbm-weed> B<[-o option[,option[,...]]]> B<-d db> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility deletes specified records from a database that has been
+created with ftimes-dbm-make(1).  Input is expected to be plain text
+with one key per line.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d db>
+
+Specifies the name of the database to weed.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.  A value of '-' will cause the
+program to read from stdin.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't report errors (i.e., be quiet) while processing files.
+
+=back
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes-dbm-dump(1), ftimes-dbm-make(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

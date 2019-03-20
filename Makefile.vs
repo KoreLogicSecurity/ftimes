@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.24 2007/02/23 00:22:35 mavrik Exp $
+# $Id: Makefile.vs,v 1.44 2012/05/06 02:22:03 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+# Copyright 2000-2012 The FTimes Project, All Rights Reserved.
 #
 ########################################################################
 #
@@ -13,16 +13,18 @@
 ########################################################################
 
 BUILD_TYPE		= RELEASE	# [RELEASE|DEBUG]
-PLATFORM_TYPE		= WINNT		# [WINNT|WIN98]
-USE_CGI			= N		# [Y|N]
+PLATFORM_TYPE		= WINNT		# [WINNT]
 USE_PCRE		= Y		# [Y|N]
+USE_SDDL		= Y		# [Y|N]
+USE_SERVER		= N		# [Y|N]
 USE_SSL			= Y		# [Y|N]
 USE_STATIC_SSL_LIBS	= Y		# [Y|N]
-USE_XMAGIC		= N		# [Y|N]
+USE_XMAGIC		= Y		# [Y|N]
 
 INSTALL_DIR		= C:\FTimes
+INSTALL_DIR_CSTRING	= C:\\FTimes
 SOURCE_DIR		= src
-OBJECT_DIR		= build
+OBJECT_DIR		= b
 
 !IF "$(USE_PCRE)" == "Y" || "$(USE_PCRE)" == "y"
 PCRE_DIR		= C:\Pcre
@@ -30,6 +32,12 @@ PCRE_LIB_DIR		= $(PCRE_DIR)\lib
 PCRE_INC_DIR		= $(PCRE_DIR)\include
 PCRE_COMPILER_FLAGS	= /D USE_PCRE /D PCRE_STATIC /I"$(PCRE_INC_DIR)"
 PCRE_LINKER_FLAGS	= /libpath:"$(PCRE_LIB_DIR)" pcre.lib pcreposix.lib
+!ENDIF
+
+!IF "$(USE_SDDL)" == "Y" || "$(USE_SDDL)" == "y"
+SDDL_COMPILER_FLAGS	= /D USE_SDDL
+!ELSE
+SDDL_COMPILER_FLAGS	=
 !ENDIF
 
 !IF "$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y"
@@ -53,7 +61,7 @@ MTML_SWITCH		= ML
 !ENDIF
 
 !IF "$(USE_XMAGIC)" == "Y" || "$(USE_XMAGIC)" == "y"
-XMAGIC_COMPILER_FLAGS	= /D USE_XMAGIC
+XMAGIC_COMPILER_FLAGS	= /D USE_XMAGIC /D XMAGIC_PREFIX="""$(INSTALL_DIR_CSTRING)"""
 !ENDIF
 
 COMPILER		= cl.exe
@@ -62,19 +70,17 @@ COMPILER_FLAGS		=\
 			/nologo\
 			/D _MBCS\
 			/D _CONSOLE\
+			/D _CRT_SECURE_NO_DEPRECATE\
 			/D WIN32\
-!IF "$(PLATFORM_TYPE)" == "WIN98"
-			/D WIN98\
-!ELSE
 			/D WINNT\
-!ENDIF
 			$(PCRE_COMPILER_FLAGS)\
+			$(SDDL_COMPILER_FLAGS)\
 			$(SSL_COMPILER_FLAGS)\
 			$(XMAGIC_COMPILER_FLAGS)\
 			/Fo"$(OBJECT_DIR)\\"\
 			/Fd"$(OBJECT_DIR)\\"\
 			/Fp"$(OBJECT_DIR)\ftimes.pch"\
-			/c /W3 /GX /YX /FD\
+			/c /W3 /EHsc /FD\
 !IF "$(BUILD_TYPE)" == "DEBUG" || "$(BUILD_TYPE)" == "debug"
 			/D _DEBUG\
 			/$(MTML_SWITCH)d /Od /Zi /Gm
@@ -93,22 +99,22 @@ INCLUDES		=\
 			src\fsinfo.h\
 			src\ftimes.h\
 			src\http.h\
-			src\ktypes.h\
 			src\mask.h\
 			src\md5.h\
 			src\message.h\
 			src\native.h\
+			src\options.h\
 			src\sha1.h\
 			src\sha256.h\
 			src\socket.h\
 			src\ssl.h\
 			src\ssl-pool.h\
 			src\sys-includes.h\
+			src\version.h\
 			src\xmagic.h
 
 OBJECTS			=\
 			"$(OBJECT_DIR)\analyze.obj"\
-			"$(OBJECT_DIR)\cfgtest.obj"\
 			"$(OBJECT_DIR)\cmpmode.obj"\
 			"$(OBJECT_DIR)\compare.obj"\
 			"$(OBJECT_DIR)\decode.obj"\
@@ -121,11 +127,13 @@ OBJECTS			=\
 			"$(OBJECT_DIR)\ftimes.obj"\
 			"$(OBJECT_DIR)\getmode.obj"\
 			"$(OBJECT_DIR)\http.obj"\
+			"$(OBJECT_DIR)\madmode.obj"\
 			"$(OBJECT_DIR)\map.obj"\
 			"$(OBJECT_DIR)\mapmode.obj"\
 			"$(OBJECT_DIR)\mask.obj"\
 			"$(OBJECT_DIR)\md5.obj"\
 			"$(OBJECT_DIR)\message.obj"\
+			"$(OBJECT_DIR)\options.obj"\
 			"$(OBJECT_DIR)\properties.obj"\
 			"$(OBJECT_DIR)\sha1.obj"\
 			"$(OBJECT_DIR)\sha256.obj"\
@@ -136,6 +144,7 @@ OBJECTS			=\
 			"$(OBJECT_DIR)\support.obj"\
 			"$(OBJECT_DIR)\time.obj"\
 			"$(OBJECT_DIR)\url.obj"\
+			"$(OBJECT_DIR)\version.obj"\
 !IF "$(USE_XMAGIC)" == "Y" || "$(USE_XMAGIC)" == "y"
 			"$(OBJECT_DIR)\xmagic.obj"
 !ENDIF
@@ -147,20 +156,18 @@ LINKER			= link.exe
 LINKER_FLAGS		=\
 			/nologo\
 			/subsystem:console\
-			/machine:I386\
-			$(PCRE_LINKER_FLAGS)\
-			$(SSL_LINKER_FLAGS)\
-			advapi32.lib\
-			wsock32.lib\
+			/machine:x86\
 			/out:"$(EXECUTEABLE)"\
-			/pdb:"$(OBJECT_DIR)\ftimes.pdb"\
 !IF "$(BUILD_TYPE)" == "DEBUG" || "$(BUILD_TYPE)" == "debug"
 			/incremental:yes\
 			/debug\
-			/pdbtype:sept
+			/pdb:"$(OBJECT_DIR)\ftimes.pdb"\
 !ELSE
-			/incremental:no
+			/incremental:no\
+			/release\
+			/pdb:none\
 !ENDIF
+			$(PCRE_LINKER_FLAGS) $(SSL_LINKER_FLAGS) advapi32.lib wsock32.lib ws2_32.lib
 
 all: "$(EXECUTEABLE)"
 
@@ -170,30 +177,25 @@ test: "$(EXECUTEABLE)"
 install: "$(EXECUTEABLE)"
 	if not exist "$(INSTALL_DIR)" mkdir "$(INSTALL_DIR)"
 	if not exist "$(INSTALL_DIR)\bin" mkdir "$(INSTALL_DIR)\bin"
-!IF "$(USE_CGI)" == "Y" || "$(USE_CGI)" == "y"
-	if not exist "$(INSTALL_DIR)\cgi" mkdir "$(INSTALL_DIR)\cgi"
-	if not exist "$(INSTALL_DIR)\cgi\cgi-client" mkdir "$(INSTALL_DIR)\cgi\cgi-client"
-!ENDIF
-	if not exist "$(INSTALL_DIR)\doc" mkdir "$(INSTALL_DIR)\doc"
 	if not exist "$(INSTALL_DIR)\etc" mkdir "$(INSTALL_DIR)\etc"
-	if not exist "$(INSTALL_DIR)\log" mkdir "$(INSTALL_DIR)\log"
-	if not exist "$(INSTALL_DIR)\run" mkdir "$(INSTALL_DIR)\run"
 	copy "$(EXECUTEABLE)" "$(INSTALL_DIR)\bin"
-!IF "$(USE_CGI)" == "Y" || "$(USE_CGI)" == "y"
-	copy cgi\nph-ftimes.cgi "$(INSTALL_DIR)\cgi\cgi-client"
-!ENDIF
-	copy doc\ftimes.html "$(INSTALL_DIR)\doc"
-	copy etc\digfull.cfg.sample "$(INSTALL_DIR)\etc"
-	copy etc\diglean.cfg.sample "$(INSTALL_DIR)\etc"
-	copy etc\get.cfg.sample "$(INSTALL_DIR)\etc"
-	copy etc\mapfull.cfg.sample "$(INSTALL_DIR)\etc"
-	copy etc\maplean.cfg.sample "$(INSTALL_DIR)\etc"
-!IF "$(USE_CGI)" == "Y" || "$(USE_CGI)" == "y"
-	copy etc\nph-ftimes.cfg.sample "$(INSTALL_DIR)\etc"
+	copy etc\ftimes-dig.cfg\ftimes-dig.cfg.base "$(INSTALL_DIR)\etc\ftimes-dig.cfg.sample"
+	copy etc\ftimes-get.cfg\ftimes-get.cfg.base "$(INSTALL_DIR)\etc\ftimes-get.cfg.sample"
+	copy etc\ftimes-map.cfg\ftimes-map.cfg.base "$(INSTALL_DIR)\etc\ftimes-map.cfg.sample"
+!IF "$(USE_XMAGIC)" == "Y" || "$(USE_XMAGIC)" == "y"
+	copy etc\xmagic\xmagic.base "$(INSTALL_DIR)\etc\xmagic"
 !ENDIF
 !IF ("$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y") && ("$(USE_STATIC_SSL_LIBS)" == "N" || "$(USE_STATIC_SSL_LIBS)" == "n")
 	copy "$(SSL_DLL1)" "$(INSTALL_DIR)\bin"
 	copy "$(SSL_DLL2)" "$(INSTALL_DIR)\bin"
+!ENDIF
+!IF "$(USE_SERVER)" == "Y" || "$(USE_SERVER)" == "y"
+	if not exist "$(INSTALL_DIR)\cgi" mkdir "$(INSTALL_DIR)\cgi"
+	if not exist "$(INSTALL_DIR)\log" mkdir "$(INSTALL_DIR)\log"
+	if not exist "$(INSTALL_DIR)\run" mkdir "$(INSTALL_DIR)\run"
+	if not exist "$(INSTALL_DIR)\cgi\cgi-client" mkdir "$(INSTALL_DIR)\cgi\cgi-client"
+	copy etc\nph-ftimes.cfg\nph-ftimes.cfg.base" $(INSTALL_DIR)\etc\nph-ftimes.cfg.sample"
+	copy tools\nph-ftimes.cgi\nph-ftimes.cgi "$(INSTALL_DIR)\cgi\cgi-client"
 !ENDIF
 
 clean:
@@ -215,8 +217,6 @@ clean-all: clean
 	if not exist "$(OBJECT_DIR)" mkdir "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\analyze.obj": src\analyze.c $(INCLUDES) "$(OBJECT_DIR)"
-
-"$(OBJECT_DIR)\cfgtest.obj": src\cfgtest.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\cmpmode.obj": src\cmpmode.c $(INCLUDES) "$(OBJECT_DIR)"
 
@@ -242,6 +242,8 @@ clean-all: clean
 
 "$(OBJECT_DIR)\http.obj": src\http.c $(INCLUDES) "$(OBJECT_DIR)"
 
+"$(OBJECT_DIR)\madmode.obj": src\madmode.c $(INCLUDES) "$(OBJECT_DIR)"
+
 "$(OBJECT_DIR)\map.obj": src\map.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\mapmode.obj": src\mapmode.c $(INCLUDES) "$(OBJECT_DIR)"
@@ -251,6 +253,8 @@ clean-all: clean
 "$(OBJECT_DIR)\md5.obj": src\md5.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\message.obj": src\message.c $(INCLUDES) "$(OBJECT_DIR)"
+
+"$(OBJECT_DIR)\options.obj": src\options.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\properties.obj": src\properties.c $(INCLUDES) "$(OBJECT_DIR)"
 
@@ -267,6 +271,8 @@ clean-all: clean
 "$(OBJECT_DIR)\time.obj": src\time.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\url.obj": src\url.c $(INCLUDES) "$(OBJECT_DIR)"
+
+"$(OBJECT_DIR)\version.obj": src\version.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\xmagic.obj": src\xmagic.c $(INCLUDES) "$(OBJECT_DIR)"
 

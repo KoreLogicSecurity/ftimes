@@ -1,0 +1,27 @@
+=item B<IncludeFilterSha256>: <regexp>
+
+Applies to B<mad>, and B<map>.
+
+B<IncludeFilterSha256> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<IncludeFilterSha256> control/value pair per line.
+
+Each B<IncludeFilterSha256> value must be specified as a Perl compatible
+regular expression with the exception that capturing '()' subpatterns
+and back references are not allowed.  You can use '(?:)' if you
+require parentheses for grouping purposes.
+
+Any record containing an SHA256 that is matched by an B<IncludeFilterSha256>
+value will be written to the output stream.  All other records will be
+rejected.  If no filters are specified, include filter processing is
+implicitly disabled.
+
+Note: This control is only available if PCRE support was compiled into
+the binary.
+
+Note: This control is incompatible with the B<Compress> and
+B<HashDirectories> controls.  If either of those controls are set when
+attribute filtering is in play, the program will abort.
+
+Note: Support for this control was added in version 3.9.0.
+

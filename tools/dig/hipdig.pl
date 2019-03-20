@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hipdig.pl,v 1.36 2007/02/23 00:22:36 mavrik Exp $
+# $Id: hipdig.pl,v 1.48 2012/01/04 03:12:28 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2007 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2012 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -15,6 +15,8 @@
 
 use strict;
 use File::Basename;
+use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
+use FTimes::EadRoutines;
 use Getopt::Std;
 use vars qw($sDigStringRegExp);
 
@@ -67,6 +69,16 @@ use vars qw($sDigStringRegExp);
     elsif ($sDumpType =~ /^(SSN|SOCIAL)$/i)
     {
       DumpSSNInformation();
+      exit(0);
+    }
+    elsif ($sDumpType =~ /^(STATE)$/i)
+    {
+      DumpStateInformation();
+      exit(0);
+    }
+    elsif ($sDumpType =~ /^(EIN|TIN)$/i)
+    {
+      DumpEinInformation();
       exit(0);
     }
     else
@@ -393,7 +405,7 @@ sub Dig4Custom
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -468,7 +480,7 @@ sub Dig4Domains
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -516,7 +528,7 @@ sub Dig4IPs
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -562,7 +574,7 @@ sub Dig4Passwords
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -622,7 +634,7 @@ sub Dig4Track1
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -675,7 +687,7 @@ sub Dig4Track1Strict
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -729,7 +741,7 @@ sub Dig4Track2
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -779,7 +791,7 @@ sub Dig4Track2Strict
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -829,7 +841,7 @@ sub Dig4SSN
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, EadFTimesUrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -1168,6 +1180,10 @@ sub DumpSSNInformation
   #
   # Social Security Area List.
   #
+  # Reference:
+  #
+  #  http://www.ssa.gov/employer/stateweb.htm
+  #
   ####################################################################
 
   my %hSSNAreaList =
@@ -1183,26 +1199,25 @@ sub DumpSSNInformation
     '159-211' => 'Pennsylvania',
     '212-220' => 'Maryland',
     '221-222' => 'Delaware',
-    '223-231' => 'Virginia',
-    '232'     => 'North Carolina',
+    '223-231,691-699' => 'Virginia',
+    '232,237-246,681-690' => 'North Carolina',
     '232-236' => 'West Virginia',
-    '237-246' => '',
-    '247-251' => 'South Carolina',
-    '252-260' => 'Georgia',
-    '261-267' => 'Florida',
+    '247-251,654-658' => 'South Carolina',
+    '252-260,667-675' => 'Georgia',
+    '261-267,589-595,766-772' => 'Florida',
     '268-302' => 'Ohio',
     '303-317' => 'Indiana',
     '318-361' => 'Illinois',
     '362-386' => 'Michigan',
     '387-399' => 'Wisconsin',
     '400-407' => 'Kentucky',
-    '408-415' => 'Tennessee',
+    '408-415,756-763' => 'Tennessee',
     '416-424' => 'Alabama',
-    '425-428' => 'Mississippi',
-    '429-432' => 'Arkansas',
-    '433-439' => 'Louisiana',
+    '425-428,587-588,752-755' => 'Mississippi',
+    '429-432,676-679' => 'Arkansas',
+    '433-439,659-665' => 'Louisiana',
     '440-448' => 'Oklahoma',
-    '449-467' => 'Texas',
+    '449-467,627-645' => 'Texas',
     '468-477' => 'Minnesota',
     '478-485' => 'Iowa',
     '486-500' => 'Missouri',
@@ -1213,43 +1228,22 @@ sub DumpSSNInformation
     '516-517' => 'Montana',
     '518-519' => 'Idaho',
     '520'     => 'Wyoming',
-    '521-524' => 'Colorado',
-    '525,585' => 'New Mexico',
-    '526-527' => 'Arizona',
-    '528-529' => 'Utah',
-    '530'     => 'Nevada',
+    '521-524,650-653' => 'Colorado',
+    '525,585,648-649' => 'New Mexico',
+    '526-527,600-601,764-765' => 'Arizona',
+    '528-529,646-647' => 'Utah',
+    '530,680' => 'Nevada',
     '531-539' => 'Washington',
     '540-544' => 'Oregon',
-    '545-573' => 'California',
+    '545-573,602-626' => 'California',
     '574'     => 'Alaska',
-    '575-576' => 'Hawaii',
+    '575-576,750-751' => 'Hawaii',
     '577-579' => 'District of Columbia',
     '580'     => 'Virgin Islands',
-    '580-584' => 'Puerto Rico',
+    '580-584,596-599' => 'Puerto Rico',
     '586'     => 'American Samoa, Guam, and Philippine Islands',
-    '587-588' => '',
-    '589-595' => '',
-    '596-599' => '',
-    '600-601' => '',
-    '602-626' => '',
-    '627-645' => '',
-    '646-647' => '',
-    '648-649' => '',
-    '650-653' => '',
-    '654-658' => '',
-    '659-665' => '',
-    '667-675' => '',
-    '676-679' => '',
-    '680'     => '',
-    '681-690' => '',
-    '691-699' => '',
     '700-728' => 'Railroad Board',
     '729-733' => 'Enumeration at Entry',
-    '750-751' => '',
-    '752-755' => '',
-    '756-763' => '',
-    '764-765' => '',
-    '766-772' => '',
   );
 
   foreach my $sSSNArea (sort(keys(%hSSNAreaList)))
@@ -1263,17 +1257,141 @@ sub DumpSSNInformation
 
 ######################################################################
 #
-# UrlEncode
+# DumpStateInformation
 #
 ######################################################################
 
-sub UrlEncode
+sub DumpStateInformation
 {
-  my ($sData) = @_;
 
-  $sData =~ s/([^ -\$&-*,-{}~])/sprintf("%%%02x",unpack('C',$1))/seg;
-  $sData =~ s/ /+/sg;
-  return $sData;
+  ####################################################################
+  #
+  # State two-letter abbreviations.
+  #
+  ####################################################################
+
+  my %hStateAbbreviationList =
+  (
+    'AK' => 'Alaska',
+    'AL' => 'Alabama',
+    'AR' => 'Arkansas',
+    'AZ' => 'Arizona',
+    'CA' => 'California',
+    'CO' => 'Colorado',
+    'CT' => 'Connecticut',
+    'DC' => 'District of Columbia',
+    'DE' => 'Delaware',
+    'FL' => 'Florida',
+    'GA' => 'Georgia',
+    'HI' => 'Hawaii',
+    'IA' => 'Iowa',
+    'ID' => 'Idaho',
+    'IL' => 'Illinois',
+    'IN' => 'Indiana',
+    'KS' => 'Kansas',
+    'KY' => 'Kentucky',
+    'LA' => 'Louisiana',
+    'MA' => 'Massachusetts',
+    'MD' => 'Maryland',
+    'ME' => 'Maine',
+    'MI' => 'Michigan',
+    'MN' => 'Minnesota',
+    'MO' => 'Missouri',
+    'MS' => 'Mississippi',
+    'MT' => 'Montana',
+    'NC' => 'North Carolina',
+    'ND' => 'North Dakota',
+    'NE' => 'Nebraska',
+    'NH' => 'New Hampshire',
+    'NJ' => 'New Jersey',
+    'NM' => 'New Mexico',
+    'NV' => 'Nevada',
+    'NY' => 'New York',
+    'OH' => 'Ohio',
+    'OK' => 'Oklahoma',
+    'OR' => 'Oregon',
+    'PA' => 'Pennsylvania',
+    'RI' => 'Rhode Island',
+    'SC' => 'South Carolina',
+    'SD' => 'South Dakota',
+    'TN' => 'Tennessee',
+    'TX' => 'Texas',
+    'UT' => 'Utah',
+    'VA' => 'Virginia',
+    'VT' => 'Vermont',
+    'WA' => 'Washington',
+    'WI' => 'Wisconsin',
+    'WV' => 'West Virginia',
+    'WY' => 'Wyoming',
+  );
+
+  foreach my $sStateAbbreviation (sort(keys(%hStateAbbreviationList)))
+  {
+    print "$sStateAbbreviation|$hStateAbbreviationList{$sStateAbbreviation}\n";
+  }
+
+  return 1;
+}
+
+
+######################################################################
+#
+# DumpEinInformation
+#
+######################################################################
+
+sub DumpEinInformation
+{
+
+  ####################################################################
+  #
+  # Employer Identification Number Campus List.
+  #
+  # Reference:
+  #
+  #   http://www.irs.gov/businesses/small/article/0,,id=169067,00.html
+  #
+  # According to HUD, "EINs never begin with the following two-digit
+  # prefixes: 00, 07, 08, 09, 17, 18, 19, 28, 29, 49, 78, or 79. All
+  # other two-digit prefixes are valid."
+  #
+  # Reference:
+  #
+  #   http://www.hud.gov/offices/cpo/foia/tin.cfm
+  #
+  ####################################################################
+
+  my %hEinCampusList =
+  (
+#   '00'    => 'N/V',
+    '01-06,11,13-14,16,21-23,25,34,51-52,54-59,65' => 'Brookhaven',
+#   '07-09' => 'N/V',
+    '10,12' => 'Andover',
+    '15,24' => 'Fresno',
+#   '17-19' => 'N/V',
+    '20,26-27' => 'Internet', # Note: Prefixes 26 and 27 were previously assigned by the Philadelphia campus.
+#   '28-29' => 'N/V',
+    '30,32,35-38,61' => 'Cincinnati',
+    '31'    => 'Small Business Administration (SBS)',
+    '33,39,41-43,45-48,62-64,66,68,71-77,81-88,91-93,98-99' => 'Philadelphia',
+    '40,44' => 'Kansas City',
+#   '49'    => 'N/V',
+    '50,53' => 'Austin',
+    '60,67' => 'Atlanta',
+#   '69-70' => 'N/A',
+#   '78-79' => 'N/V',
+    '80,90' => 'Ogden',
+#   '89'    => 'N/A',
+    '94-95' => 'Memphis',
+#   '96-97' => 'N/A',
+  );
+
+  foreach my $sEinCampus (sort(keys(%hEinCampusList)))
+  {
+    print "$sEinCampus|$hEinCampusList{$sEinCampus}\n";
+  }
+
+  return 1;
 }
 
 
@@ -1322,8 +1440,9 @@ to extract a variable amount of context surrounding each hit.
 
 =item B<-D>
 
-Dump the specified type information to stdout and exit. Currently,
-the following types are supported: DOMAIN|HOST and SSN|SOCIAL.
+Dump the specified type information to stdout and exit. Currently, the
+following types are supported: DOMAIN|HOST, EIN|TIN, SSN|SOCIAL, and
+STATE.
 
 =item B<-H>
 
@@ -1406,7 +1525,7 @@ ftimes(1), ftimes-dig2ctx(1)
 
 =head1 LICENSE
 
-All documentation and code is distributed under same terms and
+All documentation and code are distributed under same terms and
 conditions as FTimes.
 
 =cut

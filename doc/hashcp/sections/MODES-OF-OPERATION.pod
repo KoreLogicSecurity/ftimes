@@ -1,0 +1,5 @@
+=head1 MODES OF OPERATION
+
+Currently, B<HashCp> only has one mode of operation, which is given in
+the SYNOPSIS.
+

@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.2 2006/07/17 06:39:10 mavrik Exp $
+# $Id: test_harness.local,v 1.6 2008/09/22 18:28:41 mavrik Exp $
 #
 ######################################################################
 
@@ -61,14 +61,17 @@ sub Hitch_carve_1i_rl
   $$phTestTargetValues{'carve_1i_rl_1_1'}       = "55a54008ad1ba589aa210d2629c1df41";
   $$phTestTargetValues{'carve_1i_rl_1_2'}       = "9e688c58a5487b8eaf69c9e1005ad0bf";
   $$phTestTargetValues{'carve_1i_rl_1_3'}       = "8666683506aacd900bbd5a74ac4edf68";
+  $$phTestTargetValues{'carve_1i_rl_1_14335'}   = "93b885adfe0da089cdf634904fd59f71";
   $$phTestTargetValues{'carve_1i_rl_512_0'}     = "f5c8e3c31c044bae0e65569560b54332";
   $$phTestTargetValues{'carve_1i_rl_512_512'}   = "dc5086b847289ba8b8bde149b8388175";
   $$phTestTargetValues{'carve_1i_rl_512_1024'}  = "f5c7b27e0af5433eabbef9b2bb90791b";
   $$phTestTargetValues{'carve_1i_rl_512_1536'}  = "62d4975e63fd294131f2fd2d91f9871b";
+  $$phTestTargetValues{'carve_1i_rl_512_13824'} = "1c98b977ebc1ebe698ebff98bb93900b";
   $$phTestTargetValues{'carve_1i_rl_1024_0'}    = "a657fba9d8bc9d63c936f5f7a17da1ed";
   $$phTestTargetValues{'carve_1i_rl_1024_1024'} = "1dd7b17330474d438f322e89173deacc";
   $$phTestTargetValues{'carve_1i_rl_1024_2048'} = "5765bd2402432d246a4e452b5c35c0d3";
   $$phTestTargetValues{'carve_1i_rl_1024_3072'} = "d574cd092464b041f63ec3aabbc71fc4";
+  $$phTestTargetValues{'carve_1i_rl_1024_13312'}= "62ccc228abb89d878f51b78079f1930f";
 }
 
 
@@ -85,15 +88,25 @@ sub Check_carve_1i_rl
   {
     foreach my $sRangeList (@{$$phTestProperties{'1Item_RangeLists'}})
     {
-      my $sLowerRange = (split(/-/, $sRangeList))[0];
-      my $sOffset = $sLowerRange * $sUnitSize;
+      my $sLowerRange = (split(/[-,]/, $sRangeList))[0];
+      my $sOffset;
+      if ($sLowerRange =~ /^%LAST$/)
+      {
+        my $sSize = -s $sFile;
+        $sSize-- if ($sSize > 0);
+        $sOffset = int($sSize / $sUnitSize) * $sUnitSize
+      }
+      else
+      {
+        $sOffset = $sLowerRange * $sUnitSize;
+      }
       my $sCarveFile = "_config" . "_" . $sUnitSize . "_" . $sOffset;
       if (!CreateCarverInput($sCarveFile, { 'Name' => $sFile, 'Type' => "raw", 'Offset' => $sOffset, 'UnitSize' => $sUnitSize, 'RangeList' => $sRangeList }))
       {
         return "fail";
       }
 
-      my $sCommand = "$$phProperties{'TargetProgram'} -F -m -U -d $$phProperties{'WorkDir'}/carve_tree -f $sCarveFile";
+      my $sCommand = "perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -F -m -U -d $$phProperties{'WorkDir'}/carve_tree -f $sCarveFile";
       DebugPrint(3, "Command=$sCommand");
       if (!open(PH, "$sCommand |"))
       {
@@ -111,7 +124,7 @@ sub Check_carve_1i_rl
       }
       $aLines[1] =~ s/[\r\n]*$//;
 
-      my $sTargetOutputRegExp = qq(^"[^"]+"[|][0-9]+[|][0-9A-Fa-f]{40}[|]([0-9A-Fa-f]{32})\$);
+      my $sTargetOutputRegExp = qq(^"[^"]+"[|][0-9]+[|]([0-9A-Fa-f]{32})[|][0-9A-Fa-f]{40}\$);
       DebugPrint(5, "TargetOutputRegExp=$sTargetOutputRegExp");
       if ($aLines[1] !~ /$sTargetOutputRegExp/)
       {
@@ -163,6 +176,14 @@ sub Setup_carve_1i_rl
   {
     $sData .= $sLetter x 512;
   }
+  foreach my $sByte (0..255)
+  {
+    $sData .= pack("C", ($sByte % 256));
+  }
+  foreach my $sByte (0..255)
+  {
+    $sData .= pack("C", ((255 - $sByte) % 256));
+  }
 
   if (!defined(FillFile($sFile, $sData, 1)))
   {
@@ -187,14 +208,23 @@ sub Hitch_carve_2i_rl
   $$phTestTargetValues{'carve_2i_rl_1_1'}       = "80bca0450762762a07285ac43c25ac0c";
   $$phTestTargetValues{'carve_2i_rl_1_2'}       = "bfd669c869bd7efa14f3e76ae1a946f7";
   $$phTestTargetValues{'carve_2i_rl_1_3'}       = "e94e7ee783c0aee87d19d87f071fa2fd";
+  $$phTestTargetValues{'carve_2i_rl_1_5'}       = "4b402790848b9196b6771ad6cd44937b";
+  $$phTestTargetValues{'carve_2i_rl_1_7'}       = "f5d12725aa150c42ea55859a3530cd88";
+  $$phTestTargetValues{'carve_2i_rl_1_14335'}   = "c4103f122d27677c9db144cae1394a66";
   $$phTestTargetValues{'carve_2i_rl_512_0'}     = "1e9ffaba957c3aed84489c8310adbe71";
   $$phTestTargetValues{'carve_2i_rl_512_512'}   = "0f07845ca0f446f32dd0d1b9a430d379";
   $$phTestTargetValues{'carve_2i_rl_512_1024'}  = "1b186f16a22e392a35dd4c0adfb7cc30";
   $$phTestTargetValues{'carve_2i_rl_512_1536'}  = "b7b237b9884682c9e92a5db9975142fd";
+  $$phTestTargetValues{'carve_2i_rl_512_2560'}  = "f68ec800b6a2dc146a8bcf0b971c1479";
+  $$phTestTargetValues{'carve_2i_rl_512_3584'}  = "ed76ff176bd25ce6363557ce1f1e562c";
+  $$phTestTargetValues{'carve_2i_rl_512_13824'} = "c8ce9da6a781b45429f0faaa484781a2";
   $$phTestTargetValues{'carve_2i_rl_1024_0'}    = "2ef0edf15e304e29a59749a3bbdfeda6";
   $$phTestTargetValues{'carve_2i_rl_1024_1024'} = "205647214dba30680241e9dbd3ad07a0";
   $$phTestTargetValues{'carve_2i_rl_1024_2048'} = "2c97277b50b7e9f882817baf1090c6e0";
   $$phTestTargetValues{'carve_2i_rl_1024_3072'} = "3d11e89f9ac65bd4ce364c8ddbf9c05b";
+  $$phTestTargetValues{'carve_2i_rl_1024_5120'} = "0f1dc602b1942aa3a79b8470b4cbc0ff";
+  $$phTestTargetValues{'carve_2i_rl_1024_7168'} = "0689b9a146492e4d80ea3505c6e7fe54";
+  $$phTestTargetValues{'carve_2i_rl_1024_13312'}= "10d9497dac0f4691fe147d79d147c3c0";
 }
 
 
@@ -211,15 +241,25 @@ sub Check_carve_2i_rl
   {
     foreach my $sRangeList (@{$$phTestProperties{'2Item_RangeLists'}})
     {
-      my $sLowerRange = (split(/-/, $sRangeList))[0];
-      my $sOffset = $sLowerRange * $sUnitSize;
+      my $sLowerRange = (split(/[-,]/, $sRangeList))[0];
+      my $sOffset;
+      if ($sLowerRange =~ /^%LAST$/)
+      {
+        my $sSize = -s $sFile;
+        $sSize-- if ($sSize > 0);
+        $sOffset = int($sSize / $sUnitSize) * $sUnitSize
+      }
+      else
+      {
+        $sOffset = $sLowerRange * $sUnitSize;
+      }
       my $sCarveFile = "_config" . "_" . $sUnitSize . "_" . $sOffset;
       if (!CreateCarverInput($sCarveFile, { 'Name' => $sFile, 'Type' => "raw", 'Offset' => $sOffset, 'UnitSize' => $sUnitSize, 'RangeList' => $sRangeList }))
       {
         return "fail";
       }
 
-      my $sCommand = "$$phProperties{'TargetProgram'} -F -m -U -d $$phProperties{'WorkDir'}/carve_tree -f $sCarveFile";
+      my $sCommand = "perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -F -m -U -d $$phProperties{'WorkDir'}/carve_tree -f $sCarveFile";
       DebugPrint(3, "Command=$sCommand");
       if (!open(PH, "$sCommand |"))
       {
@@ -237,7 +277,7 @@ sub Check_carve_2i_rl
       }
       $aLines[1] =~ s/[\r\n]*$//;
 
-      my $sTargetOutputRegExp = qq(^"[^"]+"[|][0-9]+[|][0-9A-Fa-f]{40}[|]([0-9A-Fa-f]{32})\$);
+      my $sTargetOutputRegExp = qq(^"[^"]+"[|][0-9]+[|]([0-9A-Fa-f]{32})[|][0-9A-Fa-f]{40}\$);
       DebugPrint(5, "TargetOutputRegExp=$sTargetOutputRegExp");
       if ($aLines[1] !~ /$sTargetOutputRegExp/)
       {
@@ -289,6 +329,14 @@ sub Setup_carve_2i_rl
   {
     $sData .= $sLetter x 512;
   }
+  foreach my $sByte (0..255)
+  {
+    $sData .= pack("C", ($sByte % 256));
+  }
+  foreach my $sByte (0..255)
+  {
+    $sData .= pack("C", ((255 - $sByte) % 256));
+  }
 
   if (!defined(FillFile($sFile, $sData, 1)))
   {
@@ -313,14 +361,23 @@ sub Hitch_carve_3i_rl
   $$phTestTargetValues{'carve_3i_rl_1_1'}       = "3671748dbf2310564e74683401b3cb6d";
   $$phTestTargetValues{'carve_3i_rl_1_2'}       = "05d3b37600aaec1e24e39ab55b8aeb7b";
   $$phTestTargetValues{'carve_3i_rl_1_3'}       = "1edb38614e8841ac821b67a3f5dfe14f";
+  $$phTestTargetValues{'carve_3i_rl_1_5'}       = "ef9022d3f773f4420c35553e450e44cf";
+  $$phTestTargetValues{'carve_3i_rl_1_7'}       = "fe960317afb5439ca7497b179af8e938";
+  $$phTestTargetValues{'carve_3i_rl_1_14335'}   = "5cb700b68e4af9fcd988533f39792d05";
   $$phTestTargetValues{'carve_3i_rl_512_0'}     = "d4c4bc7d92f2cdeb70b90de1be09f842";
   $$phTestTargetValues{'carve_3i_rl_512_512'}   = "616558244938de79d0f17a989d4aad7a";
   $$phTestTargetValues{'carve_3i_rl_512_1024'}  = "f459d90e9cb63d3cb65e793f415a47c0";
   $$phTestTargetValues{'carve_3i_rl_512_1536'}  = "b674c4864f4b02f6fef1e036811f8900";
+  $$phTestTargetValues{'carve_3i_rl_512_2560'}  = "b17f54038786b6c1205efeb3c009c352";
+  $$phTestTargetValues{'carve_3i_rl_512_3584'}  = "614676e09e18da1501a2ea1045db1245";
+  $$phTestTargetValues{'carve_3i_rl_512_13824'} = "f0d481c1cd26537fd5d0a4b76a7fd98f";
   $$phTestTargetValues{'carve_3i_rl_1024_0'}    = "dd7d3ecdf76b25911715a00eac753dcd";
   $$phTestTargetValues{'carve_3i_rl_1024_1024'} = "8a61400a5db5c43ccbdfdd57478383d4";
   $$phTestTargetValues{'carve_3i_rl_1024_2048'} = "915933bca08c1e6ae9cf85a938615ceb";
   $$phTestTargetValues{'carve_3i_rl_1024_3072'} = "9def92840b5a8f7433252ab661504d6f";
+  $$phTestTargetValues{'carve_3i_rl_1024_5120'} = "110db18e094cb160d8590dc223831da3";
+  $$phTestTargetValues{'carve_3i_rl_1024_7168'} = "ddb80957e57e9ee9f2ff5dc7f51ba9f0";
+  $$phTestTargetValues{'carve_3i_rl_1024_13312'}= "0c7689dcd717a806cce9e0c69eb61696";
 }
 
 
@@ -337,15 +394,25 @@ sub Check_carve_3i_rl
   {
     foreach my $sRangeList (@{$$phTestProperties{'3Item_RangeLists'}})
     {
-      my $sLowerRange = (split(/-/, $sRangeList))[0];
-      my $sOffset = $sLowerRange * $sUnitSize;
+      my $sLowerRange = (split(/[-,]/, $sRangeList))[0];
+      my $sOffset;
+      if ($sLowerRange =~ /^%LAST$/)
+      {
+        my $sSize = -s $sFile;
+        $sSize-- if ($sSize > 0);
+        $sOffset = int($sSize / $sUnitSize) * $sUnitSize
+      }
+      else
+      {
+        $sOffset = $sLowerRange * $sUnitSize;
+      }
       my $sCarveFile = "_config" . "_" . $sUnitSize . "_" . $sOffset;
       if (!CreateCarverInput($sCarveFile, { 'Name' => $sFile, 'Type' => "raw", 'Offset' => $sOffset, 'UnitSize' => $sUnitSize, 'RangeList' => $sRangeList }))
       {
         return "fail";
       }
 
-      my $sCommand = "$$phProperties{'TargetProgram'} -F -m -U -d $$phProperties{'WorkDir'}/carve_tree -f $sCarveFile";
+      my $sCommand = "perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -F -m -U -d $$phProperties{'WorkDir'}/carve_tree -f $sCarveFile";
       DebugPrint(3, "Command=$sCommand");
       if (!open(PH, "$sCommand |"))
       {
@@ -363,7 +430,7 @@ sub Check_carve_3i_rl
       }
       $aLines[1] =~ s/[\r\n]*$//;
 
-      my $sTargetOutputRegExp = qq(^"[^"]+"[|][0-9]+[|][0-9A-Fa-f]{40}[|]([0-9A-Fa-f]{32})\$);
+      my $sTargetOutputRegExp = qq(^"[^"]+"[|][0-9]+[|]([0-9A-Fa-f]{32})[|][0-9A-Fa-f]{40}\$);
       DebugPrint(5, "TargetOutputRegExp=$sTargetOutputRegExp");
       if ($aLines[1] !~ /$sTargetOutputRegExp/)
       {
@@ -414,6 +481,14 @@ sub Setup_carve_3i_rl
   foreach my $sLetter ("A".."Z")
   {
     $sData .= $sLetter x 512;
+  }
+  foreach my $sByte (0..255)
+  {
+    $sData .= pack("C", ($sByte % 256));
+  }
+  foreach my $sByte (0..255)
+  {
+    $sData .= pack("C", ((255 - $sByte) % 256));
   }
 
   if (!defined(FillFile($sFile, $sData, 1)))

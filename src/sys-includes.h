@@ -1,48 +1,73 @@
 /*-
  ***********************************************************************
  *
- * $Id: sys-includes.h,v 1.12 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: sys-includes.h,v 1.24 2012/01/18 03:09:44 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _SYS_INCLUDES_H_INCLUDED
+#define _SYS_INCLUDES_H_INCLUDED
+
+#include <ctype.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #ifdef WIN32
+#ifdef USE_SDDL
+  #ifdef MINGW32
+    #define WINVER 0x0500
+    #include <windows.h>
+    #define SDDL_REVISION_1 1
+    WINADVAPI BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorA(PSECURITY_DESCRIPTOR, DWORD, SECURITY_INFORMATION, LPSTR *, PULONG);
+    WINADVAPI BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorW(PSECURITY_DESCRIPTOR, DWORD, SECURITY_INFORMATION, LPWSTR *, PULONG);
+    #ifdef UNICODE
+      #define ConvertSecurityDescriptorToStringSecurityDescriptor ConvertSecurityDescriptorToStringSecurityDescriptorW
+    #else
+      #define ConvertSecurityDescriptorToStringSecurityDescriptor ConvertSecurityDescriptorToStringSecurityDescriptorA
+    #endif
+  #else
+    #define _WIN32_WINNT 0x0500
+    #include <windows.h>
+  #endif
+  #include <sddl.h>
+#else
 #include <windows.h>
-#include <winsock.h>
-#include <stdlib.h>
-#include <ctype.h>
+#endif
+#include <accctrl.h>
+#include <aclapi.h>
 #include <direct.h>
-#include <time.h>
-#include <process.h>
-#include <fcntl.h>
 #include <io.h>
+#include <process.h>
+#include <tchar.h>
+#ifdef MINGW32
+#include <math.h>
+#endif
+#include <winsock.h>
 #ifdef WINNT
 #include "native.h"
 #endif
 #endif
 
 #ifdef UNIX
-#include <ctype.h>
 #include <dirent.h>
-#include <fcntl.h>
 #include <limits.h>
 #include <math.h>
 #include <netdb.h>
 #include <stdarg.h>
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
+#include <sys/mman.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 #include <sys/utsname.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -69,4 +94,9 @@
 #include <sys/param.h>
 #include <sys/mount.h>
 #endif
+#ifdef USE_FILE_HOOKS
+#include <sys/wait.h>
 #endif
+#endif
+
+#endif /* !_SYS_INCLUDES_H_INCLUDED */

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: socket.c,v 1.9 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: socket.c,v 1.17 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2001-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -36,7 +36,7 @@ SocketCleanup(SOCKET_CONTEXT *psSocketCTX)
 #ifdef USE_SSL
     if (psSocketCTX->iType == SOCKET_TYPE_SSL)
     {
-      SSLSessionCleanup(psSocketCTX->pssl);
+      SslSessionCleanup(psSocketCTX->pssl);
     }
 #endif
     free(psSocketCTX);
@@ -56,7 +56,7 @@ SOCKET_CONTEXT
 {
   const char          acRoutine[] = "SocketConnect()";
 #ifdef USE_SSL
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
 #endif
   struct sockaddr_in  sServerAddr;
   SOCKET_CONTEXT     *psSocketCTX;
@@ -149,7 +149,7 @@ SOCKET_CONTEXT
     if (psslCTX != NULL)
     {
       psSocketCTX->psslCTX = (SSL_CTX *) psslCTX;
-      psSocketCTX->pssl = SSLConnect(psSocketCTX->iSocket, psSocketCTX->psslCTX, acLocalError);
+      psSocketCTX->pssl = SslConnect(psSocketCTX->iSocket, psSocketCTX->psslCTX, acLocalError);
       if (psSocketCTX->pssl == NULL)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -184,7 +184,7 @@ SocketRead(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToRead, char *pcError
 {
   const char          acRoutine[] = "SocketRead()";
 #ifdef USE_SSL
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
 #endif
   int                 iNRead;
 
@@ -192,7 +192,7 @@ SocketRead(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToRead, char *pcError
   {
 #ifdef USE_SSL
   case SOCKET_TYPE_SSL:
-    iNRead = SSLRead(psSocketCTX->pssl, pcData, iToRead, acLocalError);
+    iNRead = SslRead(psSocketCTX->pssl, pcData, iToRead, acLocalError);
     if (iNRead == -1)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -224,7 +224,7 @@ SocketWrite(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToSend, char *pcErro
 {
   const char          acRoutine[] = "SocketWrite()";
 #ifdef USE_SSL
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
 #endif
   int                 iNSent;
 
@@ -237,7 +237,7 @@ SocketWrite(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToSend, char *pcErro
   {
 #ifdef USE_SSL
   case SOCKET_TYPE_SSL:
-    iNSent = SSLWrite(psSocketCTX->pssl, pcData, iToSend, acLocalError);
+    iNSent = SslWrite(psSocketCTX->pssl, pcData, iToSend, acLocalError);
     if (iNSent == -1)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);

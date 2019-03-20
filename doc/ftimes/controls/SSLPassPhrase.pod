@@ -1,6 +1,6 @@
 =item B<SSLPassPhrase>: <passphrase>
 
-Applies to B<digfull>, B<mapfull>, and B<getmode>.
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
 
 B<SSLPassPhrase> is optional when B<SSLUseCertificate> is enabled.
 Its value, if specified, is used to decrypt the contents of the

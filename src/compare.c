@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.c,v 1.35 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: compare.c,v 1.50 2012/01/04 03:12:27 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -123,7 +123,7 @@ int
 CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
 {
   const char          acRoutine[] = "CompareEnumerateChanges()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char              **ppcBaselineFields = NULL;
   char              **ppcSnapshotFields = NULL;
   CMP_DATA            sCompareData;
@@ -135,11 +135,6 @@ CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapsh
   int                 iFound = 0;
   int                 iKeysIndex = 0;
   int                 iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_CMP);
-#ifdef USE_SNAPSHOT_COLLISION_DETECTION
-  int                 iNodeCount = 0;
-  int                 iNodeIndex = 0;
-  int                *piNodeIndex = NULL;
-#endif
   unsigned long       ul = 0;
 
   /*-
@@ -202,48 +197,6 @@ CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapsh
     }
     psSnapshot->sDecodeStats.ulDecoded++;
 
-#ifdef USE_SNAPSHOT_COLLISION_DETECTION
-    /*-
-     *******************************************************************
-     *
-     * Check node count, and allocate more, if necessary.
-     *
-     *******************************************************************
-     */
-    if (iNodeIndex >= iNodeCount)
-    {
-      iNodeCount += CMP_NODE_REQUEST_COUNT;
-      psProperties->psSnapshotNodes = (CMP_NODE *) realloc(psProperties->psSnapshotNodes, (iNodeCount * sizeof(CMP_NODE)));
-      if (psProperties->psSnapshotNodes == NULL)
-      {
-        snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): File = [%s], Line = [%d]: %s", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber, strerror(errno));
-        return ER;
-      }
-    }
-
-    /*-
-     *******************************************************************
-     *
-     * Insert a new node. Drop collisions and warn the user.
-     *
-     *******************************************************************
-     */
-    piNodeIndex = CompareGetNodeIndexReference(psSnapshot->psCurrRecord->aucHash, psProperties->aiSnapshotKeys, psProperties->psSnapshotNodes);
-    if (piNodeIndex == NULL)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: Hash collision. Check for duplicate filenames.", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber);
-      ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-    }
-    else
-    {
-      *piNodeIndex = iNodeIndex;
-      psProperties->psSnapshotNodes[*piNodeIndex].iNextIndex = -1;
-      memcpy(psProperties->psSnapshotNodes[*piNodeIndex].aucHash, psSnapshot->psCurrRecord->aucHash, MD5_HASH_SIZE);
-      /* NOTE: pcData is not initialized here because it's not being used in this section of code. */
-      iNodeIndex++;
-    }
-#endif
-
     /*-
      *******************************************************************
      *
@@ -256,6 +209,8 @@ CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapsh
     ppcSnapshotFields = psSnapshot->psCurrRecord->ppcFields;
     sCompareData.cCategory = 0;
     sCompareData.pcRecord = NULL;
+    sCompareData.iBaselineRecord = 0;
+    sCompareData.iSnapshotRecord = psSnapshot->iLineNumber;
     iKeysIndex = CMP_GET_NODE_INDEX(psSnapshot->psCurrRecord->aucHash);
 
     iLastIndex = iTempIndex = psProperties->aiBaselineKeys[iKeysIndex];
@@ -263,10 +218,16 @@ CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapsh
     {
       if (memcmp(psProperties->psBaselineNodes[iTempIndex].aucHash, psSnapshot->psCurrRecord->aucHash, MD5_HASH_SIZE) == 0)
       {
-        iFound = psProperties->psBaselineNodes[iTempIndex].iFound = 1;
+        iFound++;
+        if (++psProperties->psBaselineNodes[iTempIndex].iFound > 1)
+        {
+          snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: Hash collision. Check for duplicate filenames.", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber);
+          return ER;
+        }
         CompareDecodeLine(psProperties->psBaselineNodes[iTempIndex].pcData, psBaseline, ppcBaselineFields, acLocalError);
         sCompareData.ulChangedMask = 0;
         sCompareData.ulUnknownMask = 0;
+        sCompareData.iBaselineRecord = psProperties->psBaselineNodes[iTempIndex].iLineNumber;
         for (i = 0; i < iMaskTableLength; i++)
         {
           ul = 1 << i;
@@ -337,6 +298,7 @@ CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapsh
    *
    *********************************************************************
    */
+  sCompareData.iSnapshotRecord = 0;
   for (iKeysIndex = 0; iKeysIndex < CMP_MODULUS; iKeysIndex++)
   {
     iTempIndex = psProperties->aiBaselineKeys[iKeysIndex];
@@ -346,6 +308,7 @@ CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapsh
       {
         sCompareData.cCategory = 'M';
         sCompareData.pcRecord = psProperties->psBaselineNodes[iTempIndex].pcData;
+        sCompareData.iBaselineRecord = psProperties->psBaselineNodes[iTempIndex].iLineNumber;
         iError = CompareWriteRecord(psProperties, &sCompareData, acLocalError);
         if (iError != ER_OK)
         {
@@ -357,6 +320,7 @@ CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapsh
       iTempIndex = psProperties->psBaselineNodes[iTempIndex].iNextIndex;
     }
   }
+
   return ER_OK;
 }
 
@@ -401,19 +365,33 @@ CompareFreeProperties(CMP_PROPERTIES *psProperties)
 {
   if (psProperties != NULL)
   {
+    if (psProperties->pcMemoryMapFile != NULL)
+    {
+      free(psProperties->pcMemoryMapFile);
+    }
     if (psProperties->psBaselineNodes != NULL)
     {
-      CompareFreeNodeData(psProperties->aiBaselineKeys, psProperties->psBaselineNodes);
+      /*-
+       *****************************************************************
+       * NOTE: CompareFreeNodeData() should be used to free this data,
+       * but it causes severe cleanup lag (e.g., it takes more time to
+       * free the data than it did to compare it) on some systems such
+       * as FreeBSD for large jobs (~700K+ records). Therefore, the
+       * following code has been disabled, and it is being kept as a
+       * reminder. Other systems such as Linux and Solaris didn't have
+       * this problem, so there may be other issues involved that are
+       * not yet understood. However, since the program is essentially
+       * terminal at this point, the risk of not doing this seems low.
+       *
+       * if (!psProperties->iMemoryMapFile)
+       * {
+       *   CompareFreeNodeData(psProperties->aiBaselineKeys, psProperties->psBaselineNodes);
+       * }
+       *
+       *****************************************************************
+       */
       free(psProperties->psBaselineNodes);
     }
-#ifdef USE_SNAPSHOT_COLLISION_DETECTION
-    if (psProperties->psSnapshotNodes != NULL)
-    {
-      /* NOTE: Snapshots don't use node data. Therefore, CompareFreeNodeData() is not required. */
-      /* CompareFreeNodeData(psProperties->aiSnapshotKeys, psProperties->psSnapshotNodes); */
-      free(psProperties->psSnapshotNodes);
-    }
-#endif
     free(psProperties);
   }
 }
@@ -564,15 +542,78 @@ int
 CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError)
 {
   const char          acRoutine[] = "CompareLoadBaselineData()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char               *pcData = NULL;
   CMP_PROPERTIES     *psProperties = CompareGetPropertiesReference();
+  FILE               *pFile = NULL;
   int                 i = 0;
   int                 n = 0;
   int                 iError = 0;
   int                 iNodeCount = 0;
   int                 iNodeIndex = 0;
+  int                 iOffset = 0;
   int                *piNodeIndex = NULL;
+#ifdef WINNT
+  HANDLE              hFile = NULL;
+  HANDLE              hMemoryMap = NULL;
+  char               *pcMessage = NULL;
+  int                 iFile = 0;
+#endif
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally create a file to serve as the backing for a memory
+   * map. For WINX platforms, convert the native handle into a FILE
+   * pointer so that common code can be used when writing data to the
+   * file. Next, unlink the file. This will fail for WINX systems, but
+   * that should not be an issue because a second unlink is attempted
+   * when the program executes its final stage.
+   *
+   *********************************************************************
+   */
+  if (psProperties->iMemoryMapFile)
+  {
+#ifdef WINNT
+    hFile = CreateFile
+    (
+      psProperties->pcMemoryMapFile,
+      GENERIC_READ | GENERIC_WRITE,
+      0,
+      NULL,
+      CREATE_NEW,
+      FILE_ATTRIBUTE_NORMAL,
+      NULL
+    );
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+      ErrorFormatWin32Error(&pcMessage);
+      snprintf(pcError, MESSAGE_SIZE, "%s: CreateFile(): %s", acRoutine, pcMessage);
+      return ER;
+    }
+    iFile = _open_osfhandle((long) hFile, 0);
+    if (iFile == ER)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: open_osfhandle(): Handle association failed.", acRoutine);
+      return ER;
+    }
+    pFile = fdopen(iFile, "wb+");
+    if (pFile == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: fdopen(): %s", acRoutine, strerror(errno));
+      return ER;
+    }
+#else
+    umask(077);
+    pFile = fopen(psProperties->pcMemoryMapFile, "wb+");
+    if (pFile == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): %s", acRoutine, strerror(errno));
+      return ER;
+    }
+#endif
+    unlink(psProperties->pcMemoryMapFile);
+  }
 
   /*-
    *********************************************************************
@@ -604,7 +645,9 @@ CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError)
      *******************************************************************
      *
      * Allocate a block of memory to hold this record. Then, join the
-     * fields to form a single record.
+     * fields to form a single record. If a memory map file is being
+     * used, this memory is freed as soon as it has been written out
+     * the file. Otherwise it is freed later in CompareFreeNodeData().
      *
      *******************************************************************
      */
@@ -621,6 +664,24 @@ CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError)
     for (i = n = 0; i < psBaseline->iFieldCount; i++)
     {
       n += sprintf(&pcData[n], "%s%s", (i > 0) ? DECODE_SEPARATOR_S : "", psBaseline->psCurrRecord->ppcFields[psBaseline->aiIndex2Map[i]]);
+    }
+
+    /*-
+     *******************************************************************
+     *
+     * Conditionally write this record out to the backing file.
+     *
+     *******************************************************************
+     */
+    if (psProperties->iMemoryMapFile)
+    {
+      iError = SupportWriteData(pFile, pcData, n + 1, acLocalError);
+      if (iError != ER_OK)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+        return ER;
+      }
+      free(pcData);
     }
 
     /*-
@@ -644,7 +705,7 @@ CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError)
     /*-
      *******************************************************************
      *
-     * Insert a new node. Drop collisions, and warn the user.
+     * Insert a new node. Abort on a collision.
      *
      *******************************************************************
      */
@@ -652,7 +713,7 @@ CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError)
     if (piNodeIndex == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: Hash collision. Check for duplicate filenames.", acRoutine, psBaseline->pcFile, psBaseline->iLineNumber);
-      ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+      return ER;
     }
     else
     {
@@ -660,7 +721,19 @@ CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError)
       psProperties->psBaselineNodes[*piNodeIndex].iNextIndex = -1;
       memcpy(psProperties->psBaselineNodes[*piNodeIndex].aucHash, psBaseline->psCurrRecord->aucHash, MD5_HASH_SIZE);
 /* FIXME See TODO list. */
-      psProperties->psBaselineNodes[*piNodeIndex].pcData = pcData;
+      if (psProperties->iMemoryMapFile)
+      {
+        psProperties->psBaselineNodes[*piNodeIndex].pcData = NULL;
+        psProperties->psBaselineNodes[*piNodeIndex].iLineNumber = psBaseline->iLineNumber;
+        psProperties->psBaselineNodes[*piNodeIndex].iOffset = iOffset;
+        iOffset += n + 1;
+      }
+      else
+      {
+        psProperties->psBaselineNodes[*piNodeIndex].pcData = pcData;
+        psProperties->psBaselineNodes[*piNodeIndex].iLineNumber = psBaseline->iLineNumber;
+        psProperties->psBaselineNodes[*piNodeIndex].iOffset = 0;
+      }
       iNodeIndex++;
     }
   }
@@ -669,6 +742,48 @@ CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError)
     snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, psBaseline->pcFile, psBaseline->iLineNumber, acLocalError);
     psBaseline->sDecodeStats.ulSkipped++;
     return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally memory map the backing file.
+   *
+   *********************************************************************
+   */
+  if (psProperties->iMemoryMapFile)
+  {
+    psProperties->iMemoryMapSize = iOffset;
+#ifdef WINNT
+    hMemoryMap = CreateFileMapping(hFile, NULL, PAGE_READWRITE, 0, 0, 0);
+    if (hMemoryMap == NULL)
+    {
+      ErrorFormatWin32Error(&pcMessage);
+      snprintf(pcError, MESSAGE_SIZE, "%s: CreateFileMapping(): %s", acRoutine, pcMessage);
+      return ER;
+    }
+    psProperties->pvMemoryMap = MapViewOfFile(hMemoryMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+    if (psProperties->pvMemoryMap == NULL)
+    {
+      ErrorFormatWin32Error(&pcMessage);
+      snprintf(pcError, MESSAGE_SIZE, "%s: MapViewOfFile(): %s", acRoutine, pcMessage);
+      return ER;
+    }
+    CloseHandle(hMemoryMap);
+    CloseHandle(hFile);
+#else
+    psProperties->pvMemoryMap = mmap(0, psProperties->iMemoryMapSize, PROT_READ|PROT_WRITE, MAP_PRIVATE, fileno(pFile), 0);
+#if defined(FTimes_HPUX) && !defined(MAP_FAILED)
+#define MAP_FAILED ((void *)-1)
+#endif
+    if (psProperties->pvMemoryMap == MAP_FAILED)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: mmap(): %s", acRoutine, strerror(errno));
+      return ER;
+    }
+#endif
+    fclose(pFile);
+    CompareSetNodeData(psProperties->aiBaselineKeys, psProperties->psBaselineNodes, psProperties->pvMemoryMap);
   }
 
   return ER_OK;
@@ -713,9 +828,6 @@ CompareNewProperties(char *pcError)
   for (i = 0; i < CMP_MODULUS; i++)
   {
     psProperties->aiBaselineKeys[i] = -1;
-#ifdef USE_SNAPSHOT_COLLISION_DETECTION
-    psProperties->aiSnapshotKeys[i] = -1;
-#endif
   }
 
   /*-
@@ -746,6 +858,40 @@ void
 CompareSetNewLine(char *pcNewLine)
 {
   strncpy(gpsCmpProperties->acNewLine, (strcmp(pcNewLine, CRLF) == 0) ? CRLF : LF, NEWLINE_LENGTH);
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * CompareSetNodeData
+ *
+ ***********************************************************************
+ */
+void
+CompareSetNodeData(int *piKeys, CMP_NODE *psNodes, void *pvBaseAddress)
+{
+  int                 iKeysIndex = 0;
+  int                 iNodeIndex = 0;
+
+  /*-
+   *********************************************************************
+   *
+   * The purpose of this routine is to initialize all pcData members.
+   * This step must be done after the backing file has been built and
+   * mapped into memory.
+   *
+   *********************************************************************
+   */
+  for (iKeysIndex = 0; iKeysIndex < CMP_MODULUS; iKeysIndex++)
+  {
+    iNodeIndex = piKeys[iKeysIndex];
+    while (iNodeIndex != -1)
+    {
+      psNodes[iNodeIndex].pcData = (char *) pvBaseAddress + psNodes[iNodeIndex].iOffset;
+      iNodeIndex = psNodes[iNodeIndex].iNextIndex;
+    }
+  }
 }
 
 
@@ -789,11 +935,11 @@ CompareWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
 {
   const char          acRoutine[] = "CompareWriteHeader()";
   char                acHeader[FTIMES_MAX_LINE] = { 0 };
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
   int                 iIndex = 0;
 
-  iIndex = sprintf(acHeader, "category|name|changed|unknown%s", pcNewLine);
+  iIndex = sprintf(acHeader, "category|name|changed|unknown|records%s", pcNewLine);
 
   iError = SupportWriteData(pFile, acHeader, iIndex, acLocalError);
   if (iError != ER_OK)
@@ -820,7 +966,7 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
   static char        *pcOutput = NULL;
   static int          iMaskTableLength = 0;
   static MASK_B2S_TABLE *pasMaskTable = NULL;
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char               *pc = NULL;
   int                 i = 0;
   int                 iError = 0;
@@ -832,12 +978,13 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
    *********************************************************************
    *
    * Allocate enough memory to hold one complete record, but only do
-   * this operation once.
+   * this operation once. Note that this memory is never freed.
    *
    * category      1
    * name          CMP_MAX_LINE
    * changed       (iMaskTableLength * (MASK_NAME_SIZE))
    * unknown       (iMaskTableLength * (MASK_NAME_SIZE))
+   * records       (2 * (FTIMES_MAX_32BIT_SIZE))
    * |'s           3
    * newline       2
    *
@@ -847,7 +994,7 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
   {
     iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_CMP);
     pasMaskTable = MaskGetTableReference(MASK_RUNMODE_TYPE_CMP);
-    pcOutput = malloc(CMP_MAX_LINE + (2 * (iMaskTableLength * (MASK_NAME_SIZE))) + 6);
+    pcOutput = malloc(CMP_MAX_LINE + (2 * (iMaskTableLength * (MASK_NAME_SIZE))) + (2 * (FTIMES_MAX_32BIT_SIZE)) + 6);
     if (pcOutput == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
@@ -930,6 +1077,16 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
     pcOutput[iIndex++] = CMP_SEPARATOR_C;
     pcOutput[iIndex++] = CMP_SEPARATOR_C;
   }
+
+  /*-
+   *********************************************************************
+   *
+   * Record numbers.
+   *
+   *********************************************************************
+   */
+  pcOutput[iIndex++] = CMP_SEPARATOR_C;
+  iIndex += sprintf(&pcOutput[iIndex], "%d,%d", psData->iBaselineRecord, psData->iSnapshotRecord);
 
   /*-
    *********************************************************************

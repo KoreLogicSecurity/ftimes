@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+# $Id: test_harness.local,v 1.3 2008/07/16 04:14:17 mavrik Exp $
 #
 ######################################################################
 
@@ -26,6 +26,8 @@ sub CreateConfig
   my $sAnalyzeCarrySize = "";
   my $sCompress = "";
   my $sDigString = "";
+  my $sEnableRecursion = "";
+  my $sExcludeFilter = "";
   my $sFieldMask = "";
 
   if (defined($$phProperties{'BlockSize'}) && $$phProperties{'BlockSize'} ne "default")
@@ -48,6 +50,14 @@ sub CreateConfig
   {
     $sFieldMask = "FieldMask=$$phProperties{'FieldMask'}";
   }
+  if (defined($$phProperties{'EnableRecursion'}))
+  {
+    $sEnableRecursion = "EnableRecursion=$$phProperties{'EnableRecursion'}";
+  }
+  if (defined($$phProperties{'ExcludeFilter'}))
+  {
+    $sExcludeFilter = "ExcludeFilter=$$phProperties{'ExcludeFilter'}";
+  }
 
   if (!open(CH, "> $sFile"))
   {
@@ -63,6 +73,8 @@ $sAnalyzeBlockSize
 $sAnalyzeCarrySize
 $sCompress
 $sDigString
+$sEnableRecursion
+$sExcludeFilter
 $sFieldMask
 EOF
 
@@ -101,7 +113,9 @@ sub GetToolVersion
   while (my $sLine = <PH>)
   {
     $sLine =~ s/[\r\n]*$//;
-    if ($sLine =~ /^(ftimes \d+\.\d+\.\d+ .* ?(?:32|64)[ -]bit)$/)
+# FIXME Migrate to this once the old version scheme is no longer used/needed.
+#   if ($sLine =~ /^(ftimes \d+\.\d+\.\d+ (?:32|64)[ -]bit.*)$/) # This is for FTimes 3.9.0 (ds0) and up.
+    if ($sLine =~ /^(ftimes \d+\.\d+\.\d+ .* ?(?:32|64)[ -]bit.*)$/) # This supports legacy versions.
     {
       $sVersion = $1;
     }

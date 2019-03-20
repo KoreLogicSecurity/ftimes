@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: tarmap.h,v 1.3 2007/02/23 00:22:44 mavrik Exp $
+ * $Id: tarmap.h,v 1.26 2012/01/04 03:12:40 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2007 The FTimes Project, All Rights Reserved.
+ * Copyright 2005-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -18,7 +18,7 @@
  ***********************************************************************
  */
 #define PROGRAM_NAME "tarmap"
-#define VERSION "1.1.0"
+#define VERSION "1.1.12"
 
 #define ER -1
 #define ER_OK 0
@@ -30,13 +30,22 @@
 #define XER_WorkHorse 4
 #define XER_RunMode 5
 
+#define TARMAP_NAME_SIZE 100
+#define TARMAP_PREFIX_SIZE 155
 #define TARMAP_READ_SIZE 8192
 #define TARMAP_UNIT_SIZE 512
 
 #define TARMAP_MAP 0x00000001
 
-#define TAR_MAGIC "ustar" /* ustar and a null */
+#define TARMAP_MAX_PATH 4096
+
+#define TAR_TYPE_POSIX 0
+#define TAR_TYPE_OLD_GNU 1
+
+#define TAR_MAGIC "ustar\0"
 #define TAR_MAGIC_LENGTH 6
+#define TAR_OLD_GNU_MAGIC "ustar "
+#define TAR_OLD_GNU_MAGIC_LENGTH 6
 #define TAR_VERSION "00" /* 00 and no null */
 #define TAR_VERSION_LENGTH 2
 
@@ -84,9 +93,7 @@ typedef struct _TAR_HEADER
   char                gname[32];               /*         297 */
   char                devmajor[8];             /*         329 */
   char                devminor[8];             /*         337 */
-  char                prefix[131];             /*         345 */
-  char                atime[12];               /*         476 */
-  char                ctime[12];               /*         488 */
+  char                prefix[155];             /*         345 */
                                                /*         500 */
 } TAR_HEADER;
 
@@ -98,6 +105,7 @@ typedef struct _TARMAP_PROPERTIES
   int                 iNullHeaderCount;
   int                 iRuntHeaderCount;
   int                 iRunMode;
+  int                 iTarType;
   unsigned char      *pucTarFileHeader;
   unsigned char      *pucTarNullHeader;
 } TARMAP_PROPERTIES;
@@ -113,9 +121,11 @@ int                 TarMapBootStrap(char *pcError);
 void                TarMapFreeProperties(TARMAP_PROPERTIES *psProperties);
 TARMAP_PROPERTIES  *TarMapGetPropertiesReference(void);
 TARMAP_PROPERTIES  *TarMapNewProperties(char *pcError);
+char               *TarMapNeuterString(char *pcData, int iLength, char *pcError);
 int                 TarMapProcessArguments(int iArgumentCount, char *ppcArgumentVector[], TARMAP_PROPERTIES *psProperties, char *pcError);
 int                 TarMapReadHeader(FILE *pFile, unsigned char *pucHeader, char *pcError);
-int                 TarMapReadPadding(FILE *pFile, unsigned long ulSize, char *pcError);
+char               *TarMapReadLongName(FILE *pFile, APP_UI64 ui64Size, char *pcError);
+int                 TarMapReadPadding(FILE *pFile, APP_UI64 ui64Size, char *pcError);
 void                TarMapSetPropertiesReference(TARMAP_PROPERTIES *psProperties);
 void                TarMapShutdown(int iError);
 void                TarMapUsage(void);

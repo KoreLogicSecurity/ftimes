@@ -1,0 +1,17 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${DESTDIR}${PREFIX}/cgi/cgi-client
+
+TARGET=nph-ftimes.cgi
+
+include ${PROJECT_ROOT}/Mk/common-src-perl.mk
+

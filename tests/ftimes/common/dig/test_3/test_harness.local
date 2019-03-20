@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+# $Id: test_harness.local,v 1.2 2008/05/18 01:52:27 mavrik Exp $
 #
 ######################################################################
 
@@ -32,6 +32,7 @@ sub GetTestNumber
     1 => "1_byte_regexp",
     2 => "2_byte_regexp",
     3 => "abc123_regexp",
+    4 => "abcdef_with_backrefs_regexp",
   );
 
 
@@ -48,6 +49,7 @@ sub GetTestNumber
     '1_byte_regexp'    => "tests regexp dig offsets for '[\\x00-\\xff]' using variable blocksize/carrysize",
     '2_byte_regexp'    => "tests regexp dig offsets for '[\\x00-\\xff]{2}' using variable blocksize/carrysize",
     'abc123_regexp'    => "tests regexp dig offsets for '(?i)(abc123)' using variable blocksize/carrysize",
+    'abcdef_with_backrefs_regexp' => "tests regexp dig offsets for '(?i)(a([\\x20-]?)b\\2c([;|]?)d([.,]?)e\\4f)' using variable blocksize/carrysize",
   );
 
 

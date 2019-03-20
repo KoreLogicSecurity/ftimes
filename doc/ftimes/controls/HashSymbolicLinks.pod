@@ -1,6 +1,6 @@
 =item B<HashSymbolicLinks>: [Y|N]
 
-Applies to B<mapfull> and B<maplean>.
+Applies to B<mad>, and B<map>.
 
 B<HashSymbolicLinks> is optional.  When enabled ('Y' or 'y'), it
 instructs B<FTimes> to compute digests for symbolic links.  This

@@ -1,0 +1,31 @@
+######################################################################
+#
+# $Id: common-etc-conf.mk.in,v 1.1 2012/05/05 22:49:46 mavrik Exp $
+#
+######################################################################
+#
+# Purpose: Common Makefile guts for config files.
+#
+######################################################################
+
+INSTALL_MODE?=644
+
+all: ${TARGET}
+
+clean:
+	@rm -f ${TARGET}
+
+clean-all: clean
+	@rm -f Makefile
+
+install-prefix:
+	@umask 22 ; if [ ! -d ${INSTALL_PREFIX} ] ; then mkdir -p ${INSTALL_PREFIX} ; fi
+
+install: ${TARGET} install-prefix
+	@if [ -f ${SRCDIR}/${TARGET} ] ; then file=${SRCDIR}/${TARGET} ; else file=${TARGET} ; fi ; \
+	${INSTALL} -m ${INSTALL_MODE} $${file} ${INSTALL_PREFIX}
+
+test:
+
+include ${PROJECT_ROOT}/Mk/common.mk
+

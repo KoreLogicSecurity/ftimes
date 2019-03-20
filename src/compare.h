@@ -1,14 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.h,v 1.20 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: compare.h,v 1.31 2012/01/04 03:12:27 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _COMPARE_H_INCLUDED
+#define _COMPARE_H_INCLUDED
 
 /*-
  ***********************************************************************
@@ -43,6 +45,8 @@ typedef struct _CMP_DATA
 {
   char                cCategory;
   char               *pcRecord;
+  int                 iBaselineRecord;
+  int                 iSnapshotRecord;
   unsigned long       ulChangedMask;
   unsigned long       ulUnknownMask;
 } CMP_DATA;
@@ -52,21 +56,20 @@ typedef struct _CMP_NODE
   unsigned char       aucHash[MD5_HASH_SIZE];
   char               *pcData;
   int                 iFound;
+  int                 iLineNumber;
   int                 iNextIndex;
+  int                 iOffset;
 } CMP_NODE;
 
 typedef struct _CMP_PROPERTIES
 {
   char                acNewLine[NEWLINE_LENGTH];
+  char               *pcMemoryMapFile;
   CMP_NODE           *psBaselineNodes;
-#ifdef USE_SNAPSHOT_COLLISION_DETECTION
-  CMP_NODE           *psSnapshotNodes;
-#endif
   FILE               *pFileOut;
   int                 aiBaselineKeys[CMP_MODULUS];
-#ifdef USE_SNAPSHOT_COLLISION_DETECTION
-  int                 aiSnapshotKeys[CMP_MODULUS];
-#endif
+  int                 iMemoryMapFile;
+  int                 iMemoryMapSize;
   MASK_USS_MASK      *psCompareMask;
   unsigned long       ulCompareMask;
   unsigned long       ulAnalyzed;
@@ -75,6 +78,7 @@ typedef struct _CMP_PROPERTIES
   unsigned long       ulNew;
   unsigned long       ulUnknown;
   unsigned long       ulCrossed;
+  void               *pvMemoryMap;
 } CMP_PROPERTIES;
 
 /*-
@@ -108,7 +112,10 @@ int                 CompareGetUnknownCount(void);
 //int               CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError); /* This is declared in ftimes.h */
 CMP_PROPERTIES     *CompareNewProperties(char *pcError);
 void                CompareSetNewLine(char *pcNewLine);
+void                CompareSetNodeData(int *piKeys, CMP_NODE *psNodes, void *pvBaseAddress);
 void                CompareSetOutputStream(FILE *pFile);
 void                CompareSetPropertiesReference(CMP_PROPERTIES *psProperties);
 int                 CompareWriteHeader(FILE *pFile, char *pcNewLine, char *pcError);
 int                 CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError);
+
+#endif /* !_COMPARE_H_INCLUDED */

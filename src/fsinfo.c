@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.29 2007/03/23 03:09:48 mavrik Exp $
+ * $Id: fsinfo.c,v 1.49 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -16,6 +16,9 @@
  *
  * Platform independent list of file systems.
  *
+ * NOTE: The order of the items in this array must match that of the
+ *       eFSTypes enumeration in fsinfo.h.
+ *
  ***********************************************************************
  */
 char                gaacFSType[][FSINFO_MAX_STRING] =
@@ -23,14 +26,18 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "UNSUPPORTED",
   "AIX",
   "CDFS",
+  "CIFS",
+  "CRAMFS",
   "DATAPLOW_ZFS",
   "DEVFS",
   "EXT2",
   "FAT",
   "FAT_Remote",
   "FFS",
+  "GETDATAFS",
   "HFS",
   "JFS",
+  "MINIX",
   "NA",
   "NFS",
   "NFS3",
@@ -41,15 +48,19 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "NWCOMPAT_Remote",
   "NWFS",
   "NWFS_Remote",
+  "PTS",
   "RAMFS",
   "REISER",
   "SMB",
   "TMPFS",
   "UDF",
   "UFS",
+  "UFS2",
   "VXFS",
   "VZFS",
-  "XFS"
+  "XFS",
+  "YAFFS",
+  "ZFS"
 };
 
 
@@ -92,6 +103,9 @@ GetFileSystemType(char *pcPath, char *pcError)
     case MNT_CDROM:
       return FSTYPE_CDFS;
       break;
+    case MNT_VXFS:
+      return FSTYPE_VXFS;
+      break;
     case MNT_SFS:
     case MNT_CACHEFS:
     case MNT_AUTOFS:
@@ -128,11 +142,20 @@ GetFileSystemType(char *pcPath, char *pcError)
   {
     switch(sStatFS.f_type)
     {
+    case CIFS_SUPER_MAGIC:
+      return FSTYPE_CIFS;
+      break;
+    case CRAMFS_SUPER_MAGIC:
+      return FSTYPE_CRAMFS;
+      break;
     case MSDOS_SUPER_MAGIC:
       return FSTYPE_FAT;
       break;
     case UFS_MAGIC:
       return FSTYPE_UFS;
+      break;
+    case UFS2_MAGIC:
+      return FSTYPE_UFS2;
       break;
     case EXT2_SUPER_MAGIC:
     case EXT2_OLD_SUPER_MAGIC:
@@ -147,17 +170,29 @@ GetFileSystemType(char *pcPath, char *pcError)
     case NTFS3G_SUPER_MAGIC:
       return FSTYPE_NTFS3G;
       break;
+    case PTS_SUPER_MAGIC:
+      return FSTYPE_PTS;
+      break;
     case REISERFS_SUPER_MAGIC:
       return FSTYPE_REISER;
       break;
     case SMB_SUPER_MAGIC:
       return FSTYPE_SMB;
       break;
+    case JFS_SUPER_MAGIC:
+      return FSTYPE_JFS;
+      break;
+    case MINIX_SUPER_MAGIC:
+      return FSTYPE_MINIX;
+      break;
     case ISOFS_SUPER_MAGIC:
       return FSTYPE_CDFS;
       break;
     case TMPFS_SUPER_MAGIC:
       return FSTYPE_TMPFS;
+      break;
+    case VXFS_SUPER_MAGIC:
+      return FSTYPE_VXFS;
       break;
     case VZFS_SUPER_MAGIC:
       return FSTYPE_VZFS;
@@ -167,6 +202,12 @@ GetFileSystemType(char *pcPath, char *pcError)
       break;
     case XFS_SUPER_MAGIC:
       return FSTYPE_XFS;
+      break;
+    case UDF_SUPER_MAGIC:
+      return FSTYPE_UDF;
+      break;
+    case YAFFS_SUPER_MAGIC:
+      return FSTYPE_YAFFS;
       break;
     default:
       snprintf(pcError, MESSAGE_SIZE, "%s: FileSystem = [0x%lx]: Unsupported file system.", acRoutine, (long) sStatFS.f_type);
@@ -285,6 +326,10 @@ GetFileSystemType(char *pcPath, char *pcError)
     {
       return FSTYPE_DEVFS;
     }
+    else if (strstr(acFSName, "ZFS") != NULL)
+    {
+      return FSTYPE_ZFS;
+    }
     else
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: FileSystem = [%s]: Unsupported file system.", acRoutine, acFSName);
@@ -340,13 +385,6 @@ GetFileSystemType(char *pcPath, char *pcError)
   }
   else
   {
-    if (GetFileAttributes(pcPath) == 0xffffffff)
-    {
-      ErrorFormatWin32Error(&pcMessage);
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, pcMessage);
-      return ER;
-    }
-
     if (!GetVolumeInformation(acRootPath, NULL, 0, NULL, NULL, NULL, acFSName, sizeof(acFSName) - 1))
     {
       ErrorFormatWin32Error(&pcMessage);
@@ -386,6 +424,10 @@ GetFileSystemType(char *pcPath, char *pcError)
     else if (strstr(acFSName, "DATAPLOW_ZFS") != NULL)
     {
       return FSTYPE_DATAPLOW_ZFS;
+    }
+    else if (strstr(acFSName, "GETDATAFS") != NULL)
+    {
+      return FSTYPE_GETDATAFS;
     }
     else if (strstr(acFSName, "NWCOMPAT") != NULL && uiDriveType == DRIVE_REMOTE)
     {

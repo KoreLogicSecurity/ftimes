@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.8 2006/07/14 01:09:45 mavrik Exp $
+# $Id: test_harness.local,v 1.11 2008/05/19 00:10:41 mavrik Exp $
 #
 ######################################################################
 
@@ -45,6 +45,20 @@ sub FillFile
       }
     }
   }
+  elsif ($sPattern =~ /^fill_4_byte_loop$/)
+  {
+    for (my $sValue = 0; $sValue < $sCount; $sValue++)
+    {
+      my $sHHByte = pack("C", ((($sValue % 4294967296) >> 24) & 0xff));
+      my $sHLByte = pack("C", ((($sValue % 4294967296) >> 16) & 0xff));
+      my $sLHByte = pack("C", ((($sValue % 4294967296) >>  8) & 0xff));
+      my $sLLByte = pack("C", ((($sValue % 4294967296) >>  0) & 0xff));
+      if (!print(FH $sHHByte, $sHLByte, $sLHByte, $sLLByte))
+      {
+        return undef;
+      }
+    }
+  }
   else
   {
     my $sValue = $sPattern;
@@ -54,6 +68,68 @@ sub FillFile
     }
   }
   close(FH);
+}
+
+
+######################################################################
+#
+# FTimesUrlDecode
+#
+######################################################################
+
+sub FTimesUrlDecode
+{
+  my ($sData) = @_;
+  $sData =~ s/\+/ /sg;
+  $sData =~ s/%([0-9a-fA-F]{2})/pack('C', hex($1))/seg;
+  return $sData;
+}
+
+
+######################################################################
+#
+# FTimesUrlEncode (Implements the actual URL encoding used by FTimes)
+#
+######################################################################
+
+sub FTimesUrlEncode
+{
+  my ($sData) = @_;
+
+  $sData =~ s/([\x00-\x1f\x7f-\xff|"'`%+#])/sprintf("%%%02x", unpack('C',$1))/seg;
+  $sData =~ s/ /+/sg;
+
+  return $sData;
+}
+
+
+######################################################################
+#
+# UrlDecode
+#
+######################################################################
+
+sub UrlDecode
+{
+  my ($sData) = @_;
+  $sData =~ s/\+/ /sg;
+  $sData =~ s/%([0-9a-fA-F]{2})/pack('C', hex($1))/seg;
+  return $sData;
+}
+
+
+######################################################################
+#
+# UrlEncode
+#
+######################################################################
+
+sub UrlEncode
+{
+  my ($sData) = @_;
+  $sData =~ s/([^ -\$&-*,-{}~])/sprintf("%%%02x", unpack('C', $1))/seg;
+  $sData =~ s/ /+/sg;
+  return $sData;
 }
 
 1;

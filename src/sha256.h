@@ -1,14 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: sha256.h,v 1.3 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: sha256.h,v 1.12 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2006-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2006-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _SHA256_H_INCLUDED
+#define _SHA256_H_INCLUDED
 
 /*-
  ***********************************************************************
@@ -70,16 +72,16 @@
  */
 typedef struct _SHA256_CONTEXT
 {
-  K_UINT32            A;
-  K_UINT32            B;
-  K_UINT32            C;
-  K_UINT32            D;
-  K_UINT32            E;
-  K_UINT32            F;
-  K_UINT32            G;
-  K_UINT32            H;
-  K_UINT64            ui64MessageLength;
-  K_UINT32            ui32ResidueLength;
+  APP_UI32            A;
+  APP_UI32            B;
+  APP_UI32            C;
+  APP_UI32            D;
+  APP_UI32            E;
+  APP_UI32            F;
+  APP_UI32            G;
+  APP_UI32            H;
+  APP_UI64            ui64MessageLength;
+  APP_UI32            ui32ResidueLength;
   unsigned char       aucResidue[SHA256_HUNK_SIZE];
 } SHA256_CONTEXT;
 
@@ -92,9 +94,11 @@ typedef struct _SHA256_CONTEXT
  */
 int                   SHA256HashToBase64(unsigned char *pucHash, char *pcBase64Hash);
 int                   SHA256HashToHex(unsigned char *pucHash, char *pcHexHash);
-int                   SHA256HashStream(FILE *pFile, unsigned char *pucSHA256);
+int                   SHA256HashStream(FILE *pFile, unsigned char *pucSHA256, APP_UI64 *pui64Size);
 void                  SHA256HashString(unsigned char *pucData, int iLength, unsigned char *pucSHA256);
 void                  SHA256Alpha(SHA256_CONTEXT *psSHA256);
-void                  SHA256Cycle(SHA256_CONTEXT *psSHA256, unsigned char *pucData, K_UINT32 ui32Length);
+void                  SHA256Cycle(SHA256_CONTEXT *psSHA256, unsigned char *pucData, APP_UI32 ui32Length);
 void                  SHA256Omega(SHA256_CONTEXT *psSHA256, unsigned char *pucSHA256);
 void                  SHA256Grind(SHA256_CONTEXT *psSHA256, unsigned char *pucData);
+
+#endif /* !_SHA256_H_INCLUDED */

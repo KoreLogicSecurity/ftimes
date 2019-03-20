@@ -1,0 +1,371 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.8 2010/01/22 02:56:44 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "7";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "no_recursion_via_ExcludeFilter",
+    2 => "no_recursion_via_EnableRecursion",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'no_recursion_via_ExcludeFilter'   => "tests no recursion via ExcludeFilter control",
+    'no_recursion_via_EnableRecursion' => "tests no recursion via EnableRecursion control",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+    'RecursionDepths' => [0..2],
+  );
+
+
+######################################################################
+#
+# TestGroup_no_recursion_via_EnableRecursion
+#
+######################################################################
+
+sub Hitch_no_recursion_via_EnableRecursion
+{
+  1;
+}
+
+
+sub Check_no_recursion_via_EnableRecursion
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my $phTestProperties = GetTestProperties();
+
+  ####################################################################
+  #
+  # The triples format is: depth, include, and target line count.
+  #
+  ####################################################################
+
+  my @aTriples =
+  (
+    "1:$sFile/dir_1:8",
+    "2:$sFile/dir_1/dir_2:8",
+    "3:$sFile/dir_1/dir_2/dir_3:2",
+  );
+
+  foreach my $sTriple (@aTriples)
+  {
+    my $sCommand;
+    my ($sDepth, $sInclude, $sTargetLineCount) = split(/:/, $sTriple, -1);
+
+    if (!CreateConfig("_config", { 'FieldMask' => "none", 'EnableRecursion' => "N" }))
+    {
+      return "fail";
+    }
+
+    ##################################################################
+    #
+    # For MinGW on WINX platforms, the redirection (i.e., '2>&1')
+    # causes the following error when UNIX path separators are used:
+    #
+    #   '..' is not recognized as an internal or external command,
+    #   operable program or batch file.
+    #
+    # To prevent this, the path separators must be switched.
+    #
+    ##################################################################
+
+    $sCommand = "$$phProperties{'TargetProgram'} --map _config -l 6 $sInclude 2>&1";
+    if ($$phProperties{'OsClass'} eq "WINDOWS")
+    {
+      $sCommand =~ s,/,\\,g;
+    }
+
+    DebugPrint(3, "Command=$sCommand");
+
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = ();
+    while (my $sLine = <PH>)
+    {
+      if ($$phProperties{'OsClass'} eq "WINDOWS")
+      {
+        $sLine =~ s/\r//g;  # Remove carriage returns.
+        $sLine =~ s,\\,/,g; # Change WINX-style path separators into UNIX-stype path separators.
+      }
+      $sLine =~ s,^".*($sFile.*")$,"$1,;
+      push(@aLines, $sLine);
+    }
+    close(PH);
+
+    DebugPrint(4, "TargetLineCount=$sTargetLineCount");
+    if (scalar(@aLines) != $sTargetLineCount)
+    {
+      DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+      return "fail";
+    }
+# NOTE: The following sort is required to fix an issue on Fedora Core 6
+#       where the output may not be generated in the expected order.
+    my $sActualOutput = join("", sort(@aLines));
+    my $sTargetOutput = "";
+    if ($sDepth == 3)
+    {
+# NOTE: See above. This output matches what the sort should yield.
+      $sTargetOutput = <<EOF;
+"$sInclude"
+name
+EOF
+    }
+    else
+    {
+# NOTE: See above. This output matches what the sort should yield.
+      $sTargetOutput = <<EOF;
+"$sInclude"
+"$sInclude/dir_1"
+"$sInclude/dir_2"
+"$sInclude/dir_3"
+"$sInclude/file_1"
+"$sInclude/file_2"
+"$sInclude/file_3"
+name
+EOF
+    }
+    DebugPrint(4, "TargetOutput=$sTargetOutput");
+    if ($sActualOutput ne $sTargetOutput)
+    {
+      DebugPrint(4, "ActualOutput=$sActualOutput");
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_no_recursion_via_EnableRecursion
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  rmtree($sFile, 0, 0);
+
+  return "pass";
+}
+
+
+sub Setup_no_recursion_via_EnableRecursion
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  (my $sTreeBuilder = $0) =~ s/test_harness/tree_builder/;
+
+  qx(perl $sTreeBuilder -M -D2 -d3 -f3 -o $sFile);
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_no_recursion_via_ExcludeFilter
+#
+######################################################################
+
+sub Hitch_no_recursion_via_ExcludeFilter
+{
+  1;
+}
+
+
+sub Check_no_recursion_via_ExcludeFilter
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my $phTestProperties = GetTestProperties();
+
+  ####################################################################
+  #
+  # The triples format is: depth, include, and expression type.
+  #
+  ####################################################################
+
+  my @aTriples =
+  (
+    "1:$sFile/dir_1:child_regex",
+    "1:$sFile/dir_1:depth_regex",
+    "2:$sFile/dir_1/dir_2:child_regex",
+    "2:$sFile/dir_1/dir_2:depth_regex",
+    "3:$sFile/dir_1/dir_2/dir_3:child_regex",
+    "3:$sFile/dir_1/dir_2/dir_3:depth_regex",
+  );
+
+  foreach my $sTriple (@aTriples)
+  {
+    my $sCommand;
+    my ($sDepth, $sInclude, $sExpressionType) = split(/:/, $sTriple, -1);
+
+    (my $sUniversalInclude = $sInclude) =~ s,/,[\\\\/],g;
+    (my $sUniversalFile = $sFile) =~ s,/,[\\\\/],g;
+    my $sExcludeFilter = ($sExpressionType eq "child_regex") ? ($sUniversalInclude . "[\\\\/][^\\\\/]+[\\\\/]") : ($sUniversalFile . "[\\\\/](?:[^\\\\/]+[\\\\/]){" . ($sDepth + 1) . "}");
+
+    if (!CreateConfig("_config", { 'FieldMask' => "none", 'ExcludeFilter' => "$sExcludeFilter" }))
+    {
+      return "fail";
+    }
+
+    ##################################################################
+    #
+    # For MinGW on WINX platforms, the redirection (i.e., '2>&1')
+    # causes the following error when UNIX path separators are used:
+    #
+    #   '..' is not recognized as an internal or external command,
+    #   operable program or batch file.
+    #
+    # To prevent this, the path separators must be switched.
+    #
+    ##################################################################
+
+    $sCommand = "$$phProperties{'TargetProgram'} --map _config -l 6 $sInclude 2>&1";
+    if ($$phProperties{'OsClass'} eq "WINDOWS")
+    {
+      $sCommand =~ s,/,\\,g;
+    }
+
+    DebugPrint(3, "Command=$sCommand");
+
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = ();
+    while (my $sLine = <PH>)
+    {
+      if ($$phProperties{'OsClass'} eq "WINDOWS")
+      {
+        $sLine =~ s/\r//g;  # Remove carriage returns.
+        $sLine =~ s,\\,/,g; # Change WINX-style path separators into UNIX-stype path separators.
+      }
+      $sLine =~ s/^".*($sFile.*")$/"$1/;
+      push(@aLines, $sLine);
+    }
+    close(PH);
+# NOTE: The following sort is required to fix an issue on Fedora Core 6
+#       where the output may not be generated in the expected order.
+    my $sActualOutput = join("", sort(@aLines));
+    my $sTargetOutput = "";
+    if ($sDepth == 3)
+    {
+# NOTE: See above. This output matches what the sort should yield.
+      $sTargetOutput = <<EOF;
+"$sInclude"
+name
+EOF
+    }
+    else
+    {
+# NOTE: See above. This output matches what the sort should yield.
+      $sTargetOutput = <<EOF;
+"$sInclude"
+"$sInclude/dir_1"
+"$sInclude/dir_2"
+"$sInclude/dir_3"
+"$sInclude/file_1"
+"$sInclude/file_2"
+"$sInclude/file_3"
+name
+EOF
+    }
+    DebugPrint(4, "TargetOutput=$sTargetOutput");
+    if ($sActualOutput ne $sTargetOutput)
+    {
+      DebugPrint(4, "ActualOutput=$sActualOutput");
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_no_recursion_via_ExcludeFilter
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  rmtree($sFile, 0, 0);
+
+  return "pass";
+}
+
+
+sub Setup_no_recursion_via_ExcludeFilter
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  (my $sTreeBuilder = $0) =~ s/test_harness/tree_builder/;
+
+  qx(perl $sTreeBuilder -M -D2 -d3 -f3 -o $sFile);
+
+  return "pass";
+}
+
+1;

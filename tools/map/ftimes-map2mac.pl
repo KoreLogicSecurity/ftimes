@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-map2mac.pl,v 1.19 2007/02/23 00:22:36 mavrik Exp $
+# $Id: ftimes-map2mac.pl,v 1.26 2012/01/04 03:12:40 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2012 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -165,13 +165,13 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Windows flag, '-w', is optional.
+  # The WINX flag, '-w', is optional.
   #
   ####################################################################
 
-  my ($sWindows);
+  my ($sWinx);
 
-  $sWindows = (exists($hOptions{'w'})) ? 1 : 0;
+  $sWinx = (exists($hOptions{'w'})) ? 1 : 0;
 
   ####################################################################
   #
@@ -238,7 +238,7 @@ use Getopt::Std;
       $sHmsIndex = $sIndex;
     }
   }
-  if ($sWindows)
+  if ($sWinx)
   {
     if (
          !defined($sNIndex) ||
@@ -293,7 +293,7 @@ use Getopt::Std;
 
   my (%hUnique);
 
-  if ($sWindows)
+  if ($sWinx)
   {
     while (my $sLine = <$sFileHandle>)
     {
@@ -482,8 +482,8 @@ program to read from stdin.
 =item B<-m>
 
 Causes milliseconds to be included in the timeline. This option is
-specific to Windows NT/2K map data, and it is silently ignored if
-C<-w> is not specified also.
+specific to WINX map data, and it is silently ignored if C<-w> is not
+specified also.
 
 =item B<-q>
 
@@ -508,7 +508,7 @@ variable, or /tmp if TMPDIR is not set.
 
 =item B<-w>
 
-Enables support for Windows NT/2K map data.
+Enables support for WINX map data.
 
 =back
 
@@ -522,7 +522,7 @@ ftimes(1)
 
 =head1 LICENSE
 
-All documentation and code is distributed under same terms and
+All documentation and code are distributed under same terms and
 conditions as FTimes.
 
 =cut

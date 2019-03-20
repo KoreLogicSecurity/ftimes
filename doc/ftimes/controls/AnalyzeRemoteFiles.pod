@@ -1,6 +1,6 @@
 =item B<AnalyzeRemoteFiles>: [Y|N]
 
-Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<AnalyzeRemoteFiles> is optional.  When enabled ('Y' or 'y'), it
 instructs B<FTimes> to ignore the fact that a given B<Include> does

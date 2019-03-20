@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: mask.c,v 1.10 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: mask.c,v 1.20 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2005-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -53,6 +53,9 @@ static MASK_B2S_TABLE gasCmpMaskTable[] =
   { "sha1",       1 },
   { "sha256",     1 },
   { "magic",      1 },
+  { "osid",       1 },
+  { "gsid",       1 },
+  { "dacl",       1 },
 };
 
 #ifdef WIN32
@@ -71,6 +74,9 @@ static MASK_B2S_TABLE gasMapMaskTable[] =
   { "sha1",       1 },
   { "sha256",     1 },
   { "magic",      1 },
+  { "osid",       1 },
+  { "gsid",       1 },
+  { "dacl",       1 },
 };
 #else
 static MASK_B2S_TABLE gasMapMaskTable[] =
@@ -302,7 +308,7 @@ MASK_USS_MASK *
 MaskParseMask(char *pcMask, int iType, char *pcError)
 {
   const char          acRoutine[] = "MaskParseMask()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                cLastAction = 0;
   char                cNextAction = 0;
   char               *pcTemp = NULL;
@@ -412,12 +418,6 @@ MaskParseMask(char *pcMask, int iType, char *pcError)
     break;
   case 0:
     psMask->ulMask &= ulAllMask;
-    if (iType == MASK_RUNMODE_TYPE_CMP && psMask->ulMask == 0)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: CompareMask = [%s]: Mask must include at least one field (e.g., none+md5).", acRoutine, psMask->pcMask);
-      MaskFreeMask(psMask);
-      return NULL;
-    }
     return psMask;
     break;
   default:
@@ -622,7 +622,7 @@ int
 MaskSetMask(MASK_USS_MASK *psMask, char *pcMask, char *pcError)
 {
   const char          acRoutine[] = "MaskSetMask()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
 
   if (psMask == NULL)

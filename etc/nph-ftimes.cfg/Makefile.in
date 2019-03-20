@@ -1,0 +1,24 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SERVER_PREFIX=@server_prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${DESTDIR}${SERVER_PREFIX}/config/nph-ftimes
+
+TARGET=nph-ftimes.cfg.sample
+
+TARGET_BASE=nph-ftimes.cfg.base
+
+${TARGET}: ${TARGET_BASE}
+	@perl -p -e ';' < ${SRCDIR}/${TARGET_BASE} > $@
+
+include ${PROJECT_ROOT}/Mk/common-etc-conf.mk
+

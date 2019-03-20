@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: map.c,v 1.57 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: map.c,v 1.99 2012/05/03 03:35:46 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -20,6 +20,513 @@ static int giStreams;
 
 static int giRecords;
 static int giIncompleteRecords;
+
+/*-
+ ***********************************************************************
+ *
+ * MapDirHashAlpha
+ *
+ ***********************************************************************
+ */
+void
+MapDirHashAlpha(FTIMES_PROPERTIES *psProperties, FTIMES_HASH_DATA *psFTHashData)
+{
+  /*-
+   *********************************************************************
+   *
+   * Conditionally start directory hashes.
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  {
+    MD5Alpha(&psFTHashData->sMd5Context);
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+  {
+    SHA1Alpha(&psFTHashData->sSha1Context);
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+  {
+    SHA256Alpha(&psFTHashData->sSha256Context);
+  }
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * MapDirHashCycle
+ *
+ ***********************************************************************
+ */
+void
+MapDirHashCycle(FTIMES_PROPERTIES *psProperties, FTIMES_HASH_DATA *psFTHashData, FTIMES_FILE_DATA *psFTFileData)
+{
+  /*-
+   *********************************************************************
+   *
+   * Conditionally update directory hashes. If the current file was
+   * not hashed (e.g., because it's a special file or it could not be
+   * opened), then its default hash value (all zeros) is folded into
+   * the aggregate directory hash.
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  {
+    MD5Cycle(&psFTHashData->sMd5Context, psFTFileData->aucFileMd5, MD5_HASH_SIZE);
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+  {
+    SHA1Cycle(&psFTHashData->sSha1Context, psFTFileData->aucFileSha1, SHA1_HASH_SIZE);
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+  {
+    SHA256Cycle(&psFTHashData->sSha256Context, psFTFileData->aucFileSha256, SHA256_HASH_SIZE);
+  }
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * MapDirHashOmega
+ *
+ ***********************************************************************
+ */
+void
+MapDirHashOmega(FTIMES_PROPERTIES *psProperties, FTIMES_HASH_DATA *psFTHashData, FTIMES_FILE_DATA *psFTFileData)
+{
+  /*-
+   *********************************************************************
+   *
+   * Conditionally complete directory hashes.
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  {
+    MD5Omega(&psFTHashData->sMd5Context, psFTFileData->aucFileMd5);
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+  {
+    SHA1Omega(&psFTHashData->sSha1Context, psFTFileData->aucFileSha1);
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+  {
+    SHA256Omega(&psFTHashData->sSha256Context, psFTFileData->aucFileSha256);
+  }
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * MapDirname
+ *
+ ***********************************************************************
+ */
+char *
+MapDirname(char *pcPath)
+{
+  static char         acDirname[FTIMES_MAX_PATH] = "";
+  int                 n = 0;
+  int                 iLength = 0;
+  int                 iIndex = 0;
+
+  /*-
+   *********************************************************************
+   *
+   * Return "." for NULL or empty paths.
+   *
+   *********************************************************************
+   */
+  if (pcPath == NULL || pcPath[0] == 0 || iLength > FTIMES_MAX_PATH)
+  {
+    acDirname[n++] = '.';
+    acDirname[n] = 0;
+    return acDirname;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Set errno and return NULL for paths that are too long.
+   *
+   *********************************************************************
+   */
+  iLength = iIndex = strlen(pcPath);
+  if (iLength > FTIMES_MAX_PATH)
+  {
+    errno = ENAMETOOLONG;
+    return NULL;
+  }
+  iIndex--;
+
+  /*-
+   *********************************************************************
+   *
+   * Backup over trailing slashes.
+   *
+   *********************************************************************
+   */
+  while (iIndex > 0 && pcPath[iIndex] == FTIMES_SLASHCHAR)
+  {
+    iIndex--;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Backup until the next slash is found or nothing is left.
+   *
+   *********************************************************************
+   */
+  while (iIndex > 0 && pcPath[iIndex] != FTIMES_SLASHCHAR)
+  {
+    iIndex--;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Return "." if the index is zero and the path does not start with
+   * a drive letter or a slash. Otherwise, return the drive letter or
+   * slash. If the index is greater than zero, keep backing up until
+   * there are no more trailing slashes.
+   *
+   *********************************************************************
+   */
+  if (iIndex == 0)
+  {
+#ifdef WIN32
+    if (iLength >= 2 && isalpha(pcPath[0]) && pcPath[1] == ':')
+    {
+      acDirname[n++] = pcPath[0];
+      acDirname[n++] = pcPath[1];
+      acDirname[n++] = FTIMES_SLASHCHAR;
+    }
+    else
+#endif
+    if (pcPath[iIndex] == FTIMES_SLASHCHAR)
+    {
+      acDirname[n++] = FTIMES_SLASHCHAR;
+    }
+    else
+    {
+      acDirname[n++] = '.';
+    }
+    acDirname[n] = 0;
+    return acDirname;
+  }
+  else
+  {
+    while (--iIndex > 0 && pcPath[iIndex] == FTIMES_SLASHCHAR);
+  }
+  iLength = iIndex + 1;
+
+  /*-
+   *********************************************************************
+   *
+   * Return anything that's left.
+   *
+   *********************************************************************
+   */
+  strncpy(acDirname, pcPath, iLength);
+#ifdef WIN32
+  if (iLength == 2)
+  {
+    acDirname[iLength++] = FTIMES_SLASHCHAR;
+  }
+#endif
+  acDirname[iLength] = 0;
+
+  return acDirname;
+}
+
+
+#ifdef USE_FILE_HOOKS
+/*-
+ ***********************************************************************
+ *
+ * MapExecuteHook
+ *
+ ***********************************************************************
+ */
+int
+MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, char *pcError)
+{
+  const char          acRoutine[] = "MapExecuteHook()";
+#define PIPE_READ_SIZE 8192
+  char                acData[PIPE_READ_SIZE] = "";
+  char                acMessage[MESSAGE_SIZE] = "";
+  fd_set              sFdReadSet;
+  fd_set              sFdSaveSet;
+  HOOK_LIST          *psHook = NULL;
+  int                 i = 0;
+  int                 iFd = 0;
+  int                 iError = 0;
+  int                 iKidPid = 0;
+  int                 iKidReturn = 0;
+  int                 iKidStatus = 0;
+  int                 iKidSignal = 0;
+  int                 iKidDumped = 0;
+  int                 iNRead = 0;
+  int                 iNReady = 0;
+  int                 iNToWatch = 0;
+  int                 iNWritten = 0;
+#define PIPE_STDIN_INDEX 0
+#define PIPE_STDOUT_INDEX 1
+#define PIPE_STDERR_INDEX 2
+#define PIPE_READER_INDEX 0
+#define PIPE_WRITER_INDEX 1
+  int                 aaiPipes[3][2];
+  KLEL_COMMAND       *psCommand = NULL;
+  struct              timeval sTvTimeout = { 0 };
+#ifdef USE_EMBEDDED_PERL
+  SV                 *psScalarValue = NULL;
+#endif
+
+  /*-
+   *********************************************************************
+   *
+   * See if there's a hook that needs to be executed.
+   *
+   *********************************************************************
+   */
+  psHook = HookMatchHook(psProperties->psFileHookList, psFTFileData);
+  if (!psHook)
+  {
+    return ER_OK;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Let them know we have a match.
+   *
+   *********************************************************************
+   */
+  if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+  {
+    snprintf(acMessage, MESSAGE_SIZE, "FileHook=%s RawPath=%s", psHook->pcExpression, psFTFileData->pcRawPath);
+    MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Create stdin/stdout/stderr pipes.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < 3; i++)
+  {
+    iError = pipe(aaiPipes[i]);
+    if (iError == -1)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: pipe(): %s", acRoutine, strerror(errno));
+      return ER;
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Fork off a kid to run the specified command.
+   *
+   *********************************************************************
+   */
+  iKidPid = fork();
+  if (iKidPid == -1)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: fork(): %s", acRoutine, strerror(errno));
+    return ER;
+  }
+  else if (iKidPid == 0)
+  {
+    close(aaiPipes[PIPE_STDIN_INDEX][PIPE_WRITER_INDEX]);
+    close(aaiPipes[PIPE_STDOUT_INDEX][PIPE_READER_INDEX]);
+    close(aaiPipes[PIPE_STDERR_INDEX][PIPE_READER_INDEX]);
+    dup2(aaiPipes[PIPE_STDIN_INDEX][PIPE_READER_INDEX], 0);
+    dup2(aaiPipes[PIPE_STDOUT_INDEX][PIPE_WRITER_INDEX], 1);
+    dup2(aaiPipes[PIPE_STDERR_INDEX][PIPE_WRITER_INDEX], 2);
+
+/* NOTE: Perhaps this code perhaps should be placed above the fork(), but having it here eliminates the need to have KlelFreeCommand() before each return in the parent. */
+    psHook->psContext->pvData = (void *)psFTFileData;
+    psCommand = KlelGetCommand(psHook->psExpression, psHook->psContext);
+    if (psCommand == NULL)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: KlelGetCommand(): Hook (%s) failed to produce a valid command (%s).", acRoutine, psFTFileData->pcNeuteredPath, psHook->pcName, KlelGetFirstError(psHook->psContext));
+      MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
+      exit(-2);
+    }
+
+    if (strcmp(psCommand->pcInterpreter, "exec") == 0)
+    {
+      execv(psCommand->pcProgram, psCommand->ppcArgumentVector);
+      snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->pcInterpreter, psHook->pcName, psCommand->pcProgram, strerror(errno));
+      MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
+      KlelFreeCommand(psCommand);
+      exit(-1);
+    }
+#ifdef USE_EMBEDDED_PERL
+    else if (strcmp(psCommand->pcInterpreter, "perl") == 0)
+    {
+      dSP;
+      ENTER;
+//    SAVETMPS; /* This should not be needed since mortal variables are not created/used. */
+      call_argv("Embed::Persistent::EvalScript", G_EVAL | G_KEEPERR | G_SCALAR, psCommand->ppcArgumentVector); /* Do not use G_DISCARD here so that Perl stack items are preserved. */
+      SPAGAIN;
+      psScalarValue = POPs;
+      PUTBACK;
+      if (SvTRUE(ERRSV))
+      {
+        iError = -1;
+        snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->pcInterpreter, psHook->pcName, psCommand->pcProgram, SvPV_nolen(ERRSV));
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
+      }
+      else
+      {
+        if (SvOK(psScalarValue) && SvIOK(psScalarValue)) /* Expect the Perl stack to contain exactly one defined integer value. */
+        {
+          iError = SvIV(psScalarValue);
+        }
+        else
+        {
+          iError = -1;
+          snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (No $@).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->pcInterpreter, psHook->pcName, psCommand->pcProgram);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
+        }
+      }
+//    FREETMPS; /* This should not be needed since mortal variables are not created/used. */
+      LEAVE;
+      PL_perl_destruct_level = 1; /* This must be set to 1 since perl_construct() reset it to 0 according to perlembed. */
+      perl_destruct(psProperties->psMyPerl);
+      perl_free(psProperties->psMyPerl);
+      PERL_SYS_TERM();
+      KlelFreeCommand(psCommand);
+      exit(iError);
+    }
+#endif
+    else if (strcmp(psCommand->pcInterpreter, "system") == 0)
+    {
+      iError = system(psCommand->ppcArgumentVector[0]);
+      if (iError == -1)
+      {
+        snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->pcInterpreter, psHook->pcName, psCommand->pcProgram, strerror(errno));
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
+      }
+      KlelFreeCommand(psCommand);
+      exit(iError);
+    }
+    else
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) requires an unsupported interpreter.", acRoutine, psFTFileData->pcNeuteredPath, psCommand->pcInterpreter, psHook->pcName);
+      MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
+      KlelFreeCommand(psCommand);
+      exit(-1);
+    }
+  }
+  else
+  {
+    close(aaiPipes[PIPE_STDIN_INDEX][PIPE_READER_INDEX]);
+    close(aaiPipes[PIPE_STDOUT_INDEX][PIPE_WRITER_INDEX]);
+    close(aaiPipes[PIPE_STDERR_INDEX][PIPE_WRITER_INDEX]);
+
+    close(aaiPipes[PIPE_STDIN_INDEX][PIPE_WRITER_INDEX]); /* There's nothing to send to the kid on stdin. */
+
+    FD_ZERO(&sFdSaveSet);
+    FD_SET(aaiPipes[PIPE_STDOUT_INDEX][PIPE_READER_INDEX], &sFdSaveSet);
+    iNToWatch++;
+    FD_SET(aaiPipes[PIPE_STDERR_INDEX][PIPE_READER_INDEX], &sFdSaveSet);
+    iNToWatch++;
+    sTvTimeout.tv_sec = 1;
+    sTvTimeout.tv_usec = 0;
+
+    while (iNToWatch > 0)
+    {
+      sFdReadSet = sFdSaveSet;
+      iNReady = select(FD_SETSIZE, &sFdReadSet, NULL, NULL, &sTvTimeout);
+      if (iNReady < 0)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: select(): Hook (%s) failed to select a file descriptor (%s).", acRoutine, psHook->pcName, strerror(errno));
+        return ER;
+      }
+      else if (iNReady == 0)
+      {
+        /* Select timeout. */
+      }
+      else
+      {
+        for(iFd = 0; iFd < FD_SETSIZE; iFd++)
+        {
+          if (FD_ISSET(iFd, &sFdReadSet))
+          {
+            iNRead = read(iFd, acData, PIPE_READ_SIZE);
+            if (iNRead < 0)
+            {
+              snprintf(pcError, MESSAGE_SIZE, "%s: read(): Hook (%s) failed to read file descriptor %d (%s)", acRoutine, psHook->pcName, iFd, strerror(errno));
+              return ER;
+            }
+            else if (iNRead == 0)
+            {
+              FD_CLR(iFd, &sFdSaveSet);
+              iNToWatch--;
+              close(iFd);
+            }
+            else
+            {
+              if (iFd == aaiPipes[PIPE_STDOUT_INDEX][PIPE_READER_INDEX])
+              {
+                iNWritten = fwrite(acData, 1, iNRead, psProperties->pFileOut);
+                if (iNWritten != iNRead)
+                {
+                  snprintf(pcError, MESSAGE_SIZE, "%s: fwrite(): Hook (%s) failed to write on file descriptor %d (%s)", acRoutine, psHook->pcName, iFd, strerror(errno));
+                  return ER;
+                }
+                MD5Cycle(&psProperties->sOutFileHashContext, (unsigned char *) acData, iNWritten);
+              }
+              else if (iFd == aaiPipes[PIPE_STDERR_INDEX][PIPE_READER_INDEX])
+              {
+                iNWritten = fwrite(acData, 1, iNRead, psProperties->pFileLog);
+                if (iNWritten != iNRead)
+                {
+                  snprintf(pcError, MESSAGE_SIZE, "%s: fwrite(): Hook (%s) failed to write on file descriptor %d (%s)", acRoutine, psHook->pcName, iFd, strerror(errno));
+                  return ER;
+                }
+              }
+              else
+              {
+                /* Empty */
+              }
+            }
+          }
+        }
+      }
+    }
+
+    iKidPid = wait(&iKidStatus);
+    if (iKidPid == -1)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: wait(): %s", acRoutine, strerror(errno));
+      return ER;
+    }
+    iKidReturn = WEXITSTATUS(iKidStatus);
+    iKidSignal = WTERMSIG(iKidStatus);
+    iKidDumped = WCOREDUMP(iKidStatus);
+    if (!KlelIsSuccessReturnCode(psHook->psExpression, iKidReturn))
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: wait(): Hook (%s) returned an unexpected exit code (%d).", acRoutine, psFTFileData->pcNeuteredPath, psHook->pcName, iKidReturn);
+      ErrorHandler(ER_Failure, acMessage, ERROR_FAILURE);
+    }
+  }
+
+  return ER_OK;
+}
+#endif
+
 
 /*-
  ***********************************************************************
@@ -116,104 +623,46 @@ MapGetIncompleteRecordCount()
  ***********************************************************************
  */
 int
-MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_DATA *psParentFTData, char *pcError)
+MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *pcError)
 {
   const char          acRoutine[] = "MapTree()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char                acLinkData[FTIMES_MAX_PATH];
-  char                acMessage[MESSAGE_SIZE];
-  char                acNewRawPath[FTIMES_MAX_PATH];
-  char                acParentPath[FTIMES_MAX_PATH];
-  char               *pc;
-  char               *pcNeuteredPath;
-  DIR                *psDir;
-  FTIMES_FILE_DATA    sFTFileData;
-  FTIMES_HASH_DATA    sDirFTHashData;
-  int                 iError;
-#ifdef USE_PCRE
-  int                 iFiltered = 0;
-#endif
-  int                 iNewFSType;
-  int                 iNameLength;
-  int                 iPathLength;
-  int                 iParentPathLength;
-  struct dirent      *psDirEntry;
-  struct stat         sStatPDirectory, *psStatPDirectory;
-  struct stat         sStatCDirectory, *psStatCDirectory;
+  char                acLocalError[MESSAGE_SIZE] = "";
+  char                acLinkData[FTIMES_MAX_PATH] = "";
+  char                acMessage[MESSAGE_SIZE] = "";
+  char               *pcParentPath = NULL;
+  DIR                *psDir = NULL;
+  FTIMES_FILE_DATA   *psFTFileData = NULL;
+  FTIMES_HASH_DATA    sFTHashData;
+  int                 iError = 0;
+  int                 iNewFSType = 0;
+  struct dirent      *psDirEntry = NULL;
+  struct stat         sStatPDirectory;
+  struct stat        *psStatPDirectory = NULL;
+  struct stat        *psStatCDirectory = NULL;
 
   /*-
    *********************************************************************
    *
-   * Abort if the path length is too long.
+   * Let them know where we're at.
    *
    *********************************************************************
    */
-  iPathLength = strlen(pcPath);
-  if (iPathLength > FTIMES_MAX_PATH - 1) /* Subtract one for the NULL. */
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Directory = [%s], Length = [%d]: Length exceeds %d bytes.", acRoutine, pcPath, iPathLength, FTIMES_MAX_PATH - 1);
-    ErrorHandler(ER_Length, pcError, ERROR_CRITICAL);
-  }
-
   if (psProperties->iLogLevel <= MESSAGE_WAYPOINT)
   {
-    snprintf(acMessage, MESSAGE_SIZE, "FS=%s Directory=%s", gaacFSType[iFSType], pcPath);
+    snprintf(acMessage, MESSAGE_SIZE, "FS=%s Directory=%s", gaacFSType[psFTTreeData->iFSType], psFTTreeData->pcRawPath);
     MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_WAYPOINT, MESSAGE_WAYPOINT_STRING, acMessage);
   }
 
   /*-
    *********************************************************************
    *
-   * If directory hashing is enabled, initialize hash contexts.
+   * Conditionally start directory hashes.
    *
    *********************************************************************
    */
   if (psProperties->bHashDirectories)
   {
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
-    {
-      MD5Alpha(&sDirFTHashData.sMd5Context);
-    }
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-    {
-      SHA1Alpha(&sDirFTHashData.sSha1Context);
-    }
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
-    {
-      SHA256Alpha(&sDirFTHashData.sSha256Context);
-    }
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Chop off trailing slashes for non root directories.
-   *
-   *********************************************************************
-   */
-  iParentPathLength = iPathLength;
-  pc = strncpy(acParentPath, pcPath, FTIMES_MAX_PATH);
-  if (strcmp(acParentPath, FTIMES_SLASH) != 0)
-  {
-    while (pc[iParentPathLength - 1] == FTIMES_SLASHCHAR)
-    {
-      pc[--iParentPathLength] = 0;
-    }
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Chop off the trailing directory name for non root directories.
-   *
-   *********************************************************************
-   */
-  if (strcmp(acParentPath, FTIMES_SLASH) != 0)
-  {
-    while (pc[iParentPathLength - 1] != FTIMES_SLASHCHAR)
-    {
-      pc[--iParentPathLength] = 0;
-    }
+    MapDirHashAlpha(psProperties, &sFTHashData);
   }
 
   /*-
@@ -228,26 +677,37 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
    *
    *********************************************************************
    */
-  if (lstat(acParentPath, &sStatPDirectory) == ER)
+  if (psFTTreeData->psParent == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: RawParentPath = [%s]: %s", acRoutine, acParentPath, strerror(errno));
-    ErrorHandler(ER_lstat, pcError, ERROR_FAILURE);
-    psStatPDirectory = NULL;
+    pcParentPath = MapDirname(psFTTreeData->pcRawPath);
+    if (lstat((pcParentPath == NULL) ? "" : pcParentPath, &sStatPDirectory) == ER)
+    {
+      psStatPDirectory = NULL;
+    }
+    else
+    {
+      psStatPDirectory = &sStatPDirectory;
+    }
   }
   else
   {
-    psStatPDirectory = &sStatPDirectory;
+    if (psFTTreeData->psParent->ulAttributeMask == 0)
+    {
+      psStatPDirectory = NULL;
+    }
+    else
+    {
+      psStatPDirectory = &psFTTreeData->psParent->sStatEntry;
+    }
   }
 
-  if (lstat(pcPath, &sStatCDirectory) == ER)
+  if (psFTTreeData->ulAttributeMask == 0)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: RawCurrentPath = [%s]: %s", acRoutine, pcPath, strerror(errno));
-    ErrorHandler(ER_lstat, pcError, ERROR_FAILURE);
     psStatCDirectory = NULL;
   }
   else
   {
-    psStatCDirectory = &sStatCDirectory;
+    psStatCDirectory = &psFTTreeData->sStatEntry;
   }
 
   /*-
@@ -257,9 +717,9 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
    *
    *********************************************************************
    */
-  if ((psDir = opendir(pcPath)) == NULL)
+  if ((psDir = opendir(psFTTreeData->pcRawPath)) == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s]: %s", acRoutine, pcPath, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTTreeData->pcNeuteredPath, strerror(errno));
     ErrorHandler(ER_opendir, pcError, ERROR_FAILURE);
     return ER_opendir;
   }
@@ -267,85 +727,64 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
   /*-
    *********************************************************************
    *
-   * Note: errno is cleared before each readdir() call so that its
-   * value can be checked after the function returns. Read the comment
-   * that follows this loop for more details.
+   * Loop through the list of directory entries. Note that errno must
+   * be cleared before each readdir() call so that its value can be
+   * checked after the function returns. Read the comment that follows
+   * this loop for more details.
    *
    *********************************************************************
    */
-  errno = 0;
-
-  /*-
-   *********************************************************************
-   *
-   * Loop through the list of directory entries. Each time through this
-   * loop, clear the contents of sFTFileData -- subsequent logic
-   * relies on the assertion that each hash value has been initialized
-   * to all zeros.
-   *
-   *********************************************************************
-   */
-  while ((psDirEntry = readdir(psDir)) != NULL)
+  for (errno = 0; (psDirEntry = readdir(psDir)) != NULL; errno = 0, MapFreeFTFileData(psFTFileData))
   {
-    memset(&sFTFileData, 0, sizeof(FTIMES_FILE_DATA));
-    sFTFileData.iFSType = iFSType;
-
     /*-
      *******************************************************************
      *
-     * Figure out if the new path length will be too long. If yes, warn
-     * the user, clear errno, and continue with the next file.
+     * Create and initialize a new file data structure.
      *
      *******************************************************************
      */
-    iNameLength = iPathLength + 1 + strlen(psDirEntry->d_name);
-    if (iNameLength > FTIMES_MAX_PATH - 1) /* Subtract one for the NULL. */
+    psFTFileData = MapNewFTFileData(psFTTreeData, psDirEntry->d_name, acLocalError);
+    if (psFTFileData == NULL)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: NewRawPath = [%s/%s], Length = [%d]: Length would exceed %d bytes.",
-        acRoutine,
-        pcPath,
-        psDirEntry->d_name,
-        iNameLength,
-        FTIMES_MAX_PATH - 1
-        );
-      ErrorHandler(ER_Length, pcError, ERROR_FAILURE);
-      errno = 0;
+/* FIXME Need to prevent truncation in the case where the new path is larger than MESSAGE_SIZE. */
+      char  acTempError[MESSAGE_SIZE] = "";
+      char *pcNeuteredName = SupportNeuterString(psDirEntry->d_name, strlen(psDirEntry->d_name), acTempError);
+      if (pcNeuteredName)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s%s%s]: %s", acRoutine, psFTTreeData->pcNeuteredPath, FTIMES_SLASH, pcNeuteredName, acLocalError);
+        ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+        free(pcNeuteredName);
+      }
+      else
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: FallbackPath = [%s%s%s]: %s", acRoutine, psFTTreeData->pcRawPath, FTIMES_SLASH, psDirEntry->d_name, acLocalError);
+        ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+      }
       continue;
     }
 
     /*-
      *******************************************************************
      *
-     * Create the new path. If pcPath has a trailing slash, subtract
-     * one from the total path length. In general, this should only
-     * happen when pcPath = "/".
+     * Get file attributes. This fills in several structure members.
      *
      *******************************************************************
      */
-    strncpy(acNewRawPath, pcPath, FTIMES_MAX_PATH);
-    if (pcPath[iPathLength - 1] != FTIMES_SLASHCHAR)
+    MapGetAttributes(psFTFileData);
+    if (!psFTFileData->iFileExists)
     {
-      acNewRawPath[iPathLength] = FTIMES_SLASHCHAR;
-      strcat(&acNewRawPath[iPathLength + 1], psDirEntry->d_name);
+      continue;
     }
-    else
-    {
-      iNameLength--;
-      strcat(&acNewRawPath[iPathLength], psDirEntry->d_name);
-    }
-    sFTFileData.pcRawPath = acNewRawPath;
 
     /*-
      *******************************************************************
      *
-     * If the new path is in the exclude list, then continue with the
-     * next entry. Remember to clear errno.
+     * If the new path is in the exclude list, skip it.
      *
      *******************************************************************
      */
-    if (SupportMatchExclude(psProperties->psExcludeList, acNewRawPath) != NULL)
+    if (SupportMatchExclude(psProperties->psExcludeList, psFTFileData->pcRawPath) != NULL)
     {
-      errno = 0;
       continue;
     }
 
@@ -363,32 +802,30 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
      */
     if (psProperties->psExcludeFilterList)
     {
-      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, acNewRawPath);
+      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, psFTFileData->pcRawPath);
       if (psFilter != NULL)
       {
         if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
         {
-          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, acNewRawPath);
+          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
           MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
         }
-        errno = 0;
         continue;
       }
     }
 
-    iFiltered = 0;
     if (psProperties->psIncludeFilterList)
     {
-      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, acNewRawPath);
+      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, psFTFileData->pcRawPath);
       if (psFilter == NULL)
       {
-        iFiltered = 1;
+        psFTFileData->iFiltered = 1;
       }
       else
       {
         if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
         {
-          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, acNewRawPath);
+          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
           MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
         }
       }
@@ -398,30 +835,11 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
     /*-
      *******************************************************************
      *
-     * Neuter the given path. In other words replace funky chars with
-     * their hex value (e.g., backspace becomes %08).
+     * No attributes means no file type, so we have to stop short.
      *
      *******************************************************************
      */
-    pcNeuteredPath = SupportNeuterString(acNewRawPath, iNameLength, acLocalError);
-    if (pcNeuteredPath == NULL)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s]: %s", acRoutine, acNewRawPath, acLocalError);
-      ErrorHandler(ER_NeuterPathname, pcError, ERROR_FAILURE);
-      errno = 0;
-      continue;
-    }
-    sFTFileData.pcNeuteredPath = pcNeuteredPath;
-
-    /*-
-     *******************************************************************
-     *
-     * Collect attributes, but don't follow symbolic links.
-     *
-     *******************************************************************
-     */
-    iError = MapGetAttributes(&sFTFileData, acLocalError);
-    if (iError == Have_Nothing)
+    if (psFTFileData->ulAttributeMask == 0)
     {
 #ifdef USE_PCRE
       /*-
@@ -431,10 +849,8 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
        *
        *****************************************************************
        */
-      if (iFiltered)
+      if (psFTFileData->iFiltered)
       {
-        MEMORY_FREE(pcNeuteredPath);
-        errno = 0;
         continue;
       }
 #endif
@@ -448,33 +864,19 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
        */
       if (strcmp(psDirEntry->d_name, FTIMES_DOT) == 0 || strcmp(psDirEntry->d_name, FTIMES_DOTDOT) == 0)
       {
-        MEMORY_FREE(pcNeuteredPath);
-        errno = 0;
         continue;
       }
 
       /*-
        *****************************************************************
        *
-       * Update the directory hash. If the file was special or could
-       * not be hashed, zeros will be folded into the aggregate hash.
+       * Conditionally update directory hashes.
        *
        *****************************************************************
        */
       if (psProperties->bHashDirectories)
       {
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
-        {
-          MD5Cycle(&sDirFTHashData.sMd5Context, sFTFileData.aucFileMd5, MD5_HASH_SIZE);
-        }
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-        {
-          SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
-        }
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
-        {
-          SHA256Cycle(&sDirFTHashData.sSha256Context, sFTFileData.aucFileSha256, SHA256_HASH_SIZE);
-        }
+        MapDirHashCycle(psProperties, &sFTHashData, psFTFileData);
       }
 
       /*-
@@ -484,22 +886,13 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
        *
        *****************************************************************
        */
-      iError = MapWriteRecord(psProperties, &sFTFileData, acLocalError);
+      iError = MapWriteRecord(psProperties, psFTFileData, acLocalError);
       if (iError != ER_OK)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
         ErrorHandler(iError, pcError, ERROR_CRITICAL);
       }
 
-      /*-
-       *****************************************************************
-       *
-       * Free the neutered path, set errno, and continue.
-       *
-       *****************************************************************
-       */
-      MEMORY_FREE(pcNeuteredPath);
-      errno = 0;
       continue;
     }
 
@@ -524,15 +917,15 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
     {
       if (psStatCDirectory != NULL)
       {
-        if (sFTFileData.sStatEntry.st_ino != sStatCDirectory.st_ino)
+        if (psFTFileData->sStatEntry.st_ino != psStatCDirectory->st_ino)
         {
-          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Inode mismatch between '.' and current directory.", acRoutine, pcNeuteredPath);
+          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Inode mismatch between '.' and current directory.", acRoutine, psFTFileData->pcNeuteredPath);
           ErrorHandler(ER_BadValue, pcError, ERROR_WARNING);
         }
       }
       else
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on current directory to compare it to '.'.", acRoutine, pcNeuteredPath);
+        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on current directory to compare it to '.'.", acRoutine, psFTFileData->pcNeuteredPath);
         ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
       }
     }
@@ -540,15 +933,15 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
     {
       if (psStatPDirectory != NULL)
       {
-        if (sFTFileData.sStatEntry.st_ino != sStatPDirectory.st_ino)
+        if (psFTFileData->sStatEntry.st_ino != psStatPDirectory->st_ino)
         {
-          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Inode mismatch between '..' and parent directory.", acRoutine, pcNeuteredPath);
+          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Inode mismatch between '..' and parent directory.", acRoutine, psFTFileData->pcNeuteredPath);
           ErrorHandler(ER_BadValue, pcError, ERROR_WARNING);
         }
       }
       else
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on parent directory to compare it to '..'.", acRoutine, pcNeuteredPath);
+        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on parent directory to compare it to '..'.", acRoutine, psFTFileData->pcNeuteredPath);
         ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
       }
     }
@@ -561,13 +954,13 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
        *
        *****************************************************************
        */
-      if (S_ISDIR(sFTFileData.sStatEntry.st_mode))
+      if (S_ISDIR(psFTFileData->sStatEntry.st_mode))
       {
         giDirectories++;
 #ifdef USE_XMAGIC
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
         {
-          snprintf(sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, "directory");
+          snprintf(psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, "special/directory");
         }
 #endif
         /*-
@@ -581,9 +974,9 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
          */
         if (psStatCDirectory != NULL)
         {
-          if (sFTFileData.sStatEntry.st_dev != sStatCDirectory.st_dev)
+          if (psFTFileData->sStatEntry.st_dev != psStatCDirectory->st_dev)
           {
-            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Crossing a device boundary.", acRoutine, pcNeuteredPath);
+            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Crossing a device boundary.", acRoutine, psFTFileData->pcNeuteredPath);
             ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
             /*-
              *************************************************************
@@ -596,91 +989,73 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
              *
              *************************************************************
              */
-            iNewFSType = GetFileSystemType(acNewRawPath, acLocalError);
-            if (iNewFSType == ER)
+            iNewFSType = GetFileSystemType(psFTFileData->pcRawPath, acLocalError);
+            if (iNewFSType == ER || iNewFSType == FSTYPE_UNSUPPORTED)
             {
-              snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+              snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
               ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-              MEMORY_FREE(pcNeuteredPath);
-              errno = 0;
               continue;
             }
-            if (iNewFSType == FSTYPE_UNSUPPORTED)
+            if (!psProperties->bAnalyzeRemoteFiles && (iNewFSType == FSTYPE_NFS || iNewFSType == FSTYPE_NFS3 || iNewFSType == FSTYPE_SMB))
             {
-              snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+              snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, psFTFileData->pcNeuteredPath);
               ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-              MEMORY_FREE(pcNeuteredPath);
-              errno = 0;
               continue;
             }
-            if ((iNewFSType == FSTYPE_NFS || iNewFSType == FSTYPE_SMB) && !psProperties->bAnalyzeRemoteFiles)
-            {
-              snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, pcNeuteredPath);
-              ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-              MEMORY_FREE(pcNeuteredPath);
-              errno = 0;
-              continue;
-            }
-            iFSType = iNewFSType;
+            psFTFileData->iFSType = iNewFSType;
           }
         }
         else
         {
-          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on current directory to determine a device boundary crossing.", acRoutine, pcNeuteredPath);
+          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on current directory to determine a device boundary crossing.", acRoutine, psFTFileData->pcNeuteredPath);
           ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-          iFSType = FSTYPE_NA;
+          psFTFileData->iFSType = FSTYPE_NA;
         }
         if (psProperties->bEnableRecursion)
         {
-          MapTree(psProperties, acNewRawPath, iFSType, &sFTFileData, acLocalError);
+          MapTree(psProperties, psFTFileData, acLocalError);
         }
 #ifdef USE_PCRE
-        if (iFiltered) /* We're done. */
+        if (psFTFileData->iFiltered) /* We're done. */
         {
-          MEMORY_FREE(pcNeuteredPath);
-          errno = 0;
           continue;
         }
 #endif
       }
-      else if (S_ISREG(sFTFileData.sStatEntry.st_mode))
+      else if (S_ISREG(psFTFileData->sStatEntry.st_mode))
       {
 #ifdef USE_PCRE
-        if (iFiltered) /* We're done. */
+        if (psFTFileData->iFiltered) /* We're done. */
         {
-          MEMORY_FREE(pcNeuteredPath);
-          errno = 0;
           continue;
         }
 #endif
         giFiles++;
         if (psProperties->iLastAnalysisStage > 0)
         {
-          iError = AnalyzeFile(psProperties, &sFTFileData, acLocalError);
+          iError = AnalyzeFile(psProperties, psFTFileData, acLocalError);
           if (iError != ER_OK)
           {
-            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
             ErrorHandler(iError, pcError, ERROR_FAILURE);
           }
         }
       }
-      else if (S_ISLNK(sFTFileData.sStatEntry.st_mode))
+      else if (S_ISLNK(psFTFileData->sStatEntry.st_mode))
       {
 #ifdef USE_PCRE
-        if (iFiltered) /* We're done. */
+        if (psFTFileData->iFiltered) /* We're done. */
         {
-          MEMORY_FREE(pcNeuteredPath);
-          errno = 0;
           continue;
         }
 #endif
         giSpecial++;
         if (psProperties->bHashSymbolicLinks)
         {
-          iError = readlink(acNewRawPath, acLinkData, FTIMES_MAX_PATH - 1);
+          iError = readlink(psFTFileData->pcRawPath, acLinkData, FTIMES_MAX_PATH - 1);
           if (iError == ER)
           {
-            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Unreadable Symbolic Link: %s", acRoutine, pcNeuteredPath, strerror(errno));
+            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Unreadable Symbolic Link: %s", acRoutine, psFTFileData->pcNeuteredPath, strerror(errno));
             ErrorHandler(ER_readlink, pcError, ERROR_FAILURE);
           }
           else
@@ -688,25 +1063,25 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
             acLinkData[iError] = 0; /* Readlink does not append a NULL. */
             if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
             {
-              MD5HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileMd5);
+              MD5HashString((unsigned char *) acLinkData, strlen(acLinkData), psFTFileData->aucFileMd5);
             }
             if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
             {
-              SHA1HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileSha1);
+              SHA1HashString((unsigned char *) acLinkData, strlen(acLinkData), psFTFileData->aucFileSha1);
             }
             if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
             {
-              SHA256HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileSha256);
+              SHA256HashString((unsigned char *) acLinkData, strlen(acLinkData), psFTFileData->aucFileSha256);
             }
           }
         }
 #ifdef USE_XMAGIC
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
         {
-          iError = XMagicTestSpecial(sFTFileData.pcRawPath, &sFTFileData.sStatEntry, sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
+          iError = XMagicTestSpecial(psFTFileData->pcRawPath, &psFTFileData->sStatEntry, psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
           if (iError != ER_OK)
           {
-            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
             ErrorHandler(iError, pcError, ERROR_FAILURE);
           }
         }
@@ -715,10 +1090,8 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
       else
       {
 #ifdef USE_PCRE
-        if (iFiltered) /* We're done. */
+        if (psFTFileData->iFiltered) /* We're done. */
         {
-          MEMORY_FREE(pcNeuteredPath);
-          errno = 0;
           continue;
         }
 #endif
@@ -726,10 +1099,10 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
 #ifdef USE_XMAGIC
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
         {
-          iError = XMagicTestSpecial(sFTFileData.pcRawPath, &sFTFileData.sStatEntry, sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
+          iError = XMagicTestSpecial(psFTFileData->pcRawPath, &psFTFileData->sStatEntry, psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
           if (iError != ER_OK)
           {
-            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
             ErrorHandler(iError, pcError, ERROR_FAILURE);
           }
         }
@@ -739,25 +1112,13 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
       /*-
        *****************************************************************
        *
-       * Update the directory hash. If the file was special or could
-       * not be hashed, zeros will be folded into the aggregate hash.
+       * Conditionally update directory hashes.
        *
        *****************************************************************
        */
       if (psProperties->bHashDirectories)
       {
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
-        {
-          MD5Cycle(&sDirFTHashData.sMd5Context, sFTFileData.aucFileMd5, MD5_HASH_SIZE);
-        }
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-        {
-          SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
-        }
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
-        {
-          SHA256Cycle(&sDirFTHashData.sSha256Context, sFTFileData.aucFileSha256, SHA256_HASH_SIZE);
-        }
+        MapDirHashCycle(psProperties, &sFTHashData, psFTFileData);
       }
 
       /*-
@@ -767,24 +1128,32 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
        *
        *****************************************************************
        */
-      iError = MapWriteRecord(psProperties, &sFTFileData, acLocalError);
+      iError = MapWriteRecord(psProperties, psFTFileData, acLocalError);
       if (iError != ER_OK)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
         ErrorHandler(iError, pcError, ERROR_CRITICAL);
       }
+
+#ifdef USE_FILE_HOOKS
+      /*-
+       *****************************************************************
+       *
+       * Conditionally execute hooks for regular files.
+       *
+       *****************************************************************
+       */
+      if (psProperties->psFileHookList && S_ISREG(psFTFileData->sStatEntry.st_mode))
+      {
+        iError = MapExecuteHook(psProperties, psFTFileData, acLocalError);
+        if (iError != ER_OK)
+        {
+          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
+          ErrorHandler(iError, pcError, ERROR_CRITICAL);
+        }
+      }
+#endif
     }
-
-    /*-
-     *******************************************************************
-     *
-     * Free the neutered path.
-     *
-     *******************************************************************
-     */
-    MEMORY_FREE(pcNeuteredPath);
-
-    errno = 0;
   }
 
   /*-
@@ -801,32 +1170,20 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
    */
   if (psDirEntry == NULL && errno != ER_OK)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s]: %s", acRoutine, pcPath, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTTreeData->pcNeuteredPath, strerror(errno));
     ErrorHandler(ER_readdir, pcError, ERROR_FAILURE);
   }
 
   /*-
    *********************************************************************
    *
-   * Complete the directory hash(es). NOTE: The caller is expected to
-   * initialize each hash to all zeros.
+   * Conditionally complete directory hashes.
    *
    *********************************************************************
    */
   if (psProperties->bHashDirectories)
   {
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
-    {
-      MD5Omega(&sDirFTHashData.sMd5Context, psParentFTData->aucFileMd5);
-    }
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-    {
-      SHA1Omega(&sDirFTHashData.sSha1Context, psParentFTData->aucFileSha1);
-    }
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
-    {
-      SHA256Omega(&sDirFTHashData.sSha256Context, psParentFTData->aucFileSha256);
-    }
+    MapDirHashOmega(psProperties, &sFTHashData, psFTTreeData);
   }
 
   closedir(psDir);
@@ -839,12 +1196,12 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
 /*-
  ***********************************************************************
  *
- * MapGetFileHandle
+ * MapGetFileHandleW
  *
  ***********************************************************************
  */
 HANDLE
-MapGetFileHandle(char *pcPath)
+MapGetFileHandleW(wchar_t *pwcPath)
 {
   /*-
    *********************************************************************
@@ -852,19 +1209,29 @@ MapGetFileHandle(char *pcPath)
    * This is just a wrapper for CreateFile(). The caller must check
    * the return value to ensure that no error has occurred. Directories
    * specifically require the FILE_FLAG_BACKUP_SEMANTICS flag. This
-   * does not seem to affect the opening of regular files.
+   * does not seem to affect the opening of regular files. In the
+   * past, the desired access flag was set to 0, which means device
+   * query access. However, the flag has been changed to GENERIC_READ,
+   * which includes READ_CONTROL, so that the information in security
+   * descriptors (e.g., owner/group SIDs and DACL) can be read as well.
+   *
+   * Update 1: GENERIC_READ was causing this function to fail on files
+   * where it used to work. However, reverting to the previous value
+   * (i.e., 0) won't work because that would cause GetSecurityInfo()
+   * to fail. The current value of READ_CONTROL seems to produce the
+   * best results.
    *
    *********************************************************************
    */
-  return CreateFile(
-                     pcPath,
-                     0 /* 0 = device query access */,
-                     FILE_SHARE_READ,
-                     NULL,
-                     OPEN_EXISTING,
-                     FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_SEQUENTIAL_SCAN,
-                     NULL
-                   );
+  return CreateFileW(
+    pwcPath,
+    READ_CONTROL,
+    FILE_SHARE_READ,
+    NULL,
+    OPEN_EXISTING,
+    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_SEQUENTIAL_SCAN,
+    NULL
+    );
 }
 
 
@@ -876,128 +1243,73 @@ MapGetFileHandle(char *pcPath)
  ***********************************************************************
  */
 int
-MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_DATA *psParentFTData, char *pcError)
+MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *pcError)
 {
   const char          acRoutine[] = "MapTree()";
   BOOL                bResult;
-  BY_HANDLE_FILE_INFORMATION sFileInfoCurrent;
-  BY_HANDLE_FILE_INFORMATION sFileInfoParent;
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char                acMessage[MESSAGE_SIZE];
-  char                acNewRawPath[FTIMES_MAX_PATH];
-  char                acParentPath[FTIMES_MAX_PATH];
-  char                acSearchPath[FTIMES_MAX_PATH];
-  char               *pc;
-  char               *pcNeuteredPath;
-  char               *pcMessage;
-  FTIMES_FILE_DATA    sFTFileData;
-  FTIMES_HASH_DATA    sDirFTHashData;
-  HANDLE              hFileCurrent;
-  HANDLE              hFileParent;
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//  BY_HANDLE_FILE_INFORMATION sFileInfoCurrent;
+//  BY_HANDLE_FILE_INFORMATION sFileInfoParent;
+//END (\\?\)
+  char                acLocalError[MESSAGE_SIZE] = "";
+  char                acMessage[MESSAGE_SIZE] = "";
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//  char               *pcParentPath = NULL;
+//END (\\?\)
+  char               *pcMessage = NULL;
+  FTIMES_FILE_DATA   *psFTFileData = NULL;
+  FTIMES_HASH_DATA    sFTHashData;
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//  HANDLE              hFileCurrent;
+//  HANDLE              hFileParent;
+//END (\\?\)
   HANDLE              hSearch;
-  int                 iError;
-#ifdef USE_PCRE
-  int                 iFiltered = 0;
-#endif
-  int                 iNameLength;
-  int                 iParentPathLength;
-  int                 iPathLength;
-  WIN32_FIND_DATA     sFindData;
+  int                 iError = 0;
+  wchar_t             awcSearchPath[FTIMES_MAX_PATH] = L"";
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//  wchar_t            *pwcParentPath = NULL;
+//END (\\?\)
+  WIN32_FIND_DATAW    sFindDataW;
 
   /*-
    *********************************************************************
    *
-   * Abort if the path length is too long.
+   * Let them know where we're at.
    *
    *********************************************************************
    */
-  iPathLength = strlen(pcPath);
-  if (iPathLength > FTIMES_MAX_PATH - 1) /* Subtract one for the NULL. */
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Directory = [%s], Length = [%d]: Length exceeds %d bytes.", acRoutine, pcPath, iPathLength, FTIMES_MAX_PATH - 1);
-    ErrorHandler(ER_Length, pcError, ERROR_CRITICAL);
-  }
-
   if (psProperties->iLogLevel <= MESSAGE_WAYPOINT)
   {
-    snprintf(acMessage, MESSAGE_SIZE, "FS=%s Directory=%s", gaacFSType[iFSType], pcPath);
+    snprintf(acMessage, MESSAGE_SIZE, "FS=%s Directory=%s", gaacFSType[psFTTreeData->iFSType], psFTTreeData->pcRawPath);
     MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_WAYPOINT, MESSAGE_WAYPOINT_STRING, acMessage);
   }
 
   /*-
    *********************************************************************
    *
-   * If directory hashing is enabled, initialize hash contexts.
+   * Conditionally start directory hashes.
    *
    *********************************************************************
    */
   if (psProperties->bHashDirectories)
   {
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
-    {
-      MD5Alpha(&sDirFTHashData.sMd5Context);
-    }
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-    {
-      SHA1Alpha(&sDirFTHashData.sSha1Context);
-    }
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
-    {
-      SHA256Alpha(&sDirFTHashData.sSha256Context);
-    }
+    MapDirHashAlpha(psProperties, &sFTHashData);
   }
 
   /*-
    *********************************************************************
    *
-   * Chop off trailing slashes for non root directories.
+   * Create a search path to match all files (i.e., append "\*").
    *
    *********************************************************************
    */
-  iParentPathLength = iPathLength;
-  pc = strncpy(acParentPath, pcPath, FTIMES_MAX_PATH);
-  if (!(iParentPathLength == 3 && pc[1] == ':' && pc[2] == FTIMES_SLASHCHAR && isalpha(pc[0])))
+  if (psFTTreeData->iUtf8RawPathLength > FTIMES_MAX_PATH - 3)
   {
-    while (pc[iParentPathLength - 1] == FTIMES_SLASHCHAR)
-    {
-      pc[--iParentPathLength] = 0;
-    }
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Chop off the trailing directory name for non root directories.
-   *
-   *********************************************************************
-   */
-  if (!(iParentPathLength == 2 && pc[1] == ':' && isalpha(pc[0])))
-  {
-    while (pc[iParentPathLength - 1] != FTIMES_SLASHCHAR)
-    {
-      pc[--iParentPathLength] = 0;
-    }
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Create the search path. Append a backslash and asterisk to match
-   * all files (i.e. "\*").
-   *
-   *********************************************************************
-   */
-  if (iPathLength > FTIMES_MAX_PATH - 3)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: SearchPath = [%s\\*], Length = [%d]: Length would exceed %d bytes.", acRoutine, pcPath, iPathLength, FTIMES_MAX_PATH - 3);
+    snprintf(pcError, MESSAGE_SIZE, "%s: SearchPath = [%s%s*]: Length (%d) exceeds %d bytes.", acRoutine, psFTTreeData->pcRawPath, FTIMES_SLASH, psFTTreeData->iUtf8RawPathLength, FTIMES_MAX_PATH - 3);
     ErrorHandler(ER_Length, pcError, ERROR_FAILURE);
     return ER_Length;
   }
-
-  strncpy(acSearchPath, pcPath, FTIMES_MAX_PATH);
-  acSearchPath[iPathLength] = FTIMES_SLASHCHAR;
-  acSearchPath[iPathLength + 1] = '*';
-  acSearchPath[iPathLength + 2] = 0;
+  _snwprintf(awcSearchPath, FTIMES_MAX_PATH, L"%s%s*", psFTTreeData->pwcRawPath, FTIMES_SLASH_W);
 
   /*-
    *********************************************************************
@@ -1006,12 +1318,11 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
    *
    *********************************************************************
    */
-  hSearch = FindFirstFile(acSearchPath, &sFindData);
-
+  hSearch = FindFirstFileW(awcSearchPath, &sFindDataW);
   if (hSearch == INVALID_HANDLE_VALUE)
   {
     ErrorFormatWin32Error(&pcMessage);
-    snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s]: %s", acRoutine, pcPath, pcMessage);
+    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTTreeData->pcNeuteredPath, pcMessage);
     ErrorHandler(ER_FindFirstFile, pcError, ERROR_FAILURE);
     return ER_FindFirstFile;
   }
@@ -1019,84 +1330,85 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
   /*-
    *********************************************************************
    *
-   * Loop through the list of directory entries. Each time through this
-   * loop, clear the contents of sFTFileData -- subsequent logic
-   * relies on the assertion that each hash value has been initialized
-   * to all zeros.
+   * Loop through the list of directory entries.
    *
    *********************************************************************
    */
-  bResult = TRUE;
-  while (bResult == TRUE)
+  for (bResult = TRUE; bResult == TRUE; MapFreeFTFileData(psFTFileData), bResult = FindNextFileW(hSearch, &sFindDataW))
   {
-    memset(&sFTFileData, 0, sizeof(FTIMES_FILE_DATA));
-    sFTFileData.dwVolumeSerialNumber = -1;
-    sFTFileData.dwFileIndexHigh = -1;
-    sFTFileData.dwFileIndexLow = -1;
-    sFTFileData.iStreamCount = FTIMES_INVALID_STREAM_COUNT; /* The Develop{Compressed,Normal}Output routines check for this value. */
-    sFTFileData.iFSType = iFSType;
-
-#ifdef WIN98
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+    /*-
+     *******************************************************************
+     *
+     * If this is "." or "..", we're done.
+     *
+     *******************************************************************
+     */
+    if (wcscmp(sFindDataW.cFileName, FTIMES_DOT_W) == 0 || wcscmp(sFindDataW.cFileName, FTIMES_DOTDOT_W) == 0)
+    {
+      continue;
+    }
+//END (\\?\)
 
     /*-
      *******************************************************************
      *
-     * Break out early for WIN98 as it can't open "." or ".."
+     * Create and initialize a new file data structure.
      *
      *******************************************************************
      */
-    if (strcmp(sFindData.cFileName, FTIMES_DOT) == 0)
+    psFTFileData = MapNewFTFileDataW(psFTTreeData, sFindDataW.cFileName, acLocalError);
+    if (psFTFileData == NULL)
     {
-      bResult = FindNextFile(hSearch, &sFindData);
+/* FIXME Need to prevent truncation in the case where the new path is larger than MESSAGE_SIZE. */
+      char  acTempError[MESSAGE_SIZE] = "";
+      char *pcUtf8Name = MapWideToUtf8(sFindDataW.cFileName, -1, acTempError);
+      if (pcUtf8Name)
+      {
+        char *pcNeuteredName = SupportNeuterString(pcUtf8Name, strlen(pcUtf8Name), acTempError);
+        if (pcNeuteredName)
+        {
+          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s%s%s]: %s", acRoutine, psFTTreeData->pcNeuteredPath, FTIMES_SLASH, pcNeuteredName, acLocalError);
+          ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+          free(pcNeuteredName);
+        }
+        else
+        {
+          snprintf(pcError, MESSAGE_SIZE, "%s: FallbackPath = [%s%s%s]: %s", acRoutine, psFTTreeData->pcRawPath, FTIMES_SLASH, pcUtf8Name, acLocalError);
+          ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+        }
+        free(pcUtf8Name);
+      }
+      else
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: FallbackTree = [%s]: %s", acRoutine, psFTTreeData->pcRawPath, acLocalError);
+        ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+      }
       continue;
     }
-
-    if (strcmp(sFindData.cFileName, FTIMES_DOTDOT) == 0)
-    {
-      bResult = FindNextFile(hSearch, &sFindData);
-      continue;
-    }
-#endif
 
     /*-
      *******************************************************************
      *
-     * Figure out if the new path length will be too long. If yes, warn
-     * the user, and continue with the next file.
+     * Get file attributes. This fills in several structure members.
      *
      *******************************************************************
      */
-    iNameLength = iPathLength + 1 + (int) strlen(sFindData.cFileName);
-    if (iNameLength > FTIMES_MAX_PATH - 1) /* Subtract one for the NULL. */
+    MapGetAttributes(psFTFileData);
+    if (!psFTFileData->iFileExists)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: NewRawPath = [%s\\%s], Length = [%d]: Length would exceed %d bytes.",
-        acRoutine,
-        pcPath,
-        sFindData.cFileName,
-        iNameLength,
-        FTIMES_MAX_PATH - 1
-        );
-      ErrorHandler(ER_Length, pcError, ERROR_FAILURE);
-      bResult = FindNextFile(hSearch, &sFindData);
       continue;
     }
-
-    strncpy(acNewRawPath, pcPath, FTIMES_MAX_PATH);
-    acNewRawPath[iPathLength] = FTIMES_SLASHCHAR;
-    strcpy(&acNewRawPath[iPathLength + 1], sFindData.cFileName);
-    sFTFileData.pcRawPath = acNewRawPath;
 
     /*-
      *******************************************************************
      *
-     * If the new path is in the exclude list, then continue with the
-     * next entry.
+     * If the new path is in the exclude list, skip it.
      *
      *******************************************************************
      */
-    if (SupportMatchExclude(psProperties->psExcludeList, acNewRawPath) != NULL)
+    if (SupportMatchExclude(psProperties->psExcludeList, psFTFileData->pcRawPath) != NULL)
     {
-      bResult = FindNextFile(hSearch, &sFindData);
       continue;
     }
 
@@ -1114,32 +1426,30 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
      */
     if (psProperties->psExcludeFilterList)
     {
-      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, acNewRawPath);
+      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, psFTFileData->pcRawPath);
       if (psFilter != NULL)
       {
         if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
         {
-          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, acNewRawPath);
+          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
           MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
         }
-        bResult = FindNextFile(hSearch, &sFindData);
         continue;
       }
     }
 
-    iFiltered = 0;
     if (psProperties->psIncludeFilterList)
     {
-      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, acNewRawPath);
+      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, psFTFileData->pcRawPath);
       if (psFilter == NULL)
       {
-        iFiltered = 1;
+        psFTFileData->iFiltered = 1;
       }
       else
       {
         if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
         {
-          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, acNewRawPath);
+          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
           MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
         }
       }
@@ -1149,30 +1459,11 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
     /*-
      *******************************************************************
      *
-     * Neuter the given path. In other words, replace funky chars with
-     * their hex value (e.g., backspace becomes %08).
+     * No attributes means no file type, so we have to stop short.
      *
      *******************************************************************
      */
-    pcNeuteredPath = SupportNeuterString(acNewRawPath, iNameLength, acLocalError);
-    if (pcNeuteredPath == NULL)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s]: %s", acRoutine, acNewRawPath, acLocalError);
-      ErrorHandler(ER_NeuterPathname, pcError, ERROR_FAILURE);
-      bResult = FindNextFile(hSearch, &sFindData);
-      continue;
-    }
-    sFTFileData.pcNeuteredPath = pcNeuteredPath;
-
-    /*-
-     *******************************************************************
-     *
-     * Collect attributes.
-     *
-     *******************************************************************
-     */
-    iError = MapGetAttributes(&sFTFileData, acLocalError);
-    if (iError == Have_Nothing)
+    if (psFTFileData->ulAttributeMask == 0)
     {
 #ifdef USE_PCRE
       /*-
@@ -1182,50 +1473,36 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
        *
        *****************************************************************
        */
-      if (iFiltered)
+      if (psFTFileData->iFiltered)
       {
-        MEMORY_FREE(pcNeuteredPath);
-        bResult = FindNextFile(hSearch, &sFindData);
         continue;
       }
 #endif
 
-      /*-
-       *****************************************************************
-       *
-       * If this is "." or "..", we're done.
-       *
-       *****************************************************************
-       */
-      if (strcmp(sFindData.cFileName, FTIMES_DOT) == 0 || strcmp(sFindData.cFileName, FTIMES_DOTDOT) == 0)
-      {
-        MEMORY_FREE(pcNeuteredPath);
-        bResult = FindNextFile(hSearch, &sFindData);
-        continue;
-      }
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//      /*-
+//       *****************************************************************
+//       *
+//       * If this is "." or "..", we're done.
+//       *
+//       *****************************************************************
+//       */
+//      if (wcscmp(sFindDataW.cFileName, FTIMES_DOT_W) == 0 || wcscmp(sFindDataW.cFileName, FTIMES_DOTDOT_W) == 0)
+//      {
+//        continue;
+//      }
+//END (\\?\)
 
       /*-
        *****************************************************************
        *
-       * Update the directory hash. If the file was special or could
-       * not be hashed, zeros will be folded into the aggregate hash.
+       * Conditionally update directory hashes.
        *
        *****************************************************************
        */
       if (psProperties->bHashDirectories)
       {
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
-        {
-          MD5Cycle(&sDirFTHashData.sMd5Context, sFTFileData.aucFileMd5, MD5_HASH_SIZE);
-        }
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-        {
-          SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
-        }
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
-        {
-          SHA256Cycle(&sDirFTHashData.sSha256Context, sFTFileData.aucFileSha256, SHA256_HASH_SIZE);
-        }
+        MapDirHashCycle(psProperties, &sFTHashData, psFTFileData);
       }
 
       /*-
@@ -1235,22 +1512,13 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
        *
        *****************************************************************
        */
-      iError = MapWriteRecord(psProperties, &sFTFileData, acLocalError);
+      iError = MapWriteRecord(psProperties, psFTFileData, acLocalError);
       if (iError != ER_OK)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
         ErrorHandler(iError, pcError, ERROR_CRITICAL);
       }
 
-      /*-
-       *****************************************************************
-       *
-       * Free the neutered path, find the next file, and continue.
-       *
-       *****************************************************************
-       */
-      MEMORY_FREE(pcNeuteredPath);
-      bResult = FindNextFile(hSearch, &sFindData);
       continue;
     }
 
@@ -1271,79 +1539,83 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
      *
      *******************************************************************
      */
-    if (strcmp(sFindData.cFileName, FTIMES_DOT) == 0)
-    {
-      if (sFTFileData.iFileFlags >= Have_GetFileInformationByHandle)
-      {
-        hFileCurrent = MapGetFileHandle(pcPath);
-        if (hFileCurrent != INVALID_HANDLE_VALUE && GetFileInformationByHandle(hFileCurrent, &sFileInfoCurrent))
-        {
-          if (sFileInfoCurrent.dwVolumeSerialNumber != sFTFileData.dwVolumeSerialNumber ||
-              sFileInfoCurrent.nFileIndexHigh != sFTFileData.dwFileIndexHigh ||
-              sFileInfoCurrent.nFileIndexLow != sFTFileData.dwFileIndexLow)
-          {
-            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Volume/FileIndex mismatch between '.' and current directory.", acRoutine, pcNeuteredPath);
-            ErrorHandler(ER_BadValue, pcError, ERROR_WARNING);
-          }
-          CloseHandle(hFileCurrent);
-        }
-        else
-        {
-          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on current directory to compare it to '.'.", acRoutine, pcNeuteredPath);
-          ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-        }
-      }
-      else
-      {
-        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on '.' to compare it to current directory.", acRoutine, pcNeuteredPath);
-        ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-      }
-    }
-    else if (strcmp(sFindData.cFileName, FTIMES_DOTDOT) == 0)
-    {
-      /*-
-       *****************************************************************
-       *
-       * If the file system is remote, skip this check. This is done
-       * because, in testing, the file index for '..' is different than
-       * the parent directory. This was found to be true with NTFS and
-       * Samba shares which, by-the-way, show up as NTFS_REMOTE. For
-       * now, these quirks remain unexplained. NWFS_REMOTE was added
-       * here to follow suit with the other file systems -- i.e., it
-       * has not been tested to see if the '..' issue exists.
-       *
-       *****************************************************************
-       */
-      if (iFSType != FSTYPE_NTFS_REMOTE && iFSType != FSTYPE_FAT_REMOTE && iFSType != FSTYPE_NWFS_REMOTE)
-      {
-        if (sFTFileData.iFileFlags >= Have_GetFileInformationByHandle)
-        {
-          hFileParent = MapGetFileHandle(acParentPath);
-          if (hFileParent != INVALID_HANDLE_VALUE && GetFileInformationByHandle(hFileParent, &sFileInfoParent))
-          {
-            if (sFileInfoParent.dwVolumeSerialNumber != sFTFileData.dwVolumeSerialNumber ||
-                sFileInfoParent.nFileIndexHigh != sFTFileData.dwFileIndexHigh ||
-                sFileInfoParent.nFileIndexLow != sFTFileData.dwFileIndexLow)
-            {
-              snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Volume/FileIndex mismatch between '..' and parent directory.", acRoutine, pcNeuteredPath);
-              ErrorHandler(ER_BadValue, pcError, ERROR_WARNING);
-            }
-            CloseHandle(hFileParent);
-          }
-          else
-          {
-            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on parent directory to compare it to '..'.", acRoutine, pcNeuteredPath);
-            ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-          }
-        }
-        else
-        {
-          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on '..' to compare it to parent directory.", acRoutine, pcNeuteredPath);
-          ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-        }
-      }
-    }
-    else
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//    if (wcscmp(sFindDataW.cFileName, FTIMES_DOT_W) == 0)
+//    {
+//      if (MASK_BIT_IS_SET(psFTFileData->ulAttributeMask, (MAP_VOLUME | MAP_FINDEX)))
+//      {
+//        hFileCurrent = MapGetFileHandleW(psFTTreeData->pwcRawPath);
+//        if (hFileCurrent != INVALID_HANDLE_VALUE && GetFileInformationByHandle(hFileCurrent, &sFileInfoCurrent))
+//        {
+//          if (sFileInfoCurrent.dwVolumeSerialNumber != psFTFileData->dwVolumeSerialNumber ||
+//              sFileInfoCurrent.nFileIndexHigh != psFTFileData->dwFileIndexHigh ||
+//              sFileInfoCurrent.nFileIndexLow != psFTFileData->dwFileIndexLow)
+//          {
+//            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Volume/FileIndex mismatch between '.' and current directory.", acRoutine, psFTFileData->pcNeuteredPath);
+//            ErrorHandler(ER_BadValue, pcError, ERROR_WARNING);
+//          }
+//          CloseHandle(hFileCurrent);
+//        }
+//        else
+//        {
+//          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on current directory to compare it to '.'.", acRoutine, psFTFileData->pcNeuteredPath);
+//          ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+//        }
+//      }
+//      else
+//      {
+//        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on '.' to compare it to current directory.", acRoutine, psFTFileData->pcNeuteredPath);
+//        ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+//      }
+//    }
+//    else if (wcscmp(sFindDataW.cFileName, FTIMES_DOTDOT_W) == 0)
+//    {
+//      /*-
+//       *****************************************************************
+//       *
+//       * If the file system is remote, skip this check. This is done
+//       * because, in testing, the file index for '..' is different than
+//       * the parent directory. This was found to be true with NTFS and
+//       * Samba shares which, by-the-way, show up as NTFS_REMOTE. For
+//       * now, these quirks remain unexplained. NWFS_REMOTE was added
+//       * here to follow suit with the other file systems -- i.e., it
+//       * has not been tested to see if the '..' issue exists.
+//       *
+//       *****************************************************************
+//       */
+//      if (psFTFileData->iFSType != FSTYPE_NTFS_REMOTE && psFTFileData->iFSType != FSTYPE_FAT_REMOTE && psFTFileData->iFSType != FSTYPE_NWFS_REMOTE)
+//      {
+//        if (MASK_BIT_IS_SET(psFTFileData->ulAttributeMask, (MAP_VOLUME | MAP_FINDEX)))
+//        {
+//          pcParentPath = MapDirname(psFTTreeData->pcRawPath);
+//          pwcParentPath = MapUtf8ToWide((pcParentPath) ? pcParentPath : "", -1, acLocalError);
+//          hFileParent = MapGetFileHandleW((pwcParentPath) ? pwcParentPath : L"");
+//          if (hFileParent != INVALID_HANDLE_VALUE && GetFileInformationByHandle(hFileParent, &sFileInfoParent))
+//          {
+//            if (sFileInfoParent.dwVolumeSerialNumber != psFTFileData->dwVolumeSerialNumber ||
+//                sFileInfoParent.nFileIndexHigh != psFTFileData->dwFileIndexHigh ||
+//                sFileInfoParent.nFileIndexLow != psFTFileData->dwFileIndexLow)
+//            {
+//              snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Volume/FileIndex mismatch between '..' and parent directory.", acRoutine, psFTFileData->pcNeuteredPath);
+//              ErrorHandler(ER_BadValue, pcError, ERROR_WARNING);
+//            }
+//            CloseHandle(hFileParent);
+//          }
+//          else
+//          {
+//            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on parent directory to compare it to '..'.", acRoutine, psFTFileData->pcNeuteredPath);
+//            ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+//          }
+//        }
+//        else
+//        {
+//          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Not enough information on '..' to compare it to parent directory.", acRoutine, psFTFileData->pcNeuteredPath);
+//          ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+//        }
+//      }
+//    }
+//    else
+//END (\\?\)
     {
       /*-
        *****************************************************************
@@ -1352,27 +1624,22 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
        *
        *****************************************************************
        */
-      if ((sFTFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+      if ((psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
       {
         giDirectories++;
 #ifdef USE_XMAGIC
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
         {
-          snprintf(sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, "directory");
+          snprintf(psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, "special/directory");
         }
 #endif
         if (psProperties->bEnableRecursion)
         {
-          MapTree(psProperties, acNewRawPath, iFSType, &sFTFileData, acLocalError);
+          MapTree(psProperties, psFTFileData, acLocalError);
         }
 #ifdef USE_PCRE
-        if (iFiltered) /* We're done. */
+        if (psFTFileData->iFiltered) /* We're done. */
         {
-#ifdef WINNT
-          MEMORY_FREE(sFTFileData.pucStreamInfo);
-#endif
-          MEMORY_FREE(pcNeuteredPath);
-          bResult = FindNextFile(hSearch, &sFindData);
           continue;
         }
 #endif
@@ -1380,27 +1647,19 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
       else
       {
 #ifdef USE_PCRE
-        if (iFiltered) /* We're done. */
+        if (psFTFileData->iFiltered) /* We're done. */
         {
-#ifdef WINNT
-          MEMORY_FREE(sFTFileData.pucStreamInfo);
-#endif
-          MEMORY_FREE(pcNeuteredPath);
-          bResult = FindNextFile(hSearch, &sFindData);
           continue;
         }
 #endif
         giFiles++;
-        if (sFTFileData.iFileFlags >= Have_MapGetFileHandle)
+        if (psProperties->iLastAnalysisStage > 0)
         {
-          if (psProperties->iLastAnalysisStage > 0)
+          iError = AnalyzeFile(psProperties, psFTFileData, acLocalError);
+          if (iError != ER_OK)
           {
-            iError = AnalyzeFile(psProperties, &sFTFileData, acLocalError);
-            if (iError != ER_OK)
-            {
-              snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
-              ErrorHandler(iError, pcError, ERROR_FAILURE);
-            }
+            snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
+            ErrorHandler(iError, pcError, ERROR_FAILURE);
           }
         }
       }
@@ -1408,25 +1667,13 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
       /*-
        *****************************************************************
        *
-       * Update the directory hash. If the file was special or could
-       * not be hashed, zeros will be folded into the aggregate hash.
+       * Conditionally update directory hashes.
        *
        *****************************************************************
        */
       if (psProperties->bHashDirectories)
       {
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
-        {
-          MD5Cycle(&sDirFTHashData.sMd5Context, sFTFileData.aucFileMd5, MD5_HASH_SIZE);
-        }
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-        {
-          SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
-        }
-        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
-        {
-          SHA256Cycle(&sDirFTHashData.sSha256Context, sFTFileData.aucFileSha256, SHA256_HASH_SIZE);
-        }
+        MapDirHashCycle(psProperties, &sFTHashData, psFTFileData);
       }
 
       /*-
@@ -1436,7 +1683,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
        *
        *****************************************************************
        */
-      iError = MapWriteRecord(psProperties, &sFTFileData, acLocalError);
+      iError = MapWriteRecord(psProperties, psFTFileData, acLocalError);
       if (iError != ER_OK)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -1451,58 +1698,24 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
        *
        *****************************************************************
        */
-      if (sFTFileData.iStreamCount > 0)
+      if (psFTFileData->iStreamCount > 0)
       {
-        MapStream(psProperties, &sFTFileData, &sDirFTHashData, acLocalError);
+        MapStream(psProperties, psFTFileData, &sFTHashData, acLocalError);
       }
 #endif
     }
-
-#ifdef WINNT
-    /*-
-     *******************************************************************
-     *
-     * Free the alternate stream info (including DOT and DOTDOT).
-     *
-     *******************************************************************
-     */
-    MEMORY_FREE(sFTFileData.pucStreamInfo);
-#endif
-
-    /*-
-     *******************************************************************
-     *
-     * Free the neutered path (including DOT and DOTDOT).
-     *
-     *******************************************************************
-     */
-    MEMORY_FREE(pcNeuteredPath);
-
-    bResult = FindNextFile(hSearch, &sFindData);
   }
 
   /*-
    *********************************************************************
    *
-   * Complete the directory hash(es). NOTE: The caller is expected to
-   * initialize each hash to all zeros.
+   * Conditionally complete directory hashes.
    *
    *********************************************************************
    */
   if (psProperties->bHashDirectories)
   {
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
-    {
-      MD5Omega(&sDirFTHashData.sMd5Context, psParentFTData->aucFileMd5);
-    }
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-    {
-      SHA1Omega(&sDirFTHashData.sSha1Context, psParentFTData->aucFileSha1);
-    }
-    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
-    {
-      SHA256Omega(&sDirFTHashData.sSha256Context, psParentFTData->aucFileSha256);
-    }
+    MapDirHashOmega(psProperties, &sFTHashData, psFTTreeData);
   }
 
   FindClose(hSearch);
@@ -1519,26 +1732,24 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
  ***********************************************************************
  */
 void
-MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, FTIMES_HASH_DATA *psFTHashData, char *pcError)
+MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, FTIMES_HASH_DATA *psFTHashData, char *pcError)
 {
   const char          acRoutine[] = "MapStream()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char                acNewRawPath[FTIMES_MAX_PATH];
-  char                acStreamName[FTIMES_MAX_PATH];
-  char               *pcNeuteredPath;
+  char                acLocalError[MESSAGE_SIZE] = "";
+  char                acRawPath[FTIMES_MAX_PATH] = "";
+  char               *pcNeuteredPath = NULL;
+  char               *pcStreamName = NULL;
   FTIMES_FILE_DATA    sFTFileData;
-  FILE_STREAM_INFORMATION *psFSI;
-  int                 i;
-  int                 iDone;
-  int                 iError;
-  int                 iLength;
-  int                 iNameLength;
-  int                 iNextEntryOffset;
-  unsigned short      usUnicode;
+  FILE_STREAM_INFORMATION *psFSI = (FILE_STREAM_INFORMATION *) psFTFileData->pucStreamInfo;
+  int                 iDone = 0;
+  int                 iError = 0;
+  int                 iLength = 0;
+  int                 iNameLength = 0;
+  int                 iNextEntryOffset = 0;
+  wchar_t             awcRawPath[FTIMES_MAX_PATH] = L"";
+  wchar_t             awcStreamName[FTIMES_MAX_PATH] = L"";
 
-  psFSI = (FILE_STREAM_INFORMATION *) psFTData->pucStreamInfo;
-
-  giStreams += psFTData->iStreamCount;
+  giStreams += psFTFileData->iStreamCount;
 
   /*-
    *********************************************************************
@@ -1550,13 +1761,14 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, FTIMES_HA
    *
    *********************************************************************
    */
-  memcpy(&sFTFileData, psFTData, sizeof(FTIMES_FILE_DATA));
+/* FIXME Look into using MapNewFTFileData() here. */
+  memcpy(&sFTFileData, psFTFileData, sizeof(FTIMES_FILE_DATA));
 
-  sFTFileData.pcRawPath = acNewRawPath;
+  sFTFileData.pcRawPath = acRawPath;
 
   sFTFileData.iStreamCount = 0;
 
-  if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+  if ((psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
   {
     sFTFileData.dwFileAttributes = 0;
   }
@@ -1579,48 +1791,31 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, FTIMES_HA
     /*-
      *******************************************************************
      *
-     * The string ":$DATA" is not part of the the stream's name as it's
-     * stored on disk in the MFT. For this reason, it's removed here. If
-     * this is not done, normal filenames (i.e., those not prefixed with
-     * '\\?\') can exceed MAX_PATH.
+     * Skip unnamed streams. Remove the ":$DATA" suffix since it's not
+     * part of the stream name as stored on disk in the MFT and it can
+     * result in paths that exceed MAX_PATH. Convert the result to
+     * UTF-8.
      *
      *******************************************************************
      */
-    iLength = psFSI->StreamNameLength / sizeof(WCHAR);
-    if (
-         psFSI->StreamName[iLength - 6] == (WCHAR) ':' &&
-         psFSI->StreamName[iLength - 5] == (WCHAR) '$' &&
-         psFSI->StreamName[iLength - 4] == (WCHAR) 'D' &&
-         psFSI->StreamName[iLength - 3] == (WCHAR) 'A' &&
-         psFSI->StreamName[iLength - 2] == (WCHAR) 'T' &&
-         psFSI->StreamName[iLength - 1] == (WCHAR) 'A'
-       )
+    iLength = psFSI->StreamNameLength / sizeof(wchar_t);
+    if (wcscmp(&psFSI->StreamName[iLength - 6], L":$DATA") == 0)
     {
+      if (psFSI->StreamName[iLength - 7] == L':')
+      {
+        continue;
+      }
       iLength -= 6;
-      if (psFSI->StreamName[iLength - 1] == (WCHAR) ':')
-      {
-        continue; /* No name means that this is the default stream. */
-      }
     }
-
-    for (i = 0; i < iLength; i++)
+    wcsncpy(awcStreamName, psFSI->StreamName, iLength);
+    awcStreamName[iLength] = 0;
+    pcStreamName = MapWideToUtf8(awcStreamName, iLength + 1, acLocalError);
+    if (pcStreamName == NULL)
     {
-      usUnicode = (unsigned short)psFSI->StreamName[i];
-      if (usUnicode < 0x0020 || usUnicode > 0x007e)
-      {
-        break;
-      }
-      acStreamName[i] = (char)(usUnicode & 0xff);
-    }
-    if (i != iLength)
-    {
-      char *pcStream = SupportNeuterStringW(psFSI->StreamName, iLength, acLocalError);
-      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s], NeuteredWideStream = [%s]: Stream skipped because its name contains Unicode or Unsafe characters.", acRoutine, psFTData->pcNeuteredPath, (pcStream == NULL) ? "" : pcStream);
-      MEMORY_FREE(pcStream);
-      ErrorHandler(ER_Length, pcError, ERROR_FAILURE);
+      snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s]: UTF-8 conversion failed for a stream associated with this file.", acRoutine, psFTFileData->pcRawPath);
+      ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
       continue;
     }
-    acStreamName[i] = 0;
 
     /*-
      *******************************************************************
@@ -1630,21 +1825,25 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, FTIMES_HA
      *
      *******************************************************************
      */
-    iNameLength = strlen(psFTData->pcRawPath) + iLength;
+    iNameLength = strlen(psFTFileData->pcRawPath) + iLength;
     if (iNameLength > FTIMES_MAX_PATH - 1) /* Subtract one for the NULL. */
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: NewRawPath = [%s%s], Length = [%d]: Length would exceed %d bytes.",
+      snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s%s]: Length (%d) exceeds %d bytes.",
         acRoutine,
-        psFTData->pcRawPath,
-        acStreamName,
+        psFTFileData->pcRawPath,
+        pcStreamName,
         iNameLength,
         FTIMES_MAX_PATH - 1
         );
       ErrorHandler(ER_Length, pcError, ERROR_FAILURE);
+      MEMORY_FREE(pcStreamName);
       continue;
     }
-    sprintf(acNewRawPath, "%s%s", psFTData->pcRawPath, acStreamName);
-    sFTFileData.pcRawPath = acNewRawPath;
+    snprintf(acRawPath, FTIMES_MAX_PATH, "%s%s", psFTFileData->pcRawPath, pcStreamName);
+    sFTFileData.pcRawPath = acRawPath;
+
+    _snwprintf(awcRawPath, FTIMES_MAX_PATH, L"%s%s", psFTFileData->pwcRawPath, awcStreamName);
+    sFTFileData.pwcRawPath = awcRawPath;
 
     /*-
      *******************************************************************
@@ -1653,11 +1852,12 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, FTIMES_HA
      *
      *******************************************************************
      */
-    pcNeuteredPath = SupportNeuterString(acNewRawPath, iNameLength, acLocalError);
+    pcNeuteredPath = SupportNeuterString(acRawPath, iNameLength, acLocalError);
     if (pcNeuteredPath == NULL)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s]: %s", acRoutine, acNewRawPath, acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s]: %s", acRoutine, acRawPath, acLocalError);
       ErrorHandler(ER_NeuterPathname, pcError, ERROR_FAILURE);
+      MEMORY_FREE(pcStreamName);
       continue;
     }
     sFTFileData.pcNeuteredPath = pcNeuteredPath;
@@ -1692,28 +1892,15 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, FTIMES_HA
     /*-
      *******************************************************************
      *
-     * Update the directory hash. If the stream could not be hashed,
-     * zeros will be folded into the aggregate hash. When psFTHashData
-     * is NULL, assume that the caller was MapFile(), and skip all
-     * directory hashing -- individual files, by definition, cannot
-     * have this kind of hash.
+     * Conditionally update directory hashes. If psFTHashData is NULL,
+     * assume the caller was MapFile() and skip this step -- directory
+     * hashes are not computed for includes that are individual files.
      *
      *******************************************************************
      */
     if (psProperties->bHashDirectories && psFTHashData != NULL)
     {
-      if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
-      {
-        MD5Cycle(&psFTHashData->sMd5Context, sFTFileData.aucFileMd5, MD5_HASH_SIZE);
-      }
-      if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-      {
-        SHA1Cycle(&psFTHashData->sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
-      }
-      if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
-      {
-        SHA256Cycle(&psFTHashData->sSha256Context, sFTFileData.aucFileSha256, SHA256_HASH_SIZE);
-      }
+      MapDirHashCycle(psProperties, psFTHashData, &sFTFileData);
     }
 
     /*-
@@ -1733,11 +1920,12 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, FTIMES_HA
     /*-
      *******************************************************************
      *
-     * Free the neutered path.
+     * Free the neutered path and stream name.
      *
      *******************************************************************
      */
     MEMORY_FREE(pcNeuteredPath);
+    MEMORY_FREE(pcStreamName);
   }
 }
 
@@ -1872,29 +2060,55 @@ int
 MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
 {
   const char          acRoutine[] = "MapFile()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char                acLinkData[FTIMES_MAX_PATH];
-  char               *pcNeuteredPath;
-  FTIMES_FILE_DATA    sFTFileData;
-  int                 iError;
-  int                 iFSType;
-  int                 iPathLength;
+  char                acLocalError[MESSAGE_SIZE] = "";
+  char                acLinkData[FTIMES_MAX_PATH] = "";
+  FTIMES_FILE_DATA   *psFTFileData = NULL;
+  int                 iError = 0;
+  int                 iFSType = 0;
+  int                 iLength = strlen(pcPath);
 #ifdef USE_PCRE
   char                acMessage[MESSAGE_SIZE] = "";
-  int                 iFiltered = 0;
 #endif
 
   /*-
    *********************************************************************
    *
-   * Initialize the sFTFileData structure. Subsequent logic relies
-   * on the assertion that each hash value has been initialized to all
-   * zeros.
+   * Create and initialize a new file data structure.
    *
    *********************************************************************
    */
-  memset(&sFTFileData, 0, sizeof(FTIMES_FILE_DATA));
-  sFTFileData.pcRawPath = pcPath;
+  psFTFileData = MapNewFTFileData(NULL, pcPath, acLocalError);
+  if (psFTFileData == NULL)
+  {
+/* FIXME Need to prevent truncation in the case where the new path is larger than MESSAGE_SIZE. */
+    char  acTempError[MESSAGE_SIZE] = "";
+    char *pcNeuteredPath = SupportNeuterString(pcPath, iLength, acTempError);
+    if (pcNeuteredPath)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+      ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+      free(pcNeuteredPath);
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: FallbackPath = [%s]: %s", acRoutine, pcPath, acLocalError);
+      ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+    }
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Get file attributes. This fills in several structure members.
+   *
+   *********************************************************************
+   */
+  MapGetAttributes(psFTFileData);
+  if (!psFTFileData->iFileExists)
+  {
+    return ER_OK;
+  }
 
 #ifdef USE_PCRE
   /*-
@@ -1910,31 +2124,30 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    */
   if (psProperties->psExcludeFilterList)
   {
-    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, pcPath);
+    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, psFTFileData->pcRawPath);
     if (psFilter != NULL)
     {
       if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
       {
-        snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, pcPath);
+        snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
         MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
       }
       return ER_OK;
     }
   }
 
-  iFiltered = 0;
   if (psProperties->psIncludeFilterList)
   {
-    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, pcPath);
+    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, psFTFileData->pcRawPath);
     if (psFilter == NULL)
     {
-      iFiltered = 1;
+      psFTFileData->iFiltered = 1;
     }
     else
     {
       if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
       {
-        snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, pcPath);
+        snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
         MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
       }
     }
@@ -1944,61 +2157,27 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   /*-
    *********************************************************************
    *
-   * Neuter the given path. In other words, replace funky chars with
-   * their hex value (e.g., backspace becomes %08).
+   * If the file system is remote and remote scanning is disabled, we're done.
    *
    *********************************************************************
    */
-  iPathLength = strlen(pcPath);
-  pcNeuteredPath = SupportNeuterString(pcPath, iPathLength, acLocalError);
-  if (pcNeuteredPath == NULL)
+  iFSType = psFTFileData->iFSType;
+  if (!psProperties->bAnalyzeRemoteFiles && (iFSType == FSTYPE_NFS || iFSType == FSTYPE_NFS3 || iFSType == FSTYPE_SMB))
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s]: %s", acRoutine, pcPath, acLocalError);
-    ErrorHandler(ER_NeuterPathname, pcError, ERROR_FAILURE);
-    return ER_NeuterPathname;
+    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, psFTFileData->pcNeuteredPath);
+    ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+    MapFreeFTFileData(psFTFileData);
+    return ER;
   }
-  sFTFileData.pcNeuteredPath = pcNeuteredPath;
 
   /*-
    *********************************************************************
    *
-   * Get the file system type.
+   * No attributes means no file type, so we have to stop short.
    *
    *********************************************************************
    */
-  iFSType = GetFileSystemType(pcPath, acLocalError);
-  if (iFSType == ER)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
-    ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-    MEMORY_FREE(pcNeuteredPath);
-    return ER;
-  }
-  if (iFSType == FSTYPE_UNSUPPORTED)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
-    ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-    MEMORY_FREE(pcNeuteredPath);
-    return ER;
-  }
-  if ((iFSType == FSTYPE_NFS || iFSType == FSTYPE_SMB) && !psProperties->bAnalyzeRemoteFiles)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, pcNeuteredPath);
-    ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-    MEMORY_FREE(pcNeuteredPath);
-    return ER;
-  }
-  sFTFileData.iFSType = iFSType;
-
-  /*-
-   *********************************************************************
-   *
-   * Collect attributes, but don't follow symbolic links.
-   *
-   *********************************************************************
-   */
-  iError = MapGetAttributes(&sFTFileData, acLocalError);
-  if (iError == Have_Nothing)
+  if (psFTFileData->ulAttributeMask == 0)
   {
 #ifdef USE_PCRE
     /*-
@@ -2008,9 +2187,9 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
      *
      *******************************************************************
      */
-    if (iFiltered)
+    if (psFTFileData->iFiltered)
     {
-      MEMORY_FREE(pcNeuteredPath);
+      MapFreeFTFileData(psFTFileData);
       return ER_OK;
     }
 #endif
@@ -2022,7 +2201,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
      *
      *******************************************************************
      */
-    iError = MapWriteRecord(psProperties, &sFTFileData, acLocalError);
+    iError = MapWriteRecord(psProperties, psFTFileData, acLocalError);
     if (iError != ER_OK)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -2032,11 +2211,11 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     /*-
      *******************************************************************
      *
-     * Free the neutered path and return.
+     * Free the file data structure.
      *
      *******************************************************************
      */
-    MEMORY_FREE(pcNeuteredPath);
+    MapFreeFTFileData(psFTFileData);
     return ER;
   }
 
@@ -2050,63 +2229,60 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    *
    *********************************************************************
    */
-  if (S_ISDIR(sFTFileData.sStatEntry.st_mode))
+  if (S_ISDIR(psFTFileData->sStatEntry.st_mode))
   {
     giDirectories++;
 #ifdef USE_XMAGIC
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
     {
-      snprintf(sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, "directory");
+      snprintf(psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, "special/directory");
     }
 #endif
-    if (psProperties->bEnableRecursion)
-    {
-      MapTree(psProperties, pcPath, iFSType, &sFTFileData, acLocalError);
-    }
+    MapTree(psProperties, psFTFileData, acLocalError);
 #ifdef USE_PCRE
-    if (iFiltered) /* We're done. */
+    if (psFTFileData->iFiltered) /* We're done. */
     {
-      MEMORY_FREE(pcNeuteredPath);
+      MapFreeFTFileData(psFTFileData);
       return ER_OK;
     }
 #endif
   }
-  else if (S_ISREG(sFTFileData.sStatEntry.st_mode) || ((S_ISBLK(sFTFileData.sStatEntry.st_mode) || S_ISCHR(sFTFileData.sStatEntry.st_mode)) && psProperties->bAnalyzeDeviceFiles))
+  else if (S_ISREG(psFTFileData->sStatEntry.st_mode) || ((S_ISBLK(psFTFileData->sStatEntry.st_mode) || S_ISCHR(psFTFileData->sStatEntry.st_mode)) && psProperties->bAnalyzeDeviceFiles))
   {
 #ifdef USE_PCRE
-    if (iFiltered) /* We're done. */
+    if (psFTFileData->iFiltered) /* We're done. */
     {
-      MEMORY_FREE(pcNeuteredPath);
+      MapFreeFTFileData(psFTFileData);
       return ER_OK;
     }
 #endif
     giFiles++;
     if (psProperties->iLastAnalysisStage > 0)
     {
-      iError = AnalyzeFile(psProperties, &sFTFileData, acLocalError);
+      iError = AnalyzeFile(psProperties, psFTFileData, acLocalError);
       if (iError != ER_OK)
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
         ErrorHandler(iError, pcError, ERROR_FAILURE);
       }
     }
   }
-  else if (S_ISLNK(sFTFileData.sStatEntry.st_mode))
+  else if (S_ISLNK(psFTFileData->sStatEntry.st_mode))
   {
 #ifdef USE_PCRE
-    if (iFiltered) /* We're done. */
+    if (psFTFileData->iFiltered) /* We're done. */
     {
-      MEMORY_FREE(pcNeuteredPath);
+      MapFreeFTFileData(psFTFileData);
       return ER_OK;
     }
 #endif
     giSpecial++;
     if (psProperties->bHashSymbolicLinks)
     {
-      iError = readlink(pcPath, acLinkData, FTIMES_MAX_PATH - 1);
+      iError = readlink(psFTFileData->pcRawPath, acLinkData, FTIMES_MAX_PATH - 1);
       if (iError == ER)
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Unreadable Symbolic Link: %s", acRoutine, pcNeuteredPath, strerror(errno));
+        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Unreadable Symbolic Link: %s", acRoutine, psFTFileData->pcNeuteredPath, strerror(errno));
         ErrorHandler(ER_readlink, pcError, ERROR_FAILURE);
       }
       else
@@ -2114,25 +2290,25 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
         acLinkData[iError] = 0; /* Readlink does not append a NULL. */
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
         {
-          MD5HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileMd5);
+          MD5HashString((unsigned char *) acLinkData, strlen(acLinkData), psFTFileData->aucFileMd5);
         }
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
         {
-          SHA1HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileSha1);
+          SHA1HashString((unsigned char *) acLinkData, strlen(acLinkData), psFTFileData->aucFileSha1);
         }
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
         {
-          SHA256HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileSha256);
+          SHA256HashString((unsigned char *) acLinkData, strlen(acLinkData), psFTFileData->aucFileSha256);
         }
       }
     }
 #ifdef USE_XMAGIC
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
     {
-      iError = XMagicTestSpecial(sFTFileData.pcRawPath, &sFTFileData.sStatEntry, sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
+      iError = XMagicTestSpecial(psFTFileData->pcRawPath, &psFTFileData->sStatEntry, psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
       if (iError != ER_OK)
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
         ErrorHandler(iError, pcError, ERROR_FAILURE);
       }
     }
@@ -2141,9 +2317,9 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   else
   {
 #ifdef USE_PCRE
-    if (iFiltered) /* We're done. */
+    if (psFTFileData->iFiltered) /* We're done. */
     {
-      MEMORY_FREE(pcNeuteredPath);
+      MapFreeFTFileData(psFTFileData);
       return ER_OK;
     }
 #endif
@@ -2151,10 +2327,10 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
 #ifdef USE_XMAGIC
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
     {
-      iError = XMagicTestSpecial(sFTFileData.pcRawPath, &sFTFileData.sStatEntry, sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
+      iError = XMagicTestSpecial(psFTFileData->pcRawPath, &psFTFileData->sStatEntry, psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
       if (iError != ER_OK)
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
         ErrorHandler(iError, pcError, ERROR_FAILURE);
       }
     }
@@ -2168,21 +2344,40 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    *
    *********************************************************************
    */
-  iError = MapWriteRecord(psProperties, &sFTFileData, acLocalError);
+  iError = MapWriteRecord(psProperties, psFTFileData, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
     ErrorHandler(iError, pcError, ERROR_CRITICAL);
   }
+
+#ifdef USE_FILE_HOOKS
+  /*-
+   *********************************************************************
+   *
+   * Conditionally execute hooks for regular files.
+   *
+   *********************************************************************
+   */
+  if (psProperties->psFileHookList && S_ISREG(psFTFileData->sStatEntry.st_mode))
+  {
+    iError = MapExecuteHook(psProperties, psFTFileData, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
+      ErrorHandler(iError, pcError, ERROR_CRITICAL);
+    }
+  }
+#endif
 
   /*-
    *********************************************************************
    *
-   * Free the neutered path.
+   * Free the file data structure.
    *
    *********************************************************************
    */
-  MEMORY_FREE(pcNeuteredPath);
+  MapFreeFTFileData(psFTFileData);
 
   return ER_OK;
 }
@@ -2201,30 +2396,84 @@ int
 MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
 {
   const char          acRoutine[] = "MapFile()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char               *pcNeuteredPath;
-  FTIMES_FILE_DATA    sFTFileData;
-  int                 iError;
-  int                 iFSType;
-  int                 iPathLength;
+  char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_FILE_DATA   *psFTFileData = NULL;
+  int                 iError = 0;
+  int                 iFSType = 0;
+  int                 iLength = strlen(pcPath);
 #ifdef USE_PCRE
   char                acMessage[MESSAGE_SIZE] = "";
-  int                 iFiltered = 0;
 #endif
+  wchar_t            *pwcPath = NULL;
 
   /*-
    *********************************************************************
    *
-   * Initialize the file data structure.
+   * Internally, paths are handled as wide character strings, so the
+   * initial conversion is done here.
    *
    *********************************************************************
    */
-  memset(&sFTFileData, 0, sizeof(FTIMES_FILE_DATA));
-  sFTFileData.pcRawPath = pcPath;
-  sFTFileData.dwVolumeSerialNumber = -1;
-  sFTFileData.dwFileIndexHigh = -1;
-  sFTFileData.dwFileIndexLow = -1;
-  sFTFileData.iStreamCount = FTIMES_INVALID_STREAM_COUNT; /* The Develop{Compressed,Normal}Output routines check for this value. */
+  pwcPath = MapUtf8ToWide(pcPath, iLength + 1, acLocalError);
+  if (pwcPath == NULL)
+  {
+/* FIXME Need to prevent truncation in the case where the new path is larger than MESSAGE_SIZE. */
+    char  acTempError[MESSAGE_SIZE] = "";
+    char *pcNeuteredPath = SupportNeuterString(pcPath, iLength, acTempError);
+    if (pcNeuteredPath)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+      ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+      free(pcNeuteredPath);
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: FallbackPath = [%s]: %s", acRoutine, pcPath, acLocalError);
+      ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+    }
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Create and initialize a new file data structure.
+   *
+   *********************************************************************
+   */
+  psFTFileData = MapNewFTFileDataW(NULL, pwcPath, acLocalError);
+  if (psFTFileData == NULL)
+  {
+/* FIXME Need to prevent truncation in the case where the new path is larger than MESSAGE_SIZE. */
+    char  acTempError[MESSAGE_SIZE] = "";
+    char *pcNeuteredPath = SupportNeuterString(pcPath, iLength, acTempError);
+    if (pcNeuteredPath)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+      ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+      free(pcNeuteredPath);
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: FallbackPath = [%s]: %s", acRoutine, pcPath, acLocalError);
+      ErrorHandler(ER_Failure, pcError, ERROR_FAILURE);
+    }
+    return ER;
+  }
+  MEMORY_FREE(pwcPath);
+
+  /*-
+   *********************************************************************
+   *
+   * Get file attributes. This fills in several structure members.
+   *
+   *********************************************************************
+   */
+  MapGetAttributes(psFTFileData);
+  if (!psFTFileData->iFileExists)
+  {
+    return ER_OK;
+  }
 
 #ifdef USE_PCRE
   /*-
@@ -2240,31 +2489,30 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    */
   if (psProperties->psExcludeFilterList)
   {
-    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, pcPath);
+    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, psFTFileData->pcRawPath);
     if (psFilter != NULL)
     {
       if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
       {
-        snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, pcPath);
+        snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
         MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
       }
       return ER_OK;
     }
   }
 
-  iFiltered = 0;
   if (psProperties->psIncludeFilterList)
   {
-    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, pcPath);
+    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, psFTFileData->pcRawPath);
     if (psFilter == NULL)
     {
-      iFiltered = 1;
+      psFTFileData->iFiltered = 1;
     }
     else
     {
       if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
       {
-        snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, pcPath);
+        snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
         MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
       }
     }
@@ -2274,61 +2522,27 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   /*-
    *********************************************************************
    *
-   * Neuter the given path. In other words, replace funky chars with
-   * their hex value (e.g., backspace becomes %08).
+   * If the file system is remote and remote scanning is disabled, we're done.
    *
    *********************************************************************
    */
-  iPathLength = strlen(pcPath);
-  pcNeuteredPath = SupportNeuterString(pcPath, iPathLength, acLocalError);
-  if (pcNeuteredPath == NULL)
+  iFSType = psFTFileData->iFSType;
+  if (!psProperties->bAnalyzeRemoteFiles && (iFSType == FSTYPE_NTFS_REMOTE || iFSType == FSTYPE_FAT_REMOTE || iFSType == FSTYPE_NWFS_REMOTE))
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: RawPath = [%s]: %s", acRoutine, pcPath, acLocalError);
-    ErrorHandler(ER_NeuterPathname, pcError, ERROR_FAILURE);
-    return ER_NeuterPathname;
+    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, psFTFileData->pcNeuteredPath);
+    ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+    MapFreeFTFileData(psFTFileData);
+    return ER;
   }
-  sFTFileData.pcNeuteredPath = pcNeuteredPath;
 
   /*-
    *********************************************************************
    *
-   * Get the file system type.
+   * No attributes means no file type, so we have to stop short.
    *
    *********************************************************************
    */
-  iFSType = GetFileSystemType(pcPath, acLocalError);
-  if (iFSType == ER)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
-    ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-    MEMORY_FREE(pcNeuteredPath);
-    return ER;
-  }
-  if (iFSType == FSTYPE_UNSUPPORTED)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
-    ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-    MEMORY_FREE(pcNeuteredPath);
-    return ER;
-  }
-  if ((iFSType == FSTYPE_NTFS_REMOTE || iFSType == FSTYPE_FAT_REMOTE || iFSType == FSTYPE_NWFS_REMOTE) && !psProperties->bAnalyzeRemoteFiles)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, pcNeuteredPath);
-    ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-    MEMORY_FREE(pcNeuteredPath);
-    return ER;
-  }
-  sFTFileData.iFSType = iFSType;
-
-  /*-
-   *********************************************************************
-   *
-   * Collect attributes.
-   *
-   *********************************************************************
-   */
-  iError = MapGetAttributes(&sFTFileData, acLocalError);
-  if (iError == Have_Nothing)
+  if (psFTFileData->ulAttributeMask == 0)
   {
 #ifdef USE_PCRE
     /*-
@@ -2338,9 +2552,9 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
      *
      *******************************************************************
      */
-    if (iFiltered)
+    if (psFTFileData->iFiltered)
     {
-      MEMORY_FREE(pcNeuteredPath);
+      MapFreeFTFileData(psFTFileData);
       return ER_OK;
     }
 #endif
@@ -2352,7 +2566,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
      *
      *******************************************************************
      */
-    iError = MapWriteRecord(psProperties, &sFTFileData, acLocalError);
+    iError = MapWriteRecord(psProperties, psFTFileData, acLocalError);
     if (iError != ER_OK)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -2362,11 +2576,11 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     /*-
      *******************************************************************
      *
-     * Free the neutered path and return.
+     * Free the file data structure.
      *
      *******************************************************************
      */
-    MEMORY_FREE(pcNeuteredPath);
+    MapFreeFTFileData(psFTFileData);
     return ER;
   }
 
@@ -2377,23 +2591,20 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    *
    *********************************************************************
    */
-  if ((sFTFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+  if ((psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
   {
     giDirectories++;
 #ifdef USE_XMAGIC
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
     {
-      snprintf(sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, "directory");
+      snprintf(psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, "special/directory");
     }
 #endif
-    if (psProperties->bEnableRecursion)
-    {
-      MapTree(psProperties, pcPath, iFSType, &sFTFileData, acLocalError);
-    }
+    MapTree(psProperties, psFTFileData, acLocalError);
 #ifdef USE_PCRE
-    if (iFiltered) /* We're done. */
+    if (psFTFileData->iFiltered) /* We're done. */
     {
-      MEMORY_FREE(pcNeuteredPath);
+      MapFreeFTFileData(psFTFileData);
       return ER_OK;
     }
 #endif
@@ -2401,23 +2612,20 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   else
   {
 #ifdef USE_PCRE
-    if (iFiltered) /* We're done. */
+    if (psFTFileData->iFiltered) /* We're done. */
     {
-      MEMORY_FREE(pcNeuteredPath);
+      MapFreeFTFileData(psFTFileData);
       return ER_OK;
     }
 #endif
     giFiles++;
-    if (sFTFileData.iFileFlags >= Have_MapGetFileHandle)
+    if (psProperties->iLastAnalysisStage > 0)
     {
-      if (psProperties->iLastAnalysisStage > 0)
+      iError = AnalyzeFile(psProperties, psFTFileData, acLocalError);
+      if (iError != ER_OK)
       {
-        iError = AnalyzeFile(psProperties, &sFTFileData, acLocalError);
-        if (iError != ER_OK)
-        {
-          snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
-          ErrorHandler(iError, pcError, ERROR_FAILURE);
-        }
+        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
+        ErrorHandler(iError, pcError, ERROR_FAILURE);
       }
     }
   }
@@ -2429,10 +2637,10 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    *
    *********************************************************************
    */
-  iError = MapWriteRecord(psProperties, &sFTFileData, acLocalError);
+  iError = MapWriteRecord(psProperties, psFTFileData, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, pcNeuteredPath, acLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
     ErrorHandler(iError, pcError, ERROR_CRITICAL);
   }
 
@@ -2446,29 +2654,20 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    *
    *********************************************************************
    */
-  if (sFTFileData.iStreamCount > 0)
+  if (psFTFileData->iStreamCount > 0)
   {
-    MapStream(psProperties, &sFTFileData, NULL, acLocalError);
+    MapStream(psProperties, psFTFileData, NULL, acLocalError);
   }
-
-  /*-
-   *********************************************************************
-   *
-   * Free the alternate stream info.
-   *
-   *********************************************************************
-   */
-  MEMORY_FREE(sFTFileData.pucStreamInfo);
 #endif
 
   /*-
    *********************************************************************
    *
-   * Free the neutered path.
+   * Free the file data structure.
    *
    *********************************************************************
    */
-  MEMORY_FREE(pcNeuteredPath);
+  MapFreeFTFileData(psFTFileData);
 
   return ER_OK;
 }
@@ -2483,17 +2682,19 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
  ***********************************************************************
  */
 int
-MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *pcError)
+MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
   const char          acRoutine[] = "MapWriteRecord()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
-  int                 iWriteCount;
+  int                 iIndex = 0;
+  int                 iWriteCount = 0;
 
 #ifdef UNIX
   /*-
    *********************************************************************
    *
+   * prefix        4
    * name          1 (for quote) + (3 * FTIMES_MAX_PATH) + 1 (for quote)
    * dev           FTIMES_MAX_32BIT_SIZE
    * inode         FTIMES_MAX_32BIT_SIZE
@@ -2517,7 +2718,8 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
    *
    *********************************************************************
    */
-  char acOutput[(3 * FTIMES_MAX_PATH) +
+  char acOutput[4 +
+                (3 * FTIMES_MAX_PATH) +
                 (7 * FTIMES_MAX_32BIT_SIZE) +
                 (3 * FTIMES_TIME_FORMAT_SIZE) +
                 (1 * FTIMES_MAX_64BIT_SIZE) +
@@ -2535,6 +2737,7 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
   /*-
    *********************************************************************
    *
+   * prefix        4
    * name          1 (for quote) + (3 * FTIMES_MAX_PATH) + 1 (for quote)
    * volume        FTIMES_MAX_32BIT_SIZE
    * findex        FTIMES_MAX_64BIT_SIZE
@@ -2551,12 +2754,16 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
 #ifdef USE_XMAGIC
    * magic         XMAGIC_DESCRIPTION_BUFSIZE
 #endif
-   * |'s           11 (not counting those embedded in time)
+   * osid          FTIMES_MAX_SID_SIZE
+   * gsid          FTIMES_MAX_SID_SIZE
+   * dacl          FTIMES_MAX_ACL_SIZE
+   * |'s           14 (not counting those embedded in time)
    * newline       2
    *
    *********************************************************************
    */
-  char acOutput[(3 * FTIMES_MAX_PATH) +
+  char acOutput[4 +
+                (3 * FTIMES_MAX_PATH) +
                 (3 * FTIMES_MAX_32BIT_SIZE) +
                 (4 * FTIMES_TIME_FORMAT_SIZE) +
                 (2 * FTIMES_MAX_64BIT_SIZE) +
@@ -2566,37 +2773,46 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
 #ifdef USE_XMAGIC
                 (1 * XMAGIC_DESCRIPTION_BUFSIZE) +
 #endif
-                15
+                (2 * FTIMES_MAX_SID_SIZE) +
+                (1 * FTIMES_MAX_ACL_SIZE) +
+                18
                 ];
 #endif
 
   /*-
    *********************************************************************
    *
-   * Initialize the write count. Format or compress the output.
+   * Conditionally add a record prefix.
    *
    *********************************************************************
    */
-  iWriteCount = 0;
-  iError = psProperties->piDevelopMapOutput(psProperties, acOutput, &iWriteCount, psFTData, acLocalError);
+  if (psProperties->acMapRecordPrefix[0])
+  {
+    iIndex = sprintf(acOutput, "%s", psProperties->acMapRecordPrefix);
+  }
 
   /*-
    *********************************************************************
    *
-   * Update global counts. The values for incomplete, complete,
-   * and total records specifically refer to the number of records
-   * in the output stream. Inform the user if a record has one or
-   * more null fields.
+   * Develop the output. Warn the user if a record has null fields.
    *
    *********************************************************************
    */
+  iError = psProperties->piDevelopMapOutput(psProperties, &acOutput[iIndex], &iWriteCount, psFTFileData, acLocalError);
   if (iError == ER_NullFields)
   {
     giIncompleteRecords++;
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s], NullFields = [%s]", acRoutine, psFTData->pcNeuteredPath, acLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s], NullFields = [%s]", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
     ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
   }
+#ifdef USE_PCRE
+  else if (iError == ER_Filtered)
+  {
+    return ER_OK;
+  }
+#endif
   giRecords++;
+  iWriteCount += iIndex;
 
   /*-
    *********************************************************************
@@ -2619,7 +2835,7 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
    *
    *********************************************************************
    */
-  MD5Cycle(&psProperties->sOutFileHashContext, acOutput, iWriteCount);
+  MD5Cycle(&psProperties->sOutFileHashContext, (unsigned char *) acOutput, iWriteCount);
 
   return ER_OK;
 }
@@ -2636,8 +2852,8 @@ int
 MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "MapWriteHeader()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char                acHeaderData[FTIMES_MAX_LINE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
+  char                acHeaderData[FTIMES_MAX_LINE] = "";
   int                 i = 0;
   int                 iError = 0;
   int                 iIndex = 0;
@@ -2648,22 +2864,13 @@ MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * Initialize the output's MD5 hash.
-   *
-   *********************************************************************
-   */
-  MD5Alpha(&psProperties->sOutFileHashContext);
-
-  /*-
-   *********************************************************************
-   *
-   * Build the output's header.
+   * Build the output's header. Conditionally add a header prefix.
    *
    *********************************************************************
    */
   if (psProperties->bCompress)
   {
-    iIndex = sprintf(acHeaderData, "z_name");
+    iIndex = sprintf(acHeaderData, "%sz_name", (psProperties->acMapRecordPrefix[0]) ? psProperties->acMapRecordPrefix : "");
     for (i = 0; i < iMaskTableLength; i++)
     {
       ul = (1 << i);
@@ -2696,7 +2903,7 @@ MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
   }
   else
   {
-    iIndex = sprintf(acHeaderData, "name");
+    iIndex = sprintf(acHeaderData, "%sname", (psProperties->acMapRecordPrefix[0]) ? psProperties->acMapRecordPrefix : "");
     for (i = 0; i < iMaskTableLength; i++)
     {
       ul = (1 << i);
@@ -2750,13 +2957,12 @@ MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  MD5Cycle(&psProperties->sOutFileHashContext, acHeaderData, iIndex);
+  MD5Cycle(&psProperties->sOutFileHashContext, (unsigned char *) acHeaderData, iIndex);
 
   return ER_OK;
 }
 
 
-#ifdef UNIX
 /*-
  ***********************************************************************
  *
@@ -2764,114 +2970,28 @@ MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
  *
  ***********************************************************************
  */
-int
-MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
+unsigned long
+MapGetAttributes(FTIMES_FILE_DATA *psFTFileData)
 {
   const char          acRoutine[] = "MapGetAttributes()";
-
-  psFTData->iFileFlags = Have_Nothing;
-
-  /*-
-   *********************************************************************
-   *
-   * Collect attributes. Use lstat() so links aren't followed.
-   *
-   *********************************************************************
-   */
-  if (lstat(psFTData->pcRawPath, &psFTData->sStatEntry) != ER)
-  {
-    psFTData->iFileFlags = Have_lstat;
-  }
-  else
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: lstat(): %s", acRoutine, psFTData->pcNeuteredPath, strerror(errno));
-    ErrorHandler(ER_lstat, pcError, ERROR_FAILURE);
-    pcError[0] = 0;
-  }
-  return psFTData->iFileFlags;
-}
-#endif
-
-
-#ifdef WIN32
-/*-
- ***********************************************************************
- *
- * MapGetAttributes
- *
- ***********************************************************************
- */
-int
-MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
-{
-  const char          acRoutine[] = "MapGetAttributes()";
-  BY_HANDLE_FILE_INFORMATION sFileInfo;
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char               *pcMessage;
-  HANDLE              hFile;
-  WIN32_FILE_ATTRIBUTE_DATA sFileAttributeData;
-
-#ifdef WIN98
-  DWORD               dwFileAttributes;
-#endif
-
+  char                acLocalError[MESSAGE_SIZE] = "";
 #ifdef WINNT
+  BOOL                bResult;
+  BY_HANDLE_FILE_INFORMATION sFileInfo;
+  char               *pcMessage;
+  DWORD               dwSize;
   DWORD               dwStatus;
   FILE_BASIC_INFORMATION sFileBasicInfo;
+  HANDLE              hFile;
   IO_STATUS_BLOCK     sIOStatusBlock;
   int                 iStatus;
+  WIN32_FILE_ATTRIBUTE_DATA sFileAttributeData;
 #endif
 
-  psFTData->iFileFlags = Have_Nothing;
+  psFTFileData->ulAttributeMask = 0;
+  psFTFileData->iFileExists = 1; /* Be optimistic. */
 
-#ifdef WIN98
-  /*-
-   *********************************************************************
-   *
-   * Windows 98 can't open directories the way we need them to, so we
-   * must rely on GetFileAttributesEx().
-   *
-   *********************************************************************
-   */
-  dwFileAttributes = GetFileAttributes(psFTData->pcRawPath);
-  if (dwFileAttributes != 0xffffffff)
-  {
-    psFTData->iFileFlags = Have_GetFileAttributes;
-    if ((dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
-    {
-      if (GetFileAttributesEx(psFTData->pcRawPath, GetFileExInfoStandard, &sFileAttributeData))
-      {
-        psFTData->iFileFlags              = Have_GetFileAttributesEx;
-        psFTData->dwFileAttributes        = sFileAttributeData.dwFileAttributes;
-        psFTData->sFTATime.dwLowDateTime  = sFileAttributeData.ftLastAccessTime.dwLowDateTime;
-        psFTData->sFTATime.dwHighDateTime = sFileAttributeData.ftLastAccessTime.dwHighDateTime;
-        psFTData->sFTMTime.dwLowDateTime  = sFileAttributeData.ftLastWriteTime.dwLowDateTime;
-        psFTData->sFTMTime.dwHighDateTime = sFileAttributeData.ftLastWriteTime.dwHighDateTime;
-        psFTData->sFTCTime.dwLowDateTime  = sFileAttributeData.ftCreationTime.dwLowDateTime;
-        psFTData->sFTCTime.dwHighDateTime = sFileAttributeData.ftCreationTime.dwHighDateTime;
-        psFTData->dwFileSizeHigh          = sFileAttributeData.nFileSizeHigh;
-        psFTData->dwFileSizeLow           = sFileAttributeData.nFileSizeLow;
-      }
-      else
-      {
-        ErrorFormatWin32Error(&pcMessage);
-        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileAttributesEx(): %s", acRoutine, psFTData->pcNeuteredPath, pcMessage);
-        ErrorHandler(ER_GetFileAttrsEx, pcError, ERROR_FAILURE);
-        pcError[0] = 0;
-      }
-      return psFTData->iFileFlags;
-    }
-  }
-  else
-  {
-    ErrorFormatWin32Error(&pcMessage);
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileAttributes(): %s", acRoutine, psFTData->pcNeuteredPath, pcMessage);
-    ErrorHandler(ER_GetFileAttrs, pcError, ERROR_FAILURE);
-    pcError[0] = 0;
-    return psFTData->iFileFlags;
-  }
-#endif
-
+#ifdef WINNT
   /*-
    *********************************************************************
    *
@@ -2882,57 +3002,87 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
    *
    *********************************************************************
    */
-  hFile = MapGetFileHandle(psFTData->pcRawPath);
+  hFile = MapGetFileHandleW(psFTFileData->pwcRawPath);
   if (hFile != INVALID_HANDLE_VALUE)
   {
-    psFTData->iFileFlags = Have_MapGetFileHandle;
     if (GetFileInformationByHandle(hFile, &sFileInfo))
     {
-      psFTData->iFileFlags               = Have_GetFileInformationByHandle;
-      psFTData->dwVolumeSerialNumber     = sFileInfo.dwVolumeSerialNumber;
-      psFTData->dwFileIndexHigh          = sFileInfo.nFileIndexHigh;
-      psFTData->dwFileIndexLow           = sFileInfo.nFileIndexLow;
-      psFTData->dwFileAttributes         = sFileInfo.dwFileAttributes;
-      psFTData->sFTATime.dwLowDateTime   = sFileInfo.ftLastAccessTime.dwLowDateTime;
-      psFTData->sFTATime.dwHighDateTime  = sFileInfo.ftLastAccessTime.dwHighDateTime;
-      psFTData->sFTMTime.dwLowDateTime   = sFileInfo.ftLastWriteTime.dwLowDateTime;
-      psFTData->sFTMTime.dwHighDateTime  = sFileInfo.ftLastWriteTime.dwHighDateTime;
-      psFTData->sFTCTime.dwLowDateTime   = sFileInfo.ftCreationTime.dwLowDateTime;
-      psFTData->sFTCTime.dwHighDateTime  = sFileInfo.ftCreationTime.dwHighDateTime;
-      psFTData->sFTChTime.dwLowDateTime  = 0;
-      psFTData->sFTChTime.dwHighDateTime = 0;
-      psFTData->dwFileSizeHigh           = sFileInfo.nFileSizeHigh;
-      psFTData->dwFileSizeLow            = sFileInfo.nFileSizeLow;
+      psFTFileData->ulAttributeMask |= MAP_VOLUME | MAP_FINDEX | MAP_ATTRIBUTES | MAP_ATIME | MAP_MTIME | MAP_CTIME | MAP_CHTIME | MAP_SIZE;
+      psFTFileData->dwVolumeSerialNumber     = sFileInfo.dwVolumeSerialNumber;
+      psFTFileData->dwFileIndexHigh          = sFileInfo.nFileIndexHigh;
+      psFTFileData->dwFileIndexLow           = sFileInfo.nFileIndexLow;
+      psFTFileData->dwFileAttributes         = sFileInfo.dwFileAttributes;
+      psFTFileData->sFTATime.dwLowDateTime   = sFileInfo.ftLastAccessTime.dwLowDateTime;
+      psFTFileData->sFTATime.dwHighDateTime  = sFileInfo.ftLastAccessTime.dwHighDateTime;
+      psFTFileData->sFTMTime.dwLowDateTime   = sFileInfo.ftLastWriteTime.dwLowDateTime;
+      psFTFileData->sFTMTime.dwHighDateTime  = sFileInfo.ftLastWriteTime.dwHighDateTime;
+      psFTFileData->sFTCTime.dwLowDateTime   = sFileInfo.ftCreationTime.dwLowDateTime;
+      psFTFileData->sFTCTime.dwHighDateTime  = sFileInfo.ftCreationTime.dwHighDateTime;
+      psFTFileData->sFTChTime.dwLowDateTime  = 0;
+      psFTFileData->sFTChTime.dwHighDateTime = 0;
+      psFTFileData->dwFileSizeHigh           = sFileInfo.nFileSizeHigh;
+      psFTFileData->dwFileSizeLow            = sFileInfo.nFileSizeLow;
     }
     else
     {
       ErrorFormatWin32Error(&pcMessage);
-      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileInformationByHandle(): %s", acRoutine, psFTData->pcNeuteredPath, pcMessage);
-      ErrorHandler(ER_GetFileInfo, pcError, ERROR_FAILURE);
-      pcError[0] = 0;
+      snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileInformationByHandle(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
+      ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
     }
 
-#ifdef WINNT
     memset(&sFileBasicInfo, 0, sizeof(FILE_BASIC_INFORMATION));
     dwStatus = NtdllNQIF(hFile, &sIOStatusBlock, &sFileBasicInfo, sizeof(FILE_BASIC_INFORMATION), FileBasicInformation);
     if (dwStatus == 0)
     {
-      psFTData->iFileFlags               = Have_NTQueryInformationFile;
-      psFTData->dwFileAttributes         = sFileBasicInfo.FileAttributes;
-      psFTData->sFTATime.dwLowDateTime   = sFileBasicInfo.LastAccessTime.LowPart;
-      psFTData->sFTATime.dwHighDateTime  = sFileBasicInfo.LastAccessTime.HighPart;
-      psFTData->sFTMTime.dwLowDateTime   = sFileBasicInfo.LastWriteTime.LowPart;
-      psFTData->sFTMTime.dwHighDateTime  = sFileBasicInfo.LastWriteTime.HighPart;
-      psFTData->sFTCTime.dwLowDateTime   = sFileBasicInfo.CreationTime.LowPart;
-      psFTData->sFTCTime.dwHighDateTime  = sFileBasicInfo.CreationTime.HighPart;
-      psFTData->sFTChTime.dwLowDateTime  = sFileBasicInfo.ChangeTime.LowPart;
-      psFTData->sFTChTime.dwHighDateTime = sFileBasicInfo.ChangeTime.HighPart;
+      psFTFileData->ulAttributeMask |= MAP_ATTRIBUTES | MAP_ATIME | MAP_MTIME | MAP_CTIME | MAP_CHTIME;
+      psFTFileData->dwFileAttributes         = sFileBasicInfo.FileAttributes;
+      psFTFileData->sFTATime.dwLowDateTime   = sFileBasicInfo.LastAccessTime.LowPart;
+      psFTFileData->sFTATime.dwHighDateTime  = sFileBasicInfo.LastAccessTime.HighPart;
+      psFTFileData->sFTMTime.dwLowDateTime   = sFileBasicInfo.LastWriteTime.LowPart;
+      psFTFileData->sFTMTime.dwHighDateTime  = sFileBasicInfo.LastWriteTime.HighPart;
+      psFTFileData->sFTCTime.dwLowDateTime   = sFileBasicInfo.CreationTime.LowPart;
+      psFTFileData->sFTCTime.dwHighDateTime  = sFileBasicInfo.CreationTime.HighPart;
+      psFTFileData->sFTChTime.dwLowDateTime  = sFileBasicInfo.ChangeTime.LowPart;
+      psFTFileData->sFTChTime.dwHighDateTime = sFileBasicInfo.ChangeTime.HighPart;
     }
     else
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: NtdllNQIF(): %08x", acRoutine, psFTData->pcNeuteredPath, dwStatus);
-      ErrorHandler(ER_NQIF, pcError, ERROR_FAILURE);
-      pcError[0] = 0;
+      snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: NtdllNQIF(): %08x", acRoutine, psFTFileData->pcNeuteredPath, dwStatus);
+      ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
+    }
+
+    /*-
+     *********************************************************************
+     *
+     * Harvest security information (owner/group SIDs and DACL).
+     *
+     *********************************************************************
+     */
+    dwStatus = GetSecurityInfo(
+      hFile,
+      SE_FILE_OBJECT,
+      OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+      (PSID) &psFTFileData->psSidOwner,
+      (PSID) &psFTFileData->psSidGroup,
+      NULL, /* This pointer is not required to obtain DACL information. */
+      NULL,
+      &psFTFileData->psSd
+      );
+    if (dwStatus != ERROR_SUCCESS)
+    {
+      SetLastError(dwStatus); /* This is needed because ErrorFormatWin32Error() calls GetLastError(). */
+      ErrorFormatWin32Error(&pcMessage);
+      snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetSecurityInfo(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
+      ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
+    }
+    if (!IsValidSecurityDescriptor(psFTFileData->psSd))
+    {
+      snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: IsValidSecurityDescriptor(): One or more components of the security descriptor are not valid.", acRoutine, psFTFileData->pcNeuteredPath);
+      ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
+    }
+    else
+    {
+      psFTFileData->ulAttributeMask |= MAP_OWNER | MAP_GROUP | MAP_DACL;
     }
 
     /*-
@@ -2944,51 +3094,559 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
      *
      *********************************************************************
      */
-    if (psFTData->iFSType == FSTYPE_NTFS)
+    if (psFTFileData->iFSType == FSTYPE_NTFS)
     {
-      iStatus = MapCountNamedStreams(hFile, &psFTData->iStreamCount, &psFTData->pucStreamInfo, acLocalError);
+      iStatus = MapCountNamedStreams(hFile, &psFTFileData->iStreamCount, &psFTFileData->pucStreamInfo, acLocalError);
       if (iStatus == ER_OK)
       {
-        psFTData->iFileFlags = Have_MapCountNamedStreams;
+        psFTFileData->ulAttributeMask |= MAP_ALTSTREAMS;
       }
       else
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Stream Count Failed: %s", acRoutine, psFTData->pcNeuteredPath, acLocalError);
-        ErrorHandler(ER_MapCountNamedStreams, pcError, ERROR_FAILURE);
-        pcError[0] = 0;
+        snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Stream Count Failed: %s", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
+        ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
       }
     }
-#endif
     CloseHandle(hFile);
   }
   else
   {
+    DWORD dwLastError = GetLastError();
     ErrorFormatWin32Error(&pcMessage);
-    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: MapGetFileHandle(): %s", acRoutine, psFTData->pcNeuteredPath, pcMessage);
-    ErrorHandler(ER_CreateFile, pcError, ERROR_FAILURE);
-    pcError[0] = 0;
-
-    if (GetFileAttributesEx(psFTData->pcRawPath, GetFileExInfoStandard, &sFileAttributeData))
+    snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: MapGetFileHandleW(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
+    ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
+    if (dwLastError == ERROR_FILE_NOT_FOUND)
     {
-      psFTData->iFileFlags              = Have_GetFileAttributesEx;
-      psFTData->dwFileAttributes        = sFileAttributeData.dwFileAttributes;
-      psFTData->sFTATime.dwLowDateTime  = sFileAttributeData.ftLastAccessTime.dwLowDateTime;
-      psFTData->sFTATime.dwHighDateTime = sFileAttributeData.ftLastAccessTime.dwHighDateTime;
-      psFTData->sFTMTime.dwLowDateTime  = sFileAttributeData.ftLastWriteTime.dwLowDateTime;
-      psFTData->sFTMTime.dwHighDateTime = sFileAttributeData.ftLastWriteTime.dwHighDateTime;
-      psFTData->sFTCTime.dwLowDateTime  = sFileAttributeData.ftCreationTime.dwLowDateTime;
-      psFTData->sFTCTime.dwHighDateTime = sFileAttributeData.ftCreationTime.dwHighDateTime;
-      psFTData->dwFileSizeHigh          = sFileAttributeData.nFileSizeHigh;
-      psFTData->dwFileSizeLow           = sFileAttributeData.nFileSizeLow;
+      psFTFileData->iFileExists = 0;
+      return psFTFileData->ulAttributeMask;
+    }
+
+    bResult = GetFileAttributesExW(psFTFileData->pwcRawPath, GetFileExInfoStandard, &sFileAttributeData);
+    if (bResult)
+    {
+      psFTFileData->ulAttributeMask |= MAP_ATTRIBUTES | MAP_ATIME | MAP_MTIME | MAP_CTIME | MAP_SIZE;
+      psFTFileData->dwFileAttributes        = sFileAttributeData.dwFileAttributes;
+      psFTFileData->sFTATime.dwLowDateTime  = sFileAttributeData.ftLastAccessTime.dwLowDateTime;
+      psFTFileData->sFTATime.dwHighDateTime = sFileAttributeData.ftLastAccessTime.dwHighDateTime;
+      psFTFileData->sFTMTime.dwLowDateTime  = sFileAttributeData.ftLastWriteTime.dwLowDateTime;
+      psFTFileData->sFTMTime.dwHighDateTime = sFileAttributeData.ftLastWriteTime.dwHighDateTime;
+      psFTFileData->sFTCTime.dwLowDateTime  = sFileAttributeData.ftCreationTime.dwLowDateTime;
+      psFTFileData->sFTCTime.dwHighDateTime = sFileAttributeData.ftCreationTime.dwHighDateTime;
+      psFTFileData->dwFileSizeHigh          = sFileAttributeData.nFileSizeHigh;
+      psFTFileData->dwFileSizeLow           = sFileAttributeData.nFileSizeLow;
     }
     else
     {
       ErrorFormatWin32Error(&pcMessage);
-      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileAttributesEx(): %s", acRoutine, psFTData->pcNeuteredPath, pcMessage);
-      ErrorHandler(ER_GetFileAttrsEx, pcError, ERROR_FAILURE);
-      pcError[0] = 0;
+      snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileAttributesExW(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
+      ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
+    }
+
+    /*-
+     *********************************************************************
+     *
+     * Harvest security information (owner/group SIDs and DACL).
+     *
+     *********************************************************************
+     */
+    bResult = GetFileSecurityW(
+      psFTFileData->pwcRawPath,
+      OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+      NULL,
+      0,
+      &dwSize
+      );
+    if (!bResult && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+    {
+      psFTFileData->psSd = (SECURITY_DESCRIPTOR *) LocalAlloc(LPTR, dwSize);
+      if (psFTFileData->psSd)
+      {
+        bResult = GetFileSecurityW(
+          psFTFileData->pwcRawPath,
+          OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+          psFTFileData->psSd,
+          dwSize,
+          &dwSize
+          );
+        if (bResult)
+        {
+          if (!IsValidSecurityDescriptor(psFTFileData->psSd))
+          {
+            snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: IsValidSecurityDescriptor(): One or more components of the security descriptor are not valid.", acRoutine, psFTFileData->pcNeuteredPath);
+            ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
+          }
+          else
+          {
+            BOOL bDefaulted;
+            GetSecurityDescriptorOwner(psFTFileData->psSd, (PSID) &psFTFileData->psSidOwner, &bDefaulted);
+            GetSecurityDescriptorGroup(psFTFileData->psSd, (PSID) &psFTFileData->psSidGroup, &bDefaulted);
+            psFTFileData->ulAttributeMask |= MAP_OWNER | MAP_GROUP | MAP_DACL;
+          }
+        }
+        else
+        {
+          ErrorFormatWin32Error(&pcMessage);
+          snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileSecurityW(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
+          ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
+        }
+      }
+      else
+      {
+        ErrorFormatWin32Error(&pcMessage);
+        snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: LocalAlloc(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
+        ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
+      }
+    }
+    else
+    {
+      ErrorFormatWin32Error(&pcMessage);
+      snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileSecurityW(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
+      ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
     }
   }
-  return psFTData->iFileFlags;
+#else
+  /*-
+   *********************************************************************
+   *
+   * Collect attributes. Use lstat() so links aren't followed.
+   *
+   *********************************************************************
+   */
+  if (lstat(psFTFileData->pcRawPath, &psFTFileData->sStatEntry) != ER)
+  {
+    psFTFileData->ulAttributeMask |= MAP_LSTAT_MASK;
+  }
+  else
+  {
+    int iLastErrno = errno;
+    snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: lstat(): %s", acRoutine, psFTFileData->pcNeuteredPath, strerror(errno));
+    ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
+    if (iLastErrno == ENOENT || iLastErrno == ENOTDIR)
+    {
+      psFTFileData->iFileExists = 0;
+    }
+  }
+#endif
+
+  return psFTFileData->ulAttributeMask;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * MapFreeFTFileData
+ *
+ ***********************************************************************
+ */
+void
+MapFreeFTFileData(FTIMES_FILE_DATA *psFTFileData)
+{
+  if (psFTFileData != NULL)
+  {
+    if (psFTFileData->pcNeuteredPath != NULL)
+    {
+      free(psFTFileData->pcNeuteredPath);
+    }
+    if (psFTFileData->pcRawPath != NULL)
+    {
+      free(psFTFileData->pcRawPath);
+    }
+#ifdef WINNT
+    if (psFTFileData->pwcRawPath != NULL)
+    {
+      free(psFTFileData->pwcRawPath);
+    }
+    if (psFTFileData->psSd != NULL)
+    {
+      LocalFree(psFTFileData->psSd);
+    }
+    if (psFTFileData->pucStreamInfo != NULL)
+    {
+      free(psFTFileData->pucStreamInfo);
+    }
+#endif
+    free(psFTFileData);
+  }
+}
+
+
+#ifndef WINNT
+/*-
+ ***********************************************************************
+ *
+ * MapNewFTFileData
+ *
+ ***********************************************************************
+ */
+FTIMES_FILE_DATA *
+MapNewFTFileData(FTIMES_FILE_DATA *psParentFTFileData, char *pcName, char *pcError)
+{
+  const char          acRoutine[] = "MapNewFTFileData()";
+  char                acLocalError[MESSAGE_SIZE] = "";
+  char                acSeparator[2] = "";
+  int                 iFSType = FSTYPE_UNSUPPORTED;
+  FTIMES_FILE_DATA   *psFTFileData = NULL;
+
+  /*
+   *********************************************************************
+   *
+   * Allocate and clear memory for the file data structure.
+   *
+   *********************************************************************
+   */
+  psFTFileData = (FTIMES_FILE_DATA *) calloc(sizeof(FTIMES_FILE_DATA), 1);
+  if (psFTFileData == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    return NULL;
+  }
+
+  /*
+   *********************************************************************
+   *
+   * Initialize variables that require a nonzero value. Also note that
+   * subsequent logic relies on the assertion that each hash value has
+   * been initialized to all zeros.
+   *
+   *********************************************************************
+   */
+  psFTFileData->psParent = psParentFTFileData;
+
+  /*-
+   *********************************************************************
+   *
+   * Create the new path. Impose a limit to keep things under control.
+   *
+   *********************************************************************
+   */
+  if (psParentFTFileData)
+  {
+    psFTFileData->iRawPathLength = psParentFTFileData->iRawPathLength + strlen(pcName);
+    if (psParentFTFileData->pcRawPath[psParentFTFileData->iRawPathLength - 1] != FTIMES_SLASHCHAR)
+    {
+      acSeparator[0] = FTIMES_SLASHCHAR;
+      acSeparator[1] = 0;
+      psFTFileData->iRawPathLength++;
+    }
+  }
+  else
+  {
+    psFTFileData->iRawPathLength = strlen(pcName);
+  }
+  if (psFTFileData->iRawPathLength > FTIMES_MAX_PATH - 1) /* Subtract one for the NULL. */
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length (%d) exceeds %d bytes.", acRoutine, psFTFileData->iRawPathLength, FTIMES_MAX_PATH - 1);
+    MapFreeFTFileData(psFTFileData);
+    return NULL;
+  }
+  psFTFileData->pcRawPath = malloc(psFTFileData->iRawPathLength + 1);
+  if (psFTFileData->pcRawPath == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
+    MapFreeFTFileData(psFTFileData);
+    return NULL;
+  }
+  if (psParentFTFileData)
+  {
+    snprintf(psFTFileData->pcRawPath, FTIMES_MAX_PATH, "%s%s%s", psParentFTFileData->pcRawPath, acSeparator, pcName);
+  }
+  else
+  {
+    snprintf(psFTFileData->pcRawPath, FTIMES_MAX_PATH, "%s", pcName);
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Neuter the new path.
+   *
+   *********************************************************************
+   */
+  psFTFileData->pcNeuteredPath = SupportNeuterString(psFTFileData->pcRawPath, psFTFileData->iRawPathLength, acLocalError);
+  if (psFTFileData->pcNeuteredPath == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    MapFreeFTFileData(psFTFileData);
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally determine file system type. This value is required
+   * by MapGetAttributes() under WINX, so it is set here.
+   *
+   *********************************************************************
+   */
+  if (psParentFTFileData)
+  {
+    psFTFileData->iFSType = psParentFTFileData->iFSType; /* Inherit file system type. */
+  }
+  else
+  {
+    iFSType = GetFileSystemType(psFTFileData->pcRawPath, acLocalError);
+    if (iFSType == ER || iFSType == FSTYPE_UNSUPPORTED)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      MapFreeFTFileData(psFTFileData);
+      return NULL;
+    }
+    psFTFileData->iFSType = iFSType;
+  }
+
+  return psFTFileData;
+}
+#endif
+
+
+#ifdef WINNT
+/*-
+ ***********************************************************************
+ *
+ * MapNewFTFileData
+ *
+ ***********************************************************************
+ */
+FTIMES_FILE_DATA *
+MapNewFTFileDataW(FTIMES_FILE_DATA *psParentFTFileData, wchar_t *pwcName, char *pcError)
+{
+  const char          acRoutine[] = "MapNewFTFileDataW()";
+  char                acLocalError[MESSAGE_SIZE] = "";
+  wchar_t             awcSeparator[2] = L"";
+  int                 iFSType = FSTYPE_UNSUPPORTED;
+  FTIMES_FILE_DATA   *psFTFileData = NULL;
+
+  /*
+   *********************************************************************
+   *
+   * Allocate and clear memory for the file data structure.
+   *
+   *********************************************************************
+   */
+  psFTFileData = (FTIMES_FILE_DATA *) calloc(sizeof(FTIMES_FILE_DATA), 1);
+  if (psFTFileData == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    return NULL;
+  }
+
+  /*
+   *********************************************************************
+   *
+   * Initialize variables that require a nonzero value. Also note that
+   * subsequent logic relies on the assertion that each hash value has
+   * been initialized to all zeros.
+   *
+   *********************************************************************
+   */
+  psFTFileData->dwVolumeSerialNumber = -1;
+  psFTFileData->dwFileIndexHigh = -1;
+  psFTFileData->dwFileIndexLow = -1;
+  psFTFileData->iStreamCount = FTIMES_INVALID_STREAM_COUNT; /* The Develop{Compressed,Normal}Output routines check for this value. */
+  psFTFileData->psParent = psParentFTFileData;
+
+  /*-
+   *********************************************************************
+   *
+   * Create the new path. Impose a limit to keep things under control.
+   *
+   *********************************************************************
+   */
+  if (psParentFTFileData)
+  {
+    psFTFileData->iWideRawPathLength = psParentFTFileData->iWideRawPathLength + wcslen(pwcName);
+    if (psParentFTFileData->pwcRawPath[psParentFTFileData->iWideRawPathLength - 1] != FTIMES_SLASHCHAR_W)
+    {
+      awcSeparator[0] = FTIMES_SLASHCHAR_W;
+      awcSeparator[1] = 0;
+      psFTFileData->iWideRawPathLength++;
+    }
+  }
+  else
+  {
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//    psFTFileData->iWideRawPathLength = wcslen(pwcName);
+    psFTFileData->iWideRawPathLength = FTIMES_EXTENDED_PREFIX_SIZE + wcslen(pwcName);
+//END (\\?\)
+  }
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//  if (psFTFileData->iWideRawPathLength > FTIMES_MAX_PATH - 1) /* Subtract one for the NULL. */
+  if (psFTFileData->iWideRawPathLength - FTIMES_EXTENDED_PREFIX_SIZE > FTIMES_MAX_PATH - 1) /* Subtract one for the NULL. */
+//END (\\?\)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length (%d) exceeds %d bytes.", acRoutine, psFTFileData->iWideRawPathLength, FTIMES_MAX_PATH - 1);
+    MapFreeFTFileData(psFTFileData);
+    return NULL;
+  }
+  psFTFileData->pwcRawPath = malloc((psFTFileData->iWideRawPathLength + 1) * sizeof(wchar_t));
+  if (psFTFileData->pwcRawPath == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
+    MapFreeFTFileData(psFTFileData);
+    return NULL;
+  }
+  if (psParentFTFileData)
+  {
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//    _snwprintf(psFTFileData->pwcRawPath, psFTFileData->iWideRawPathLength + 1, L"%s%s%s", psParentFTFileData->pwcRawPath, awcSeparator, pwcName);
+    _snwprintf(psFTFileData->pwcRawPath, psFTFileData->iWideRawPathLength + 1, L"%s%s%s", psParentFTFileData->pwcRawPath, awcSeparator, pwcName); /* The extended path prefix should already be included. */
+//END (\\?\)
+  }
+  else
+  {
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//    _snwprintf(psFTFileData->pwcRawPath, psFTFileData->iWideRawPathLength + 1, L"%s", pwcName);
+    _snwprintf(psFTFileData->pwcRawPath, psFTFileData->iWideRawPathLength + 1, L"\\\\?\\%s", pwcName); /* Include the extended path prefix since there is no parent. */
+//END (\\?\)
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Convert the new path to UTF-8.
+   *
+   *********************************************************************
+   */
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//  psFTFileData->pcRawPath = MapWideToUtf8(psFTFileData->pwcRawPath, psFTFileData->iWideRawPathLength + 1, acLocalError);
+  psFTFileData->pcRawPath = MapWideToUtf8(&psFTFileData->pwcRawPath[FTIMES_EXTENDED_PREFIX_SIZE], psFTFileData->iWideRawPathLength - FTIMES_EXTENDED_PREFIX_SIZE + 1, acLocalError);
+//END (\\?\)
+  if (psFTFileData->pcRawPath == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    MapFreeFTFileData(psFTFileData);
+    return NULL;
+  }
+  psFTFileData->iUtf8RawPathLength = strlen(psFTFileData->pcRawPath);
+
+  /*-
+   *********************************************************************
+   *
+   * Neuter the new path.
+   *
+   *********************************************************************
+   */
+  psFTFileData->pcNeuteredPath = SupportNeuterString(psFTFileData->pcRawPath, psFTFileData->iUtf8RawPathLength, acLocalError);
+  if (psFTFileData->pcNeuteredPath == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    MapFreeFTFileData(psFTFileData);
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally determine file system type. This value is required
+   * by MapGetAttributes() under WINX, so it is set here.
+   *
+   *********************************************************************
+   */
+  if (psParentFTFileData)
+  {
+    psFTFileData->iFSType = psParentFTFileData->iFSType; /* Inherit file system type. */
+  }
+  else
+  {
+    iFSType = GetFileSystemType(psFTFileData->pcRawPath, acLocalError);
+    if (iFSType == ER || iFSType == FSTYPE_UNSUPPORTED)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      MapFreeFTFileData(psFTFileData);
+      return NULL;
+    }
+    psFTFileData->iFSType = iFSType;
+  }
+
+  return psFTFileData;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * MapUtf8ToWide
+ *
+ ***********************************************************************
+ */
+wchar_t *
+MapUtf8ToWide(char *pcString, int iUtf8Size, char *pcError)
+{
+  const char          acRoutine[] = "MapUtf8ToWide()";
+  char               *pcMessage = NULL;
+  int                 iWideSize = 0;
+  wchar_t            *pwcString = NULL;
+
+  iWideSize = MultiByteToWideChar(CP_UTF8, 0, pcString, iUtf8Size, NULL, 0); /* The byte count returned includes the NULL terminator. */
+  if (iWideSize)
+  {
+    pwcString = malloc(iWideSize * sizeof(wchar_t));
+    if (pwcString == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
+      return NULL;
+    }
+    iWideSize = MultiByteToWideChar(CP_UTF8, 0, pcString, iUtf8Size, pwcString, iWideSize);
+    if (!iWideSize)
+    {
+      ErrorFormatWin32Error(&pcMessage);
+      snprintf(pcError, MESSAGE_SIZE, "%s: MultiByteToWideChar(): %s", acRoutine, pcMessage);
+      free(pwcString);
+      return NULL;
+    }
+  }
+  else
+  {
+    ErrorFormatWin32Error(&pcMessage);
+    snprintf(pcError, MESSAGE_SIZE, "%s: MultiByteToWideChar(): %s", acRoutine, pcMessage);
+    return NULL;
+  }
+
+  return pwcString;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * MapWideToUtf8
+ *
+ ***********************************************************************
+ */
+char *
+MapWideToUtf8(wchar_t *pwcString, int iWideSize, char *pcError)
+{
+  const char          acRoutine[] = "MapWideToUtf8()";
+  char               *pcMessage = NULL;
+  char               *pcString = NULL;
+  int                 iUtf8Size = 0;
+
+  iUtf8Size = WideCharToMultiByte(CP_UTF8, 0, pwcString, iWideSize, NULL, 0, NULL, NULL); /* The byte count returned includes the NULL terminator. */
+  if (iUtf8Size)
+  {
+    pcString = malloc(iUtf8Size);
+    if (pcString == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
+      return NULL;
+    }
+    iUtf8Size = WideCharToMultiByte(CP_UTF8, 0, pwcString, iWideSize, pcString, iUtf8Size, NULL, NULL);
+    if (!iUtf8Size)
+    {
+      ErrorFormatWin32Error(&pcMessage);
+      snprintf(pcError, MESSAGE_SIZE, "%s: WideCharToMultiByte(): %s", acRoutine, pcMessage);
+      free(pcString);
+      return NULL;
+    }
+  }
+  else
+  {
+    ErrorFormatWin32Error(&pcMessage);
+    snprintf(pcError, MESSAGE_SIZE, "%s: WideCharToMultiByte(): %s", acRoutine, pcMessage);
+    return NULL;
+  }
+
+  return pcString;
 }
 #endif

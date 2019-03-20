@@ -1,6 +1,6 @@
 =item B<GetAndExec>: [Y|N]
 
-Applies to B<getmode>.
+Applies to B<get>.
 
 B<GetAndExec> is optional.  When enabled ('Y' or 'y'), it causes
 B<FTimes> to start a new snapshot once the download is complete.

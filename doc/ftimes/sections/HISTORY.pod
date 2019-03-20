@@ -18,7 +18,7 @@ Service (CIMS).
 
 In the Fall of 2001, Exodus Communications, Inc. approved my request
 to make B<FTimes> Open Source.  At that time version two was very
-stable, but I was in the throws of creating version three which
+stable, but I was in the throes of creating version three which
 was a major restructuring of the code base.  Consequently, I decided
 to wait until the new version was complete before releasing it to
 the community.

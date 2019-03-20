@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sha1.c,v 1.4 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: sha1.c,v 1.12 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2003-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -82,7 +82,7 @@ SHA1HashToHex(unsigned char *pucHash, char *pcHexHash)
  ***********************************************************************
  */
 int
-SHA1HashStream(FILE *pFile, unsigned char *pucSHA1)
+SHA1HashStream(FILE *pFile, unsigned char *pucSHA1, APP_UI64 *pui64Size)
 {
   unsigned char       aucData[SHA1_READ_SIZE];
 #ifdef SHA1_PRE_MEMSET_MEMCPY
@@ -108,6 +108,7 @@ SHA1HashStream(FILE *pFile, unsigned char *pucSHA1)
 #endif
     return -1;
   }
+  *pui64Size += (APP_UI64) iNRead;
   SHA1Cycle(&sSHA1Context, aucData, iNRead);
   SHA1Omega(&sSHA1Context, pucSHA1);
   return 0;
@@ -178,10 +179,10 @@ SHA1Alpha(SHA1_CONTEXT *psSHA1Context)
  ***********************************************************************
  */
 void
-SHA1Cycle(SHA1_CONTEXT *psSHA1Context, unsigned char *pucData, K_UINT32 ui32Length)
+SHA1Cycle(SHA1_CONTEXT *psSHA1Context, unsigned char *pucData, APP_UI32 ui32Length)
 {
   unsigned char      *pucTemp;
-  K_UINT32            ui32;
+  APP_UI32            ui32;
 
   /*-
    *********************************************************************
@@ -190,7 +191,7 @@ SHA1Cycle(SHA1_CONTEXT *psSHA1Context, unsigned char *pucData, K_UINT32 ui32Leng
    *
    *********************************************************************
    */
-  psSHA1Context->ui64MessageLength += (K_UINT64) ui32Length;
+  psSHA1Context->ui64MessageLength += (APP_UI64) ui32Length;
 
   /*-
    *********************************************************************
@@ -365,12 +366,12 @@ SHA1Omega(SHA1_CONTEXT *psSHA1Context, unsigned char *pucSHA1)
 void
 SHA1Grind(SHA1_CONTEXT *psSHA1Context, unsigned char *pucData)
 {
-  K_UINT32            a;
-  K_UINT32            b;
-  K_UINT32            c;
-  K_UINT32            d;
-  K_UINT32            e;
-  K_UINT32            W[80];
+  APP_UI32            a;
+  APP_UI32            b;
+  APP_UI32            c;
+  APP_UI32            d;
+  APP_UI32            e;
+  APP_UI32            W[80];
   int                 t;
 
   /*-

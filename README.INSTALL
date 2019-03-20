@@ -15,7 +15,7 @@
 
 1.1 Revision
 
-  $Id: README.INSTALL,v 1.18 2007/04/14 19:35:41 mavrik Exp $
+  $Id: README.INSTALL,v 1.25 2010/01/22 02:56:43 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -32,8 +32,10 @@
   Section 2.3.2 ................ Verify Installation of OpenSSL
   Section 2.4 .................. UNIX Build Instructions
   Section 2.4.1 ................ UNIX Build Gotchas
-  Section 2.5 .................. Windows NT/2K Build Instructions
-  Section 2.5.1 ................ Windows NT/2K Build Gotchas
+  Section 2.5 .................. WINX Visual Studio Build Instructions
+  Section 2.5.1 ................ WINX Visual Studio Build Gotchas
+  Section 2.6 .................. WINX MinGW/MSYS Build Instructions
+  Section 2.6.1 ................ WINX MinGW/MSYS Build Gotchas
   Section 3 .................... Web Server Configuration
   Section 3.1 .................. Requirements
   Section 3.2 .................. CGI Script Setup
@@ -126,17 +128,21 @@
       script.  By default, the configure script is pre-built and
       included in each release.
 
-  Building FTimes in Windows NT/2K/XP environments requires:
+  Building FTimes in WINX environments requires:
 
-    Visual Studio
-      FTimes can be built with SSL support under Visual Studio 6.0.
-      Avoid higher versions of Visual Studio, or be prepared to work
-      through the compiler warnings/issues.
+    MinGW+MSYS or Visual Studio
+      Webjob can be built with PCRE and OpenSSL support under MinGW
+      5.1.4 and MSYS 1.0.10.  Avoid lower versions of MinGW and MSYS,
+      or be prepared to work through the warnings/issues.
+
+      Webjob can be built with OpenSSL support under Visual Studio
+      6.0.  Avoid higher versions of Visual Studio, or be prepared to
+      work through the compiler warnings/issues.
 
     Active Perl
-      Most any version will do, but it must include pod2man and
-      pod2html.  If it doesn't, be sure to add them.  The lowest
-      version currently used for test builds is 5.8.7.
+      The lowest version currently used is 5.8.8 build 822.  Also, you
+      must have pod2man and pod2html.  For MinGW/MSYS builds, these
+      tools must be in the MSYS path.
 
   By default, PCRE and SSL support is enabled in FTimes.  This means
   that PCRE and OpenSSL must be be installed and/or available on the
@@ -158,7 +164,7 @@
 
     $ gunzip -c <archive> | tar -xvf -
 
-  On Windows platforms WinZip may be used to unpack the archive.
+  On WINX platforms WinZip may be used to unpack the archive.
   Since the source archive is actually a gzipped tar file, WinZip
   will ask if you wish to decompress and open it -- answer yes.
   The command line syntax for WinZip is given here:
@@ -259,13 +265,16 @@
   if /usr/ccs/bin is in your PATH, make sure it follows the path to
   GNU make -- see above for that gotcha.
 
-2.5 Windows NT/2K Build Instructions
+2.5 WINX Visual Studio Build Instructions
 
-  FTimes has compiled successfully on Windows NT/2K using Microsoft's
-  Visual Studio 6.0.  The build process is simply a matter of setting
-  up a build environment and running nmake.  Windows NT/2K binaries
-  are built using the following Makefile: Makefile.vs.  Note that
-  there is no equivalent configure process for NT/2K builds.
+  Note: As of version 3.9.0, the preferred build process for WINX
+  platforms is MinGW+MSYS. See section 2.6 for details.
+
+  FTimes has compiled successfully on WINX using Microsoft's Visual
+  Studio 6.0.  The build process is simply a matter of setting up a
+  build environment and running nmake.  WINX binaries are built using
+  the following Makefile: Makefile.vs.  Note that there is no
+  equivalent configure process for NT/2K/XP builds.
 
   When building FTimes from the command line, you may need to run
   the batch script VCVARS32.BAT to establish a build environment.
@@ -340,7 +349,7 @@
 
     > nmake -f Makefile.vs install INSTALL_DIR="C:\Program Files\FTimes"
 
-2.5.1 Windows NT/2K Build Gotchas
+2.5.1 WINX Visual Studio Build Gotchas
 
   You may have trouble compiling with nmake if your environment
   settings aren't correct.  When this happens, try running the batch
@@ -366,6 +375,35 @@
 
   Make sure pod2man and pod2html are installed and in your PATH.  The
   documentation will not build properly without these utilities.
+
+2.6 WINX MinGW/MSYS Build Instructions
+
+  Typically, the build process is simply a matter of running configure
+  and make.  Going on the assumption that you have static versions of
+  PCRE (7.6 or higher) and OpenSSL (0.9.8h or higher), the most basic
+  build sequence is as follows:
+
+    $ ./configure CFLAGS=-DPCRE_STATIC && make
+    $ make install
+
+  If you need to build static versions of OpenSSL and PCRE, follow the
+  instructions documented in these recipes:
+
+    http://ftimes.sourceforge.net/Files/Recipes/openssl-compile-mingw.txt
+
+  and
+
+    http://ftimes.sourceforge.net/Files/Recipes/pcre-compile-mingw.txt
+
+2.6.1 WINX MinGW/MSYS Build Gotchas
+
+  The process documented in the previous section is known to work with
+  the stated versions of Active Perl, MinGW, MSYS, OpenSSL, and PCRE.
+  Other combinations are not supported at this time.
+
+  You may encounter errors building the man pages.  If that happens,
+  put copies of pod2man and pod2html in MinGW's bin directory
+  (typically C:\MinGW\bin).
 
 3 Web Server Configuration
 
@@ -417,10 +455,8 @@
         |   |
         |   - cfgfiles
         |       |
-        |       - digfull.cfg
-        |       - diglean.cfg
-        |       - mapfull.cfg
-        |       - maplean.cfg
+        |       - dig.cfg
+        |       - map.cfg
         |
         - <clientid-2>
         - ...
@@ -665,7 +701,7 @@
 3.3.1 Server Configuration
 
   On the server you need to create directories for client_1 and
-  insert the following config file as mapfull.cfg.
+  insert the following config file as map.cfg.
 
   The directories may be created as follows:
 
@@ -674,11 +710,11 @@
     # mkdir -p -m 755 client_1/cfgfiles
     # chown -R 0:0 client_1
 
-  Go to /var/ftimes/profiles/client_1/cfgfiles and create mapfull.cfg.
+  Go to /var/ftimes/profiles/client_1/cfgfiles and create map.cfg.
   Make sure you replace <password> with its real value.  Also, don't
   forget to modify URLPutURL as appropriate.
 
-    --- mapfull.cfg ---
+    --- map.cfg ---
     BaseName=client_1
     OutDir=.
     URLPutSnapshot=Y
@@ -688,7 +724,7 @@
     URLAuthType=basic
     Include=/tmp # or c:\temp
     FieldMask=ALL-magic
-    --- mapfull.cfg ---
+    --- map.cfg ---
 
 3.3.2 Client Configuration
 
@@ -708,7 +744,7 @@
     URLUsername=client_1
     URLPassword=<password>
     URLAuthType=basic
-    URLGetRequest=MapFullConfig
+    URLGetRequest=MapConfig
     --- get.cfg ---
 
   To avoid having to type a long path each time you invoke FTimes,
@@ -720,11 +756,11 @@
   Run the following command from the client.  It should produce a
   file named remote.cfg in the current directory.
 
-    $ ftimes --getmode get.cfg
+    $ ftimes --get get.cfg
 
-  or (for NT/2K)
+  or (for NT/2K/XP)
 
-    > ftimes --getmode get.cfg
+    > ftimes --get get.cfg
 
   If that worked, your almost there.  Enable the GetAndExec control
   in get.cfg, and rerun FTimes.  This should produce three files

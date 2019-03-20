@@ -1,0 +1,16 @@
+=item B<FileHook>: <klel-expression>
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<FileHook> controls are optional, and there is no predefined limit on
+the number that may be specified.  However, there can be only one
+B<FileHook> control/value pair per line.  Each hook must be specified
+as a special type of Kl-El expression known as a guarded command.
+
+Any path matched by a hook will cause the specified command to be
+executed.  All digging/mapping operations will cease until this
+command completes.
+
+Note: This control is only available if file hooks were enabled at
+compile time.
+

@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+# $Id: test_harness.local,v 1.6 2010/01/22 02:56:44 mavrik Exp $
 #
 ######################################################################
 
@@ -43,7 +43,7 @@ sub GetTestNumber
 
   %$phTestDescriptions =
   (
-    'basic_combos' => "tests basic field combinations using a fixed compare mask (all)",
+    'basic_combos' => "tests basic field combinations using fixed compare masks",
   );
 
 
@@ -278,11 +278,33 @@ sub SetupComboFiles
 
 sub SetupComboProperties
 {
+  my ($sCompareMask) = @_;
+
   my $phTestProperties = GetTestProperties();
 
   my $phTestTargetValues = GetTestTargetValues();
 
   my @aList = GetComboNames($$phTestProperties{'MaskValuesToFields'});
+
+  ####################################################################
+  #
+  # Depending on the compare mask, we need to do two things:
+  #
+  #   - Convert $sCompareMask to a numeric value. This value
+  #     influences the computation of $sCompareFieldMask, which is
+  #     used to set target values. Currently, we only handle two test
+  #     cases: 'all' and 'none'.
+  #
+  # Note: The 'all' mask value must not exceed the combination of all
+  #       values currently represented in %hMaskValuesToFields.
+  #
+  #   - Clear out any existing target values and properties.
+  #
+  ####################################################################
+
+  my $sTestValueMask = ($sCompareMask =~ /^all$/) ? 0x0007 : 0x0000;
+  %{$phTestTargetValues} = ();
+  @{$$phTestProperties{'basic_combos'}{'triples'}} = ();
 
   foreach my $sBaselineSuffix (@aList)
   {
@@ -294,7 +316,7 @@ sub SetupComboProperties
       $sSnapshotFieldMask =~ s/\..*$//;
       my $sBaselineValueMask = ConvertFieldMaskToValueMask($$phTestProperties{'MaskFieldsToValues'}, $sBaselineFieldMask);
       my $sSnapshotValueMask = ConvertFieldMaskToValueMask($$phTestProperties{'MaskFieldsToValues'}, $sSnapshotFieldMask);
-      my $sCompareValueMask = $sBaselineValueMask & $sSnapshotValueMask;
+      my $sCompareValueMask = $sBaselineValueMask & $sSnapshotValueMask & $sTestValueMask;
       my $sCompareFieldMask = ConvertValueMaskToFieldMask($$phTestProperties{'MaskValuesToFields'}, $sCompareValueMask);
       my $sTargetOutput;
       my $sTargetLineCount;
@@ -325,7 +347,7 @@ sub SetupComboProperties
         {
           $sChanged =~ s/^none[+]?//;
           $sChanged =~ s/\+/,/g;
-          $sTargetOutput = "C|\"file\"|$sChanged|";
+          $sTargetOutput = "C|\"file\"|$sChanged||2,2";
           $sTargetLineCount = 2;
         }
       }
@@ -348,7 +370,7 @@ sub SetupComboProperties
         {
           $sUnknown =~ s/^none[+]?//;
           $sUnknown =~ s/\+/,/g;
-          $sTargetOutput = "U|\"file\"||$sUnknown";
+          $sTargetOutput = "U|\"file\"||$sUnknown|2,2";
           $sTargetLineCount = 2;
         }
       }
@@ -357,7 +379,7 @@ sub SetupComboProperties
         ($sBaselineSuffix =~ /\.(allnulls|baseline|snapshot)$/ && $sSnapshotSuffix =~ /\.header$/)
       )
       {
-        $sTargetOutput = "M|\"file\"||";
+        $sTargetOutput = "M|\"file\"|||2,0";
         $sTargetLineCount = 2;
       }
       elsif
@@ -365,7 +387,7 @@ sub SetupComboProperties
         ($sBaselineSuffix =~ /\.header$/ && $sSnapshotSuffix =~ /\.(allnulls|baseline|snapshot)$/)
       )
       {
-        $sTargetOutput = "N|\"file\"||";
+        $sTargetOutput = "N|\"file\"|||0,2";
         $sTargetLineCount = 2;
       }
       else
@@ -389,7 +411,6 @@ sub SetupComboProperties
 
 sub Hitch_basic_combos
 {
-  SetupComboProperties();
 }
 
 
@@ -405,6 +426,10 @@ sub Check_basic_combos
 
   my $phTestProperties = GetTestProperties();
 
+foreach my $sCompareMask ("all", "none")
+{
+  SetupComboProperties($sCompareMask);
+
   foreach my $sTriple (@{$$phTestProperties{'basic_combos'}{'triples'}})
   {
     my $sCommand;
@@ -412,8 +437,23 @@ sub Check_basic_combos
     my $sBaseline = $$phProperties{'WorkDir'} . "/" . $sBasename . "_" . $sBaselineSuffix;
     my $sSnapshot = $$phProperties{'WorkDir'} . "/" . $sBasename . "_" . $sSnapshotSuffix;
 
-    $sCommand = "$$phProperties{'TargetProgram'} --compare all $sBaseline $sSnapshot -l 6 2>&1";
+    ##################################################################
+    #
+    # For MinGW on WINX platforms, the redirection (i.e., '2>&1')
+    # causes the following error when UNIX path separators are used:
+    #
+    #   '..' is not recognized as an internal or external command,
+    #   operable program or batch file.
+    #
+    # To prevent this, the path separators must be switched.
+    #
+    ##################################################################
 
+    $sCommand = "$$phProperties{'TargetProgram'} --compare $sCompareMask $sBaseline $sSnapshot -l 6 2>&1";
+    if ($$phProperties{'OsClass'} eq "WINDOWS")
+    {
+      $sCommand =~ s,/,\\,g;
+    }
     DebugPrint(3, "Command=$sCommand");
 
     if (!open(PH, "$sCommand |"))
@@ -434,9 +474,9 @@ sub Check_basic_combos
       }
       $aLines[0] =~ s/[\r\n]*$//;
 
-      my $sTargetOutput = "category|name|changed|unknown";
-      DebugPrint(4, "TargetOutput=$sTargetOutput");
-      if ($aLines[0] ne $sTargetOutput)
+      my $sTargetOutputRegExp = qq(^category\\|name\\|changed\\|unknown(?:\\|records)?\$);
+      DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+      if ($aLines[0] !~ /$sTargetOutputRegExp/)
       {
         DebugPrint(4, "ActualOutput=$aLines[0]");
         return "fail";
@@ -466,6 +506,7 @@ sub Check_basic_combos
       return "fail";
     }
   }
+}
 
   return "pass";
 }

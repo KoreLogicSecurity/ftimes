@@ -1,0 +1,10 @@
+=item B<LogDigStrings>: [Y|N]
+
+Applies to B<dig>, and B<mad>.
+
+B<LogDigStrings> is optional.  When enabled ('Y' or 'y'), it instructs
+B<FTimes> to record each dig string in the log file.  Preserving this
+information along side the dig output is often convenient and useful,
+but in some cases (e.g., searches for sensitive data), it's better to
+suppress it.  The default value is 'N'.
+

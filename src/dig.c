@@ -1,21 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.c,v 1.29 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: dig.c,v 1.50 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
 
-#ifdef WIN32
-static char           gacNewLine[NEWLINE_LENGTH] = CRLF;
-#else
-static char           gacNewLine[NEWLINE_LENGTH] = LF;
-#endif
 static DIG_STRING *gppsSearchListNormal[DIG_MAX_CHAINS];
 static DIG_STRING *gppsSearchListNoCase[DIG_MAX_CHAINS];
 #ifdef USE_PCRE
@@ -24,11 +19,9 @@ static DIG_STRING *gppsSearchListRegExp[DIG_MIN_CHAINS]; /* There is only one in
 #ifdef USE_XMAGIC
 static DIG_STRING *gppsSearchListXMagic[DIG_MIN_CHAINS]; /* There is only one index for this chain. */
 #endif
-static FILE          *gpFile;
-static int            giMatchLimit;
 static int            giMaxStringLength;
 static int            giSaveLength;
-static MD5_CONTEXT   *gpsMD5Context;
+static FTIMES_PROPERTIES *gpsProperties;
 
 static char gacDigStringTypes[][DIG_MAX_TYPE_SIZE] =
 {
@@ -55,7 +48,7 @@ int
 DigAddDigString(char *pcString, int iType, char *pcError)
 {
   const char          acRoutine[] = "DigAddDigString()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   DIG_STRING         *psCurrent;
   DIG_STRING         *psDigString;
   DIG_STRING         *psHead;
@@ -198,19 +191,20 @@ DigClearCounts(void)
  ***********************************************************************
  */
 int
-DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
+DigDevelopOutput(FTIMES_PROPERTIES *psProperties, DIG_SEARCH_DATA *psSearchData, char *pcError)
 {
   const char          acRoutine[] = "DigDevelopOutput()";
   char                acOffset[FTIMES_MAX_64BIT_SIZE];
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char               *pcNeutered;
   int                 iError;
-  int                 iIndex;
+  int                 iIndex = 0;
   int                 iLimit;
 
   /*-
    *********************************************************************
    *
+   * prefix        4
    * name          (3 * FTIMES_MAX_PATH) + 2 (for quotes)
    * type          DIG_MAX_TYPE_SIZE
    * tag           DIG_MAX_TAG_SIZE
@@ -221,7 +215,19 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  char acOutput[(3 * FTIMES_MAX_PATH) + DIG_MAX_TYPE_SIZE + DIG_MAX_TAG_SIZE + FTIMES_MAX_64BIT_SIZE + (3 * DIG_MAX_STRING_SIZE) + 7];
+  char acOutput[4 + (3 * FTIMES_MAX_PATH) + DIG_MAX_TYPE_SIZE + DIG_MAX_TAG_SIZE + FTIMES_MAX_64BIT_SIZE + (3 * DIG_MAX_STRING_SIZE) + 7];
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally add a record prefix.
+   *
+   *********************************************************************
+   */
+  if (psProperties->acDigRecordPrefix[0])
+  {
+    iIndex = sprintf(acOutput, "%s", psProperties->acDigRecordPrefix);
+  }
 
   /*-
    *********************************************************************
@@ -230,7 +236,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  iIndex = sprintf(acOutput, "\"%s\"", psSearchData->pcFile);
+  iIndex += sprintf(&acOutput[iIndex], "\"%s\"", psSearchData->pcFile);
 
   /*-
    *********************************************************************
@@ -258,8 +264,8 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *********************************************************************
    */
 #ifdef WIN32
-  iIndex += snprintf(&acOutput[iIndex], FTIMES_MAX_64BIT_SIZE, "|%I64u", (K_UINT64) psSearchData->ui64Offset);
-  snprintf(acOffset, FTIMES_MAX_64BIT_SIZE, "%I64u", (K_UINT64) psSearchData->ui64Offset);
+  iIndex += snprintf(&acOutput[iIndex], FTIMES_MAX_64BIT_SIZE, "|%I64u", (APP_UI64) psSearchData->ui64Offset);
+  snprintf(acOffset, FTIMES_MAX_64BIT_SIZE, "%I64u", (APP_UI64) psSearchData->ui64Offset);
 #else
 #ifdef USE_AP_SNPRINTF
   iIndex += snprintf(&acOutput[iIndex], FTIMES_MAX_64BIT_SIZE, "|%qu", (unsigned long long) psSearchData->ui64Offset);
@@ -286,7 +292,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
   else
   {
 #endif
-    pcNeutered = SupportNeuterString(psSearchData->pucData, iLimit, acLocalError);
+    pcNeutered = SupportNeuterString((char *) psSearchData->pucData, iLimit, acLocalError);
     if (pcNeutered == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -305,7 +311,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  iIndex += sprintf(&acOutput[iIndex], "%s", gacNewLine);
+  iIndex += sprintf(&acOutput[iIndex], "%s", psProperties->acNewLine);
 
   /*-
    *********************************************************************
@@ -314,7 +320,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  iError = SupportWriteData(gpFile, acOutput, iIndex, acLocalError);
+  iError = SupportWriteData(psProperties->pFileOut, acOutput, iIndex, acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -328,7 +334,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  MD5Cycle(gpsMD5Context, acOutput, iIndex);
+  MD5Cycle(&psProperties->sOutFileHashContext, (unsigned char *) acOutput, iIndex);
 
   return ER_OK;
 }
@@ -373,20 +379,6 @@ DigFreeDigString(DIG_STRING *psDigString)
 #endif
     free(psDigString);
   }
-}
-
-
-/*-
- ***********************************************************************
- *
- * DigGetMatchLimit
- *
- ***********************************************************************
- */
-int
-DigGetMatchLimit(void)
-{
-  return giMatchLimit;
 }
 
 
@@ -545,12 +537,12 @@ DigGetStringType(int iType)
  *
  ***********************************************************************
  */
-K_UINT64
+APP_UI64
 DigGetTotalMatches(void)
 {
   int                 iIndex;
   int                 iType;
-  K_UINT64            ui64Matches = 0;
+  APP_UI64            ui64Matches = 0;
   DIG_STRING         *psDigString;
 
   for (iType = DIG_STRING_TYPE_NORMAL; iType < DIG_STRING_TYPE_NOMORE; iType++)
@@ -581,7 +573,7 @@ DIG_STRING *
 DigNewDigString(char *pcString, int iType, char *pcError)
 {
   const char          acRoutine[] = "DigNewDigString()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char               *pcTag = NULL;
   unsigned char      *pucDecodedString = NULL;
   unsigned char      *pucEncodedString = NULL;
@@ -634,7 +626,11 @@ DigNewDigString(char *pcString, int iType, char *pcError)
   {
     if (isspace((int) pcString[i]))
     {
-      iWhitespaceCount += (i - iWhitespaceIndex > 1) ? 1 : 0;
+      iWhitespaceCount++;
+      if (i > 0 && isspace((int) pcString[i - 1]))
+      {
+        iWhitespaceCount--; /* Adjust count for a contiguous space. */
+      }
       iWhitespaceIndex = i;
       if (iHaveWhiteSpace == 0)
       {
@@ -695,11 +691,11 @@ DigNewDigString(char *pcString, int iType, char *pcError)
     DigFreeDigString(psDigString);
     return NULL;
   }
-  strncpy(pucEncodedString, pcString, iLength + 1);
+  strncpy((char *) pucEncodedString, pcString, iLength + 1);
   psDigString->pucEncodedString = pucEncodedString;
   psDigString->iEncodedLength = iLength;
 
-  pucDecodedString = HTTPUnEscape(pcString, &iLength, acLocalError);
+  pucDecodedString = (unsigned char *) HttpUnEscape(pcString, &iLength, acLocalError);
   if (pucDecodedString == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -756,8 +752,7 @@ DigNewDigString(char *pcString, int iType, char *pcError)
     /*-
      *******************************************************************
      *
-     * Compile and study the regular expression. Then, make sure that
-     * there's exactly one capturing subpattern. Compile-time options
+     * Compile and study the regular expression. Compile-time options
      * (?imsx) are not set here because the user can specify them as
      * needed in the dig strings.
      *
@@ -826,10 +821,10 @@ DigNewDigString(char *pcString, int iType, char *pcError)
  ***********************************************************************
  */
 int
-DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType, K_UINT64 ui64AbsoluteOffset, char *pcFilename, char *pcError)
+DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType, APP_UI64 ui64SearchOffset, char *pcFilename, char *pcError)
 {
   const char          acRoutine[] = "DigSearchData()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
   int                 i = 0;
   int                 iBytesLeft = iDataLength;
@@ -863,7 +858,7 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
      *
      *******************************************************************
      */
-    if (ui64AbsoluteOffset != 0)
+    if (ui64SearchOffset != 0)
     {
       iOffset = (iSaveLength - iMaxStringLength) + 1;
       pucData += iOffset;
@@ -873,7 +868,7 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
     {
       for ((psDigString = gppsSearchListNormal[*pucData]); psDigString != NULL; psDigString = psDigString->psNext)
       {
-        if (giMatchLimit == 0 || psDigString->iHitsPerStream < giMatchLimit)
+        if (gpsProperties->iMatchLimit == 0 || psDigString->iHitsPerStream < gpsProperties->iMatchLimit)
         {
           if (
                iBytesLeft >= psDigString->iDecodedLength &&
@@ -890,9 +885,9 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
             sSearchData.iLength = psDigString->iDecodedLength;
             sSearchData.iType = psDigString->iType;
             sSearchData.pcTag = psDigString->pcTag;
-            sSearchData.ui64Offset = ui64AbsoluteOffset + iDataLength - iBytesLeft;
+            sSearchData.ui64Offset = AnalyzeGetStartOffset() + ui64SearchOffset + iDataLength - iBytesLeft;
 
-            iError = DigDevelopOutput(&sSearchData, acLocalError);
+            iError = DigDevelopOutput(gpsProperties, &sSearchData, acLocalError);
             if (iError != ER_OK)
             {
               snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -913,7 +908,7 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
      *
      *******************************************************************
      */
-    if (ui64AbsoluteOffset != 0)
+    if (ui64SearchOffset != 0)
     {
       iOffset = (iSaveLength - iMaxStringLength) + 1;
       pucData += iOffset;
@@ -923,24 +918,37 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
     {
       for ((psDigString = gppsSearchListNoCase[tolower(*pucData)]); psDigString != NULL; psDigString = psDigString->psNext)
       {
-        if (giMatchLimit == 0 || psDigString->iHitsPerStream < giMatchLimit)
+        /*-
+         ***************************************************************
+         *
+         * Byte 1 is used as an index, so there's no need to check it
+         * again. Next, check byte N. If it doesn't match, there's no
+         * point in continuing. Finally, check bytes 2 through N-1 in
+         * sequential order.
+         *
+         * FIXME: Consider replacing tolower() with a lookup table as
+         *        it may be faster to do an inline lookup.
+         *
+         ***************************************************************
+         */
+        if (gpsProperties->iMatchLimit == 0 || psDigString->iHitsPerStream < gpsProperties->iMatchLimit)
         {
-          for (i = 0, iMatch = 1; i < psDigString->iDecodedLength && iMatch; i++) /* FIXME Searching in reverse order here would probably speed things up. */
+          iMatch = 0;
+          if
+          (
+            iBytesLeft >= psDigString->iDecodedLength &&
+            psDigString->pucDecodedString[psDigString->iDecodedLength - 1] == (unsigned char) tolower(pucData[psDigString->iDecodedLength - 1])
+          )
           {
-            if (pucData[i] >= 'A' && pucData[i] <= 'Z')
+            for (i = 1 /* byte 2 */, iMatch = 1; i < psDigString->iDecodedLength - 1 /* byte N-1 */; i++)
             {
-              iMatch = (pucData[i] == psDigString->pucDecodedString[i] || (pucData[i] + 0x20) == psDigString->pucDecodedString[i]) ? 1 : 0;
-            }
-            else if (pucData[i] >= 'a' && pucData[i] <= 'z')
-            {
-              iMatch = (pucData[i] == psDigString->pucDecodedString[i] || (pucData[i] - 0x20) == psDigString->pucDecodedString[i]) ? 1 : 0;
-            }
-            else
-            {
-              iMatch = (pucData[i] == psDigString->pucDecodedString[i]) ? 1 : 0;
+              if (psDigString->pucDecodedString[i] != (unsigned char) tolower(pucData[i]))
+              {
+                iMatch = 0; break; /* There's no point in continuing. */
+              }
             }
           }
-          if (iMatch && iBytesLeft >= psDigString->iDecodedLength)
+          if (iMatch)
           {
             psDigString->iHitsPerJob++;
             psDigString->iHitsPerStream++;
@@ -951,9 +959,9 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
             sSearchData.iLength = psDigString->iDecodedLength;
             sSearchData.iType = psDigString->iType;
             sSearchData.pcTag = psDigString->pcTag;
-            sSearchData.ui64Offset = ui64AbsoluteOffset + iDataLength - iBytesLeft;
+            sSearchData.ui64Offset = AnalyzeGetStartOffset() + ui64SearchOffset + iDataLength - iBytesLeft;
 
-            iError = DigDevelopOutput(&sSearchData, acLocalError);
+            iError = DigDevelopOutput(gpsProperties, &sSearchData, acLocalError);
             if (iError != ER_OK)
             {
               snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -972,7 +980,7 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
     {
       iDone = 0;
       iOffset = psDigString->iOffset;
-      while (!iDone && (giMatchLimit == 0 || psDigString->iHitsPerStream < giMatchLimit))
+      while (!iDone && (gpsProperties->iMatchLimit == 0 || psDigString->iHitsPerStream < gpsProperties->iMatchLimit))
       {
         /*-
          ***************************************************************
@@ -983,7 +991,7 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
          *
          ***************************************************************
          */
-        iError = pcre_exec(psDigString->psPcre, psDigString->psPcreExtra, pucData, iDataLength, iOffset, PCRE_NOTEMPTY, iPcreOVector, PCRE_OVECTOR_ARRAY_SIZE);
+        iError = pcre_exec(psDigString->psPcre, psDigString->psPcreExtra, (char *) pucData, iDataLength, iOffset, PCRE_NOTEMPTY, iPcreOVector, PCRE_OVECTOR_ARRAY_SIZE);
         if (iError < 0)
         {
           if (iError == PCRE_ERROR_NOMATCH)
@@ -1004,15 +1012,15 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
             return ER;
           }
 
-          if (psDigString->iCaptureCount == 1)
-          {
-            iMatchLength = iPcreOVector[PCRE_CAPTURE_INDEX_1H] - iPcreOVector[PCRE_CAPTURE_INDEX_1L];
-            iMatchOffset = iPcreOVector[PCRE_CAPTURE_INDEX_1L];
-          }
-          else
+          if (psDigString->iCaptureCount == 0)
           {
             iMatchLength = iPcreOVector[PCRE_CAPTURE_INDEX_0H] - iPcreOVector[PCRE_CAPTURE_INDEX_0L];
             iMatchOffset = iPcreOVector[PCRE_CAPTURE_INDEX_0L];
+          }
+          else
+          {
+            iMatchLength = iPcreOVector[PCRE_CAPTURE_INDEX_1H] - iPcreOVector[PCRE_CAPTURE_INDEX_1L];
+            iMatchOffset = iPcreOVector[PCRE_CAPTURE_INDEX_1L];
           }
 
           psDigString->iHitsPerJob++;
@@ -1025,9 +1033,9 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
           sSearchData.iLength = iMatchLength;
           sSearchData.iType = psDigString->iType;
           sSearchData.pcTag = psDigString->pcTag;
-          sSearchData.ui64Offset = ui64AbsoluteOffset + iMatchOffset;
+          sSearchData.ui64Offset = AnalyzeGetStartOffset() + ui64SearchOffset + iMatchOffset;
 
-          iError = DigDevelopOutput(&sSearchData, acLocalError);
+          iError = DigDevelopOutput(gpsProperties, &sSearchData, acLocalError);
           if (iError != ER_OK)
           {
             snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -1042,12 +1050,12 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
 #endif
 #ifdef USE_XMAGIC
   case DIG_STRING_TYPE_XMAGIC:
-    iMinSearchLength = iStopShort ? iCarrySize : sizeof(K_UINT32) - 1; /* The minimum search length is limited due to the way XMagicGetValueOffset() works. */
+    iMinSearchLength = iStopShort ? iCarrySize : sizeof(APP_UI32) - 1; /* The minimum search length is limited due to the way XMagicGetValueOffset() works. */
     for ((psDigString = gppsSearchListXMagic[DIG_FIRST_CHAIN_INDEX]); psDigString != NULL; psDigString = psDigString->psNext)
     {
       iOffset = 0;
       iBytesLeft = iDataLength;
-      while (iBytesLeft > iMinSearchLength && (giMatchLimit == 0 || psDigString->iHitsPerStream < giMatchLimit))
+      while (iBytesLeft > iMinSearchLength && (gpsProperties->iMatchLimit == 0 || psDigString->iHitsPerStream < gpsProperties->iMatchLimit))
       {
         char pcDescription[DIG_MAX_STRING_SIZE];
         int iXMagicBytesLeft = DIG_MAX_STRING_SIZE - 1;
@@ -1069,13 +1077,13 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
           psDigString->iHitsPerBuffer++;
 
           sSearchData.pcFile = pcFilename;
-          sSearchData.pucData = pcDescription;
+          sSearchData.pucData = (unsigned char *) pcDescription;
           sSearchData.iLength = iXMagicBytesUsed;
           sSearchData.iType = psDigString->iType;
           sSearchData.pcTag = psDigString->pcTag;
-          sSearchData.ui64Offset = ui64AbsoluteOffset + iOffset;
+          sSearchData.ui64Offset = AnalyzeGetStartOffset() + ui64SearchOffset + iOffset;
 
-          iError = DigDevelopOutput(&sSearchData, acLocalError);
+          iError = DigDevelopOutput(gpsProperties, &sSearchData, acLocalError);
           if (iError != ER_OK)
           {
             snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -1102,28 +1110,14 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
 /*-
  ***********************************************************************
  *
- * DigSetHashBlock
+ * DigSetPropertiesReference
  *
  ***********************************************************************
  */
 void
-DigSetHashBlock(MD5_CONTEXT *psMD5Context)
+DigSetPropertiesReference(FTIMES_PROPERTIES *psProperties)
 {
-  gpsMD5Context = psMD5Context;
-}
-
-
-/*-
- ***********************************************************************
- *
- * DigSetMatchLimit
- *
- ***********************************************************************
- */
-void
-DigSetMatchLimit(int iMatchLimit)
-{
-  giMatchLimit = iMatchLimit;
+  gpsProperties = psProperties;
 }
 
 
@@ -1141,34 +1135,6 @@ DigSetMaxStringLength(int iStringLength)
   {
     giMaxStringLength = iStringLength;
   }
-}
-
-
-/*-
- ***********************************************************************
- *
- * DigSetNewLine
- *
- ***********************************************************************
- */
-void
-DigSetNewLine(char *pcNewLine)
-{
-  strcpy(gacNewLine, (strcmp(pcNewLine, CRLF) == 0) ? CRLF : LF);
-}
-
-
-/*-
- ***********************************************************************
- *
- * DigSetOutputStream
- *
- ***********************************************************************
- */
-void
-DigSetOutputStream(FILE *pFile)
-{
-  gpFile = pFile;
 }
 
 
@@ -1240,10 +1206,10 @@ DigSetSearchList(DIG_STRING *psDigString, char *pcError)
  ***********************************************************************
  */
 int
-DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
+DigWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "DigWriteHeader()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acHeaderData[FTIMES_MAX_LINE];
   int                 iError;
   int                 iIndex;
@@ -1251,20 +1217,11 @@ DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
   /*-
    *********************************************************************
    *
-   * Initialize the output's MD5 hash.
+   * Build the output's header. Conditionally add a header prefix.
    *
    *********************************************************************
    */
-  MD5Alpha(gpsMD5Context);
-
-  /*-
-   *********************************************************************
-   *
-   * Build the output's header.
-   *
-   *********************************************************************
-   */
-  iIndex = sprintf(acHeaderData, "name|type|tag|offset|string%s", pcNewLine);
+  iIndex = sprintf(acHeaderData, "%sname|type|tag|offset|string%s", (psProperties->acDigRecordPrefix[0]) ? psProperties->acDigRecordPrefix : "", psProperties->acNewLine);
 
   /*-
    *********************************************************************
@@ -1273,7 +1230,7 @@ DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
    *
    *********************************************************************
    */
-  iError = SupportWriteData(pFile, acHeaderData, iIndex, acLocalError);
+  iError = SupportWriteData(psProperties->pFileOut, acHeaderData, iIndex, acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -1287,7 +1244,7 @@ DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
    *
    *********************************************************************
    */
-  MD5Cycle(gpsMD5Context, acHeaderData, iIndex);
+  MD5Cycle(&psProperties->sOutFileHashContext, (unsigned char *) acHeaderData, iIndex);
 
   return ER_OK;
 }

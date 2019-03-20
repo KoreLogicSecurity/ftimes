@@ -1,71 +1,15 @@
 /*-
  ***********************************************************************
  *
- * $Id: getmode.c,v 1.16 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: getmode.c,v 1.27 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
-
-/*-
- ***********************************************************************
- *
- * GetModeProcessArguments
- *
- ***********************************************************************
- */
-int
-GetModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError)
-{
-  const char          acRoutine[] = "GetModeProcessArguments()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 iError;
-  int                 iLength;
-
-  /*-
-   *********************************************************************
-   *
-   * Process arguments.
-   *
-   *********************************************************************
-   */
-  if (iArgumentCount >= 1)
-  {
-    iLength = strlen(ppcArgumentVector[0]);
-    if (iLength > FTIMES_MAX_PATH - 1)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Length = [%d]: Length exceeds %d bytes.", acRoutine, ppcArgumentVector[0], iLength, FTIMES_MAX_PATH - 1);
-      return ER_Length;
-    }
-    strncpy(psProperties->acConfigFile, ppcArgumentVector[0], FTIMES_MAX_PATH);
-    if (iArgumentCount >= 2)
-    {
-      if (iArgumentCount == 3 && strcmp(ppcArgumentVector[1], "-l") == 0)
-      {
-        iError = SupportSetLogLevel(ppcArgumentVector[2], &psProperties->iLogLevel, acLocalError);
-        if (iError != ER_OK)
-        {
-          snprintf(pcError, MESSAGE_SIZE, "%s: Level = [%s]: %s", acRoutine, ppcArgumentVector[2], acLocalError);
-          return iError;
-        }
-      }
-      else
-      {
-        return ER_Usage;
-      }
-    }
-  }
-  else
-  {
-    return ER_Usage;
-  }
-  return ER_OK;
-}
-
 
 /*-
  ***********************************************************************
@@ -78,7 +22,7 @@ int
 GetModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "GetModeInitialize()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
 
   /*-
@@ -121,7 +65,7 @@ GetModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "GetModeCheckDependencies()";
 #ifdef USE_SSL
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
 #endif
 
   if (psProperties->acBaseName[0] == 0)
@@ -158,7 +102,7 @@ GetModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
   }
 
 #ifdef USE_SSL
-  if (SSLCheckDependencies(psProperties->psSSLProperties, acLocalError) != ER_OK)
+  if (SSLCheckDependencies(psProperties->psSslProperties, acLocalError) != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER_MissingControl;
@@ -241,7 +185,7 @@ int
 GetModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "GetModeWorkHorse()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
 
   iError = URLGetRequest(psProperties, acLocalError);
@@ -315,7 +259,7 @@ int
 GetModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "GetModeFinalStage()";
-  char                acMode[10]; /* strlen("--mapmode") + 1 */
+  char                acMode[6]; /* strlen("--map") + 1 */
   int                 iError;
 
   /*-
@@ -329,17 +273,11 @@ GetModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
   {
     switch (psProperties->iNextRunMode)
     {
-    case FTIMES_MAPFULL:
-      strcpy(acMode, "--mapfull");
+    case FTIMES_MAPMODE:
+      strcpy(acMode, "--map");
       break;
-    case FTIMES_MAPLEAN:
-      strcpy(acMode, "--maplean");
-      break;
-    case FTIMES_DIGFULL:
-      strcpy(acMode, "--digfull");
-      break;
-    case FTIMES_DIGLEAN:
-      strcpy(acMode, "--diglean");
+    case FTIMES_DIGMODE:
+      strcpy(acMode, "--dig");
       break;
     default:
       snprintf(pcError, MESSAGE_SIZE, "%s: Invalid RunMode. That shouldn't happen.", acRoutine);

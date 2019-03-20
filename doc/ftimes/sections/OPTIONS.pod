@@ -2,13 +2,13 @@
 
 =over 5
 
-=item B<-l level>
+=item B<-l {0-6}>
 
-The B<LogLevel> option controls the amount of log output. As B<level>
-decreases, the amount of output increases. The range of values that
-may be assigned to B<level> is stated below.  In cases where evidence
-collection is of primary concern, B<LogLevel> should be no higher
-than Landmark.  The default B<LogLevel> is Landmark.
+The B<LogLevel> option controls the amount of log output.  As the
+level decreases, the amount of output increases.  The range of values
+that may be assigned is stated below.  In cases where evidence
+collection is of primary concern, B<LogLevel> should be no higher than
+Landmark.  The default B<LogLevel> is Landmark.
 
     6 - Critical
     5 - Failure

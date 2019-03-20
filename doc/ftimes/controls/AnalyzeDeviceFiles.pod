@@ -1,6 +1,6 @@
 =item B<AnalyzeDeviceFiles>: [Y|N]
 
-Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<AnalyzeDeviceFiles> is optional.  When enabled ('Y' or 'y'), it
 instructs B<FTimes> to analyze block/character device files that

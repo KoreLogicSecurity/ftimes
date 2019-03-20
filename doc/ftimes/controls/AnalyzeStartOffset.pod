@@ -1,0 +1,26 @@
+=item B<AnalyzeStartOffset>: [0-18446744073709551615]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeStartOffset> is optional.  It instructs the analysis engine
+to seek to the specified offset (in bytes) before processing any data.
+The default value for this control is zero.
+
+Note: To map or dig through a supported block/character device file,
+B<AnalyzeDeviceFiles> must be enabled and the device file must be
+explicitly included on the command line or in the config file.  FTimes
+refuses to read device files by default since that could result in
+hung process.
+
+Note: Device files may require you to specify an offset that is
+aligned to a block boundary.  Your mileage may vary.
+
+Note: When this control is set, map mode hash values and XMagic file
+types will be different from those computed during a traditional
+snapshot (i.e., one where the start offset was zero).  Other than the
+information recorded in the log file, there is no convenient way to
+distinguish between traditional snapshots and those where an offset
+was set.  This could lead to unexpected compare mode results.
+
+Note: Support for this control was added in version 3.9.0.
+

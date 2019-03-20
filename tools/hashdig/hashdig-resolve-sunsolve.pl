@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-resolve-sunsolve.pl,v 1.19 2007/02/23 00:22:36 mavrik Exp $
+# $Id: hashdig-resolve-sunsolve.pl,v 1.31 2012/01/04 03:12:39 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2007 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2012 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -42,7 +42,7 @@ use IO::Socket;
 
   my (%hOptions);
 
-  if (!getopts('ad:f:k:r:s:w:', \%hOptions))
+  if (!getopts('ac:d:f:k:r:s:w:', \%hOptions))
   {
     Usage($sProgram);
   }
@@ -54,6 +54,20 @@ use IO::Socket;
   ####################################################################
 
   my $sAutoRecover = (exists($hOptions{'a'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # A HashCount, '-c', is optional.
+  #
+  ####################################################################
+
+  my $sHashCount = (exists($hOptions{'c'})) ? $hOptions{'c'} : 256;
+
+  if ($sHashCount !~ /^\d+$/ || $sHashCount < 1 || $sHashCount > 256)
+  {
+    print STDERR "$sProgram: HashCount='$sHashCount' Error='Count must be a number in the range [1,256].'\n";
+    exit(2);
+  }
 
   ####################################################################
   #
@@ -154,7 +168,7 @@ use IO::Socket;
 
   ####################################################################
   #
-  # If there's any arguments left, it's an error.
+  # If any arguments remain, it's an error.
   #
   ####################################################################
 
@@ -188,7 +202,8 @@ use IO::Socket;
 
   ####################################################################
   #
-  # Resolve hashes in blocks of 256 (limit imposed by sun).
+  # Resolve hashes in block sizes ranging from 1 to 256 records. The
+  # upper limit is imposed by Sun.
   #
   ####################################################################
 
@@ -205,7 +220,7 @@ use IO::Socket;
     if ($sRecord =~ /^([0-9a-fA-F]{32})(?:\|[KU])?$/)
     {
       $sMD5Hashes .= $1 . "\n";
-      if (++$sCount % 256 == 0)
+      if (++$sCount % $sHashCount == 0)
       {
         if (scalar(@aKidPids) >= $sKidLimit)
         {
@@ -221,7 +236,7 @@ use IO::Socket;
         }
         if ($sAutoRecover && BlockIsGood($sOutDir, $sBlock, $sMD5Hashes, \$sErrorMessage))
         {
-          print STDERR "$sProgram: Block='$sBlock' Warning='Block skipped: file exists and is not empty.'\n";
+          print STDERR "$sProgram: Block='$sBlock' Warning='Block skipped: file exists and contains at least one valid response.'\n";
           $sMD5Hashes = "";
           $sBlock++;
           next;
@@ -264,7 +279,7 @@ use IO::Socket;
   {
     if ($sAutoRecover && BlockIsGood($sOutDir, $sBlock, $sMD5Hashes, \$sErrorMessage))
     {
-      print STDERR "$sProgram: Block='$sBlock' Warning='Block skipped: file exists and is not empty.'\n";
+      print STDERR "$sProgram: Block='$sBlock' Warning='Block skipped: file exists and contains at least one valid response.'\n";
     }
     else
     {
@@ -305,8 +320,41 @@ sub BlockIsGood
   my $sGetFile = sprintf("%s/hashdig-getblock.%06d", $sOutDir, $sBlock);
   my $sOutFile = sprintf("%s/hashdig-sunsolve.%06d", $sOutDir, $sBlock);
 
+  ####################################################################
+  #
+  # If either the get file or the output file is empty, the block is
+  # not good.
+  #
+  ####################################################################
+
   if (!-s $sGetFile || !-s $sOutFile)
   {
+    return 0;
+  }
+
+  ####################################################################
+  #
+  # The output file could have a non-zero size but still be no good,
+  # so look for at least one valid hash record. If the file can't be
+  # opened, assume it is no good.
+  #
+  ####################################################################
+
+  if (-s $sOutFile)
+  {
+    if (!open(FH, "< $sOutFile"))
+    {
+      return 0;
+    }
+    while (my $sRecord = <FH>)
+    {
+      if (my ($sHash, $sMatches) = ($sRecord =~ /^.*<TT>([0-9a-fA-F]{32})<\/TT>\s+-\s+<TT><\/TT>\s+-\s+(\d+)\smatch.*$/o))
+      {
+        close(FH);
+        return 1;
+      }
+    }
+    close(FH);
     return 0;
   }
 
@@ -379,10 +427,17 @@ sub SunFingerPrintLookup
     #
     ##################################################################
 
-    my $sHeader = "POST /pub-cgi/fileFingerprints.pl HTTP/1.0\n";
-    my $sCType = "Content-Type: application/x-www-form-urlencoded\nContent-Length:$sSize\n\n";
+    my $sVersion = sprintf("%s", ('$Revision: 1.31 $' =~ /^.Revision: ([\d.]+)/));
 
-    if (!print $sHandle $sHeader . $sCType . $sMD5List)
+    my $sHeader = <<EOF;
+POST /fileFingerprints.do HTTP/1.0
+User-Agent: HashDigResolver/$sVersion
+Content-Type: application/x-www-form-urlencoded
+Content-Length:$sSize
+
+EOF
+
+    if (!print $sHandle $sHeader . $sMD5List)
     {
       print STDERR "SunFingerPrintLookup(): Block='$sBlock' Error='Socket write failed for header data: ($!)'\n";
       exit(2);
@@ -451,7 +506,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-a] [-d dir] [-k count] [-r block] [-s count] [-w count] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-a] [-c count] [-d dir] [-k count] [-r block] [-s count] [-w count] -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -477,7 +532,7 @@ hashdig-resolve-sunsolve.pl - Resolve hashes against Sun's Solaris Fingerprint D
 
 =head1 SYNOPSIS
 
-B<hashdig-resolve-sunsolve.pl> B<[-a]> B<[-d dir]> B<[-k count]> B<[-w count]> B<[-r block]> B<[-s count]> B<-f {file|-}>
+B<hashdig-resolve-sunsolve.pl> B<[-a]> B<[-c count]> B<[-d dir]> B<[-k count]> B<[-w count]> B<[-r block]> B<[-s count]> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
@@ -491,8 +546,8 @@ Input that does not match this expression will cause the program
 to generate a warning. When the warning limit (see B<-w> option)
 has been exceeded, the program will abort.
 
-Output for each block of 256 hashes is written to a pair of files
-in B<dir>. These files have the following naming convention:
+Output for each block of hashes is written to a pair of files in
+B<dir>. These files have the following naming convention:
 
     hashdig-{getblock,sunsolve}.dddddd
 
@@ -514,6 +569,14 @@ where the last job left off. Along the way, it'll redo any getblocks
 that produced no output. The original output B<dir> must exist, and
 be specified if not the default value. More importantly, the original
 input must be used for this mode to work as intended.
+
+=item B<-c count>
+
+Specifies the number of hashes to include in each request. The default
+value is 256, which is the maximum number allowed by Sun.
+
+Note: If you intend to use the B<-a> option, you must use the same
+B<count> as was specified in the original job.
 
 =item B<-d dir>
 
@@ -574,7 +637,7 @@ hashdig-dump(1), hashdig-harvest-sunsolve(1)
 
 =head1 LICENSE
 
-All HashDig documentation and code is distributed under same terms
-and conditions as FTimes.
+All documentation and code are distributed under same terms and
+conditions as FTimes.
 
 =cut

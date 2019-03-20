@@ -1,14 +1,17 @@
 /*-
  ***********************************************************************
  *
- * $Id: socket.h,v 1.7 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: socket.h,v 1.14 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2001-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _SOCKET_H_INCLUDED
+#define _SOCKET_H_INCLUDED
+
 /* #include "ssl.h" */
 
 /*-
@@ -53,3 +56,5 @@ void                  SocketCleanup(SOCKET_CONTEXT *psSocketCTX);
 SOCKET_CONTEXT       *SocketConnect(unsigned long ulIP, unsigned short usPort, int iType, void *psslCTX, char *pcError);
 int                   SocketRead(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToRead, char *pcError);
 int                   SocketWrite(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToSend, char *pcError);
+
+#endif /* !_SOCKET_H_INCLUDED */

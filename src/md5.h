@@ -1,14 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: md5.h,v 1.10 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: md5.h,v 1.19 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2003-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _MD5_H_INCLUDED
+#define _MD5_H_INCLUDED
 
 /*-
  ***********************************************************************
@@ -31,7 +33,7 @@
 #define MD5_F3(X,Y,Z) ((X)^(Y)^(Z))
 #define MD5_F4(X,Y,Z) ((Y)^((X)|(~(Z))))
 
-#define MD5_ROTL(x,n) (((x)<<(n))|(((K_UINT32)(x))>>(32-(n))))
+#define MD5_ROTL(x,n) (((x)<<(n))|(((APP_UI32)(x))>>(32-(n))))
 
 #define MD5_R1(a,b,c,d,M,s,k) {(a)+=MD5_F1((b),(c),(d))+(M)+(k);(a)=(b)+MD5_ROTL((a),(s));}
 #define MD5_R2(a,b,c,d,M,s,k) {(a)+=MD5_F2((b),(c),(d))+(M)+(k);(a)=(b)+MD5_ROTL((a),(s));}
@@ -47,12 +49,12 @@
  */
 typedef struct _MD5_CONTEXT
 {
-  K_UINT32            A;
-  K_UINT32            B;
-  K_UINT32            C;
-  K_UINT32            D;
-  K_UINT64            ui64MessageLength;
-  K_UINT32            ui32ResidueLength;
+  APP_UI32            A;
+  APP_UI32            B;
+  APP_UI32            C;
+  APP_UI32            D;
+  APP_UI64            ui64MessageLength;
+  APP_UI32            ui32ResidueLength;
   unsigned char       aucResidue[MD5_HUNK_SIZE];
 } MD5_CONTEXT;
 
@@ -65,9 +67,11 @@ typedef struct _MD5_CONTEXT
  */
 int                   MD5HashToBase64(unsigned char *pucHash, char *pcBase64Hash);
 int                   MD5HashToHex(unsigned char *pucHash, char *pcHexHash);
-int                   MD5HashStream(FILE *pFile, unsigned char *pucMD5);
+int                   MD5HashStream(FILE *pFile, unsigned char *pucMD5, APP_UI64 *pui64Size);
 void                  MD5HashString(unsigned char *pucData, int iLength, unsigned char *pucMD5);
 void                  MD5Alpha(MD5_CONTEXT *psMD5);
-void                  MD5Cycle(MD5_CONTEXT *psMD5, unsigned char *pucData, K_UINT32 ui32Length);
+void                  MD5Cycle(MD5_CONTEXT *psMD5, unsigned char *pucData, APP_UI32 ui32Length);
 void                  MD5Omega(MD5_CONTEXT *psMD5, unsigned char *pucMD5);
 void                  MD5Grind(MD5_CONTEXT *psMD5, unsigned char *pucData);
+
+#endif /* !_MD5_H_INCLUDED */

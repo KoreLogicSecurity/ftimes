@@ -1,6 +1,6 @@
 =item B<MapRemoteFiles>: [Y|N]
 
-Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<MapRemoteFiles> is an alias for B<AnalyzeRemoteFiles>, and it is
 being phased out.  Please use B<AnalyzeRemoteFiles> instead.

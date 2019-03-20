@@ -1,0 +1,47 @@
+######################################################################
+#
+# $Id: Makefile.PL.in,v 1.22 2012/01/04 03:12:27 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+
+use 5.008;
+use ExtUtils::MakeMaker;
+
+# CONFIGURE-BEGIN
+my $sBaseDir = "@top_srcdir@/lib/perl";
+# CONFIGURE-END
+WriteMakefile
+(
+  'ABSTRACT'           => "Collection of common FTimes modules",
+  'AUTHOR'             => "Klayton Monroe",
+  'DISTNAME'           => "ftimes-lib-perl",
+  'NAME'               => "FTimes",
+  'PREREQ_PM'          =>
+  {
+  },
+  'realclean'          => {FILES => '$(DISTNAME)-*.tar.gz'},
+  'VERSION'            => "0.15",
+# CONFIGURE-BEGIN
+# These items are required to make configure work properly from an
+# alternate build directory (e.g., <project_root>/b).
+
+  'INSTALLSITEMAN1DIR' => "@prefix@/man/man1",
+  'INSTALLSITEMAN3DIR' => "@prefix@/man/man3",
+  'MAN3PODS'           =>
+  {
+    "$sBaseDir/lib/FTimes/Properties.pm"    => '$(INST_MAN3DIR)/FTimes::Properties' . '.$(MAN3EXT)',
+    "$sBaseDir/lib/FTimes/EadRoutines.pm"   => '$(INST_MAN3DIR)/FTimes::EadRoutines' . '.$(MAN3EXT)',
+  },
+  'PM'                 =>
+  {
+    "$sBaseDir/lib/FTimes/Properties.pm"    => '$(INST_LIB)/FTimes/Properties.pm',
+    "$sBaseDir/lib/FTimes/EadRoutines.pm"   => '$(INST_LIB)/FTimes/EadRoutines.pm',
+  },
+  'PREFIX'             => "@prefix@",
+  'test'               => { 'TESTS' => $sBaseDir . '/t/*.t' },
+# CONFIGURE-END
+);

@@ -1,0 +1,654 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.3 2010/01/22 02:56:44 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "1";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "path_strip_count_valid_unix",
+    2 => "path_strip_count_valid_windows",
+    3 => "path_strip_count_large_unix",
+    4 => "path_strip_count_large_windows",
+    5 => "no_quotes",
+    6 => "no_header",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'path_strip_count_valid_unix'    => "tests path strip count using valid counts (UNIX)",
+    'path_strip_count_valid_windows' => "tests path strip count using valid counts (WINX)",
+    'path_strip_count_large_unix'    => "tests path strip count using large counts (UNIX)",
+    'path_strip_count_large_windows' => "tests path strip count using large counts (WINX)",
+    'no_quotes'                      => "tests NoQuotes option",
+    'no_header'                      => "tests NoHeader option",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+    'ValidStripCounts' => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    'LargeStripCounts' => [16, 17, 18, 19, 20, 100, 1000, 10000, 100000, 1000000, 1000000000, 4294967295],
+  );
+
+
+######################################################################
+#
+# TestGroup_path_strip_count_valid_unix
+#
+######################################################################
+
+sub Hitch_path_strip_count_valid_unix
+{
+  my $phTestTargetValues = GetTestTargetValues();
+
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'0'}  = '"/1/2/3/4/5/6/7/8/9/10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'1'}  = '"1/2/3/4/5/6/7/8/9/10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'2'}  = '"2/3/4/5/6/7/8/9/10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'3'}  = '"3/4/5/6/7/8/9/10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'4'}  = '"4/5/6/7/8/9/10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'5'}  = '"5/6/7/8/9/10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'6'}  = '"6/7/8/9/10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'7'}  = '"7/8/9/10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'8'}  = '"8/9/10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'9'}  = '"9/10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'10'} = '"10/11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'11'} = '"11/12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'12'} = '"12/13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'13'} = '"13/14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'14'} = '"14/15"';
+  $$phTestTargetValues{'path_strip_count_valid_unix'}{'15'} = '"15"';
+}
+
+
+sub Check_path_strip_count_valid_unix
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sStripCount (@{$$phTestProperties{'ValidStripCounts'}})
+  {
+    my $sCommand = "perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -f $sFile -p $sStripCount";
+    DebugPrint(3, "Command=$sCommand");
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    DebugPrint(4, "TargetLineCount=2");
+    if (scalar(@aLines) != 2)
+    {
+      DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+      return "fail";
+    }
+    $aLines[1] =~ s/[\r\n]*$//;
+
+    my $sTargetOutput = $$phTestTargetValues{'path_strip_count_valid_unix'}{$sStripCount};
+    DebugPrint(5, "TargetOutput=$sTargetOutput");
+    if ($aLines[1] ne $sTargetOutput)
+    {
+      DebugPrint(4, "ActualOutput=$aLines[1]");
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_path_strip_count_valid_unix
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_path_strip_count_valid_unix
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sData = "name\n\"/1/2/3/4/5/6/7/8/9/10/11/12/13/14/15\"\n";
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_path_strip_count_valid_windows
+#
+######################################################################
+
+sub Hitch_path_strip_count_valid_windows
+{
+  my $phTestTargetValues = GetTestTargetValues();
+
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'0'}  = '"c:\\1\\2\\3\\4\\5\\6\\7\\8\\9\\10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'1'}  = '"1\\2\\3\\4\\5\\6\\7\\8\\9\\10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'2'}  = '"2\\3\\4\\5\\6\\7\\8\\9\\10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'3'}  = '"3\\4\\5\\6\\7\\8\\9\\10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'4'}  = '"4\\5\\6\\7\\8\\9\\10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'5'}  = '"5\\6\\7\\8\\9\\10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'6'}  = '"6\\7\\8\\9\\10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'7'}  = '"7\\8\\9\\10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'8'}  = '"8\\9\\10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'9'}  = '"9\\10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'10'} = '"10\\11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'11'} = '"11\\12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'12'} = '"12\\13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'13'} = '"13\\14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'14'} = '"14\\15"';
+  $$phTestTargetValues{'path_strip_count_valid_windows'}{'15'} = '"15"';
+}
+
+
+sub Check_path_strip_count_valid_windows
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sStripCount (@{$$phTestProperties{'ValidStripCounts'}})
+  {
+    my $sCommand = "perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -f $sFile -p $sStripCount";
+    DebugPrint(3, "Command=$sCommand");
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    DebugPrint(4, "TargetLineCount=2");
+    if (scalar(@aLines) != 2)
+    {
+      DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+      return "fail";
+    }
+    $aLines[1] =~ s/[\r\n]*$//;
+
+    my $sTargetOutput = $$phTestTargetValues{'path_strip_count_valid_windows'}{$sStripCount};
+    DebugPrint(5, "TargetOutput=$sTargetOutput");
+    if ($aLines[1] ne $sTargetOutput)
+    {
+      DebugPrint(4, "ActualOutput=$aLines[1]");
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_path_strip_count_valid_windows
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_path_strip_count_valid_windows
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sData = "name\n\"c:\\1\\2\\3\\4\\5\\6\\7\\8\\9\\10\\11\\12\\13\\14\\15\"\n";
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_path_strip_count_large_unix
+#
+######################################################################
+
+sub Hitch_path_strip_count_large_unix
+{
+  my $phTestTargetValues = GetTestTargetValues();
+}
+
+
+sub Check_path_strip_count_large_unix
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sStripCount (@{$$phTestProperties{'LargeStripCounts'}})
+  {
+    my $sCommand = "perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -f $sFile -p $sStripCount -o BeQuiet";
+    DebugPrint(3, "Command=$sCommand");
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    DebugPrint(4, "TargetLineCount=2");
+    if (scalar(@aLines) != 1)
+    {
+      DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+      return "fail";
+    }
+    $aLines[0] =~ s/[\r\n]*$//;
+
+    my $sTargetOutput = "name";
+    DebugPrint(5, "TargetOutput=$sTargetOutput");
+    if ($aLines[0] ne $sTargetOutput)
+    {
+      DebugPrint(4, "ActualOutput=$aLines[0]");
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_path_strip_count_large_unix
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_path_strip_count_large_unix
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sData = "name\n";
+  $sData .= "\"/\"\n";
+  $sData .= "\"/1\"\n";
+  $sData .= "\"/1/2\"\n";
+  $sData .= "\"/1/2/3\"\n";
+  $sData .= "\"/1/2/3/4\"\n";
+  $sData .= "\"/1/2/3/4/5\"\n";
+  $sData .= "\"/1/2/3/4/5/6\"\n";
+  $sData .= "\"/1/2/3/4/5/6/7\"\n";
+  $sData .= "\"/1/2/3/4/5/6/7/8\"\n";
+  $sData .= "\"/1/2/3/4/5/6/7/8/9\"\n";
+  $sData .= "\"/1/2/3/4/5/6/7/8/9/10\"\n";
+  $sData .= "\"/1/2/3/4/5/6/7/8/9/10/11\"\n";
+  $sData .= "\"/1/2/3/4/5/6/7/8/9/10/11/12\"\n";
+  $sData .= "\"/1/2/3/4/5/6/7/8/9/10/11/12/13\"\n";
+  $sData .= "\"/1/2/3/4/5/6/7/8/9/10/11/12/13/14\"\n";
+  $sData .= "\"/1/2/3/4/5/6/7/8/9/10/11/12/13/14/15\"\n";
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_path_strip_count_large_windows
+#
+######################################################################
+
+sub Hitch_path_strip_count_large_windows
+{
+  my $phTestTargetValues = GetTestTargetValues();
+}
+
+
+sub Check_path_strip_count_large_windows
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sStripCount (@{$$phTestProperties{'LargeStripCounts'}})
+  {
+    my $sCommand = "perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -f $sFile -p $sStripCount -o BeQuiet";
+    DebugPrint(3, "Command=$sCommand");
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    DebugPrint(4, "TargetLineCount=1");
+    if (scalar(@aLines) != 1)
+    {
+      DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+      return "fail";
+    }
+    $aLines[0] =~ s/[\r\n]*$//;
+
+    my $sTargetOutput = "name";
+    DebugPrint(5, "TargetOutput=$sTargetOutput");
+    if ($aLines[0] ne $sTargetOutput)
+    {
+      DebugPrint(4, "ActualOutput=$aLines[0]");
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_path_strip_count_large_windows
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_path_strip_count_large_windows
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sData = "name\n";
+  $sData .= "\"c:\\\"\n";
+  $sData .= "\"c:\\1\"\n";
+  $sData .= "\"c:\\1\\2\"\n";
+  $sData .= "\"c:\\1\\2\\3\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\\6\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\\6\\7\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\\6\\7\\8\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\\6\\7\\8\\9\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\\6\\7\\8\\9\\10\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\\6\\7\\8\\9\\10\\11\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\\6\\7\\8\\9\\10\\11\\12\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\\6\\7\\8\\9\\10\\11\\12\\13\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\\6\\7\\8\\9\\10\\11\\12\\13\\14\"\n";
+  $sData .= "\"c:\\1\\2\\3\\4\\5\\6\\7\\8\\9\\10\\11\\12\\13\\14\\15\"\n";
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_no_quotes
+#
+######################################################################
+
+sub Hitch_no_quotes
+{
+  my $phTestTargetValues = GetTestTargetValues();
+}
+
+
+sub Check_no_quotes
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+  my $phTestProperties = GetTestProperties();
+
+  {
+    my $sCommand = "perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -f $sFile -o NoQuotes";
+    DebugPrint(3, "Command=$sCommand");
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    DebugPrint(4, "TargetLineCount=2");
+    if (scalar(@aLines) != 2)
+    {
+      DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+      return "fail";
+    }
+    $aLines[1] =~ s/[\r\n]*$//;
+
+    my $sTargetOutput = "quotes";
+    DebugPrint(5, "TargetOutput=$sTargetOutput");
+    if ($aLines[1] ne $sTargetOutput)
+    {
+      DebugPrint(4, "ActualOutput=$aLines[1]");
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_no_quotes
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_no_quotes
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sData = "name\n\"quotes\"\n";
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_no_header
+#
+######################################################################
+
+sub Hitch_no_header
+{
+  my $phTestTargetValues = GetTestTargetValues();
+}
+
+
+sub Check_no_header
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+  my $phTestProperties = GetTestProperties();
+
+  {
+    my $sCommand = "perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -f $sFile -o NoHeader";
+    DebugPrint(3, "Command=$sCommand");
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    DebugPrint(4, "TargetLineCount=1");
+    if (scalar(@aLines) != 1)
+    {
+      DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+      return "fail";
+    }
+    $aLines[0] =~ s/[\r\n]*$//;
+
+    my $sTargetOutput = "\"quotes\"";
+    DebugPrint(5, "TargetOutput=$sTargetOutput");
+    if ($aLines[0] ne $sTargetOutput)
+    {
+      DebugPrint(4, "ActualOutput=$aLines[0]");
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_no_header
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_no_header
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sData = "name\n\"quotes\"\n";
+
+  if (!defined(FillFile($sFile, $sData, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+1;

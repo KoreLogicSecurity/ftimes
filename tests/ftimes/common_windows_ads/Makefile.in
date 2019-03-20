@@ -14,8 +14,8 @@ SUBDIRS=map
 all:
 
 check clean clean-all setup test:
-	@cwd=`pwd`; for subdir in ${SUBDIRS}; do\
-		${SUBDIR_TRACE} && ${SUBDIR_MAKE} ;\
+	@cwd=`pwd` ; for subdir in ${SUBDIRS} ; do \
+		${SUBDIR_TRACE} && ${SUBDIR_MAKE} ; \
 	done
 
 include ${INCLUDES_PREFIX}/common.mk

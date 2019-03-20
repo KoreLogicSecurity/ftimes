@@ -1,10 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.22 2007/02/23 00:22:35 mavrik Exp $
-#
-########################################################################
-#
-# Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+# $Id: Makefile.in,v 1.42 2012/05/06 01:42:33 mavrik Exp $
 #
 ########################################################################
 #
@@ -12,89 +8,127 @@
 #
 ########################################################################
 
-CONFIGURE_FILES=\
-Makefile\
-config.cache\
-config.log\
-config.status\
+CONFIGURE_FILES= \
+Makefile \
+config.cache \
+config.log \
+config.status \
 configure.lineno
 
 srcdir=@srcdir@
 
-SUBDIRS=@server_subdirs@ doc etc src tools tests # Note: Keep the tests subdir last.
+SUBDIRS=doc etc lib src tools tests # Note: Keep the tests subdir last.
 
 SUBDIR_MAKE=cd $${cwd}/$${subdir} && ${MAKE} $@
 
 SUBDIR_TRACE=echo "===> $${subdir}"
 
-TARMAP_LINKS=\
-ap_snprintf.c\
-ap_snprintf.h\
-ktypes.h\
-md5.c\
-md5.h\
-sha1.c\
+FTIMES_XPA_LINKS= \
+md5.c \
+md5.h \
+options.c \
+options.h \
+sha1.c \
+sha1.h
+
+HASHCP_LINKS= \
+md5.c \
+md5.h \
+sha1.c \
+sha1.h
+
+RTIMES_LINKS= \
+md5.c \
+md5.h \
+options.c \
+options.h
+
+TARMAP_LINKS= \
+ap_snprintf.c \
+ap_snprintf.h \
+md5.c \
+md5.h \
+sha1.c \
 sha1.h
 
 all clean install test:
-	@cwd=`pwd` ; for subdir in ${SUBDIRS} "end-of-list" ; do\
-		if test $${subdir} != "end-of-list" ; then\
-			${SUBDIR_TRACE} && ${SUBDIR_MAKE} ;\
-		fi ;\
+	@cwd=`pwd` ; for subdir in ${SUBDIRS} "end-of-list" ; do \
+		if test $${subdir} != "end-of-list" ; then \
+			${SUBDIR_TRACE} && ${SUBDIR_MAKE} ; \
+		fi ; \
 	done
 
 clean-all:
-	@cwd=`pwd` ; for subdir in ${SUBDIRS} "end-of-list" ; do\
-		if test $${subdir} != "end-of-list" ; then\
-			${SUBDIR_TRACE} && ${SUBDIR_MAKE} ;\
-		fi ;\
+	@cwd=`pwd` ; for subdir in ${SUBDIRS} "end-of-list" ; do \
+		if test $${subdir} != "end-of-list" ; then \
+			${SUBDIR_TRACE} && ${SUBDIR_MAKE} ; \
+		fi ; \
 	done
 	rm -f ${CONFIGURE_FILES}
 
 auto: mk-links
-	@if [ "${srcdir}" != "@""srcdir""@" ]; then\
-		echo "";\
-		echo "ERROR: The 'auto' target is for release building, and is not VPATH";\
-		echo "       aware. To exercise this target, get into the project's root";\
-		echo "       directory and run: 'make -f Makefile.in auto'";\
-		echo "";\
-		exit 1;\
+	@if [ "${srcdir}" != "@""srcdir""@" ] ; then \
+		echo "" ; \
+		echo "ERROR: The 'auto' target is for release building, and is not VPATH" ; \
+		echo "       aware. To exercise this target, get into the project's root" ; \
+		echo "       directory and run: 'make -f Makefile.in auto'" ; \
+		echo "" ; \
+		exit 1 ; \
 	fi
 	autoconf && autoheader ; rm -rf autom4te.cache src/config.h.in~
 
 mk-links:
-	@if [ "${srcdir}" != "@""srcdir""@" ]; then\
-		echo "";\
-		echo "ERROR: The 'mk-links' target is for release building, and is not VPATH";\
-		echo "       aware. To exercise this target, get into the project's root";\
-		echo "       directory and run: 'make -f Makefile.in mk-links'";\
-		echo "";\
-		exit 1;\
+	@if [ "${srcdir}" != "@""srcdir""@" ] ; then \
+		echo "" ; \
+		echo "ERROR: The 'mk-links' target is for release building, and is not VPATH" ; \
+		echo "       aware. To exercise this target, get into the project's root" ; \
+		echo "       directory and run: 'make -f Makefile.in mk-links'" ; \
+		echo "" ; \
+		exit 1 ; \
 	fi
-	@for file in ${TARMAP_LINKS}; do\
-		( cd tools/tarmap && if [ ! -L $${file} ] ; then ln -s -f ../../src/$${file} $${file} ; fi ) ;\
+	@for file in ${FTIMES_XPA_LINKS} ; do \
+		( cd tools/ftimes-xpa && if [ ! -L $${file} ] ; then ln -s -f ../../src/$${file} $${file} ; fi ) ; \
+	done
+	@for file in ${HASHCP_LINKS} ; do \
+		( cd tools/hashcp && if [ ! -L $${file} ] ; then ln -s -f ../../src/$${file} $${file} ; fi ) ; \
+	done
+	@for file in ${RTIMES_LINKS} ; do \
+		( cd tools/rtimes && if [ ! -L $${file} ] ; then ln -s -f ../../src/$${file} $${file} ; fi ) ; \
+	done
+	@for file in ${TARMAP_LINKS} ; do \
+		( cd tools/tarmap && if [ ! -L $${file} ] ; then ln -s -f ../../src/$${file} $${file} ; fi ) ; \
 	done
 
 rm-links:
-	@if [ "${srcdir}" != "@""srcdir""@" ]; then\
-		echo "";\
-		echo "ERROR: The 'rm-links' target is for release building, and is not VPATH";\
-		echo "       aware. To exercise this target, get into the project's root";\
-		echo "       directory and run: 'make -f Makefile.in rm-links'";\
-		echo "";\
-		exit 1;\
+	@if [ "${srcdir}" != "@""srcdir""@" ] ; then \
+		echo "" ; \
+		echo "ERROR: The 'rm-links' target is for release building, and is not VPATH" ; \
+		echo "       aware. To exercise this target, get into the project's root" ; \
+		echo "       directory and run: 'make -f Makefile.in rm-links'" ; \
+		echo "" ; \
+		exit 1 ; \
 	fi
-	@for file in ${TARMAP_LINKS}; do\
-		( cd tools/tarmap && if [ -L $${file} ] ; then rm -f $${file} ; fi ) ;\
+	@for file in ${HASHCP_LINKS} ; do \
+		( cd tools/hashcp && if [ -L $${file} ] ; then rm -f $${file} ; fi ) ; \
+	done
+	@for file in ${RTIMES_LINKS} ; do \
+		( cd tools/rtimes && if [ -L $${file} ] ; then rm -f $${file} ; fi ) ; \
+	done
+	@for file in ${TARMAP_LINKS} ; do \
+		( cd tools/tarmap && if [ -L $${file} ] ; then rm -f $${file} ; fi ) ; \
 	done
 
 atar: ctar dtar
 
 ctar:
-	@cwd=`pwd`; dir=`basename $${cwd}`;\
-	tar -C ../ -zcf "../$${dir}-current.tgz" $${dir}
+	@cwd=`pwd` ; dir=`basename $${cwd}` ; \
+	tar -C ../ -zchf "../$${dir}-current.tgz" $${dir}
 
 dtar:
-	@cwd=`pwd`; dir=`basename $${cwd}`; date=`date "+%Y-%m-%d"`;\
-	tar -C ../ -zcf "../$${dir}-$${date}.tgz" $${dir}
+	@cwd=`pwd` ; dir=`basename $${cwd}` ; date=`date "+%Y-%m-%d"` ; \
+	tar -C ../ -zchf "../$${dir}-$${date}.tgz" $${dir}
+
+star:
+	@cwd=`pwd` ; dir=`basename $${cwd}` ; version=`awk '/^#define VERSION /{print $$3}' src/version.h` ; vstring=`utils/version2string -t tar -v $${version}` ; \
+	tar -C ../ -zchf "../$${dir}-$${vstring}-snapshot.tgz" $${dir}
 

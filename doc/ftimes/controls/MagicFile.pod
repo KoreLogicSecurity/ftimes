@@ -1,6 +1,6 @@
 =item B<MagicFile>: <file>
 
-Applies to B<mapfull> and B<maplean>.
+Applies to B<mad>, and B<map>.
 
 B<MagicFile> is optional.  If the magic field in B<FieldMask> is
 set and B<MagicFile> references a valid XMagic file, B<FTimes>

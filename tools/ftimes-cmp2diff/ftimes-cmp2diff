@@ -1,0 +1,838 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-cmp2diff,v 1.10 2012/02/29 21:13:34 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Display diff-like results of an FTimes comparison.
+#
+######################################################################
+
+use strict;
+use File::Basename;
+use FileHandle;
+use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
+use FTimes::EadRoutines 1.007;
+use FTimes::Properties 1.004;
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  my ($phProperties, $sProgram);
+
+  $phProperties = GetProperties();
+
+  $sProgram = $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('b:c:e:f:m:o:s:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # A baseline, '-b', is required.
+  #
+  ####################################################################
+
+  $$phProperties{'Baseline'} = (exists($hOptions{'b'})) ? $hOptions{'b'} : undef;
+
+  if (!defined($$phProperties{'Baseline'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # A compare, '-c', is optional. It can be '-' or a regular file.
+  #
+  ####################################################################
+
+  $$phProperties{'Compare'} = (exists($hOptions{'c'})) ? $hOptions{'c'} : undef;
+
+  ####################################################################
+  #
+  # An exclude list, '-e', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'ExcludeList'} = (exists($hOptions{'e'})) ? $hOptions{'e'} : undef;
+
+  ####################################################################
+  #
+  # The output format, '-f', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'DiffFormat'} = (exists($hOptions{'f'})) ? $hOptions{'f'} : "short";
+
+  $$phProperties{'DiffFormat'} =~ tr/A-Z/a-z/;
+  if ($$phProperties{'DiffFormat'} !~ /^(?:f(?:ield)?|l(?:ong)?|s(?:hort)?)$/i)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid diff format ($$phProperties{'DiffFormat'}). Use one of \"field\", \"long\", or \"short\".'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # A field mask, '-m', is optional.
+  #
+  ####################################################################
+
+  my (%hFieldMask);
+
+  $$phProperties{'FieldMask'} = (exists($hOptions{'m'})) ? $hOptions{'m'} : "all";
+
+  if (!ParseFieldMask($$phProperties{'FieldMask'}, \%hFieldMask))
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid field mask ($$phProperties{'FieldMask'}).'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  my @sSupportedOptions =
+  (
+    'ForceBuild',
+    'ForceClean',
+    'ModeDecode',
+    'NoDecode',
+  );
+
+  foreach my $sOption (@sSupportedOptions)
+  {
+    $$phProperties{$sOption} = 0;
+  }
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (defined($$phProperties{'Options'}))
+  {
+    foreach my $sOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sSupportedOption (@sSupportedOptions)
+      {
+        $sOption = $sSupportedOption if ($sOption =~ /^$sSupportedOption$/i);
+      }
+      if (!exists($$phProperties{$sOption}))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unknown or unsupported option ($sOption).'\n";
+        exit(2);
+      }
+      $$phProperties{$sOption} = 1;
+    }
+  }
+
+  ####################################################################
+  #
+  # A snapshot, '-s', is required.
+  #
+  ####################################################################
+
+  $$phProperties{'Snapshot'} = (exists($hOptions{'s'})) ? $hOptions{'s'} : undef;
+
+  if (!defined($$phProperties{'Snapshot'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Conditionally generate an offsets file for each snapshot.
+  #
+  ####################################################################
+
+  my ($sError);
+
+  foreach my $sType ("Baseline", "Snapshot")
+  {
+    if (!MakeOffsets($phProperties, $sType, \$sError))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='$sError'\n";
+      exit(2);
+    }
+  }
+
+  ####################################################################
+  #
+  # Open the compare file, or generate it on the fly.
+  #
+  ####################################################################
+
+  my ($sHandle);
+
+  if (!defined($$phProperties{'Compare'}))
+  {
+    $$phProperties{'CompareCommandLine'} = "ftimes --compare $$phProperties{'FieldMask'} $$phProperties{'Baseline'} $$phProperties{'Snapshot'} -l 6";
+    if (!open(PH, "$$phProperties{'CompareCommandLine'} |"))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Unable to launch ftimes in compare mode ($!).'\n";
+      exit(2);
+    }
+    $sHandle = \*PH;
+  }
+  else
+  {
+    if ($$phProperties{'Compare'} eq "-")
+    {
+      $sHandle = \*STDIN;
+    }
+    else
+    {
+      if (! -f $$phProperties{'Compare'} || -z $$phProperties{'Compare'})
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Compare file ($$phProperties{'Compare'}) is either zero or does not exist.'\n";
+        exit(2);
+      }
+      if (!open(FH, "< $$phProperties{'Compare'}"))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unable to open $$phProperties{'Compare'} ($!).'\n";
+        exit(2);
+      }
+      $sHandle = \*FH;
+    }
+  }
+
+  ####################################################################
+  #
+  # Do some work.
+  #
+  ####################################################################
+
+  my $sExcludedFields = "";
+
+  if ($$phProperties{'ExcludeList'})
+  {
+    ($sExcludedFields = $$phProperties{'ExcludeList'}) =~ s/,/|/g;
+  }
+
+  if ($$phProperties{'DiffFormat'} =~ /^s(?:hort)?$/i)
+  {
+    for (my $sLineNumber = 1; my $sLine = <$sHandle>; $sLineNumber++)
+    {
+      $sLine =~ s/[\r\n]+$//;
+      my ($sCategory, $sName, $sChanged, $sUnknown, $sRecords) = split(/\|/, $sLine);
+      my ($sBaseLineNumber, $sSnapLineNumber) = split(/,/, $sRecords);
+      if ($sCategory =~ /^[CUX]$/o)
+      {
+        my ($phBaselineFields, $phSnapshotFields) = GetRecords($phProperties, $sBaseLineNumber, $sSnapLineNumber);
+        my @aFields = ();
+        my $sFieldList = $sChanged;
+        $sFieldList .= (defined($sUnknown)) ? ("," . $sUnknown) : "";
+        foreach my $sField ("name", split(/,/, "$sFieldList"))
+        {
+          push(@aFields, $sField) unless ($sField =~ /^($sExcludedFields)$/);
+        }
+        my (@aBaselineFields, @aSnapshotFields);
+        foreach my $sField (@aFields)
+        {
+          if (exists($$phBaselineFields{$sField}))
+          {
+            push(@aBaselineFields, $$phBaselineFields{$sField});
+          }
+          if (exists($$phSnapshotFields{$sField}))
+          {
+            push(@aSnapshotFields, $$phSnapshotFields{$sField});
+          }
+        }
+        print "$sLine\n";
+        print join("|", "-", @aBaselineFields), "\n" if (scalar(@aBaselineFields) > 1);
+        print join("|", "+", @aSnapshotFields), "\n" if (scalar(@aSnapshotFields) > 1);
+      }
+      elsif ($sCategory =~ /^category$/o)
+      {
+        print "=|$sLine\n";
+        print "-|$$phProperties{'Baseline'}\n";
+        print "+|$$phProperties{'Snapshot'}\n";
+      }
+      elsif ($sCategory =~ /^[MN]$/o)
+      {
+        print "$sLine\n";
+      }
+      else
+      {
+        print STDERR "$$phProperties{'Program'}: Warning='Unexpected category ($sCategory) at line $sLineNumber. The entire record will be ignored.'\n";
+      }
+    }
+  }
+  elsif ($$phProperties{'DiffFormat'} =~ /^l(?:ong)?$/i)
+  {
+    for (my $sLineNumber = 1; my $sLine = <$sHandle>; $sLineNumber++)
+    {
+      $sLine =~ s/[\r\n]+$//;
+      my ($sCategory, $sName, $sChanged, $sUnknown, $sRecords) = split(/\|/, $sLine);
+      my ($sBaseLineNumber, $sSnapLineNumber) = split(/,/, $sRecords);
+      if ($sCategory =~ /^[CUX]$/o)
+      {
+        my ($phBaselineFields, $phSnapshotFields) = GetRecords($phProperties, $sBaseLineNumber, $sSnapLineNumber);
+        my (@aBaselineFields, @aDiffviewFields, @aSnapshotFields);
+        foreach my $sField (@{$$phProperties{'BaselineHeaderFields'}})
+        {
+          next if ($sField =~ /^name$/);
+          my $sBLength = length($$phBaselineFields{$sField});
+          my $sSLength = length($$phSnapshotFields{$sField});
+          if ($sBLength < $sSLength)
+          {
+            $$phBaselineFields{$sField} = " " x ($sSLength - $sBLength) . $$phBaselineFields{$sField};
+          }
+          elsif ($sSLength < $sBLength)
+          {
+            $$phSnapshotFields{$sField} = " " x ($sBLength - $sSLength) . $$phSnapshotFields{$sField};
+          }
+
+          if (exists($$phBaselineFields{$sField}))
+          {
+            push(@aBaselineFields, $$phBaselineFields{$sField});
+          }
+          if (exists($$phSnapshotFields{$sField}))
+          {
+            push(@aSnapshotFields, $$phSnapshotFields{$sField});
+          }
+          my @a1 = split(//, $$phBaselineFields{$sField});
+          my @a2 = split(//, $$phSnapshotFields{$sField});
+          my @a3 = ();
+          for (my $sIndex = 0; $sIndex < scalar(@a1); $sIndex++)
+          {
+            push(@a3, ($a1[$sIndex] eq $a2[$sIndex]) ? "_" : "^");
+          }
+          push(@aDiffviewFields, join("", @a3));
+
+        }
+        print join("|", "@", $sName, $sRecords), "\n";
+        print join("|", "-", @aBaselineFields), "\n" if (scalar(@aBaselineFields) > 1);
+        print join("|", "+", @aSnapshotFields), "\n" if (scalar(@aSnapshotFields) > 1);
+        print join("|", "#", @aDiffviewFields), "\n" if (scalar(@aDiffviewFields) > 1);
+      }
+      elsif ($sCategory =~ /^M$/o)
+      {
+        my $phFields = GetRecord($phProperties, "Baseline", $sBaseLineNumber);
+        my (@aFields, @aDiffviewFields);
+        foreach my $sField (@{$$phProperties{'BaselineHeaderFields'}})
+        {
+          next if ($sField =~ /^name$/);
+          if (exists($$phFields{$sField}))
+          {
+            push(@aFields, $$phFields{$sField});
+          }
+          push(@aDiffviewFields, "^" x length($$phFields{$sField}));
+        }
+        print join("|", "@", $sName, $sRecords), "\n";
+        print join("|", "-", @aFields), "\n" if (scalar(@aFields) > 1);
+        print join("|", "#", @aDiffviewFields), "\n" if (scalar(@aDiffviewFields) > 1);
+      }
+      elsif ($sCategory =~ /^N$/o)
+      {
+        my $phFields = GetRecord($phProperties, "Snapshot", $sSnapLineNumber);
+        my (@aFields, @aDiffviewFields);
+        foreach my $sField (@{$$phProperties{'SnapshotHeaderFields'}})
+        {
+          next if ($sField =~ /^name$/);
+          if (exists($$phFields{$sField}))
+          {
+            push(@aFields, $$phFields{$sField});
+          }
+          push(@aDiffviewFields, "^" x length($$phFields{$sField}));
+        }
+        print join("|", "@", $sName, $sRecords), "\n";
+        print join("|", "+", @aFields), "\n" if (scalar(@aFields) > 1);
+        print join("|", "#", @aDiffviewFields), "\n" if (scalar(@aDiffviewFields) > 1);
+      }
+      elsif ($sCategory =~ /^category$/o)
+      {
+        print "--- $$phProperties{'Baseline'}\n";
+        print "+++ $$phProperties{'Snapshot'}\n";
+      }
+      else
+      {
+        print STDERR "$$phProperties{'Program'}: Warning='Unexpected category ($sCategory) at line $sLineNumber. The entire record will be ignored.'\n";
+      }
+    }
+  }
+  elsif ($$phProperties{'DiffFormat'} =~ /^f(?:ield)?$/i)
+  {
+    for (my $sLineNumber = 1; my $sLine = <$sHandle>; $sLineNumber++)
+    {
+      $sLine =~ s/[\r\n]+$//;
+      my ($sCategory, $sName, $sChanged, $sUnknown, $sRecords) = split(/[|]/, $sLine);
+      my ($sBaseLineNumber, $sSnapLineNumber) = split(/,/, $sRecords);
+      if ($sCategory =~ /^[CUX]$/o)
+      {
+        my ($phBaselineFields, $phSnapshotFields) = GetRecords($phProperties, $sBaseLineNumber, $sSnapLineNumber);
+        my $sFieldList = $sChanged;
+        $sFieldList .= (defined($sUnknown)) ? ("," . $sUnknown) : "";
+        foreach my $sField ("name", split(/,/, "$sFieldList"))
+        {
+          next if ($sField =~ /^name$/ || $sField =~ /^($sExcludedFields)$/);
+          my $sOldValue = (defined($$phBaselineFields{$sField})) ? $$phBaselineFields{$sField} : "";
+          my $sNewValue = (defined($$phSnapshotFields{$sField})) ? $$phSnapshotFields{$sField} : "";
+          print join("|", $sCategory, $sName, $sField, $sOldValue, $sNewValue), "\n"
+        }
+      }
+      elsif ($sCategory =~ /^M$/o)
+      {
+        my $phBaselineFields = GetRecord($phProperties, "Baseline", $sBaseLineNumber);
+        foreach my $sField (@{$$phProperties{'BaselineHeaderFields'}})
+        {
+          next if ($sField =~ /^name$/ || $sField =~ /^($sExcludedFields)$/);
+          my $sOldValue = (defined($$phBaselineFields{$sField})) ? $$phBaselineFields{$sField} : "";
+          my $sNewValue = "";
+          print join("|", $sCategory, $sName, $sField, $sOldValue, $sNewValue), "\n"
+        }
+      }
+      elsif ($sCategory =~ /^N$/o)
+      {
+        my $phSnapshotFields = GetRecord($phProperties, "Snapshot", $sSnapLineNumber);
+        foreach my $sField (@{$$phProperties{'SnapshotHeaderFields'}})
+        {
+          next if ($sField =~ /^name$/ || $sField =~ /^($sExcludedFields)$/);
+          my $sOldValue = "";
+          my $sNewValue = (defined($$phSnapshotFields{$sField})) ? $$phSnapshotFields{$sField} : "";
+          print join("|", $sCategory, $sName, $sField, $sOldValue, $sNewValue), "\n"
+        }
+      }
+      elsif ($sCategory =~ /^category$/o)
+      {
+        print "category|name|field|old_value|new_value\n";
+      }
+      else
+      {
+        print STDERR "$$phProperties{'Program'}: Warning='Unexpected category ($sCategory) at line $sLineNumber. The entire record will be ignored.'\n";
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # Shutdown and go home.
+  #
+  ####################################################################
+
+  $$phProperties{'BaselineDecodedHandle'}->close();
+  $$phProperties{'BaselineOffsetsHandle'}->close();
+  $$phProperties{'SnapshotDecodedHandle'}->close();
+  $$phProperties{'SnapshotOffsetsHandle'}->close();
+
+  if ($$phProperties{'ForceClean'})
+  {
+    foreach my $sType ("Baseline", "Snapshot")
+    {
+      my $sDecodedFile = $$phProperties{$sType} . ".decoded";
+      my $sOffsetsFile = $$phProperties{$sType} . ".offsets";
+      unlink($sDecodedFile);
+      unlink($sOffsetsFile);
+    }
+  }
+
+  close($sHandle);
+  if (!defined($$phProperties{'Compare'}))
+  {
+    my $sStatus = ($? >> 8) & 0xff;
+    if ($sStatus != 0)
+    {
+      print STDERR "$$phProperties{'Program'}: Error='FTimes failed ($sStatus). Make sure the compare command ($$phProperties{'CompareCommandLine'}) executes without error.'\n";
+      exit(3);
+    }
+  }
+
+  1;
+
+
+######################################################################
+#
+# MakeOffsets
+#
+######################################################################
+
+sub MakeOffsets
+{
+  my ($phProperties, $sType, $psError) = @_;
+
+  ####################################################################
+  #
+  # Initialize type-related variables.
+  #
+  ####################################################################
+
+  my ($sDecodedFile);
+
+  my $sEncodedFile = ($sType eq "Baseline") ? $$phProperties{'Baseline'} : $$phProperties{'Snapshot'};
+  if ($$phProperties{'NoDecode'})
+  {
+    $sDecodedFile = $sEncodedFile;
+  }
+  else
+  {
+    $sDecodedFile = $sEncodedFile . ".decoded";
+  }
+  my $sOffsetsFile = $sEncodedFile . ".offsets";
+  my $sDecodedHandleKey = $sType . "DecodedHandle";
+  my $sOffsetsHandleKey = $sType . "OffsetsHandle";
+  my $sHeaderFieldsKey = $sType . "HeaderFields";
+
+  ####################################################################
+  #
+  # Conditionally decode the map and create an offsets file.
+  #
+  ####################################################################
+
+  if (-f $sDecodedFile && -f $sOffsetsFile && !$$phProperties{'ForceBuild'})
+  {
+    $$phProperties{$sDecodedHandleKey} = new FileHandle("< $sDecodedFile");
+    if (!defined($$phProperties{$sDecodedHandleKey}))
+    {
+      $$psError = "Unable to open $sDecodedFile ($!).";
+      return undef;
+    }
+    binmode($$phProperties{$sDecodedHandleKey});
+    my $sHeader = $$phProperties{$sDecodedHandleKey}->getline();
+    $sHeader =~ s/[\r\n]+$//;
+    push(@{$$phProperties{$sHeaderFieldsKey}}, split(/\|/, $sHeader));
+
+    $$phProperties{$sOffsetsHandleKey} = new FileHandle("< $sOffsetsFile");
+    if (!defined($$phProperties{$sOffsetsHandleKey}))
+    {
+      $$psError = "Unable to open $sOffsetsFile ($!).";
+      return undef;
+    }
+    binmode($$phProperties{$sOffsetsHandleKey});
+  }
+  elsif (-f $sDecodedFile && !$$phProperties{'ForceBuild'})
+  {
+    $$phProperties{$sDecodedHandleKey} = new FileHandle("< $sDecodedFile");
+    if (!defined($$phProperties{$sDecodedHandleKey}))
+    {
+      $$psError = "Unable to open $sDecodedFile ($!).";
+      return undef;
+    }
+    binmode($$phProperties{$sDecodedHandleKey});
+    my $sHeader = $$phProperties{$sDecodedHandleKey}->getline();
+    $sHeader =~ s/[\r\n]+$//;
+    push(@{$$phProperties{$sHeaderFieldsKey}}, split(/\|/, $sHeader));
+
+    $$phProperties{$sOffsetsHandleKey} = new FileHandle("+> $sOffsetsFile");
+    if (!defined($$phProperties{$sOffsetsHandleKey}))
+    {
+      $$psError = "Unable to create $sOffsetsFile ($!).";
+      return undef;
+    }
+    binmode($$phProperties{$sOffsetsHandleKey});
+
+    my $sOffset = 0;
+    my $sCommandLine = qq(ftimes --decoder $sEncodedFile -l 6);
+    if (!open(PH, "$sCommandLine |"))
+    {
+      $$psError = "Unable to launch decoder ($!).";
+      return undef;
+    }
+    while (my $sLine = <PH>)
+    {
+      $$phProperties{$sOffsetsHandleKey}->print(sprintf("%016x\n", $sOffset));
+      $sOffset += length($sLine);
+    }
+    close(PH);
+  }
+  else
+  {
+    $$phProperties{$sDecodedHandleKey} = new FileHandle("+> $sDecodedFile");
+    if (!defined($$phProperties{$sDecodedHandleKey}))
+    {
+      $$psError = "Unable to create $sDecodedFile ($!).";
+      return undef;
+    }
+    binmode($$phProperties{$sDecodedHandleKey});
+
+    $$phProperties{$sOffsetsHandleKey} = new FileHandle("+> $sOffsetsFile");
+    if (!defined($$phProperties{$sOffsetsHandleKey}))
+    {
+      $$psError = "Unable to create $sOffsetsFile ($!).";
+      return undef;
+    }
+    binmode($$phProperties{$sOffsetsHandleKey});
+
+    my $sOffset = 0;
+    my $sCommandLine = qq(ftimes --decoder $sEncodedFile -l 6);
+    if (!open(PH, "$sCommandLine |"))
+    {
+      $$psError = "Unable to launch decoder ($!).";
+      return undef;
+    }
+    my $sFirst = 1;
+    while (my $sLine = <PH>)
+    {
+      if ($sFirst)
+      {
+        my $sHeader = $sLine;
+        $sHeader =~ s/[\r\n]+$//;
+        push(@{$$phProperties{$sHeaderFieldsKey}}, split(/\|/, $sHeader));
+        $sFirst = 0;
+      }
+      $$phProperties{$sDecodedHandleKey}->print($sLine);
+      $$phProperties{$sOffsetsHandleKey}->print(sprintf("%016x\n", $sOffset));
+      $sOffset += length($sLine);
+    }
+    close(PH);
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# GetRecord
+#
+######################################################################
+
+sub GetRecord
+{
+  my ($phProperties, $sType, $sLineNumber) = @_;
+
+  my (@aFields, %hFields, $sHandleKey, $sHeaderKey, $sIndex, $sLine, $sOffset);
+
+  $sOffset = ($sLineNumber - 1) * 17; # 16 HEX + 1 LF
+  $sHandleKey = $sType . "OffsetsHandle";
+  $$phProperties{$sHandleKey}->seek($sOffset, 0);
+  $sLine = $$phProperties{$sHandleKey}->getline();
+  $sLine =~ s/[\r\n]+$//;
+  $sOffset = hex($sLine);
+  $sHandleKey = $sType . "DecodedHandle";
+  $$phProperties{$sHandleKey}->seek($sOffset, 0);
+  $sLine = $$phProperties{$sHandleKey}->getline();
+  $sLine =~ s/[\r\n]+$//;
+  @aFields = split(/\|/, $sLine, -1);
+  $sIndex = 0;
+  $sHeaderKey = $sType . "HeaderFields";
+  foreach my $sField (@{$$phProperties{$sHeaderKey}})
+  {
+    $hFields{$sField} = $aFields[$sIndex++];
+  }
+
+  return \%hFields;
+}
+
+
+######################################################################
+#
+# GetRecords
+#
+######################################################################
+
+sub GetRecords
+{
+  my ($phProperties, $sBaseLineNumber, $sSnapLineNumber) = @_;
+
+  my (@aFields, %hBaselineFields, %hSnapshotFields, $sIndex, $sLine, $sOffset);
+
+  $sOffset = ($sBaseLineNumber - 1) * 17; # 16 HEX + 1 LF
+  $$phProperties{'BaselineOffsetsHandle'}->seek($sOffset, 0);
+  $sLine = $$phProperties{'BaselineOffsetsHandle'}->getline();
+  $sLine =~ s/[\r\n]+$//;
+  $sOffset = hex($sLine);
+  $$phProperties{'BaselineDecodedHandle'}->seek($sOffset, 0);
+  $sLine = $$phProperties{'BaselineDecodedHandle'}->getline();
+  $sLine =~ s/[\r\n]+$//;
+  @aFields = split(/\|/, $sLine, -1);
+  $sIndex = 0;
+  foreach my $sField (@{$$phProperties{'BaselineHeaderFields'}})
+  {
+    if ($$phProperties{'ModeDecode'} && $sField =~ /^mode$/)
+    {
+      $hBaselineFields{$sField} = EadUnixModeDecode($aFields[$sIndex++]);
+    }
+    else
+    {
+      $hBaselineFields{$sField} = $aFields[$sIndex++];
+    }
+  }
+
+  $sOffset = ($sSnapLineNumber - 1) * 17; # 16 HEX + 1 LF
+  $$phProperties{'SnapshotOffsetsHandle'}->seek($sOffset, 0);
+  $sLine = $$phProperties{'SnapshotOffsetsHandle'}->getline();
+  $sLine =~ s/[\r\n]+$//;
+  $sOffset = hex($sLine);
+  $$phProperties{'SnapshotDecodedHandle'}->seek($sOffset, 0);
+  $sLine = $$phProperties{'SnapshotDecodedHandle'}->getline();
+  $sLine =~ s/[\r\n]+$//;
+  @aFields = split(/\|/, $sLine, -1);
+  $sIndex = 0;
+  foreach my $sField (@{$$phProperties{'SnapshotHeaderFields'}})
+  {
+    if ($$phProperties{'ModeDecode'} && $sField =~ /^mode$/)
+    {
+      $hSnapshotFields{$sField} = EadUnixModeDecode($aFields[$sIndex++]);
+    }
+    else
+    {
+      $hSnapshotFields{$sField} = $aFields[$sIndex++];
+    }
+  }
+
+  return (\%hBaselineFields, \%hSnapshotFields);
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-c {compare|-}] [-e field[,field[,...]]] [-f format] [-m mask] [-o option[,option[,...]]] -b baseline -s snapshot\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-cmp2diff - Display diff-like results of an FTimes comparison
+
+=head1 SYNOPSIS
+
+B<ftimes-cmp2diff> B<[-c {compare|-}]> B<[-e field[,field[,...]]]> B<[-f format]> B<[-m mask]> B<[-o option[,option[,...]]]> B<-b baseline> B<-s snapshot>
+
+=head1 DESCRIPTION
+
+This utility takes baseline and snapshot map files as input, compares
+them using a specified or derived field mask, and displays the results
+in a diff-like format.  This allows the user to see the details about
+what fields changed and how.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-b baseline>
+
+Specifies the name of an FTimes baseline map file.
+
+=item B<-c {compare|-}>
+
+Specifies the name of an FTimes compare file produced by comparing the
+snapshot to the baseline.  A value of '-' will cause the program to
+read from stdin.
+
+=item B<-e field[,field[,...]]>
+
+Specified a list of map fields to ignore.  No differences will be
+displayed for fields in this list.
+
+=item B<-f format>
+
+Specifies the type of diff format to display.  The format can be one
+of {f|field}, {l|long}, or {s|short}.  The default value is 'short'.
+
+=item B<-m mask>
+
+Specifies the field mask to use when generating output.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item ForceBuild
+
+Force the decoding of map files and creation of offsets files even if
+they already exist.
+
+=item ForceClean
+
+Remove decoded map and offsets files upon program completion.
+
+=item ModeDecode
+
+Converts the mode field into a standard UNIX representation (e.g.,
+'-rwxr-xr-x').
+
+=item NoDecode
+
+Do not decode the map files (i.e., assume that the baseline and
+snapshot are already decoded).
+
+Note: If you enable this option and fail to specify decoded map files,
+don't expect valid results.
+
+=back
+
+=item B<-s snapshot>
+
+Specifies the name of an FTimes snapshot map file.
+
+Note: While not strictly required, it's best if the field mask used
+when taking the snapshot matches the one used to create the baseline.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe and Jason Smith
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

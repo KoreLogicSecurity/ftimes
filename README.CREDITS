@@ -1,7 +1,7 @@
 
 1 Version
 
-  $Id: README.CREDITS,v 1.1 2003/02/23 17:10:31 mavrik Exp $
+  $Id: README.CREDITS,v 1.3 2008/07/18 22:17:50 jesterchef Exp $
 
 2 Credits
 
@@ -11,13 +11,32 @@
   making FTimes what it is today.  Contributers are listed here in
   alphabetical order.
 
-  Bailey, Dave
-  Bair, Andy
-  Dhanraj, Julie
-  Leininger, Hank
-  Orbeton, Jon
-  Rockstroh, Jay
-  Smith, Jason
-  Wagner, Todd
-  Williams, Jeff
-  Wilson, Bill
+    Bailey, Dave
+    Bair, Andy
+    Dhanraj, Julie
+    Leininger, Hank
+    Monroe, Klayton
+    Orbeton, Jon
+    Rockstroh, Jay
+    Smith, Jason
+    Wagner, Todd
+    Williams, Jeff
+    Wilson, Bill
+
+3 Sponsors
+
+  Many thanks to our sponsors.  Without their support, this project
+  would not be where it is today.
+
+    Arca Systems (1998-2000)
+    Exodus Communications (2000-2002)
+    KoreLogic (2004-present)
+
+4 Maintainers
+
+  This project is currently being maintained by:
+
+    Bair, Andy
+    Monroe, Klayton
+    Smith, Jason
+

@@ -1,0 +1,37 @@
+=item B<Priority>: [low|below_normal|normal|above_normal|high]
+
+Applies to B<compare>, B<digauto>, B<dig>, B<mad>, B<mapauto>, and
+B<map>.
+
+B<Priority> is optional.  Use it to set the priority of the running
+program.  The environment variable, FTIMES_PRIORITY, trumps the value
+of this control when set.  No priority is set by default.
+
+On UNIX platforms, the priority values listed above correspond to the
+following priority levels:
+
+    low .............. 20
+    below_normal ..... 10
+    normal ...........  0
+    above_normal .....-10
+    high .............-20
+
+On WINX platforms, the priority values listed above correspond to the
+following priority classes:
+
+    low .............. IDLE_PRIORITY_CLASS
+    below_normal ..... BELOW_NORMAL_PRIORITY_CLASS
+    normal ........... NORMAL_PRIORITY_CLASS
+    above_normal ..... ABOVE_NORMAL_PRIORITY_CLASS
+    high ............. HIGH_PRIORITY_CLASS
+
+Note: If the specified priority can't be set, the program will abort.
+
+Note: If an environment variable is defined but exceeds the maximum
+allowed length, it will be rejected.
+
+Note: The priority must be set via the environment for the B<compare>
+and B<mapauto> modes of operation.
+
+Note: Support for this control was added in version 3.9.0.
+

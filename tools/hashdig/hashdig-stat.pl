@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-stat.pl,v 1.10 2007/02/23 00:22:36 mavrik Exp $
+# $Id: hashdig-stat.pl,v 1.16 2012/01/04 03:12:39 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2004-2007 The FTimes Project, All Rights Reserved.
+# Copyright 2004-2012 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -355,7 +355,7 @@ hashdig-dump(1), hashdig-make(1), hashdig-harvest(1)
 
 =head1 LICENSE
 
-All HashDig documentation and code is distributed under same terms
-and conditions as FTimes.
+All documentation and code are distributed under same terms and
+conditions as FTimes.
 
 =cut

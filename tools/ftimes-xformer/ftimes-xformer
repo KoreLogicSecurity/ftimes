@@ -1,0 +1,1317 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-xformer,v 1.40 2012/01/04 03:12:39 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2007-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Tranform FTimes data based on user-specified input.
+#
+######################################################################
+
+use strict;
+use Cwd;
+use File::Basename;
+use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
+use FTimes::EadRoutines 1.007;
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  $$phProperties{'Newline'} = "\n";
+
+  ####################################################################
+  #
+  # FTimes fields.
+  #
+  ####################################################################
+
+  my %hFTimesFields =
+  (
+    'altstreams'  => 0, # ftimes map (WINX)
+    'ams'         => 0, # ftimes map (WINX)
+    'atime'       => 0, # ftimes map (common)
+    'attributes'  => 0, # ftimes map (WINX)
+    'basename'    => 0, # ftimes-xformer
+    'category'    => 0, # ftimes compare
+    'changed'     => 0, # ftimes compare
+    'chms'        => 0, # ftimes map (WINX)
+    'chtime'      => 0, # ftimes map (WINX)
+    'class'       => 0, # rtimes map
+    'cms'         => 0, # ftimes map (WINX)
+    'ctime'       => 0, # ftimes map (common)
+    'ctx_offset'  => 0, # ftimes-dig2ctx
+    'ctx_string'  => 0, # ftimes-dig2ctx
+    'dacl'        => 0, # rtimes map
+    'data'        => 0, # rtimes map
+    'dev'         => 0, # ftimes map (UNIX)
+    'dig_name'    => 0, # ftimes-dig2ctx
+    'dig_offset'  => 0, # ftimes-dig2ctx
+    'dig_string'  => 0, # ftimes-dig2ctx
+    'directory'   => 0, # ftimes-xformer
+    'extension'   => 0, # ftimes-xformer
+    'filename'    => 0, # ftimes-xformer
+    'findex'      => 0, # ftimes map (WINX)
+    'flags'       => 0, # rtimes map
+    'gid'         => 0, # ftimes map (UNIX)
+    'gsid'        => 0, # ftimes compare and map (WINX); rtimes map
+    'hostname'    => 0, # ftimes-cmp2dbi; ftimes-dig2dbi; ftimes-map2dbi
+    'inode'       => 0, # ftimes map (UNIX)
+    'joiner'      => 0, # ftimes-cmp2dbi; ftimes-dig2dbi; ftimes-map2dbi
+    'lh_length'   => 0, # ftimes-dig2ctx
+    'magic'       => 0, # ftimes map (common)
+    'md5'         => 0, # ftimes map (common)
+    'mh_length'   => 0, # ftimes-dig2ctx
+    'mms'         => 0, # ftimes map (WINX)
+    'mode'        => 0, # ftimes map (UNIX)
+    'mtime'       => 0, # ftimes map (common)
+    'name'        => 0, # ftimes compare, dig, and map (common); rtimes map
+    'nlink'       => 0, # ftimes map (UNIX)
+    'offset'      => 0, # ftimes dig
+    'osid'        => 0, # ftimes compare and map (WINX); rtimes map
+    'rdev'        => 0, # ftimes map (UNIX)
+    'records'     => 0, # ftimes compare
+    'rh_length'   => 0, # ftimes-dig2ctx
+    'sha1'        => 0, # ftimes map (common)
+    'sha256'      => 0, # ftimes map (common)
+    'size'        => 0, # ftimes map (common)
+    'string'      => 0, # ftimes dig
+    'tag'         => 0, # ftimes dig
+    'type'        => 0, # ftimes dig; rtimes map
+    'uid'         => 0, # ftimes map (UNIX)
+    'unknown'     => 0, # ftimes compare
+    'volume'      => 0, # ftimes map (WINX)
+    'wtime'       => 0, # rtimes map
+    'z_altstreams' => 0, # ftimes map (compressed WINX)
+    'z_ams'        => 0, # ftimes map (compressed WINX)
+    'z_atime'      => 0, # ftimes map (compressed common)
+    'z_attributes' => 0, # ftimes map (compressed WINX)
+    'z_chms'       => 0, # ftimes map (compressed WINX)
+    'z_chtime'     => 0, # ftimes map (compressed WINX)
+    'z_cms'        => 0, # ftimes map (compressed WINX)
+    'z_ctime'      => 0, # ftimes map (compressed common)
+    'z_dev'        => 0, # ftimes map (compressed UNIX)
+    'z_findex'     => 0, # ftimes map (compressed WINX)
+    'z_gid'        => 0, # ftimes map (compressed UNIX)
+    'z_inode'      => 0, # ftimes map (compressed UNIX)
+    'z_magic'      => 0, # ftimes map (compressed common)
+    'z_md5'        => 0, # ftimes map (compressed common)
+    'z_mms'        => 0, # ftimes map (compressed WINX)
+    'z_mode'       => 0, # ftimes map (compressed UNIX)
+    'z_mtime'      => 0, # ftimes map (compressed common)
+    'z_name'       => 0, # ftimes map (compressed common)
+    'z_nlink'      => 0, # ftimes map (compressed UNIX)
+    'z_rdev'       => 0, # ftimes map (compressed UNIX)
+    'z_sha1'       => 0, # ftimes map (compressed common)
+    'z_sha256'     => 0, # ftimes map (compressed common)
+    'z_size'       => 0, # ftimes map (compressed common)
+    'z_uid'        => 0, # ftimes map (compressed UNIX)
+    'z_volume'     => 0, # ftimes map (compressed WINX)
+  );
+
+  $$phProperties{'FTimesFields'} = \%hFTimesFields;
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my %hOptions;
+
+  if (!getopts('A:a:B:b:D:d:f:I:i:L:l:o:p:S:s:t:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # The post-header (after) eval expression, '-A', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'PostHeaderEval'} = (exists($hOptions{'A'})) ? $hOptions{'A'} : undef;
+
+  ####################################################################
+  #
+  # The post-record (after) eval expression, '-a', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'PostRecordEval'} = (exists($hOptions{'a'})) ? $hOptions{'a'} : undef;
+
+  ####################################################################
+  #
+  # The pre-header (before) eval expression, '-B', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'PreHeaderEval'} = (exists($hOptions{'B'})) ? $hOptions{'B'} : undef;
+
+  ####################################################################
+  #
+  # The pre-record (before) eval expression, '-b', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'PreRecordEval'} = (exists($hOptions{'b'})) ? $hOptions{'b'} : undef;
+
+  ####################################################################
+  #
+  # The output field delimiter, '-D', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'OutputDelimiter'} = (exists($hOptions{'D'})) ? $hOptions{'D'} : "|";
+
+  if ($$phProperties{'OutputDelimiter'} !~ /^(\\t|[ ,:;=|])$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid output field delimiter ($$phProperties{'OutputDelimiter'}).'\n";
+    exit(2);
+  }
+
+  $$phProperties{'OutputDelimiter'} =~ s/\\t/\t/g; # Unescape the tab delimiter.
+
+  ####################################################################
+  #
+  # The input field delimiter, '-d', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'InputDelimiter'} = (exists($hOptions{'d'})) ? $hOptions{'d'} : "|";
+
+  if ($$phProperties{'InputDelimiter'} !~ /^(\\t|[ ,:;=|])$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid input field delimiter ($$phProperties{'InputDelimiter'}).'\n";
+    exit(2);
+  }
+
+  $$phProperties{'InputDelimiter'} =~ s/^\|$/\\|/g; # Escape the pipe delimiter.
+
+  ####################################################################
+  #
+  # An input file, '-f', is required. It can be '-' or a regular file.
+  #
+  ####################################################################
+
+  if (!exists($hOptions{'f'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+  else
+  {
+    my $sFile = $hOptions{'f'};
+    if ($sFile eq '-')
+    {
+      $$phProperties{'FileHandle'} = \*STDIN;
+    }
+    else
+    {
+      if (!open(FH, "< $sFile"))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unable to open $sFile ($!).'\n";
+        exit(2);
+      }
+      $$phProperties{'FileHandle'} = \*FH;
+    }
+  }
+
+  ####################################################################
+  #
+  # The ignore pattern, '-I', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'IgnorePattern'} = (exists($hOptions{'I'})) ? $hOptions{'I'} : undef;
+
+  ####################################################################
+  #
+  # The ignore line count, '-i', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'IgnoreNLines'} = (exists($hOptions{'i'})) ? $hOptions{'i'} : 0;
+
+  if ($$phProperties{'IgnoreNLines'} !~ /^\d+$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Ignore count ($$phProperties{'IgnoreNLines'}) does not pass muster.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # The output field list, '-L', is optional.
+  #
+  ####################################################################
+
+  my (%hActualFieldOrder, %hTargetFieldOrder);
+
+  $$phProperties{'OutputFields'} = (exists($hOptions{'L'})) ? $hOptions{'L'} : undef;
+
+  if (defined($$phProperties{'OutputFields'}))
+  {
+    my $sIndex = 0;
+    foreach my $sField (split(/,/, $$phProperties{'OutputFields'}))
+    {
+      $hTargetFieldOrder{$sIndex++} = $sField;
+    }
+  }
+  $$phProperties{'TargetFieldOrder'} = \%hTargetFieldOrder;
+  $$phProperties{'ActualFieldOrder'} = \%hActualFieldOrder;
+
+  ####################################################################
+  #
+  # The input field list, '-l', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'InputFields'} = (exists($hOptions{'l'})) ? $hOptions{'l'} : undef;
+
+  if (defined($$phProperties{'InputFields'}))
+  {
+    foreach my $sField (split(/,/, $$phProperties{'InputFields'}))
+    {
+      $hFTimesFields{$sField} = 0;
+    }
+  }
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'BeQuiet'}  = 0;
+  $$phProperties{'DecodeMode'} = 0;
+  $$phProperties{'DeNeuter'} = 0;
+  $$phProperties{'DeriveFields'} = 0;
+  $$phProperties{'DeriveHeader'} = 0;
+  $$phProperties{'NoHeader'} = 0;
+  $$phProperties{'NoQuotes'} = 0;
+  $$phProperties{'ParseName'} = 0;
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  {
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('BeQuiet', 'DecodeMode', 'DeNeuter', 'DeriveFields', 'DeriveHeader', 'NoHeader', 'NoQuotes', 'ParseName')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # A path strip count, '-p', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'PathStripCount'} = (exists($hOptions{'p'})) ? $hOptions{'p'} : 0;
+
+  ####################################################################
+  #
+  # The split-header eval expression, '-S', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'SplitHeaderEval'} = (exists($hOptions{'S'})) ? $hOptions{'S'} : undef;
+
+  ####################################################################
+  #
+  # The split-record eval expression, '-s', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'SplitRecordEval'} = (exists($hOptions{'s'})) ? $hOptions{'s'} : undef;
+
+  ####################################################################
+  #
+  # An output template, '-t', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Template'} = (exists($hOptions{'t'})) ? $hOptions{'t'} : undef;
+
+  if (defined($$phProperties{'Template'}))
+  {
+    $$phProperties{'Template'} =~ s/\\n/\n/g; # Convert user specified newlines.
+    $$phProperties{'Template'} =~ s/\\r/\r/g; # Convert user specified carriage returns.
+    $$phProperties{'Template'} =~ s/\\t/\t/g; # Convert user specified tabs.
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Skip ignore lines.
+  #
+  ####################################################################
+
+  for ($$phProperties{'LineNumber'} = 1; $$phProperties{'LineNumber'} <= $$phProperties{'IgnoreNLines'}; $$phProperties{'LineNumber'}++)
+  {
+    my $sFileHandle = $$phProperties{'FileHandle'}; <$sFileHandle>;
+    last if (eof($sFileHandle));
+  }
+
+  if ($$phProperties{'LineNumber'} <= $$phProperties{'IgnoreNLines'})
+  {
+    print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Error='End of file reached while exhausting ignore count ($$phProperties{'IgnoreNLines'}).'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Process the header.
+  #
+  ####################################################################
+
+  my ($sError);
+
+  if (!ProcessHeader($phProperties, \$sError))
+  {
+    print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Error='$sError'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Process the data.
+  #
+  ####################################################################
+
+  if (!ProcessData($phProperties, \$sError))
+  {
+    print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Error='$sError'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  close($$phProperties{'FileHandle'});
+
+  1;
+
+
+######################################################################
+#
+# ProcessHeader
+#
+######################################################################
+
+sub ProcessHeader
+{
+  my ($phProperties, $psError) = @_;
+
+  my $phActualFieldOrder = $$phProperties{'ActualFieldOrder'};
+
+  my $phTargetFieldOrder = $$phProperties{'TargetFieldOrder'};
+
+  ####################################################################
+  #
+  # Read the header line or derive it from the list of input fields.
+  #
+  ####################################################################
+
+  my $sFileHandle = $$phProperties{'FileHandle'};
+
+  my $sLine = undef;
+
+  if ($$phProperties{'DeriveHeader'})
+  {
+    if (!defined($$phProperties{'InputFields'}))
+    {
+      $$psError = "The DeriveHeader option was set, but no input fields were defined.";
+      return undef;
+    }
+    my $sDelimiter = $$phProperties{'InputDelimiter'};
+    $sDelimiter =~ s/\\[|]/|/g; # Unescape the pipe delimiter.
+    $sLine = join($sDelimiter, split(/,/, $$phProperties{'InputFields'}));
+    $$phProperties{'LineNumber'}--;
+  }
+  elsif ($$phProperties{'DeriveFields'})
+  {
+    $$phProperties{'LineNumber'}--;
+    return 1;
+  }
+  else
+  {
+    while ($sLine = <$sFileHandle>)
+    {
+      $sLine =~ s/[\r\n]+$//;
+
+      ################################################################
+      #
+      # Conditionally ignore lines that match the specified pattern.
+      #
+      ################################################################
+
+      if (defined($$phProperties{'IgnorePattern'}) && $sLine =~ /$$phProperties{'IgnorePattern'}/)
+      {
+        $$phProperties{'LineNumber'}++;
+        next;
+      }
+
+      ################################################################
+      #
+      # The first valid line is assumed to be the header.
+      #
+      ################################################################
+
+      last;
+    }
+  }
+
+  if (!defined($sLine))
+  {
+    $$psError = "Header was not defined.";
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Conditionally execute the pre-header eval statement.
+  #
+  ####################################################################
+
+  if (defined($$phProperties{'PreHeaderEval'}))
+  {
+    $_ = $sLine;
+    eval $$phProperties{'PreHeaderEval'};
+    if ($@)
+    {
+      print STDERR $@;
+      $$psError = "Problem with pre-header eval.";
+      return undef;
+    }
+    if (!defined($_) || $_ eq "")
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded due to the pre-header eval.'\n";
+      }
+      return;
+    }
+    $sLine = $_;
+  }
+
+  ####################################################################
+  #
+  # Split the input header into fields.
+  #
+  ####################################################################
+
+  my %H = (); # Header hash.
+  my $phHeaderFields = \%H;
+  my @aHeaderFields = split(/$$phProperties{'InputDelimiter'}/, $sLine);
+  $$phProperties{'HeaderFieldCount'} = scalar(@aHeaderFields);
+  for (my $sIndex = 0; $sIndex < $$phProperties{'HeaderFieldCount'}; $sIndex++)
+  {
+    $$phActualFieldOrder{$sIndex} = $aHeaderFields[$sIndex];
+    if (!exists($$phProperties{'FTimesFields'}{$aHeaderFields[$sIndex]}))
+    {
+      $$psError = "Unrecognized field ($aHeaderFields[$sIndex]). If the input has no header, use the DeriveHeader or DeriveFields options to generate one.";
+      return undef;
+    }
+    $$phHeaderFields{$$phActualFieldOrder{$sIndex}} = $aHeaderFields[$sIndex];
+  }
+
+  ####################################################################
+  #
+  # Conditionally insert directory, filename, basename, and extension
+  # fields.
+  #
+  ####################################################################
+
+  if ($$phProperties{'ParseName'} && defined($$phHeaderFields{'name'}))
+  {
+    $$phHeaderFields{'directory'} = "directory";
+    $$phHeaderFields{'filename'} = "filename";
+    $$phHeaderFields{'basename'} = "basename";
+    $$phHeaderFields{'extension'} = "extension";
+  }
+
+  ####################################################################
+  #
+  # Conditionally execute the split-header eval statement.
+  #
+  ####################################################################
+
+  if (defined($$phProperties{'SplitHeaderEval'}))
+  {
+    eval $$phProperties{'SplitHeaderEval'};
+    if ($@)
+    {
+      print STDERR $@;
+      $$psError = "Problem with split-header eval.";
+      return undef;
+    }
+    if (!%H)
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded due to the split-header eval.'\n";
+      }
+      return;
+    }
+  }
+
+  ####################################################################
+  #
+  # Generate the output header.
+  #
+  ####################################################################
+
+  my @aOutput = ();
+  my $sOutput = "";
+
+  if (defined($$phProperties{'Template'}))
+  {
+    if (!$$phProperties{'TemplateIsOk'})
+    {
+      my $sTemplate = $$phProperties{'Template'};
+      foreach my $sField (reverse(sort(keys(%{$$phProperties{'FTimesFields'}}))))
+      {
+        $sTemplate =~ s/%$sField/(defined($$phHeaderFields{$sField}) ? $$phHeaderFields{$sField} : "")/ge;
+      }
+      if ($sTemplate =~ /(?:^|[^%])[%](?:[^%]|$)/)
+      {
+        $$psError = "Template contains unescaped '%'s or unrecognized tokens.";
+        return undef;
+      }
+      my $sCount = 0;
+      foreach my $sByte (split(//, $sTemplate))
+      {
+        $sCount++ if ($sByte =~ /^%$/);
+      }
+      if ($sCount % 2)
+      {
+        $$psError = "Template contains an odd number of '%'s.";
+        return undef;
+      }
+      $$phProperties{'TemplateIsOk'} = 1;
+    }
+    $sOutput = $$phProperties{'Template'};
+    foreach my $sField (reverse(sort(keys(%{$$phProperties{'FTimesFields'}}))))
+    {
+      $sOutput =~ s/%$sField/(defined($$phHeaderFields{$sField}) ? $$phHeaderFields{$sField} : "")/ge;
+    }
+    $sOutput =~ s/%%/%/g;
+  }
+  else
+  {
+    if (defined($$phProperties{'OutputFields'}))
+    {
+      foreach my $sIndex (sort({ $a <=> $b } keys(%$phTargetFieldOrder)))
+      {
+        if (!defined($$phHeaderFields{$$phTargetFieldOrder{$sIndex}}))
+        {
+          if ($$phTargetFieldOrder{$sIndex} =~ /^(directory|filename|basename|extension)$/o)
+          {
+            $$psError = "Undefined header field ($$phTargetFieldOrder{$sIndex}). Try using the ParseName option.";
+          }
+          else
+          {
+            $$psError = "Undefined header field ($$phTargetFieldOrder{$sIndex}).";
+          }
+          return undef;
+        }
+        push(@aOutput, $$phHeaderFields{$$phTargetFieldOrder{$sIndex}});
+      }
+      $sOutput = join($$phProperties{'OutputDelimiter'}, @aOutput);
+    }
+    else
+    {
+      foreach my $sIndex (sort({ $a <=> $b } keys(%$phActualFieldOrder)))
+      {
+        push(@aOutput, $$phHeaderFields{$$phActualFieldOrder{$sIndex}});
+      }
+      $sOutput = join($$phProperties{'OutputDelimiter'}, @aOutput);
+    }
+  }
+
+  ####################################################################
+  #
+  # Conditionally execute the post-header eval statement.
+  #
+  ####################################################################
+
+  if (defined($$phProperties{'PostHeaderEval'}))
+  {
+    $_ = $sOutput;
+    eval $$phProperties{'PostHeaderEval'};
+    if ($@)
+    {
+      print STDERR $@;
+      $$psError = "Problem with post-header eval.";
+      return undef;
+    }
+    if (!defined($_) || $_ eq "")
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded due to the post-header eval.'\n";
+      }
+      return;
+    }
+    $sOutput = $_;
+  }
+
+  ####################################################################
+  #
+  # Conditionally spit out the header.
+  #
+  ####################################################################
+
+  if ($$phProperties{'NoHeader'} == 0)
+  {
+    print $sOutput, $$phProperties{'Newline'};
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# ProcessData
+#
+######################################################################
+
+sub ProcessData
+{
+  my ($phProperties, $psError) = @_;
+
+  my $phActualFieldOrder = $$phProperties{'ActualFieldOrder'};
+
+  my $phTargetFieldOrder = $$phProperties{'TargetFieldOrder'};
+
+  my $sFileHandle = $$phProperties{'FileHandle'};
+
+  for ($$phProperties{'LineNumber'}++; my $sLine = <$sFileHandle>; $$phProperties{'LineNumber'}++)
+  {
+    $sLine =~ s/[\r\n]+$//;
+
+    ##################################################################
+    #
+    # Conditionally ignore lines that match the specified pattern.
+    #
+    ##################################################################
+
+    if (defined($$phProperties{'IgnorePattern'}) && $sLine =~ /$$phProperties{'IgnorePattern'}/)
+    {
+      next;
+    }
+
+    ##################################################################
+    #
+    # Conditionally execute the pre-record eval statement.
+    #
+    ##################################################################
+
+    if (defined($$phProperties{'PreRecordEval'}))
+    {
+      $_ = $sLine;
+      eval $$phProperties{'PreRecordEval'};
+      if ($@)
+      {
+        print STDERR $@;
+        $$psError = "Problem with post-header eval.";
+        return undef;
+      }
+      if (!defined($_) || $_ eq "")
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded due to the pre-record eval.'\n";
+        }
+        next;
+      }
+      $sLine = $_;
+    }
+
+    ##################################################################
+    #
+    # Split the input record into fields.
+    #
+    ##################################################################
+
+    my %R = (); # Record hash.
+    my $phRecordFields = \%R;
+    my @aRecordFields = split(/$$phProperties{'InputDelimiter'}/, $sLine, -1); # Use large chunk size to preserve trailing NULL fields.
+    $$phProperties{'RecordFieldCount'} = scalar(@aRecordFields);
+    if ($$phProperties{'DeriveFields'} && !defined($$phProperties{'HeaderFieldCount'}))
+    {
+      my @aFieldNumbers;
+      $$phProperties{'HeaderFieldCount'} = $$phProperties{'RecordFieldCount'};
+      for (my $sIndex = 0; $sIndex < $$phProperties{'HeaderFieldCount'}; $sIndex++)
+      {
+        my $sFieldNumber = $sIndex + 1;
+        push(@aFieldNumbers, $sFieldNumber);
+        $$phActualFieldOrder{$sIndex} = $sFieldNumber;
+        $$phProperties{'FTimesFields'}{$sFieldNumber} = 0;
+      }
+      $$phProperties{'InputFields'} = join($$phProperties{'InputDelimiter'}, @aFieldNumbers);
+    }
+    if ($$phProperties{'RecordFieldCount'} != $$phProperties{'HeaderFieldCount'})
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded due to a field count mismatch ($$phProperties{'RecordFieldCount'} != $$phProperties{'HeaderFieldCount'}).'\n";
+      }
+      next;
+    }
+    for (my $sIndex = 0; $sIndex < $$phProperties{'HeaderFieldCount'}; $sIndex++)
+    {
+      $$phRecordFields{$$phActualFieldOrder{$sIndex}} = $aRecordFields[$sIndex];
+    }
+
+    ##################################################################
+    #
+    # Conditionally execute the split-record eval statement.
+    #
+    ##################################################################
+
+    if (defined($$phProperties{'SplitRecordEval'}))
+    {
+      eval $$phProperties{'SplitRecordEval'};
+      if ($@)
+      {
+        print STDERR $@;
+        $$psError = "Problem with post-record eval.";
+        return undef;
+      }
+      if (!%R)
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded due to the split-record eval.'\n";
+        }
+        next;
+      }
+    }
+
+    ##################################################################
+    #
+    # Conditionally strip leading directories.
+    #
+    ##################################################################
+
+    if ($$phProperties{'PathStripCount'})
+    {
+      if (!defined($$phRecordFields{'name'}))
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='The name field must be defined to support the -p option.'\n";
+        }
+      }
+      else
+      {
+        my $sName = $$phRecordFields{'name'};
+        $sName =~ s/^"//;
+        $sName =~ s/"$//;
+        my $sSeparator = ($sName =~ /\\/) ? "\\" : "/";
+        my @aPieces = split(/[\/\\]/, $sName);
+        if (scalar(@aPieces) <= $$phProperties{'PathStripCount'})
+        {
+          if (!$$phProperties{'BeQuiet'})
+          {
+            print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded because the strip count ($$phProperties{'PathStripCount'}) obliterates the name ($sName).'\n";
+          }
+          next;
+        }
+        splice(@aPieces, 0, $$phProperties{'PathStripCount'});
+        $$phRecordFields{'name'} = '"' . join($sSeparator, @aPieces) . '"';
+      }
+    }
+
+    ##################################################################
+    #
+    # Conditionally remove name quotes.
+    #
+    ##################################################################
+
+    if ($$phProperties{'NoQuotes'})
+    {
+      if (!defined($$phRecordFields{'name'}))
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='The name field must be defined to support the NoQuotes option.'\n";
+        }
+      }
+      else
+      {
+        $$phRecordFields{'name'} =~ s/^"//;
+        $$phRecordFields{'name'} =~ s/"$//;
+      }
+    }
+
+    ##################################################################
+    #
+    # Conditionally deneuter filenames.
+    #
+    ##################################################################
+
+    if ($$phProperties{'DeNeuter'})
+    {
+      if (!defined($$phRecordFields{'name'}))
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='The name field must be defined to support the DeNeuter option.'\n";
+        }
+      }
+      else
+      {
+        $$phRecordFields{'name'} = EadFTimesUrlDecode($$phRecordFields{'name'});
+      }
+    }
+
+    ##################################################################
+    #
+    # Conditionally decode mode.
+    #
+    ##################################################################
+
+    if ($$phProperties{'DecodeMode'})
+    {
+      if (defined($$phRecordFields{'mode'}))
+      {
+        $$phRecordFields{'mode'} = EadUnixModeDecode($$phRecordFields{'mode'});
+      }
+    }
+
+    ##################################################################
+    #
+    # Conditionally parse name.
+    #
+    ##################################################################
+
+    if ($$phProperties{'ParseName'} && defined($$phRecordFields{'name'}))
+    {
+      my $sName = $$phRecordFields{'name'};
+      $sName =~ s/^"//;
+      $sName =~ s/"$//;
+      fileparse_set_fstype(($sName =~ /\\/o) ? "MSWin32" : "Unix"); # Update this for each record -- the input stream could be mixed (i.e., UNIX and WINX).
+      my ($sBasename, $sDirectory, $sExtension) = fileparse($sName, qr/[.][^.]*/); # This suffix expression is not great, but it's better than nothing.
+      $sDirectory =~ s/[\/\\]$// unless ($sDirectory =~ /^[\/\\]$/o); # Drop the trailing path separator except for '/' and '\'.
+      $$phRecordFields{'directory'} = $sDirectory;
+      $$phRecordFields{'filename'} = $sBasename . $sExtension;
+      $$phRecordFields{'basename'} = $sBasename;
+      $$phRecordFields{'extension'} = $sExtension;
+      if (!$$phProperties{'NoQuotes'})
+      {
+        $$phRecordFields{'directory'} = '"' . $$phRecordFields{'directory'} . '"';
+        $$phRecordFields{'filename'} = '"' . $$phRecordFields{'filename'} . '"';
+        $$phRecordFields{'basename'} = '"' . $$phRecordFields{'basename'} . '"';
+        $$phRecordFields{'extension'} = '"' . $$phRecordFields{'extension'} . '"';
+      }
+    }
+
+    ##################################################################
+    #
+    # Generate the output record.
+    #
+    ##################################################################
+
+    my @aOutput = ();
+    my $sOutput = "";
+
+    if (defined($$phProperties{'Template'}))
+    {
+      if (!$$phProperties{'TemplateIsOk'})
+      {
+        my $sTemplate = $$phProperties{'Template'};
+        foreach my $sField (reverse(sort(keys(%{$$phProperties{'FTimesFields'}}))))
+        {
+          $sTemplate =~ s/%$sField/(defined($$phRecordFields{$sField}) ? $$phRecordFields{$sField} : "")/ge;
+        }
+        if ($sTemplate =~ /(?:^|[^%])[%](?:[^%]|$)/)
+        {
+          $$psError = "Template contains unescaped '%'s or unrecognized tokens.";
+          return undef;
+        }
+        my $sCount = 0;
+        foreach my $sByte (split(//, $sTemplate))
+        {
+          $sCount++ if ($sByte =~ /^%$/);
+        }
+        if ($sCount % 2)
+        {
+          $$psError = "Template contains an odd number of '%'s.";
+          return undef;
+        }
+        $$phProperties{'TemplateIsOk'} = 1;
+      }
+      $sOutput = $$phProperties{'Template'};
+      foreach my $sField (reverse(sort(keys(%{$$phProperties{'FTimesFields'}}))))
+      {
+        $sOutput =~ s/%$sField/(defined($$phRecordFields{$sField}) ? $$phRecordFields{$sField} : "")/ge;
+      }
+      $sOutput =~ s/%%/%/g;
+    }
+    else
+    {
+      if (defined($$phProperties{'OutputFields'}))
+      {
+        foreach my $sIndex (sort({ $a <=> $b } keys(%$phTargetFieldOrder)))
+        {
+          push(@aOutput, (defined($$phRecordFields{$$phTargetFieldOrder{$sIndex}})) ? $$phRecordFields{$$phTargetFieldOrder{$sIndex}} : "");
+        }
+        $sOutput = join($$phProperties{'OutputDelimiter'}, @aOutput);
+      }
+      else
+      {
+        foreach my $sIndex (sort({ $a <=> $b } keys(%$phActualFieldOrder)))
+        {
+          push(@aOutput, (defined($$phRecordFields{$$phActualFieldOrder{$sIndex}})) ? $$phRecordFields{$$phActualFieldOrder{$sIndex}} : "");
+        }
+        $sOutput = join($$phProperties{'OutputDelimiter'}, @aOutput);
+      }
+    }
+
+    ##################################################################
+    #
+    # Conditionally execute the post-record eval statement.
+    #
+    ##################################################################
+
+    if (defined($$phProperties{'PostRecordEval'}))
+    {
+      $_ = $sOutput;
+      eval $$phProperties{'PostRecordEval'};
+      if ($@)
+      {
+        print STDERR $@;
+        $$psError = "Problem with post-record eval.";
+        return undef;
+      }
+      if (!defined($_) || $_ eq "")
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded due to the post-record eval.'\n";
+        }
+        next;
+      }
+      $sOutput = $_;
+    }
+
+    ##################################################################
+    #
+    # Spit out the record.
+    #
+    ##################################################################
+
+    print $sOutput, $$phProperties{'Newline'};
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# Strip
+#
+######################################################################
+
+sub Strip
+{
+  my ($sData, $sClass) = @_;
+  $sData =~ s/[$sClass]//g if (defined($sClass) && length($sClass));
+  return $sData;
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [{-A|-a|-B|-b|-S|-s} eval-block] [{-D|-d} delimiter] [-I pattern] [-i count] [{-L|-l} field[,field[,...]]] [-o option[,option[,...]]] [-p count] [-t template] -f {file|-}\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-xformer - Tranform FTimes data based on user-specified input
+
+=head1 SYNOPSIS
+
+B<ftimes-xformer> B<[{-A|-a|-B|-b|-S|-s} eval-block]> B<[{-D|-d} delimiter]> B<[-I pattern]> B<[-i count]> B<[{-L|-l} field[,field[,...]]]> B<[-o option[,option[,...]]]> B<[-p count]> B<[-t template]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility takes FTimes data and transforms it according to
+user-specified criteria.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-A eval-block>
+
+Specifies a post-header eval-block to be executed by Perl after the
+output header has been formed.  The eval-block operates on a single
+line, which is stored in '$_'.
+
+=item B<-a eval-block>
+
+Specifies a post-record eval-block to be executed by Perl after the
+output record has been formed.  The eval-block operates on a single
+line, which is stored in '$_'.
+
+=item B<-B eval-block>
+
+Specifies a pre-header eval-block to be executed by Perl before the
+output header has been split into individual fields.  The eval-block
+operates on a single line, which is stored in '$_'.
+
+=item B<-b eval-block>
+
+Specifies a pre-record eval-block to be executed by Perl before the
+output record has been split into individual fields.  The eval-block
+operates on a single line, which is stored in '$_'.
+
+=item B<-D delimiter>
+
+Specifies the output field delimiter.  Valid delimiters include the
+following characters: tab ('\t'), space (' '), comma (','), colon
+(':'), semi-colon (';'), equal ('='), and pipe ('|').  The default
+delimiter is a pipe.
+
+=item B<-d delimiter>
+
+Specifies the input field delimiter.  Valid delimiters include the
+following characters: tab ('\t'), space (' '), comma (','), colon
+(':'), semi-colon (';'), equal ('='), and pipe ('|').  The default
+delimiter is a pipe.  Note that parse errors are likely to occur if
+the specified delimiter appears in any of the field values.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file. A value of '-' will cause the
+program to read from stdin.
+
+=item B<[-I pattern]>
+
+Specifies a regular expression pattern that is used to ignore matching
+input lines.
+
+=item B<[-i count]>
+
+Specifies the number of leading input lines to ignore.
+
+=item B<-L field,[field[,...]]>
+
+Specifies the list of output fields.  The order of the fields in this
+list determines their order in the output.  Fields in the input that
+are omitted from this list will be omitted from the output.  If the
+template option (B<-t>) is used, it takes precedence over this option.
+
+=item B<-l field,[field[,...]]>
+
+Specifies the list of valid input fields.  This option is only needed
+in cases where the input contains fields not known to FTimes.  If the
+input contains fields not known to FTimes or specified in this list,
+the script will abort.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't print warning messages.
+
+=item DecodeMode
+
+Convert mode into its human readable form -- similar to the output
+produced by ls(1).
+
+=item DeNeuter
+
+Remove URL encoding from the name field.  Note that this may cause
+issues with how the output is rendered on your terminal.  For example,
+the actual name field may contain special or non-printable characters.
+
+=item DeriveFields
+
+Assume there is no header, and create field names based on the numeric
+position of each field found in the first record.  The first field
+name would be '1', the second '2', and so on.  These fields may be
+accessed and/or operated on in a split-record eval-block using the
+standard notation (e.g., $R{'1'}).  They may also be used in output
+templates (e.g., %1). Refer to the B<-s> and B<-t> options for
+additional details.
+
+=item DeriveHeader
+
+Construct an artificial header from the list of input fields specified
+in the B<-l> command line argument and insert it into the input
+stream.  This option is useful in cases where the input file does not
+contain its own header.  The artificial header is constructed by
+joining the input fields (in the order they were specified) with the
+input delimiter (see B<-d> option).  Once inserted into the input
+stream, this header is subject to pre- and post-header eval-block
+operations (see B<-B> and B<-A> options, respectively).
+
+=item NoHeader
+
+Don't print an output header.  Note that this overrides all other
+header transformations.
+
+=item NoQuotes
+
+Remove the double quotes that FTimes wraps around each name field.
+
+=item ParseName
+
+Split the name field into its components and place the results into
+the following fields: directory, filename, basename, and extension.
+The following regular expression is used to pick off the extension:
+
+    [.][^.]*$
+
+=back
+
+=item B<-p count>
+
+Specifies a path strip count.  This value can be used to strip away
+leading path components in the name field.  This is useful in cases
+where you want to compare two snapshots that begin with different
+prefixes.  If the strip count is too high, the name field for various
+records will be obliterated, and that, in turn, will result in no
+output being printed for the affected records.
+
+=item B<-S eval-block>
+
+Specifies a split-header eval-block to be executed by Perl once the
+header fields have been split.  The eval-block operates on values
+stored in the '%H' hash.  The members of the hash are the field names
+obtained from the header line of the input file (e.g., $H{'name'},
+$H{'size'}, etc.).  Refer to the token lists documented in the B<-t>
+description for the complete list of FTimes fields.
+
+=item B<-s eval-block>
+
+Specifies a split-record eval-block to be executed by Perl once the
+record fields have been split.  The eval-block operates on values
+stored in the '%R' hash.  The members of the hash are the field names
+obtained from the header line of the input file (e.g., $R{'name'},
+$R{'size'}, etc.).  Refer to the token lists documented in the B<-t>
+description for the complete list of FTimes fields.
+
+=item B<-t template>
+
+Specifies a template for an alternate output format.  All occurrences
+of '\n', '\r', or '\t' will be converted to newline, carriage return,
+and tab, respectively.  The value '%%' will be converted to '%'.
+
+The following tokens, given that they are defined, may be used to
+create custom templates: %altstreams, %ams, %atime, %attributes, %basename
+%category, %changed, %chms, %chtime, %cms, %ctime, %ctx_offset,
+%ctx_string, %dev, %dig_name, %dig_offset, %dig_string, %directory,
+%extension, %filename, %findex, %gid, %hostname, %inode, %joiner,
+%lh_length, %magic, %md5, %mh_length, %mms, %mode, %mtime, %name,
+%nlink, %offset, %rdev, %records, %rh_length, %sha1, %sha256, %size,
+%string, %tag, %type, %uid, %unknown, %volume, %z_altstreams, %z_ams,
+%z_atime, %z_attributes, %z_chms, %z_chtime, %z_cms, %z_ctime, %z_dev,
+%z_findex, %z_gid, %z_inode, %z_magic, %z_md5, %z_mms, %z_mode,
+%z_mtime, %z_name, %z_nlink, %z_rdev, %z_sha1, %z_sha256, %z_size,
+%z_uid, and %z_volume.
+
+Note that the %directory, %filename, %basename, and %extension fields
+are defined only when the name field is in the input stream and the
+'ParseName' option is enabled.
+
+If the B<DeriveFields> option was specified, the tokens %1, %2, etc.
+will also be available for use.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

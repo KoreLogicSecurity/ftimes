@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: all-includes.h,v 1.5 2007/02/23 00:22:42 mavrik Exp $
+ * $Id: all-includes.h,v 1.12 2012/01/04 03:12:40 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2007 The FTimes Project, All Rights Reserved.
+ * Copyright 2005-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -40,7 +40,25 @@
 #define snprintf ap_snprintf
 #endif
 
-#include "ktypes.h"
+typedef char APP_SI8;
+typedef unsigned char APP_UI8;
+typedef short APP_SI16;
+typedef unsigned short APP_UI16;
+typedef int APP_SI32;
+typedef unsigned int APP_UI32;
+#if defined(UNIX)
+  #if defined(APP_CPU_ALPHA) || defined(APP_CPU_IA64) || defined(APP_CPU_X86_64) || defined(APP_CPU_AMD64)
+    typedef long APP_SI64;
+    typedef unsigned long APP_UI64;
+  #else
+    typedef long long APP_SI64;
+    typedef unsigned long long APP_UI64;
+  #endif
+#elif defined(WIN32)
+    typedef __int64 APP_SI64;
+    typedef unsigned __int64 APP_UI64;
+#endif
+
 #include "md5.h"
 #include "sha1.h"
 #include "tarmap.h"

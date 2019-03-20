@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: decode.c,v 1.37 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: decode.c,v 1.52 2012/01/04 03:12:27 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -62,6 +62,9 @@ static DECODE_TABLE   gasDecodeTable[] = {
   { "z_sha1",        "sha1",        DecodeProcessSha1                 },
   { "z_sha256",      "sha256",      DecodeProcessSha256               },
   { "z_magic",       "magic",       DecodeProcessMagic                },
+  { "z_osid",        "osid",        DecodeProcessNada                 },
+  { "z_gsid",        "gsid",        DecodeProcessNada                 },
+  { "z_dacl",        "dacl",        DecodeProcessNada                 },
 };
 #define DECODE_TABLE_SIZE sizeof(gasDecodeTable) / sizeof(gasDecodeTable[0])
 
@@ -74,12 +77,12 @@ static DECODE_TABLE   gasDecodeTable[] = {
  ***********************************************************************
  */
 int
-Decode32BitHexToDecimal(char *pcData, int iLength, K_UINT32 *pui32ValueNew, K_UINT32 *pui32ValueOld, char *pcError)
+Decode32BitHexToDecimal(char *pcData, int iLength, APP_UI32 *pui32ValueNew, APP_UI32 *pui32ValueOld, char *pcError)
 {
   const char          acRoutine[] = "Decode32BitHexToDecimal()";
   int                 i = 0;
   int                 iSign = 0;
-  K_UINT32            ui32 = 0;
+  APP_UI32            ui32 = 0;
 
   /*-
    *********************************************************************
@@ -163,16 +166,16 @@ Decode32BitHexToDecimal(char *pcData, int iLength, K_UINT32 *pui32ValueNew, K_UI
  ***********************************************************************
  */
 int
-Decode64BitHexToDecimal(char *pcData, int iLength, K_UINT64 *pui64ValueNew, K_UINT64 *pui64ValueOld, char *pcError)
+Decode64BitHexToDecimal(char *pcData, int iLength, APP_UI64 *pui64ValueNew, APP_UI64 *pui64ValueOld, char *pcError)
 {
   const char          acRoutine[] = "Decode64BitHexToDecimal()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 i = 0;
   int                 iError = 0;
-  K_UINT32            ui32UpperNew = 0;
-  K_UINT32            ui32LowerNew = 0;
-  K_UINT32            ui32LowerOld = 0;
-  K_UINT64            ui64 = 0;
+  APP_UI32            ui32UpperNew = 0;
+  APP_UI32            ui32LowerNew = 0;
+  APP_UI32            ui32LowerOld = 0;
+  APP_UI64            ui64 = 0;
 
   if (pui64ValueOld == NULL && pcData[0] == '#')
   {
@@ -182,8 +185,8 @@ Decode64BitHexToDecimal(char *pcData, int iLength, K_UINT64 *pui64ValueNew, K_UI
 
   if (pcData[0] == '#')
   {
-    ui32UpperNew = (K_UINT32) (*pui64ValueOld >> 32);
-    ui32LowerOld = (K_UINT32) (*pui64ValueOld & 0xffffff);
+    ui32UpperNew = (APP_UI32) (*pui64ValueOld >> 32);
+    ui32LowerOld = (APP_UI32) (*pui64ValueOld & 0xffffff);
     i++;
     iLength--;
     iError = Decode32BitHexToDecimal(&pcData[i], iLength, &ui32LowerNew, &ui32LowerOld, acLocalError);
@@ -193,7 +196,7 @@ Decode64BitHexToDecimal(char *pcData, int iLength, K_UINT64 *pui64ValueNew, K_UI
       return ER;
     }
 
-    *pui64ValueNew = (((K_UINT64) ui32UpperNew) << 32) | ui32LowerNew;
+    *pui64ValueNew = (((APP_UI64) ui32UpperNew) << 32) | ui32LowerNew;
     return ER_OK;
   }
 
@@ -332,23 +335,23 @@ DecodeFormatOutOfBandTime(char *pcToken, int iLength, char *pcOutput, char *pcEr
  ***********************************************************************
  */
 int
-DecodeFormatTime(K_UINT32 *pui32Time, char *pcTime)
+DecodeFormatTime(APP_UI32 *pui32Time, char *pcTime)
 {
-  int                 iError = 0;
 #ifdef WIN32
   FILETIME            sFileTime;
   int                 iCount = 0;
-  K_UINT64            ui64Time = 0;
+  APP_UI64            ui64Time = 0;
   SYSTEMTIME          sSystemTime;
 #else
+  int                 iError = 0;
   time_t              tTime = (time_t) *pui32Time;
 #endif
 
   pcTime[0] = 0;
 
 #ifdef WIN32
-  ui64Time = (((((K_UINT64) *pui32Time) * 1000)) * 10000) + UNIX_EPOCH_IN_NT_TIME;
-  sFileTime.dwLowDateTime = (K_UINT32) (ui64Time & (K_UINT32) 0xffffffff);
+  ui64Time = (((((APP_UI64) *pui32Time) * 1000)) * 10000) + UNIX_EPOCH_IN_NT_TIME;
+  sFileTime.dwLowDateTime = (APP_UI32) (ui64Time & (APP_UI32) 0xffffffff);
   sFileTime.dwHighDateTime = (DWORD) (ui64Time >> 32);
   if (!FileTimeToSystemTime(&sFileTime, &sSystemTime))
   {
@@ -436,7 +439,7 @@ DecodeGetBase64Hash(char *pcData, unsigned char *pucHash, int iLength, char *pcE
   int                 i = 0;
   int                 j = 0;
   int                 iLeft = 0;
-  K_UINT32            ui32 = 0;
+  APP_UI32            ui32 = 0;
 
   for (i = j = iLeft = 0, ui32 = 0; i < iLength; i++)
   {
@@ -539,7 +542,7 @@ int
 DecodeOpenSnapshot(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
 {
   const char          acRoutine[] = "DecodeOpenSnapshot()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
 
   psSnapshot->pFile = SupportGetFileHandle(psSnapshot->pcFile, acLocalError);
@@ -634,8 +637,8 @@ DecodeParseHeader(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
         }
         if (psSnapshot->iLegacyFile)
         {
-          snprintf(acLegacyName, DECODE_FIELDNAME_SIZE, "z_%s", pc);
-          acLegacyName[DECODE_FIELDNAME_SIZE] = 0;
+          snprintf(acLegacyName, DECODE_FIELDNAME_SIZE - 1, "z_%s", pc);
+          acLegacyName[DECODE_FIELDNAME_SIZE - 1] = 0;
           if (strcmp(gasDecodeTable[i].acZName, acLegacyName) == 0 || strcmp("zname", pc) == 0)
           {
             psSnapshot->aiIndex2Map[iIndex] = i;
@@ -688,7 +691,7 @@ DecodeParseHeader(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
 int
 DecodeParseRecord(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
 {
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acName[DECODE_MAX_LINE] = { 0 };
   char               *pcName = NULL;
   char               *pcToken = NULL;
@@ -776,20 +779,20 @@ DecodeParseRecord(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
   /*-
    *********************************************************************
    *
-   * Compute an MD5 hash of the name field. If the name does not begin
-   * with a slash ('/'), assume that it is Windows-based, and convert
-   * to lower case before computing its hash. Note: Windows-based names
-   * are not case sensitive. Usually, the original case is preserved at
-   * file creation, but there is no guarantee that the case for a given
-   * file will be the same from snapshot to snapshot. Therefore, always
-   * convert Windows-based names to lower case before computing their
-   * hash.
+   * Compute the MD5 hash of the name field. If the user has declared
+   * names to be case insensitive or the name begins with a WINX drive
+   * specification, convert it to lower case before computing its
+   * hash. Note that WINX-based names are not case sensitive. Usually,
+   * the original case is preserved at file creation, but there is no
+   * guarantee that the case for a given file will be the same from
+   * snapshot to snapshot. Therefore, WINX-based names must always be
+   * converted to lower case before computing their hash.
    *
    *********************************************************************
    */
   pcName = psSnapshot->psCurrRecord->ppcFields[0];
   iLength = strlen(pcName);
-  if (pcName[1] != '/')
+  if (psSnapshot->iNamesAreCaseInsensitive || (isalpha((int) pcName[1]) && pcName[2] == ':'))
   {
     snprintf(acName, DECODE_MAX_LINE, "%s", pcName);
     for (i = 0; i < iLength; i++)
@@ -815,10 +818,10 @@ int
 DecodeProcessATime(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessATime()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acTimeString[DECODE_TIME_FORMAT_SIZE] = { 0 };
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -887,9 +890,9 @@ int
 DecodeProcessATimeMs(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessATimeMs()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -940,9 +943,9 @@ int
 DecodeProcessAlternateDataStreams(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessAlternateDataStreams()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -991,9 +994,9 @@ int
 DecodeProcessAttributes(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessAttributes()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1042,10 +1045,10 @@ int
 DecodeProcessCTime(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessCTime()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acTimeString[DECODE_TIME_FORMAT_SIZE] = { 0 };
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1147,9 +1150,9 @@ int
 DecodeProcessCTimeMs(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessCTimeMs()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1222,10 +1225,10 @@ int
 DecodeProcessChTime(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessChTime()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acTimeString[DECODE_TIME_FORMAT_SIZE] = { 0 };
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1327,9 +1330,9 @@ int
 DecodeProcessChTimeMs(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessChTimeMs()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1413,9 +1416,9 @@ int
 DecodeProcessDevice(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessDevice()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1464,9 +1467,9 @@ int
 DecodeProcessFileIndex(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessFileIndex()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT64            ui64Value = 0;
+  APP_UI64            ui64Value = 0;
 
   if (iLength <= 0)
   {
@@ -1523,9 +1526,9 @@ int
 DecodeProcessGroupId(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessGroupId()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1574,9 +1577,9 @@ int
 DecodeProcessInode(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessInode()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1625,9 +1628,9 @@ int
 DecodeProcessLinkCount(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessLinkCount()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1676,10 +1679,10 @@ int
 DecodeProcessMTime(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessMTime()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acTimeString[DECODE_TIME_FORMAT_SIZE] = { 0 };
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1759,9 +1762,9 @@ int
 DecodeProcessMTimeMs(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessMTimeMs()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -1839,7 +1842,7 @@ int
 DecodeProcessMd5(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessMd5()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
   unsigned char       aucFileMd5[MD5_HASH_SIZE] = { 0 };
 
@@ -1887,9 +1890,9 @@ int
 DecodeProcessMode(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessMode()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -2055,9 +2058,9 @@ int
 DecodeProcessRDevice(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessRDevice()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -2106,7 +2109,7 @@ int
 DecodeProcessSha1(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessSha1()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
   unsigned char       aucFileSha1[SHA1_HASH_SIZE] = { 0 };
 
@@ -2154,7 +2157,7 @@ int
 DecodeProcessSha256(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessSha256()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
   unsigned char       aucFileSha256[SHA256_HASH_SIZE] = { 0 };
 
@@ -2202,9 +2205,9 @@ int
 DecodeProcessSize(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessSize()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT64            ui64Value = 0;
+  APP_UI64            ui64Value = 0;
 
   if (iLength <= 0)
   {
@@ -2261,9 +2264,9 @@ int
 DecodeProcessUserId(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessUserId()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -2312,9 +2315,9 @@ int
 DecodeProcessVolume(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
   const char          acRoutine[] = "DecodeProcessVolume()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
-  K_UINT32            ui32Value = 0;
+  APP_UI32            ui32Value = 0;
 
   if (iLength <= 0)
   {
@@ -2363,7 +2366,7 @@ char *
 DecodeReadLine(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
 {
   const char          acRoutine[] = "DecodeReadLine()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
 
   do
   {
@@ -2397,6 +2400,11 @@ DecodeReadLine(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
      *
      *******************************************************************
      */
+/* FIXME Turn this into a loop that can read until an EOL is found.
+ *       There probably should be a maximum length, but it should not
+ *       be too low. If no EOL is found, assume that data is missing,
+ *       and generate an error.
+ */
     if (fgets(psSnapshot->psCurrRecord->acLine, DECODE_MAX_LINE, psSnapshot->pFile) == NULL)
     {
       if (ferror(psSnapshot->pFile))
@@ -2471,7 +2479,7 @@ int
 DecodeReadSnapshot(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
 {
   const char          acRoutine[] = "DecodeReadSnapshot()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
 
   /*-
@@ -2557,7 +2565,7 @@ DecodeWriteHeader(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
 {
   const char          acRoutine[] = "DecodeWriteHeader()";
   char                acHeader[DECODE_MAX_LINE] = { 0 };
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 i = 0;
   int                 iError = 0;
   int                 n = 0;
@@ -2591,7 +2599,7 @@ DecodeWriteRecord(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
 {
   const char          acRoutine[] = "DecodeWriteRecord()";
   char                acOutput[(DECODE_FIELD_COUNT)*(DECODE_MAX_LINE)]; /* Don't initialize this with '{ 0 }' -- it's a hugh performance hit. */
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 i = 0;
   int                 iError = 0;
   int                 n = 0;

@@ -1,10 +1,12 @@
 /*-
  ***********************************************************************
  *
- * $Id: native.h,v 1.2 2003/02/23 17:40:09 mavrik Exp $
+ * $Id: native.h,v 1.3 2008/10/16 06:21:00 mavrik Exp $
  *
  ***********************************************************************
  */
+#ifndef _NATIVE_H_INCLUDED
+#define _NATIVE_H_INCLUDED
 
 typedef LONG        NTSTATUS, *PNTSTATUS;
 
@@ -149,3 +151,5 @@ typedef DWORD(__stdcall *NQIF) (
 	);
 
 ULONG NTAPI LsaNtStatusToWinError(NTSTATUS Status);
+
+#endif /* !_NATIVE_H_INCLUDED */

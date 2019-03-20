@@ -1,0 +1,802 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-sizimus,v 1.6 2012/01/04 03:12:38 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2007-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Tally bytes based on the size attribute.
+#
+######################################################################
+
+use strict;
+use File::Basename;
+use Getopt::Std;
+use Math::BigFloat;
+use Math::BigInt;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  $$phProperties{'Newline'} = "\n";
+
+  ####################################################################
+  #
+  # FTimes fields.
+  #
+  ####################################################################
+
+  my %hFTimesFields =
+  (
+    'altstreams'  => 0, # ftimes map (WINX)
+    'ams'         => 0, # ftimes map (WINX)
+    'atime'       => 0, # ftimes map (common)
+    'attributes'  => 0, # ftimes map (WINX)
+    'chms'        => 0, # ftimes map (WINX)
+    'chtime'      => 0, # ftimes map (WINX)
+    'cms'         => 0, # ftimes map (WINX)
+    'ctime'       => 0, # ftimes map (common)
+    'dev'         => 0, # ftimes map (UNIX)
+    'findex'      => 0, # ftimes map (WINX)
+    'gid'         => 0, # ftimes map (UNIX)
+    'hostname'    => 0, # ftimes-map2dbi
+    'inode'       => 0, # ftimes map (UNIX)
+    'joiner'      => 0, # ftimes-map2dbi
+    'magic'       => 0, # ftimes map (common)
+    'md5'         => 0, # ftimes map (common)
+    'mms'         => 0, # ftimes map (WINX)
+    'mode'        => 0, # ftimes map (UNIX)
+    'mtime'       => 0, # ftimes map (common)
+    'name'        => 0, # ftimes map (common)
+    'nlink'       => 0, # ftimes map (UNIX)
+    'rdev'        => 0, # ftimes map (UNIX)
+    'sha1'        => 0, # ftimes map (common)
+    'sha256'      => 0, # ftimes map (common)
+    'size'        => 0, # ftimes map (common)
+    'uid'         => 0, # ftimes map (UNIX)
+    'volume'      => 0, # ftimes map (WINX)
+  );
+
+  $$phProperties{'FTimesFields'} = \%hFTimesFields;
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('d:f:i:l:M:m:o:t:v', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # The input field delimiter, '-d', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'InputDelimiter'} = (exists($hOptions{'d'})) ? $hOptions{'d'} : "|";
+
+  if ($$phProperties{'InputDelimiter'} !~ /^(\\t|[ ,:;=|])$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid input field delimiter ($$phProperties{'InputDelimiter'}).'\n";
+    exit(2);
+  }
+
+  $$phProperties{'InputDelimiter'} =~ s/^\|$/\\|/g; # Escape the pipe delimiter.
+
+  ####################################################################
+  #
+  # An input file, '-f', is required. It can be '-' or a regular file.
+  #
+  ####################################################################
+
+  if (!exists($hOptions{'f'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+  else
+  {
+    my $sFile = $hOptions{'f'};
+    if ($sFile eq '-')
+    {
+      $$phProperties{'FileHandle'} = \*STDIN;
+    }
+    else
+    {
+      if (!open(FH, "< $sFile"))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unable to open $sFile ($!).'\n";
+        exit(2);
+      }
+      $$phProperties{'FileHandle'} = \*FH;
+    }
+  }
+
+  ####################################################################
+  #
+  # The ignore line count, '-i', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'IgnoreNLines'} = (exists($hOptions{'i'})) ? $hOptions{'i'} : 0;
+
+  if ($$phProperties{'IgnoreNLines'} !~ /^\d+$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Ignore count ($$phProperties{'IgnoreNLines'}) does not pass muster.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # The input field list, '-l', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'InputFields'} = (exists($hOptions{'l'})) ? $hOptions{'l'} : undef;
+
+  if (defined($$phProperties{'InputFields'}))
+  {
+    foreach my $sField (split(/,/, $$phProperties{'InputFields'}))
+    {
+      $hFTimesFields{$sField} = 0;
+    }
+  }
+
+  ####################################################################
+  #
+  # A match pattern, '-M', is optional.
+  #
+  ####################################################################
+
+  my ($sPattern);
+
+  $sPattern = (exists($hOptions{'M'})) ? $hOptions{'M'} : undef;
+
+  if (defined($sPattern))
+  {
+    $$phProperties{'MatchPatterns'} = 1;
+    push(@{$$phProperties{'Patterns'}}, qr/$sPattern/); # Compile pattern now, to reduce overhead later.
+  }
+
+  ####################################################################
+  #
+  # A match pattern file, '-m', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'PatternFile'} = (exists($hOptions{'m'})) ? $hOptions{'m'} : undef;
+
+  if (defined($$phProperties{'PatternFile'}))
+  {
+    if (!open(MH, "< $$phProperties{'PatternFile'}"))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Unable to open $$phProperties{'PatternFile'} ($!).'\n";
+      exit(2);
+    }
+    while (my $sLine = <MH>)
+    {
+      $sLine =~ s/[\r\n]+$//;
+      next if ($sLine =~ /^#/ || $sLine =~ /^\s*$/);
+      push(@{$$phProperties{'Patterns'}}, qr/$sLine/); # Compile pattern now, to reduce overhead later.
+      $$phProperties{'MatchPatterns'} = 1;
+    }
+    close(MH);
+  }
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'BeQuiet'}  = 0;
+  $$phProperties{'DeriveHeader'} = 0;
+  $$phProperties{'NoHeader'} = 0;
+  $$phProperties{'NoMode'} = 0;
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  {
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('BeQuiet', 'DeriveHeader', 'NoHeader', 'NoMode')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # An output template, '-t', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Template'} = (exists($hOptions{'t'})) ? $hOptions{'t'} : undef;
+
+  if (defined($$phProperties{'Template'}))
+  {
+    $$phProperties{'Template'} =~ s/\\n/\n/g; # Convert user specified newlines.
+    $$phProperties{'Template'} =~ s/\\r/\r/g; # Convert user specified carriage returns.
+    $$phProperties{'Template'} =~ s/\\t/\t/g; # Convert user specified tabs.
+  }
+
+  ####################################################################
+  #
+  # The invert match flag, '-v', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'InvertMatch'} = (exists($hOptions{'v'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Set output field order.
+  #
+  ####################################################################
+
+  my (%hActualFieldOrder, %hTargetFieldOrder);
+
+  $hTargetFieldOrder{'0'} = "files";
+  $hTargetFieldOrder{'1'} = "bytes";
+
+  $$phProperties{'TargetFieldOrder'} = \%hTargetFieldOrder;
+  $$phProperties{'ActualFieldOrder'} = \%hActualFieldOrder;
+
+  ####################################################################
+  #
+  # Seed target fields.
+  #
+  ####################################################################
+
+  my %hTargetFields =
+  (
+    'kb'    => Math::BigFloat->new('1024'),
+    'mb'    => Math::BigFloat->new('1048576'),
+    'gb'    => Math::BigFloat->new('1073741824'),
+    'tb'    => Math::BigFloat->new('1099511627776'),
+    'KB'    => Math::BigFloat->new('1024'),
+    'MB'    => Math::BigFloat->new('1048576'),
+    'GB'    => Math::BigFloat->new('1073741824'),
+    'TB'    => Math::BigFloat->new('1099511627776'),
+    'bytes' => Math::BigInt->new(0),
+    'files' => 0,
+  );
+
+  $$phProperties{'TargetFields'} = \%hTargetFields;
+
+  ####################################################################
+  #
+  # Skip ignore lines.
+  #
+  ####################################################################
+
+  for ($$phProperties{'LineNumber'} = 1; $$phProperties{'LineNumber'} <= $$phProperties{'IgnoreNLines'}; $$phProperties{'LineNumber'}++)
+  {
+    my $sFileHandle = $$phProperties{'FileHandle'}; <$sFileHandle>;
+    last if (eof($sFileHandle));
+  }
+
+  if ($$phProperties{'LineNumber'} <= $$phProperties{'IgnoreNLines'})
+  {
+    print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Error='End of file reached while exhausting ignore count ($$phProperties{'IgnoreNLines'}).'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Process the header.
+  #
+  ####################################################################
+
+  my ($sError);
+
+  if (!ProcessHeader($phProperties, \$sError))
+  {
+    print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Error='$sError'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Process the data.
+  #
+  ####################################################################
+
+  if (!ProcessData($phProperties, \$sError))
+  {
+    print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Error='$sError'\n";
+    exit(2);
+  }
+
+  $hTargetFields{'kb'}->bpow(-1)->bmul($hTargetFields{'bytes'})->precision(-4);
+  $hTargetFields{'mb'}->bpow(-1)->bmul($hTargetFields{'bytes'})->precision(-4);
+  $hTargetFields{'gb'}->bpow(-1)->bmul($hTargetFields{'bytes'})->precision(-4);
+  $hTargetFields{'tb'}->bpow(-1)->bmul($hTargetFields{'bytes'})->precision(-4);
+
+  $hTargetFields{'KB'}->bpow(-1)->bmul($hTargetFields{'bytes'})->precision(-4);
+  $hTargetFields{'MB'}->bpow(-1)->bmul($hTargetFields{'bytes'})->precision(-4);
+  $hTargetFields{'GB'}->bpow(-1)->bmul($hTargetFields{'bytes'})->precision(-4);
+  $hTargetFields{'TB'}->bpow(-1)->bmul($hTargetFields{'bytes'})->precision(-4);
+
+  ####################################################################
+  #
+  # Generate the output record.
+  #
+  ####################################################################
+
+  my @aOutput = ();
+  my $sOutput = "";
+
+  if (defined($$phProperties{'Template'}))
+  {
+    $sOutput = $$phProperties{'Template'};
+    foreach my $sField (reverse(sort(keys(%hTargetFields))))
+    {
+      $sOutput =~ s/%$sField/$hTargetFields{$sField}/g;
+    }
+    $sOutput =~ s/%%/%/g;
+  }
+  else
+  {
+    foreach my $sIndex (sort({ $a <=> $b } keys(%hTargetFieldOrder)))
+    {
+      push(@aOutput, $hTargetFields{$hTargetFieldOrder{$sIndex}});
+    }
+    $sOutput = join("|", @aOutput);
+  }
+
+  print $sOutput, $$phProperties{'Newline'};
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  1;
+
+
+######################################################################
+#
+# ProcessHeader
+#
+######################################################################
+
+sub ProcessHeader
+{
+  my ($phProperties, $psError) = @_;
+
+  my $phActualFieldOrder = $$phProperties{'ActualFieldOrder'};
+
+  my $phTargetFieldOrder = $$phProperties{'TargetFieldOrder'};
+
+  ####################################################################
+  #
+  # Read the header line or derive it from the list of input fields.
+  #
+  ####################################################################
+
+  my $sFileHandle = $$phProperties{'FileHandle'};
+
+  my $sLine = undef;
+
+  if ($$phProperties{'DeriveHeader'})
+  {
+    if (!defined($$phProperties{'InputFields'}))
+    {
+      $$psError = "The DeriveHeader option was set, but no input fields were defined.";
+      return undef;
+    }
+    my $sDelimiter = $$phProperties{'InputDelimiter'};
+    $sDelimiter =~ s/\\[|]/|/g; # Unescape the pipe delimiter.
+    $sLine = join($sDelimiter, split(/,/, $$phProperties{'InputFields'}));
+    $$phProperties{'LineNumber'}--;
+  }
+  else
+  {
+    $sLine = <$sFileHandle>;
+  }
+
+  if (!defined($sLine))
+  {
+    $$psError = "Header was not defined.";
+    return undef;
+  }
+  $sLine =~ s/[\r\n]+$//;
+
+  ####################################################################
+  #
+  # Split the input header into fields.
+  #
+  ####################################################################
+
+  my %H = (); # Header hash.
+  my $phHeaderFields = \%H;
+  my @aHeaderFields = split(/$$phProperties{'InputDelimiter'}/, $sLine);
+  $$phProperties{'HeaderFieldCount'} = scalar(@aHeaderFields);
+  for (my $sIndex = 0; $sIndex < $$phProperties{'HeaderFieldCount'}; $sIndex++)
+  {
+    $$phActualFieldOrder{$sIndex} = $aHeaderFields[$sIndex];
+    if (!exists($$phProperties{'FTimesFields'}{$aHeaderFields[$sIndex]}))
+    {
+      $$psError = "Unrecognized field ($aHeaderFields[$sIndex]).";
+      return undef;
+    }
+    $$phHeaderFields{$$phActualFieldOrder{$sIndex}} = $aHeaderFields[$sIndex];
+  }
+
+  if (!exists($$phHeaderFields{'mode'}) && $$phProperties{'NoMode'} == 0)
+  {
+    $$psError = "Header does not contain the mode field. Use the \"NoMode\" option to disable this requirement.";
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Generate the output header.
+  #
+  ####################################################################
+
+  my @aOutput = ();
+  my $sOutput = "";
+
+  if (defined($$phProperties{'Template'}))
+  {
+    if (!$$phProperties{'TemplateIsOk'})
+    {
+      my $sTemplate = $$phProperties{'Template'};
+      foreach my $sField (reverse(sort(keys(%{$$phProperties{'TargetFields'}}))))
+      {
+        $sTemplate =~ s/%$sField/(defined($sField) ? $sField : "")/ge;
+      }
+      if ($sTemplate =~ /(?:^|[^%])[%](?:[^%]|$)/)
+      {
+        $$psError = "Template contains unescaped '%'s or unrecognized tokens.";
+        return undef;
+      }
+      my $sCount = 0;
+      foreach my $sByte (split(//, $sTemplate))
+      {
+        $sCount++ if ($sByte =~ /^%$/);
+      }
+      if ($sCount % 2)
+      {
+        $$psError = "Template contains an odd number of '%'s.";
+        return undef;
+      }
+      $$phProperties{'TemplateIsOk'} = 1;
+    }
+    $sOutput = $$phProperties{'Template'};
+    foreach my $sField (reverse(sort(keys(%{$$phProperties{'TargetFields'}}))))
+    {
+      $sOutput =~ s/%$sField/(defined($sField) ? $sField : "")/ge;
+    }
+    $sOutput =~ s/%%/%/g;
+  }
+  else
+  {
+    foreach my $sIndex (sort({ $a <=> $b } keys(%$phTargetFieldOrder)))
+    {
+      push(@aOutput, $$phTargetFieldOrder{$sIndex});
+    }
+    $sOutput = join("|", @aOutput);
+  }
+
+  ####################################################################
+  #
+  # Conditionally spit out the header.
+  #
+  ####################################################################
+
+  if ($$phProperties{'NoHeader'} == 0)
+  {
+    print $sOutput, $$phProperties{'Newline'};
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# ProcessData
+#
+######################################################################
+
+sub ProcessData
+{
+  my ($phProperties, $psError) = @_;
+
+  my $phActualFieldOrder = $$phProperties{'ActualFieldOrder'};
+
+  my $sFileHandle = $$phProperties{'FileHandle'};
+
+  for ($$phProperties{'LineNumber'}++; my $sLine = <$sFileHandle>; $$phProperties{'LineNumber'}++)
+  {
+    $sLine =~ s/[\r\n]+$//;
+
+    ##################################################################
+    #
+    # Conditionally match patterns, and ignore input records.
+    #
+    ##################################################################
+
+    if ($$phProperties{'MatchPatterns'})
+    {
+      my $sMatch = 0;
+      foreach my $sPattern (@{$$phProperties{'Patterns'}})
+      {
+        if ($sLine =~ /$sPattern/)
+        {
+          $sMatch = 1;
+          last;
+        }
+      }
+      $sMatch ^= $$phProperties{'InvertMatch'};
+      if (!$sMatch)
+      {
+        next;
+      }
+    }
+
+    ##################################################################
+    #
+    # Split the input record into fields.
+    #
+    ##################################################################
+
+    my %R = (); # Record hash.
+    my $phRecordFields = \%R;
+    my @aRecordFields = split(/$$phProperties{'InputDelimiter'}/, $sLine, -1); # Use large chunk size to preserve trailing NULL fields.
+    $$phProperties{'RecordFieldCount'} = scalar(@aRecordFields);
+    if ($$phProperties{'RecordFieldCount'} != $$phProperties{'HeaderFieldCount'})
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded due to a field count mismatch ($$phProperties{'RecordFieldCount'} != $$phProperties{'HeaderFieldCount'}).'\n";
+      }
+      next;
+    }
+    for (my $sIndex = 0; $sIndex < $$phProperties{'HeaderFieldCount'}; $sIndex++)
+    {
+      $$phRecordFields{$$phActualFieldOrder{$sIndex}} = $aRecordFields[$sIndex];
+    }
+
+    ##################################################################
+    #
+    # Add the size to the total byte count, but only for regular files.
+    #
+    ##################################################################
+
+    if (exists($$phRecordFields{'mode'}))
+    {
+      if ($$phRecordFields{'mode'} !~ /^(?:mode|\d{5,11})$/o)
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded because the mode ($$phRecordFields{'size'}) does not pass muster.'\n";
+        }
+      }
+      if ($$phRecordFields{'mode'} eq "mode" || (oct($$phRecordFields{'mode'}) & 0170000) != 0100000) # (mode & _S_IFMT) == _S_IFREG
+      {
+        next;
+      }
+    }
+
+    if ($$phRecordFields{'size'} !~ /^\d{1,17}$/o)
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'Program'}: Line='$$phProperties{'LineNumber'}' Warning='Record was discarded because the size ($$phRecordFields{'size'}) does not pass muster.'\n";
+      }
+      next;
+    }
+
+    $$phProperties{'TargetFields'}{'bytes'}->badd($$phRecordFields{'size'});
+    $$phProperties{'TargetFields'}{'files'}++;
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-v] [-d delimiter] [-i count] [-l field[,field[,...]]] [-M pattern] [-m pattern-file] [-o option[,option[,...]]] [-t template] -f {file|-}\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-sizimus - Tally bytes based on the size attribute.
+
+=head1 SYNOPSIS
+
+B<ftimes-sizimus> B<[-v]> B<[-d delimiter]> B<[-i count]> B<[-l field[,field[,...]]]> B<[-M pattern]> B<[-m pattern-file]> B<[-o option[,option[,...]]]> B<[-t template]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility takes FTimes map data and tallies bytes for regular files
+based on the size attribute.  The input format can vary so long as it
+contains at least the 'name', 'mode', and 'size' fields.  The most
+common input formats are produced by ftimes(1) and tarmap(1).  If the
+input does not contain the 'mode' field, you will need to specify the
+'NoMode' option to prevent a fatal error.  The reason for this is that
+directories and special files should generally be ignored when sizing
+map data.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d delimiter>
+
+Specifies the input field delimiter.  Valid delimiters include the
+following characters: tab ('\t'), space (' '), comma (','), colon
+(':'), semi-colon (';'), equal ('='), and pipe ('|').  The default
+delimiter is a pipe.  Note that parse errors are likely to occur if
+the specified delimiter appears in any of the field values.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file. A value of '-' will cause the
+program to read from stdin.
+
+=item B<[-i count]>
+
+Specifies the number of leading input lines to ignore.
+
+=item B<-l field,[field[,...]]>
+
+Specifies the list of valid input fields.  This option is only needed
+in cases where the input contains unknown fields.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't print warning messages.
+
+=item DeriveHeader
+
+Construct an artificial header from the list of input fields specified
+in the B<-l> command line argument.  This option is useful in cases
+where the input file does not contain its own header.  The artificial
+header is constructed by joining the input fields (in the order they
+were specified).
+
+=item NoHeader
+
+Don't print an output header.
+
+=item NoMode
+
+Allow processing to continue even if the input has no 'mode' field.
+
+=back
+
+=item B<-M pattern>
+
+Specifies a pattern that is to be applied to the input records.  Any
+records not matched by the pattern will be discarded.  Use the B<-v>
+option to invert the sense of the match.
+
+=item B<-m pattern-file>
+
+Specifies a file containing zero or more patterns, one per line, that
+are to be applied to the input records.  Any records not matched by
+the pattern will be discarded.  Use the B<-v> option to invert the
+sense of the match.
+
+=item B<-t template>
+
+Specifies a template for an alternate output format.  All occurrences
+of '\n', '\r', or '\t' will be converted to newline, carriage return,
+and tab, respectively.  The value '%%' will be converted to '%'.
+
+The following tokens may be used to create a custom template:
+%bytes, %KB, %MB, %GB, %TB, and %files.
+
+=item B<-v>
+
+Invert the sense of pattern matching -- similar to the way that
+egrep(1) works.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1) and tarmap(1)
+
+=head1 HISTORY 
+
+This utility was initially written to assist in sizing calculations in
+a case where we needed to pull a lot of files from a number of servers
+in a production environment.
+
+This utility first appeared in FTimes 3.9.0. 
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

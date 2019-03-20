@@ -1,0 +1,22 @@
+=item B<AnalyzeMaxDps>: [0-2097152]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeMaxDps> is optional.  It instructs the analysis engine to
+throttle the Data Processing Speed (DPS) to the specified number of KB
+per second.  This capability is useful for systems that are sensitive
+to the load imposed by running this utility.  The default value is
+zero, which means do not throttle the DPS.
+
+Note: This is a best-effort control.  In other words, there is no
+guarantee that the final DPS will precisely match the specified limit.
+
+Note: This control has no influence over the priority of the executing
+process.
+
+Note: The upper limit is fixed according to following relation:
+2^31/1024, which guarantees that a signed integer can represent the
+maximum DPS as either KB/s or B/s.
+
+Note: Support for this control was added in version 3.9.0.
+

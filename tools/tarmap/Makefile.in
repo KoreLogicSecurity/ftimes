@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.1 2006/07/24 05:20:38 mavrik Exp $
+# $Id: Makefile.in,v 1.3 2011/11/06 23:13:21 mavrik Exp $
 #
 ########################################################################
 #
@@ -16,8 +16,9 @@ CFLAGS			= @CFLAGS@
 exec_prefix		= @exec_prefix@
 EXTENSION		= @extension@
 INSTALL			= @INSTALL@
+INSTALL_PREFIX		= ${DESTDIR}${PREFIX}/bin
 LIBS			= @LIBS@
-prefix			= @prefix@
+PREFIX			= @prefix@
 PROGRAM			= tarmap${EXTENSION}
 srcdir			= @srcdir@
 VPATH			= ${srcdir}
@@ -27,7 +28,7 @@ AP_SRCS			= @ap_srcs@
 
 INCFLAGS		= -I.
 
-INCS			= ${AP_INCS} ktypes.h md5.h sha1.h tarmap.h
+INCS			= ${AP_INCS} md5.h sha1.h tarmap.h
 
 LIBFLAGS		= ${LIBS}
 
@@ -39,9 +40,11 @@ all: ${PROGRAM}
 
 test: ${PROGRAM}
 
-install: ${PROGRAM}
-	@umask 022 ; if [ ! -d ${bindir} ] ; then mkdir -p ${bindir} ; fi
-	@${INSTALL} -m 755 ${PROGRAM} ${bindir}
+install-prefix:
+	@umask 22 ; if [ ! -d ${INSTALL_PREFIX} ] ; then mkdir -p ${INSTALL_PREFIX} ; fi
+
+install: ${PROGRAM} install-prefix
+	@${INSTALL} -m 755 ${PROGRAM} ${INSTALL_PREFIX}
 
 clean:
 	rm -f ${PROGRAM} ${OBJS} ${PROGRAM}.core core

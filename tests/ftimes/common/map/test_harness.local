@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.2 2006/09/06 16:51:10 mavrik Exp $
+# $Id: test_harness.local,v 1.3 2009/03/20 17:24:39 mavrik Exp $
 #
 ######################################################################
 
@@ -966,7 +966,7 @@ sub Check_md5_null
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -1057,7 +1057,7 @@ sub Check_md5_alphabet
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -1148,7 +1148,7 @@ sub Check_md5_alphanumeric
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -1239,7 +1239,7 @@ sub Check_md5_1024_As
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -1330,7 +1330,7 @@ sub Check_md5_1024_binary
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -1487,7 +1487,7 @@ sub Check_md5_nsrl_vectors
         next;
       }
       my $sFile = $sDir . "/" . basename($sName);
-      if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+      if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
       {
         return "fail";
       }
@@ -1549,7 +1549,7 @@ sub Check_sha1_null
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -1640,7 +1640,7 @@ sub Check_sha1_alphabet
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -1731,7 +1731,7 @@ sub Check_sha1_alphanumeric
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -1822,7 +1822,7 @@ sub Check_sha1_1024_As
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -1913,7 +1913,7 @@ sub Check_sha1_1024_binary
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -2070,7 +2070,7 @@ sub Check_sha1_nsrl_vectors
         next;
       }
       my $sFile = $sDir . "/" . basename($sName);
-      if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+      if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
       {
         return "fail";
       }
@@ -2132,7 +2132,7 @@ sub Check_sha256_null
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -2223,7 +2223,7 @@ sub Check_sha256_alphabet
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -2314,7 +2314,7 @@ sub Check_sha256_alphanumeric
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -2405,7 +2405,7 @@ sub Check_sha256_1024_As
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -2496,7 +2496,7 @@ sub Check_sha256_1024_binary
       return "fail";
     }
 
-    if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+    if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
     {
       return "fail";
     }
@@ -2653,7 +2653,7 @@ sub Check_sha256_nsrl_vectors
         next;
       }
       my $sFile = $sDir . "/" . basename($sName);
-      if (!open(PH, "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile |"))
+      if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
       {
         return "fail";
       }

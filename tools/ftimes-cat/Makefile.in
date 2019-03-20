@@ -1,0 +1,57 @@
+########################################################################
+#
+# $Id: Makefile.in,v 1.2 2011/11/06 23:13:20 mavrik Exp $
+#
+########################################################################
+#
+# Purpose: Makefile for ftimes-cat.
+#
+########################################################################
+
+#.SILENT:
+
+bindir			= @bindir@
+CC			= @CC@
+CFLAGS			= @CFLAGS@
+exec_prefix		= @exec_prefix@
+EXTENSION		= @extension@
+INSTALL			= @INSTALL@
+INSTALL_PREFIX		= ${DESTDIR}${PREFIX}/bin
+LIBS			= @LIBS@
+PREFIX			= @prefix@
+PROGRAM			= ftimes-cat${EXTENSION}
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
+
+INCFLAGS		= -I.
+
+INCS			= ftimes-cat.h
+
+LIBFLAGS		= ${LIBS}
+
+OBJS			= ${SRCS:.c=.o}
+
+SRCS			= ftimes-cat.c
+
+all: ${PROGRAM}
+
+test: ${PROGRAM}
+
+install-prefix:
+	@umask 22 ; if [ ! -d ${INSTALL_PREFIX} ] ; then mkdir -p ${INSTALL_PREFIX} ; fi
+
+install: ${PROGRAM} install-prefix
+	@${INSTALL} -m 755 ${PROGRAM} ${INSTALL_PREFIX}
+
+clean:
+	rm -f ${PROGRAM} ${OBJS} ${PROGRAM}.core core
+
+clean-all: clean
+	rm -f Makefile
+
+${PROGRAM}: ${OBJS}
+	${CC} ${OBJS} -o $@ ${CFLAGS} ${INCFLAGS} ${LIBFLAGS}
+
+.c.o:
+	${CC} ${CFLAGS} ${INCFLAGS} -c $<
+

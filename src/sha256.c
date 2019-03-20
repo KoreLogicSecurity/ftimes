@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sha256.c,v 1.3 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: sha256.c,v 1.11 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2006-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2006-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -84,7 +84,7 @@ SHA256HashToHex(unsigned char *pucHash, char *pcHexHash)
  ***********************************************************************
  */
 int
-SHA256HashStream(FILE *pFile, unsigned char *pucSHA256)
+SHA256HashStream(FILE *pFile, unsigned char *pucSHA256, APP_UI64 *pui64Size)
 {
   unsigned char       aucData[SHA256_READ_SIZE];
 #ifdef SHA256_PRE_MEMSET_MEMCPY
@@ -110,6 +110,7 @@ SHA256HashStream(FILE *pFile, unsigned char *pucSHA256)
 #endif
     return -1;
   }
+  *pui64Size += (APP_UI64) iNRead;
   SHA256Cycle(&sSHA256Context, aucData, iNRead);
   SHA256Omega(&sSHA256Context, pucSHA256);
   return 0;
@@ -183,10 +184,10 @@ SHA256Alpha(SHA256_CONTEXT *psSHA256Context)
  ***********************************************************************
  */
 void
-SHA256Cycle(SHA256_CONTEXT *psSHA256Context, unsigned char *pucData, K_UINT32 ui32Length)
+SHA256Cycle(SHA256_CONTEXT *psSHA256Context, unsigned char *pucData, APP_UI32 ui32Length)
 {
   unsigned char      *pucTemp;
-  K_UINT32            ui32;
+  APP_UI32            ui32;
 
   /*-
    *********************************************************************
@@ -195,7 +196,7 @@ SHA256Cycle(SHA256_CONTEXT *psSHA256Context, unsigned char *pucData, K_UINT32 ui
    *
    *********************************************************************
    */
-  psSHA256Context->ui64MessageLength += (K_UINT64) ui32Length;
+  psSHA256Context->ui64MessageLength += (APP_UI64) ui32Length;
 
   /*-
    *********************************************************************
@@ -382,17 +383,17 @@ SHA256Omega(SHA256_CONTEXT *psSHA256Context, unsigned char *pucSHA256)
 void
 SHA256Grind(SHA256_CONTEXT *psSHA256Context, unsigned char *pucData)
 {
-  K_UINT32            a;
-  K_UINT32            b;
-  K_UINT32            c;
-  K_UINT32            d;
-  K_UINT32            e;
-  K_UINT32            f;
-  K_UINT32            g;
-  K_UINT32            h;
-  K_UINT32            W[64];
-  K_UINT32            T1;
-  K_UINT32            T2;
+  APP_UI32            a;
+  APP_UI32            b;
+  APP_UI32            c;
+  APP_UI32            d;
+  APP_UI32            e;
+  APP_UI32            f;
+  APP_UI32            g;
+  APP_UI32            h;
+  APP_UI32            W[64];
+  APP_UI32            T1;
+  APP_UI32            T2;
   int                 t;
 
   /*-

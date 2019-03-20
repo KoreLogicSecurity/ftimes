@@ -1,15 +1,63 @@
 /*-
  ***********************************************************************
  *
- * $Id: time.c,v 1.9 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: time.c,v 1.16 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
+
+/*-
+ ***********************************************************************
+ *
+ * TimeGetTimeValue
+ *
+ ***********************************************************************
+ */
+int
+TimeGetTimeValue(struct timeval *psTimeValue)
+{
+#ifdef WIN32
+  FILETIME            sFileTimeNow = { 0 };
+  __int64             i64Now = 0;
+#endif
+
+  psTimeValue->tv_sec  = 0;
+  psTimeValue->tv_usec = 0;
+#ifdef WIN32
+  GetSystemTimeAsFileTime(&sFileTimeNow);
+  i64Now = (((__int64) sFileTimeNow.dwHighDateTime) << 32) | sFileTimeNow.dwLowDateTime;
+  i64Now -= UNIX_EPOCH_IN_NT_TIME;
+  i64Now /= 10;
+  psTimeValue->tv_sec  = (long) (i64Now / 1000000);
+  psTimeValue->tv_usec = (long) (i64Now % 1000000);
+  return (ER_OK);
+#else
+  return gettimeofday(psTimeValue, NULL);
+#endif
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * TimeGetTimeValueAsDouble
+ *
+ ***********************************************************************
+ */
+double
+TimeGetTimeValueAsDouble(void)
+{
+  struct timeval      sTimeValue;
+
+  TimeGetTimeValue(&sTimeValue);
+  return (double) sTimeValue.tv_sec + (double) sTimeValue.tv_usec * 0.000001;
+}
+
 
 /*-
  ***********************************************************************

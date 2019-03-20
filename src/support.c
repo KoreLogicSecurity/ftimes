@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: support.c,v 1.30 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: support.c,v 1.61 2012/04/23 14:17:22 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -27,60 +27,53 @@ static int (*NCompareFunction) () = strncmp;
  ***********************************************************************
  */
 FILE_LIST *
-SupportAddListItem(char *pcPath, FILE_LIST *psHead, char *pcError)
+SupportAddListItem(FILE_LIST *psItem, FILE_LIST *psHead, char *pcError)
 {
   const char          acRoutine[] = "SupportAddListItem()";
-  int                 iLength;
-  FILE_LIST          *psNewLink;
-  FILE_LIST          *psCurrent;
-  FILE_LIST          *psTail;
+  FILE_LIST          *psCurrent = NULL;
+  FILE_LIST          *psTail = NULL;
 
-  iLength = strlen(pcPath);
-  if (iLength < 1)
+  /*-
+   *********************************************************************
+   *
+   * Check that the item is not NULL.
+   *
+   *********************************************************************
+   */
+  if (psItem == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length less than 1 byte.", acRoutine, iLength);
-    return NULL;
-  }
-
-  if (iLength > FTIMES_MAX_PATH - 1)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", acRoutine, iLength, FTIMES_MAX_PATH - 1);
-    return NULL;
-  }
-
-  psTail = psNewLink = (FILE_LIST *) malloc(sizeof(FILE_LIST)); /* The caller must free this storage. */
-  if (psNewLink == NULL)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: NULL input. That shouldn't happen.", acRoutine);
     return NULL;
   }
 
   /*-
    *********************************************************************
    *
-   * If the head is NULL, create a new link and insert path.
+   * If the head is NULL, return the new item as the head.
    *
    *********************************************************************
    */
-  if ((psCurrent = psHead) == NULL)
+  if (psHead == NULL)
   {
-    psHead = psNewLink;
+    return psItem;
   }
-  else
+
+  /*-
+   *********************************************************************
+   *
+   * Otherwise, find the tail, and append the new item to it.
+   *
+   *********************************************************************
+   */
+  for (psCurrent = psTail = psHead; psCurrent != NULL; psCurrent = psCurrent->psNext)
   {
-    while (psCurrent != NULL)
+    if (psCurrent->psNext == NULL)
     {
-      if (psCurrent->psNext == NULL)
-      {
-        psTail = psCurrent;
-      }
-      psCurrent = psCurrent->psNext;
+      psTail = psCurrent;
     }
-    psTail->psNext = psNewLink;
   }
-  psTail = psNewLink;
-  psTail->psNext = NULL;
-  strncpy((char *) &psTail->acPath, (char *) pcPath, FTIMES_MAX_PATH);
+  psTail->psNext = psItem;
+
   return psHead;
 }
 
@@ -96,11 +89,42 @@ int
 SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcListName, char *pcError)
 {
   const char          acRoutine[] = "SupportAddToList()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acLocalPath[FTIMES_MAX_PATH];
-  int                 i;
-  int                 iLength;
-  FILE_LIST          *psHead;
+  int                 iIndex = 0;
+  int                 iLocalIndex = 0;
+  int                 iLength = 0;
+  int                 iType = FILE_LIST_REGULAR;
+  FILE_LIST          *psHead = NULL;
+  FILE_LIST          *psItem = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Make sure that the path has a valid length.
+   *
+   *********************************************************************
+   */
+  iLength = strlen(pcPath);
+  if (iLength < 1 || iLength > FTIMES_MAX_PATH - 1)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: List = [%s], Length = [%d]: Path must be at least 1 byte and less than %d bytes long.", acRoutine, pcListName, iLength, FTIMES_MAX_PATH);
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Check to see if this is a URL-encoded path. If it is, advance the
+   * index to skip over the "file://" prefix, and set the path type.
+   *
+   *********************************************************************
+   */
+  if (strncmp(pcPath, "file://", 7) == 0)
+  {
+    iIndex = 7;
+    iType = FILE_LIST_ENCODED;
+  }
 
   /*-
    *********************************************************************
@@ -110,9 +134,12 @@ SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcListName, char *pcEr
    *********************************************************************
    */
 #ifdef WIN32
-    if (!(isalpha((int) pcPath[0]) && pcPath[1] == ':'))
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//    if (!(isalpha((int) pcPath[iIndex]) && pcPath[iIndex + 1] == ':'))
+    if (!(isalpha((int) pcPath[iIndex]) && pcPath[iIndex + 1] == ':' && pcPath[iIndex + 2] == FTIMES_SLASHCHAR))
+//END (\\?\)
 #else
-    if (pcPath[0] != FTIMES_SLASHCHAR)
+    if (pcPath[iIndex] != FTIMES_SLASHCHAR)
 #endif
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: List = [%s], Item = [%s]: A full path is required.", acRoutine, pcListName, pcPath);
@@ -126,14 +153,24 @@ SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcListName, char *pcEr
    *
    *********************************************************************
    */
-  for (i = 0, iLength = 0, memset(acLocalPath, 0, FTIMES_MAX_PATH); i < (int) strlen(pcPath); i++)
+  for (iLocalIndex = 0; iIndex < iLength; iIndex++)
   {
-    if (i > 0 && pcPath[i] == FTIMES_SLASHCHAR && pcPath[i - 1] == FTIMES_SLASHCHAR)
+    if
+    (
+      (
+        (iType == FILE_LIST_REGULAR && iIndex > 0) ||
+        (iType == FILE_LIST_ENCODED && iIndex > 7)
+      ) &&
+      pcPath[iIndex]     == FTIMES_SLASHCHAR &&
+      pcPath[iIndex - 1] == FTIMES_SLASHCHAR
+    )
     {
       continue;
     }
-    acLocalPath[iLength++] = pcPath[i];
+    acLocalPath[iLocalIndex++] = pcPath[iIndex];
   }
+  acLocalPath[iLocalIndex] = 0;
+  iLength = iLocalIndex;
 
   /*-
    *********************************************************************
@@ -142,7 +179,13 @@ SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcListName, char *pcEr
    *
    *********************************************************************
    */
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+#ifdef WIN32
+  if (strcmp(&acLocalPath[2], FTIMES_SLASH) != 0)
+#else
   if (strcmp(acLocalPath, FTIMES_SLASH) != 0)
+#endif
+//END (\\?\)
   {
     while (acLocalPath[iLength - 1] == FTIMES_SLASHCHAR && iLength > 1)
     {
@@ -153,16 +196,31 @@ SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcListName, char *pcEr
   /*-
    *********************************************************************
    *
+   * Allocate and initialize a new item.
+   *
+   *********************************************************************
+   */
+  psItem = SupportNewListItem(acLocalPath, iType, acLocalError);
+  if (psItem == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: List = [%s], Item = [%s]: %s", acRoutine, pcListName, pcPath, acLocalError);
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
    * If this is not a duplicate item, add it to the list.
    *
    *********************************************************************
    */
-  if (SupportMatchExclude(*ppsList, acLocalPath) == NULL)
+  if (SupportMatchExclude(*ppsList, psItem->pcRegularPath) == NULL)
   {
-    psHead = SupportAddListItem(acLocalPath, *ppsList, acLocalError);
+    psHead = SupportAddListItem(psItem, *ppsList, acLocalError);
     if (psHead == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: List = [%s], Item = [%s]: %s", acRoutine, pcListName, pcPath, acLocalError);
+      SupportFreeListItem(psItem);
       return ER;
     }
     if (*ppsList == NULL)
@@ -281,14 +339,14 @@ int
 SupportCheckList(FILE_LIST *psHead, char *pcListName, char *pcError)
 {
   const char          acRoutine[] = "SupportCheckList()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   FILE_LIST          *psList;
 
   for (psList = psHead; psList != NULL; psList = psList->psNext)
   {
-    if (SupportGetFileType(psList->acPath, acLocalError) == FTIMES_FILETYPE_ERROR)
+    if (SupportGetFileType(psList->pcRegularPath, acLocalError) == FTIMES_FILETYPE_ERROR)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: List = [%s], Item = [%s]: %s", acRoutine, pcListName, psList->acPath, acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: List = [%s], NeuteredItem = [%s]: %s", acRoutine, pcListName, psList->pcEncodedPath, acLocalError);
       return ER;
     }
   }
@@ -368,7 +426,7 @@ void
 SupportDisplayRunStatistics(FTIMES_PROPERTIES *psProperties)
 {
   char                acMessage[MESSAGE_SIZE];
-  time_t              stopTime;
+  double              dStopTime = 0;
 
   /*-
    *********************************************************************
@@ -377,7 +435,7 @@ SupportDisplayRunStatistics(FTIMES_PROPERTIES *psProperties)
    *
    *********************************************************************
    */
-  stopTime = time(NULL);
+  dStopTime = TimeGetTimeValueAsDouble();
 
   snprintf(acMessage, MESSAGE_SIZE, "Warnings=%d", ErrorGetWarnings());
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
@@ -385,21 +443,21 @@ SupportDisplayRunStatistics(FTIMES_PROPERTIES *psProperties)
   snprintf(acMessage, MESSAGE_SIZE, "Failures=%d", ErrorGetFailures());
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
-  if (psProperties->tStartTime == ER || stopTime == ER)
-  {
-    snprintf(acMessage, MESSAGE_SIZE, "RunEpoch=NA");
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "Duration=%.6f (s)", (double) (dStopTime - psProperties->dStartTime));
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
-    snprintf(acMessage, MESSAGE_SIZE, "Duration=NA");
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
-  }
-  else
+  switch (psProperties->iRunMode)
   {
-    snprintf(acMessage, MESSAGE_SIZE, "RunEpoch=%s %s %s", psProperties->acStartDate, psProperties->acStartTime, psProperties->acStartZone);
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
-
-    snprintf(acMessage, MESSAGE_SIZE, "Duration=%d", (int) (stopTime - psProperties->tStartTime));
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    case FTIMES_DIGAUTO:
+    case FTIMES_DIGMODE:
+    case FTIMES_MAPAUTO:
+    case FTIMES_MAPMODE:
+    case FTIMES_MADMODE:
+      snprintf(acMessage, MESSAGE_SIZE, "AnalysisTime=%.6f (s)", AnalyzeGetAnalysisTime());
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+      snprintf(acMessage, MESSAGE_SIZE, "AverageDps=%.2f (KB/s)", AnalyzeGetDps());
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+      break;
   }
 }
 
@@ -503,7 +561,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
 
   if (iLength > iFullPathSize - 1)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Directory = [%s], Length = [%d]: Length exceeds %d bytes.", acRoutine, pcPath, iLength, iFullPathSize - 1);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Directory = [%s]: Length (%d) exceeds %d bytes.", acRoutine, pcPath, iLength, iFullPathSize - 1);
     return ER_Length;
   }
 
@@ -620,7 +678,7 @@ int
 SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceExpansion, char *pcError)
 {
   const char          acRoutine[] = "SupportExpandPath()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char               *pcTempFile;
   char               *pcTempPath;
   int                 iError;
@@ -636,15 +694,28 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
 
   if (iLength > iFullPathSize - 1)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Length = [%d]: Length exceeds %d bytes.", acRoutine, pcPath, iLength, iFullPathSize - 1);
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: Length (%d) exceeds %d bytes.", acRoutine, pcPath, iLength, iFullPathSize - 1);
     return ER_Length;
   }
 
   /*-
    *********************************************************************
    *
-   * When forced expansion is off (i.e. 0), fully qualified paths will
-   * be copied directly into the output buffer. Relative paths must be
+   * If the path is URL-encoded, no expansion is performed.
+   *
+   *********************************************************************
+   */
+  if (strncmp(pcPath, "file://", 7) == 0)
+  {
+    strncpy(pcFullPath, pcPath, iFullPathSize);
+    return ER_OK;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * If forced expansion is disabled, fully qualified paths are copied
+   * directly into the output buffer. However, relative paths must be
    * expanded in any case.
    *
    *********************************************************************
@@ -772,9 +843,10 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
      *
      *******************************************************************
      */
-    if ((int)(strlen(pcFullPath) + strlen(FTIMES_SLASH) + strlen(pcTempFile)) > iFullPathSize - 1)
+    iLength = strlen(pcFullPath) + strlen(FTIMES_SLASH) + strlen(pcTempFile);
+    if (iLength > iFullPathSize - 1)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: Length would exceed %d bytes.", acRoutine, pcPath, iFullPathSize - 1);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: Length (%d) exceeds %d bytes.", acRoutine, pcPath, iLength, iFullPathSize - 1);
       free(pcTempPath);
       free(pcTempFile);
       return ER_Length;
@@ -805,6 +877,31 @@ SupportFreeData(void *pcData)
   if (pcData != NULL)
   {
     free(pcData);
+  }
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * SupportFreeListItem
+ *
+ ***********************************************************************
+ */
+void
+SupportFreeListItem(FILE_LIST *psItem)
+{
+  if (psItem != NULL)
+  {
+    if (psItem->pcRegularPath != NULL)
+    {
+      free(psItem->pcRegularPath);
+    }
+    if (psItem->pcEncodedPath != NULL)
+    {
+      free(psItem->pcEncodedPath);
+    }
+    free(psItem);
   }
 }
 
@@ -993,40 +1090,6 @@ SupportGetHostname(void)
 /*-
  ***********************************************************************
  *
- * SupportGetMyVersion
- *
- ***********************************************************************
- */
-char *
-SupportGetMyVersion(void)
-{
-#define MAX_VERSION_LENGTH 256
-  static char         acMyVersion[MAX_VERSION_LENGTH] = "NA";
-  int                 iIndex = 0;
-  int                 iLength = MAX_VERSION_LENGTH;
-
-  iIndex += snprintf(&acMyVersion[iIndex], iLength, "%s %s", PROGRAM_NAME, VERSION);
-  iLength -= iIndex;
-#ifdef USE_PCRE
-  iIndex += snprintf(&acMyVersion[iIndex], iLength, " pcre");
-  iLength -= strlen(" pcre");
-#endif
-#ifdef USE_SSL
-  iIndex += snprintf(&acMyVersion[iIndex], iLength, " ssl");
-  iLength -= strlen(" ssl");
-#endif
-#ifdef USE_XMAGIC
-  iIndex += snprintf(&acMyVersion[iIndex], iLength, " xmagic");
-  iLength -= strlen(" xmagic");
-#endif
-  iIndex += snprintf(&acMyVersion[iIndex], iLength, " %d-bit", (int) (sizeof(&SupportGetMyVersion) * 8));
-  return acMyVersion;
-}
-
-
-/*-
- ***********************************************************************
- *
  * SupportGetSystemOS
  *
  ***********************************************************************
@@ -1122,17 +1185,17 @@ FILE_LIST *
 SupportIncludeEverything(char *pcError)
 {
   const char          acRoutine[] = "SupportIncludeEverything()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  FILE_LIST          *psHead;
-
+  char                acLocalError[MESSAGE_SIZE] = "";
+  FILE_LIST          *psHead = NULL;
+  FILE_LIST          *psItem = NULL;
 #ifdef WIN32
   char                acDriveList[26 * 4 + 2];
   char               *pcDrive;
   int                 iLength;
   int                 iTempLength;
+#endif
 
-  psHead = NULL;
-
+#ifdef WIN32
   if (GetLogicalDriveStrings(26 * 4 + 2, acDriveList) == 0)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: GetLogicalDriveStrings: %u", acRoutine, GetLastError());
@@ -1151,15 +1214,39 @@ SupportIncludeEverything(char *pcError)
   for (pcDrive = acDriveList; *pcDrive; pcDrive += iLength + 1)
   {
     iLength = iTempLength = strlen(pcDrive);
-    while (pcDrive[iTempLength - 1] == FTIMES_SLASHCHAR)
+//THIS CHANGE IS PART OF EXTENDED PREFIX SUPPORT (\\?\)
+//    while (pcDrive[iTempLength - 1] == FTIMES_SLASHCHAR)
+//    {
+//      pcDrive[--iTempLength] = 0;
+//    }
+//END (\\?\)
+
+    /*-
+     *******************************************************************
+     *
+     * Allocate and initialize a new list item.
+     *
+     *******************************************************************
+     */
+    psItem = SupportNewListItem(pcDrive, FILE_LIST_REGULAR, acLocalError);
+    if (psItem == NULL)
     {
-      pcDrive[--iTempLength] = 0;
+      snprintf(pcError, MESSAGE_SIZE, "%s: Include = [%s]: %s", acRoutine, FTIMES_ROOT_PATH, acLocalError);
+      return NULL;
     }
 
-    psHead = SupportAddListItem(pcDrive, psHead, acLocalError);
+    /*-
+     *******************************************************************
+     *
+     * Now, add it to the list.
+     *
+     *******************************************************************
+     */
+    psHead = SupportAddListItem(psItem, psHead, acLocalError);
     if (psHead == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Include = [%s]: %s", acRoutine, pcDrive, acLocalError);
+      SupportFreeListItem(psItem);
       return NULL;
     }
   }
@@ -1168,16 +1255,37 @@ SupportIncludeEverything(char *pcError)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: No supported drives found.", acRoutine);
   }
-#endif
-#ifdef UNIX
-
-  psHead = SupportAddListItem(FTIMES_ROOT_PATH, NULL, acLocalError);
-  if (psHead == NULL)
+#else
+  /*-
+   *********************************************************************
+   *
+   * Allocate and initialize a new list item.
+   *
+   *********************************************************************
+   */
+  psItem = SupportNewListItem(FTIMES_ROOT_PATH, FILE_LIST_REGULAR, acLocalError);
+  if (psItem == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Include = [%s]: %s", acRoutine, FTIMES_ROOT_PATH, acLocalError);
     return NULL;
   }
+
+  /*-
+   *********************************************************************
+   *
+   * Now, add it to the list.
+   *
+   *********************************************************************
+   */
+  psHead = SupportAddListItem(psItem, psHead, acLocalError);
+  if (psHead == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: Include = [%s]: %s", acRoutine, FTIMES_ROOT_PATH, acLocalError);
+    SupportFreeListItem(psItem);
+    return NULL;
+  }
 #endif
+
   return psHead;
 }
 
@@ -1204,7 +1312,7 @@ SupportMakeName(char *pcDir, char *pcBaseName, char *pcBaseNameSuffix, char *pcE
 
   if (iLength > FTIMES_MAX_PATH - 1)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Filename would exceed %d bytes", acRoutine, (FTIMES_MAX_PATH - 1));
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length (%d) exceeds %d bytes", acRoutine, iLength, (FTIMES_MAX_PATH - 1));
     return ER_Length;
   }
   snprintf(pcFilename, FTIMES_MAX_PATH, "%s%s%s%s%s%s",
@@ -1234,7 +1342,7 @@ SupportMatchExclude(FILE_LIST *psHead, char *pcPath)
 
   for (psList = psHead; psList != NULL; psList = psList->psNext)
   {
-    if (CompareFunction(psList->acPath, pcPath) == 0)
+    if (CompareFunction(psList->pcRegularPath, pcPath) == 0)
     {
       return psList;
     }
@@ -1257,26 +1365,26 @@ SupportMatchSubTree(FILE_LIST *psHead, FILE_LIST *psTarget)
   int                 y;
   FILE_LIST          *psList;
 
-  x = strlen(psTarget->acPath);
+  x = psTarget->iLength;
   for (psList = psHead; psList != NULL; psList = psList->psNext)
   {
-    y = strlen(psList->acPath);
-    if (NCompareFunction(psTarget->acPath, psList->acPath, MIN(x, y)) == 0)
+    y = psList->iLength;
+    if (NCompareFunction(psTarget->pcRegularPath, psList->pcRegularPath, MIN(x, y)) == 0)
     {
       if (x <= y)
       {
-        if ((psList->acPath[x - 1] == FTIMES_SLASHCHAR && psList->acPath[x] != FTIMES_SLASHCHAR) ||
-            (psList->acPath[x - 1] != FTIMES_SLASHCHAR && psList->acPath[x] == FTIMES_SLASHCHAR) ||
-            (psList->acPath[x - 1] == FTIMES_SLASHCHAR && psList->acPath[x] == FTIMES_SLASHCHAR))
+        if ((psList->pcRegularPath[x - 1] == FTIMES_SLASHCHAR && psList->pcRegularPath[x] != FTIMES_SLASHCHAR) ||
+            (psList->pcRegularPath[x - 1] != FTIMES_SLASHCHAR && psList->pcRegularPath[x] == FTIMES_SLASHCHAR) ||
+            (psList->pcRegularPath[x - 1] == FTIMES_SLASHCHAR && psList->pcRegularPath[x] == FTIMES_SLASHCHAR))
         {
           return psList;
         }
       }
       else
       {
-        if ((psTarget->acPath[y - 1] == FTIMES_SLASHCHAR && psTarget->acPath[y] != FTIMES_SLASHCHAR) ||
-            (psTarget->acPath[y - 1] != FTIMES_SLASHCHAR && psTarget->acPath[y] == FTIMES_SLASHCHAR) ||
-            (psTarget->acPath[y - 1] == FTIMES_SLASHCHAR && psTarget->acPath[y] == FTIMES_SLASHCHAR))
+        if ((psTarget->pcRegularPath[y - 1] == FTIMES_SLASHCHAR && psTarget->pcRegularPath[y] != FTIMES_SLASHCHAR) ||
+            (psTarget->pcRegularPath[y - 1] != FTIMES_SLASHCHAR && psTarget->pcRegularPath[y] == FTIMES_SLASHCHAR) ||
+            (psTarget->pcRegularPath[y - 1] == FTIMES_SLASHCHAR && psTarget->pcRegularPath[y] == FTIMES_SLASHCHAR))
         {
           return psTarget;
         }
@@ -1320,7 +1428,7 @@ SupportNeuterString(char *pcData, int iLength, char *pcError)
   /*-
    *********************************************************************
    *
-   * Neuter non-printables and [|"'`%+]. Convert spaces to '+'. Avoid
+   * Neuter non-printables and [|"'`%+#]. Convert spaces to '+'. Avoid
    * isprint() here because it has led to unexpected results on Windows
    * platforms. In the past, isprint() on certain Windows systems has
    * decided that several characters in the range 0x7f - 0xff are
@@ -1344,6 +1452,7 @@ SupportNeuterString(char *pcData, int iLength, char *pcError)
       case '`':
       case '%':
       case '+':
+      case '#':
         n += sprintf(&pcNeutered[n], "%%%02x", (unsigned char) pcData[i]);
         break;
       case ' ':
@@ -1361,83 +1470,6 @@ SupportNeuterString(char *pcData, int iLength, char *pcError)
 }
 
 
-#ifdef WIN32
-/*-
- ***********************************************************************
- *
- * SupportNeuterStringW
- *
- ***********************************************************************
- */
-char *
-SupportNeuterStringW(unsigned short *pusData, int iLength, char *pcError)
-{
-  const char          acRoutine[] = "SupportNeuterStringW()";
-  char                cH;
-  char                cL;
-  char               *pcNeutered;
-  int                 i;
-  int                 n;
-
-  /*-
-   *********************************************************************
-   *
-   * The caller is expected to free this memory.
-   *
-   *********************************************************************
-   */
-  pcNeutered = malloc((3 * (2 * iLength)) + 1);
-  if (pcNeutered == NULL)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
-    return NULL;
-  }
-  pcNeutered[0] = 0;
-
-  /*-
-   *********************************************************************
-   *
-   * Neuter high byte, !isprint, and [|"'`%+]. Convert spaces to '+'.
-   *
-   *********************************************************************
-   */
-  for (i = n = 0; i < iLength; i++)
-  {
-    cH = (char) (pusData[i] >> 8);
-    cL = (char) (pusData[i] & 0xff);
-    n += sprintf(&pcNeutered[n], "%%%02x", (unsigned char) cH);
-    if (isprint((int) cL))
-    {
-      switch (cL)
-      {
-      case '|':
-      case '"':
-      case '\'':
-      case '`':
-      case '%':
-      case '+':
-        n += sprintf(&pcNeutered[n], "%%%02x", (unsigned char) cL);
-        break;
-      case ' ':
-        pcNeutered[n++] = '+';
-        break;
-      default:
-        pcNeutered[n++] = cL;
-        break;
-      }
-    }
-    else
-    {
-      n += sprintf(&pcNeutered[n], "%%%02x", (unsigned char) cL);
-    }
-  }
-  pcNeutered[n] = 0;
-
-  return pcNeutered;
-}
-#endif
-
-
 /*-
  ***********************************************************************
  *
@@ -1448,7 +1480,7 @@ SupportNeuterStringW(unsigned short *pusData, int iLength, char *pcError)
 FILE_LIST *
 SupportPruneList(FILE_LIST *psList, char *pcListName)
 {
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   FILE_LIST          *psListHead;
   FILE_LIST          *psListTree;
   FILE_LIST          *psListKill;
@@ -1492,7 +1524,7 @@ SupportPruneList(FILE_LIST *psList, char *pcListName)
      */
     if (psListKill != NULL)
     {
-      snprintf(acLocalError, MESSAGE_SIZE, "List = [%s], Item = [%s]: Pruning item because it is part of a larger branch.", pcListName, psListKill->acPath);
+      snprintf(acLocalError, MESSAGE_SIZE, "List = [%s], NeuteredItem = [%s]: Pruning item because it is part of a larger branch.", pcListName, psListKill->pcEncodedPath);
       ErrorHandler(ER_Warning, acLocalError, ERROR_WARNING);
       psListHead = SupportDropListItem(psListHead, psListKill);
       psListTree = psListHead;
@@ -1519,7 +1551,7 @@ SupportRequirePrivilege(char *pcError)
   const char          acRoutine[] = "SupportRequirePrivilege()";
 
 #ifdef WINNT
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
 
   if (SupportSetPrivileges(acLocalError) != ER_OK)
   {
@@ -1550,11 +1582,9 @@ SupportRequirePrivilege(char *pcError)
 int
 SupportSetLogLevel(char *pcLevel, int *piLevel, char *pcError)
 {
-  const char          acRoutine[] = "SupportSetLogLevel()";
-
   if ((int) strlen(pcLevel) != 1)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: LogLevel must be %d-%d", acRoutine, MESSAGE_DEBUGGER, MESSAGE_CRITICAL);
+    snprintf(pcError, MESSAGE_SIZE, "Level must be %d-%d.", MESSAGE_DEBUGGER, MESSAGE_CRITICAL);
     return ER_Length;
   }
   switch (pcLevel[0])
@@ -1570,10 +1600,103 @@ SupportSetLogLevel(char *pcLevel, int *piLevel, char *pcError)
     MessageSetLogLevel(*piLevel);
     break;
   default:
-    snprintf(pcError, MESSAGE_SIZE, "%s: LogLevel must be %d-%d", acRoutine, MESSAGE_DEBUGGER, MESSAGE_CRITICAL);
+    snprintf(pcError, MESSAGE_SIZE, "Level must be %d-%d.", MESSAGE_DEBUGGER, MESSAGE_CRITICAL);
     return ER_Length;
     break;
   }
+
+  return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * SupportSetPriority
+ *
+ ***********************************************************************
+ */
+int
+SupportSetPriority(FTIMES_PROPERTIES *psProperties, char *pcError)
+{
+  const char          acRoutine[] = "SupportSetPriority()";
+  char               *pcPriority = NULL;
+  int                 i = 0;
+#ifndef WIN32
+  int                 iError = 0;
+#endif
+
+  /*-
+   *********************************************************************
+   *
+   * A priority specified in the environment trumps one specified in a
+   * config file.
+   *
+   *********************************************************************
+   */
+  pcPriority = FTimesGetEnvValue("FTIMES_PRIORITY");
+  if (pcPriority && strlen(pcPriority) < FTIMES_MAX_PRIORITY_LENGTH)
+  {
+    strncpy(psProperties->acPriority, pcPriority, FTIMES_MAX_PRIORITY_LENGTH);
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * If a priority was specified, convert it into a platform-specific
+   * value and set it. Otherwise, do nothing.
+   *
+   *********************************************************************
+   */
+  if (psProperties->acPriority[0])
+  {
+    if (strcasecmp(psProperties->acPriority, "LOW") == 0)
+    {
+      psProperties->iPriority = FTIMES_PRIORITY_LOW;
+    }
+    else if (strcasecmp(psProperties->acPriority, "BELOW_NORMAL") == 0)
+    {
+      psProperties->iPriority = FTIMES_PRIORITY_BELOW_NORMAL;
+    }
+    else if (strcasecmp(psProperties->acPriority, "NORMAL") == 0)
+    {
+      psProperties->iPriority = FTIMES_PRIORITY_NORMAL;
+    }
+    else if (strcasecmp(psProperties->acPriority, "ABOVE_NORMAL") == 0)
+    {
+      psProperties->iPriority = FTIMES_PRIORITY_ABOVE_NORMAL;
+    }
+    else if (strcasecmp(psProperties->acPriority, "HIGH") == 0)
+    {
+      psProperties->iPriority = FTIMES_PRIORITY_HIGH;
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Priority (%s) must be one of [low|below_normal|normal|above_normal|high].", acRoutine, psProperties->acPriority);
+      return ER;
+    }
+    for (i = 0; i < (int) strlen(psProperties->acPriority); i++)
+    {
+      psProperties->acPriority[i] = tolower(psProperties->acPriority[i]);
+    }
+#ifdef WIN32
+    if (!SetPriorityClass(GetCurrentProcess(), (DWORD) psProperties->iPriority))
+    {
+      char *pcMessage = NULL;
+      ErrorFormatWin32Error(&pcMessage);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SetPriorityClass(): %s", acRoutine, pcMessage);
+      return ER;
+    }
+#else
+    iError = setpriority(PRIO_PROCESS, 0, psProperties->iPriority);
+    if (iError == -1)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: setpriority(): %s", acRoutine, strerror(errno));
+      return ER;
+    }
+#endif
+  }
+
   return ER_OK;
 }
 
@@ -1620,6 +1743,52 @@ SupportSetPrivileges(char *pcError)
   return ER_OK;
 }
 #endif
+
+
+/*-
+ ***********************************************************************
+ *
+ * SupportStringToUInt64
+ *
+ ***********************************************************************
+ */
+int
+SupportStringToUInt64(char *pcData, APP_UI64 *pui64Value, char *pcError)
+{
+  const char          acRoutine[] = "SupportStringTo64BitDecimal()";
+  int                 i = 0;
+  int                 iLength = 0;
+  APP_UI64            ui64Value = 0;
+  APP_UI64            ui64Multiplier = 1;
+
+  iLength = strlen(pcData);
+
+#define SUPPORT_MAX_64BIT_NUMBER_SIZE 20 /* strlen("18446744073709551615") */
+  if (iLength < 1 || iLength > SUPPORT_MAX_64BIT_NUMBER_SIZE)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: The specified number (%s) is either too small or too large to be a valid 64-bit value.", acRoutine, pcData);
+    return ER;
+  }
+
+  for (i = iLength - 1; i >= 0; i--)
+  {
+    switch ((int) pcData[i])
+    {
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+      ui64Value += ((int) pcData[i] - 0x30) * ui64Multiplier;
+      ui64Multiplier *= 10;
+      break;
+    default:
+      snprintf(pcError, MESSAGE_SIZE, "%s: The specified number (%s) contains one or more invalid digits.", acRoutine, pcData);
+      return ER;
+      break;
+    }
+  }
+  *pui64Value = ui64Value;
+
+  return ER_OK;
+}
 
 
 /*-
@@ -1678,7 +1847,7 @@ int
 SupportAddFilter(char *pcFilter, FILTER_LIST **psHead, char *pcError)
 {
   const char          acRoutine[] = "SupportAddFilter()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   FILTER_LIST        *psCurrent = NULL;
   FILTER_LIST        *psFilter = NULL;
 
@@ -1778,17 +1947,19 @@ SupportMatchFilter(FILTER_LIST *psFilterList, char *pcPath)
      *******************************************************************
      *
      * PCRE_NOTEMPTY is used here to squash any attempts to match
-     * empty strings. Only unfettered matches will be accepted as
-     * valid. In particular, a return value of zero will be ignored
-     * eventhough it indicates there was a match. A value of zero
-     * would mean that there was an overflow in ovector, and that
-     * should never happen based on the restriction that no filter
-     * contain capturing subpatterns.
+     * empty strings. Even though a value of zero would mean that that
+     * there was an overflow in ovector, accept those matches as
+     * valid. This should be OK since the elements in ovector are
+     * ignored anyway. Note that any value less than zero is currently
+     * being treated as if it were not a match. If that turns out to
+     * be an issue, this routine will need to be modified such that it
+     * can throw an error, and the upstream code will need to be
+     * adjusted accordingly.
      *
      *******************************************************************
      */
     iError = pcre_exec(psFilter->psPcre, psFilter->psPcreExtra, pcPath, strlen(pcPath), 0, PCRE_NOTEMPTY, aiPcreOVector, PCRE_OVECTOR_ARRAY_SIZE);
-    if (iError > 0)
+    if (iError >= 0)
     {
       return psFilter;
     }
@@ -1862,10 +2033,9 @@ SupportNewFilter(char *pcFilter, char *pcError)
   /*-
    *********************************************************************
    *
-   * Compile and study the regular expression. Then, make sure that
-   * there are no capturing subpatterns. Compile-time options (?imsx)
-   * are not set here because the user can specify them as needed in
-   * the filter.
+   * Compile and study the regular expression. Compile-time options
+   * (?imsx) are not set here because the user can specify them as
+   * needed in the filter.
    *
    *********************************************************************
    */
@@ -1886,9 +2056,9 @@ SupportNewFilter(char *pcFilter, char *pcError)
   iError = pcre_fullinfo(psFilter->psPcre, psFilter->psPcreExtra, PCRE_INFO_CAPTURECOUNT, (void *) &iCaptureCount);
   if (iError == ER_OK)
   {
-    if (iCaptureCount != 0)
+    if (iCaptureCount > PCRE_MAX_CAPTURE_COUNT)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Invalid capture count [%d]. Capturing '()' subpatterns are not allowed in filters. Use '(?:)' if grouping is required.", acRoutine, iCaptureCount);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Invalid capture count [%d]. The maximum number of capturing '()' subpatterns allowed is %d. Use '(?:)' if grouping is required.", acRoutine, iCaptureCount, PCRE_MAX_CAPTURE_COUNT);
       SupportFreeFilter(psFilter);
       return NULL;
     }
@@ -1904,3 +2074,115 @@ SupportNewFilter(char *pcFilter, char *pcError)
   return psFilter;
 }
 #endif
+
+
+/*-
+ ***********************************************************************
+ *
+ * SupportNewListItem
+ *
+ ***********************************************************************
+ */
+FILE_LIST *
+SupportNewListItem(char *pcPath, int iType, char *pcError)
+{
+  const char          acRoutine[] = "SupportNewListItem()";
+  char                acLocalError[MESSAGE_SIZE] = "";
+  int                 iIndex = 0;
+  int                 iLength = 0;
+  FILE_LIST          *psItem = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Check that the input string is not NULL and that it has length.
+   *
+   *********************************************************************
+   */
+  if (pcPath == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: NULL input. That shouldn't happen.", acRoutine);
+    return NULL;
+  }
+
+  iLength = strlen(pcPath);
+  if (iLength < 1)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length must be greater than zero.", acRoutine, iLength);
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Allocate memory for a new list item, and initialize its members.
+   * If the path is encoded (i.e., it was specified using the
+   * "file://" prefix), decode it. Otherwise, just copy it into place.
+   * Once the regular path has been set, neuter it and carry it around
+   * in the structure -- the neutered form is used in various print
+   * statements.
+   *
+   *********************************************************************
+   */
+  psItem = calloc(sizeof(FILE_LIST), 1);
+  if (psItem == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    return NULL;
+  }
+
+  if (iType == FILE_LIST_ENCODED)
+  {
+    psItem->pcRegularPath = HttpUnEscape(pcPath, &iLength, acLocalError);
+    if (psItem->pcRegularPath == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      SupportFreeListItem(psItem);
+      return NULL;
+    }
+/* NOTE: The realloc() below is needed so we can append a NULL byte to the string. HttpUnEscape() does not do that. */
+    psItem->pcRegularPath = realloc(psItem->pcRegularPath, iLength + 1);
+    if (psItem->pcRegularPath == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): %s", acRoutine, strerror(errno));
+      SupportFreeListItem(psItem);
+      return NULL;
+    }
+    psItem->pcRegularPath[iLength] = 0;
+    psItem->iLength = iLength;
+    for (iIndex = 0; iIndex < iLength; iIndex++)
+    {
+      if (psItem->pcRegularPath[iIndex] == 0)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: Path contains a NULL byte, which is not allowed.", acRoutine);
+        SupportFreeListItem(psItem);
+        return NULL;
+      }
+    }
+  }
+  else
+  {
+    psItem->pcRegularPath = calloc(iLength + 1, 1);
+    if (psItem->pcRegularPath == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+      SupportFreeListItem(psItem);
+      return NULL;
+    }
+    strncpy(psItem->pcRegularPath, pcPath, iLength + 1);
+    psItem->iLength = iLength;
+  }
+
+  psItem->pcEncodedPath = SupportNeuterString(psItem->pcRegularPath, psItem->iLength, acLocalError);
+  if (psItem->pcEncodedPath == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    SupportFreeListItem(psItem);
+    return NULL;
+  }
+
+  psItem->iType = iType;
+  psItem->psNext = NULL;
+
+  return psItem;
+}

@@ -1,6 +1,6 @@
 =item B<URLPutURL>: <url>
 
-Applies to B<digfull> and B<mapfull>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<URLPutURL> is optional.  It defines the scheme, user credentials,
 host address, port, and CGI application to be used when making PUT

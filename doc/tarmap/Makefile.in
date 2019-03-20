@@ -9,7 +9,7 @@ VPATH=${SRCDIR}
 
 INSTALL=@INSTALL@
 
-INSTALL_PREFIX=${PREFIX}/man/man1
+INSTALL_PREFIX=${DESTDIR}${PREFIX}/man/man1
 
 HTML_FILE=tarmap.html
 
@@ -19,15 +19,15 @@ MAN_TITLE=TarMap Documentation
 
 POD_FILE=tarmap.pod
 
-SRC_FILES=\
-${SRCDIR}/sections/NAME.pod\
-${SRCDIR}/sections/SYNOPSIS.pod\
-${SRCDIR}/sections/DESCRIPTION.pod\
-${SRCDIR}/sections/MODES-OF-OPERATION.pod\
-${SRCDIR}/sections/RETURN-VALUES.pod\
-${SRCDIR}/sections/EXAMPLES.pod\
-${SRCDIR}/sections/SEE-ALSO.pod\
-${SRCDIR}/sections/AUTHOR.pod\
+SRC_FILES= \
+${SRCDIR}/sections/NAME.pod \
+${SRCDIR}/sections/SYNOPSIS.pod \
+${SRCDIR}/sections/DESCRIPTION.pod \
+${SRCDIR}/sections/MODES-OF-OPERATION.pod \
+${SRCDIR}/sections/RETURN-VALUES.pod \
+${SRCDIR}/sections/EXAMPLES.pod \
+${SRCDIR}/sections/SEE-ALSO.pod \
+${SRCDIR}/sections/AUTHOR.pod \
 ${SRCDIR}/sections/HISTORY.pod
 
 include ${PROJECT_ROOT}/Mk/common-doc-c.mk

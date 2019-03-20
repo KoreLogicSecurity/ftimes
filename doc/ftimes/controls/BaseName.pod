@@ -1,22 +1,20 @@
 =item B<BaseName>: <name|->
 
-Applies to B<digfull>, B<diglean>, B<getmode>, B<mapfull>, and
-B<maplean>.
+Applies to B<dig>, B<get>, B<mad>, and B<map>.
 
 B<BaseName> is required.  It specifies the name prefix that will
 be attached to the various output files.  It also serves as the
 CLIENTID parameter in GET/PING/PUT requests.  The recommended name
 format is one that matches the following regular expression:
 
-    ^[0-9A-Za-z_-]{1,64}$
+    ^[.0-9A-Za-z_-]{1,64}$
 
 This is because nph-ftimes.cgi uses that expression to validate the
 CLIENTID parameter in GET/PING/PUT requests.  Typically, B<BaseName>
 and B<URLUsername> will be the same when basic authentication is
 enabled, but this is not a requirement.
 
-If you're using FTimes in a lean mode, a good naming convention
-would be to use the hostname of the system being baselined.  Also,
-both lean modes allow you to specify a B<BaseName> value of '-'.
+A good naming convention would be to use the hostname of the system
+being baselined.  Also, you may specify a B<BaseName> value of '-'.
 This causes FTimes to write its output to stdout/stderr.
 

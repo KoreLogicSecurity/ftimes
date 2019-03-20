@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.33 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: analyze.c,v 1.57 2012/01/04 03:12:27 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -18,20 +18,42 @@
  *
  ***********************************************************************
  */
-#define ANALYZE_READ_BUFSIZE 0x4000
 #define ANALYZE_BLOCK_MULTIPLIER  3
-#define ANALYZE_BLOCK_SIZE   0x4000
+#define ANALYZE_BLOCK_SIZE   0x8000
 #define ANALYZE_CARRY_SIZE   0x0400
 #define ANALYZE_FIRST_BLOCK       1
 #define ANALYZE_FINAL_BLOCK       2
 
-static K_UINT32       gui32Files;
-static K_UINT64       gui64Bytes;
+static APP_UI32       gui32Files;
+static APP_UI64       gui64ByteCount;
+static APP_UI64       gui64Bytes;
+static APP_UI64       gui64StartOffset;
+static double         gdDps;
+static double         gdAnalysisTime;
 static int            giAnalyzeBlockSize = ANALYZE_BLOCK_SIZE;
 static int            giAnalyzeCarrySize = ANALYZE_CARRY_SIZE;
 #ifdef USE_XMAGIC
 static int            giAnalyzeStepSize = ANALYZE_BLOCK_SIZE;
 #endif
+
+#ifdef WINNT
+static HANDLE         ghFile; /* Needed for memory mapped XMagic. */
+#else
+static int            giFile; /* Needed for memory mapped XMagic. */
+#endif
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeGetAnalysisTime
+ *
+ ***********************************************************************
+ */
+double
+AnalyzeGetAnalysisTime(void)
+{
+  return gdAnalysisTime;
+}
 
 
 /*-
@@ -55,7 +77,7 @@ AnalyzeGetBlockSize(void)
  *
  ***********************************************************************
  */
-K_UINT64
+APP_UI64
 AnalyzeGetByteCount(void)
 {
   return gui64Bytes;
@@ -115,14 +137,42 @@ AnalyzeGetDigSaveBuffer(int iCarrySize, char *pcError)
 /*-
  ***********************************************************************
  *
+ * AnalyzeGetDps
+ *
+ ***********************************************************************
+ */
+double
+AnalyzeGetDps(void)
+{
+  return gdDps;
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * AnalyzeGetFileCount
  *
  ***********************************************************************
  */
-K_UINT32
+APP_UI32
 AnalyzeGetFileCount(void)
 {
   return gui32Files;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeGetStartOffset
+ *
+ ***********************************************************************
+ */
+APP_UI64
+AnalyzeGetStartOffset(void)
+{
+  return gui64StartOffset;
 }
 
 
@@ -224,15 +274,16 @@ AnalyzeGetWorkBuffer(int iBlockSize, char *pcError)
  ***********************************************************************
  */
 int
-AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *pcError)
+AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
   const char          acRoutine[] = "AnalyzeFile()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 i;
   int                 iBlockSize = AnalyzeGetBlockSize();
   int                 iBlockTag;
   int                 iError;
   int                 iNRead;
+  int                 iNToSeek = 0;
   unsigned char      *pucBuffer = NULL;
 #ifdef WINNT
   char               *pcMessage;
@@ -240,7 +291,8 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
   int                 iFile;
 #endif
   FILE               *pFile;
-  K_UINT64            ui64FileSize;
+  APP_UI64            ui64FileSize;
+  APP_UI64            ui64NToSeek = 0;
 
   /*-
    *********************************************************************
@@ -251,23 +303,23 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
    *********************************************************************
    */
 #ifdef WINNT
-  ui64FileSize = (((K_UINT64) psFTData->dwFileSizeHigh) << 32) | psFTData->dwFileSizeLow;
+  ui64FileSize = (((APP_UI64) psFTFileData->dwFileSizeHigh) << 32) | psFTFileData->dwFileSizeLow;
 #else
-  ui64FileSize = (K_UINT64) psFTData->sStatEntry.st_size;
+  ui64FileSize = (APP_UI64) psFTFileData->sStatEntry.st_size;
 #endif
-  if (psProperties->ulFileSizeLimit != 0 && ui64FileSize > (K_UINT64) psProperties->ulFileSizeLimit)
+  if (psProperties->ulFileSizeLimit != 0 && ui64FileSize > (APP_UI64) psProperties->ulFileSizeLimit)
   {
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
     {
-      memset(psFTData->aucFileMd5, 0xff, MD5_HASH_SIZE);
+      memset(psFTFileData->aucFileMd5, 0xff, MD5_HASH_SIZE);
     }
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
     {
-      memset(psFTData->aucFileSha1, 0xff, SHA1_HASH_SIZE);
+      memset(psFTFileData->aucFileSha1, 0xff, SHA1_HASH_SIZE);
     }
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
     {
-      memset(psFTData->aucFileSha256, 0xff, SHA256_HASH_SIZE);
+      memset(psFTFileData->aucFileSha256, 0xff, SHA256_HASH_SIZE);
     }
     return ER_OK;
   }
@@ -298,12 +350,22 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
    * It also simplifies the process for detecting EOF, which wasn't
    * an issue until PCRE support was added.
    *
+   * Note that MapGetFileHandle() is not used here because the desired
+   * access flags differ. Here, we only need to read the file's data.
+   * However, the flags used in MapGetFileHandle() were set to obtain
+   * attributes for as many files as possible. More importantly, they
+   * were not set to read the file's data. Unfortunately, this means
+   * that the same file must be opened twice. We should look for ways
+   * to combine the code so that a given file is only opened once. To
+   * that end, we should look at DuplicateHandle(), which allows the
+   * caller to specify desired access flags.
+   *
    *********************************************************************
    */
 #ifdef WINNT
-  hFile = CreateFile
+  hFile = CreateFileW
           (
-            psFTData->pcRawPath,
+            psFTFileData->pwcRawPath,
             GENERIC_READ,
             FILE_SHARE_READ,
             NULL,
@@ -317,6 +379,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, pcMessage);
     return ER;
   }
+  ghFile = hFile; /* Needed for memory mapped XMagic. */
   iFile = _open_osfhandle((long) hFile, 0);
   if (iFile == ER)
   {
@@ -330,13 +393,67 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
     return ER;
   }
 #else
-  pFile = fopen(psFTData->pcRawPath, "rb");
+  pFile = fopen(psFTFileData->pcRawPath, "rb");
   if (pFile == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): %s", acRoutine, strerror(errno));
     return ER;
   }
+  giFile = fileno(pFile); /* Needed for memory mapped XMagic. */
 #endif
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally seek to the specified start offset. Return an error
+   * if the file is regular and its size is less than this offset.
+   *
+   *********************************************************************
+   */
+  gui64StartOffset = 0;
+  if (psProperties->ui64AnalyzeStartOffset)
+  {
+    if
+    (
+#ifdef UNIX
+      S_ISREG(psFTFileData->sStatEntry.st_mode) &&
+#endif
+      ui64FileSize < psProperties->ui64AnalyzeStartOffset
+    )
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: File is smaller than the specified start offset.", acRoutine);
+      fclose(pFile);
+#ifdef WINNT
+      CloseHandle(hFile);
+#endif
+      return ER;
+    }
+    ui64NToSeek = psProperties->ui64AnalyzeStartOffset;
+    do
+    {
+      iNToSeek = (ui64NToSeek > (APP_UI64) 0x7fffffff) ? 0x7fffffff : (int) ui64NToSeek;
+#ifdef HAVE_FSEEKO
+      iError = fseeko(pFile, (off_t) iNToSeek, SEEK_CUR);
+#else
+      iError = fseek(pFile, iNToSeek, SEEK_CUR);
+#endif
+      if (iError == ER)
+      {
+#ifdef HAVE_FSEEKO
+        snprintf(pcError, MESSAGE_SIZE, "%s: fseeko(): %s", acRoutine, strerror(errno));
+#else
+        snprintf(pcError, MESSAGE_SIZE, "%s: fseek(): %s", acRoutine, strerror(errno));
+#endif
+        fclose(pFile);
+#ifdef WINNT
+        CloseHandle(hFile);
+#endif
+        return ER;
+      }
+      ui64NToSeek -= iNToSeek;
+      gui64StartOffset += iNToSeek;
+    } while (ui64NToSeek > 0);
+  }
 
   /*-
    *********************************************************************
@@ -356,6 +473,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
    *********************************************************************
    */
   iBlockTag = ANALYZE_FIRST_BLOCK;
+  gui64ByteCount = 0;
 
   while ((iBlockTag & ANALYZE_FINAL_BLOCK) != ANALYZE_FINAL_BLOCK)
   {
@@ -371,11 +489,21 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
     /*-
      *******************************************************************
      *
-     * Update the global bytes counter.
+     * Update the global byte counters.
      *
      *******************************************************************
      */
     gui64Bytes += iNRead;
+    gui64ByteCount += iNRead;
+
+    /*-
+     *******************************************************************
+     *
+     * Determine the current DPS, and apply the brakes as needed.
+     *
+     *******************************************************************
+     */
+    AnalyzeThrottleDps(gui64Bytes, psProperties->iAnalyzeMaxDps);
 
     /*-
      *******************************************************************
@@ -397,13 +525,33 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
     /*-
      *******************************************************************
      *
-     * If EOF was reached, update the block tag.
+     * If EOF or the specified byte count was reached, update the block
+     * tag. If specified byte count was exceeded, reduce the read count
+     * by the difference to ensure that extra bytes are not analyzed.
      *
      *******************************************************************
      */
     if (feof(pFile))
     {
       iBlockTag |= ANALYZE_FINAL_BLOCK;
+    }
+    else
+    {
+      if (psProperties->ui64AnalyzeByteCount && gui64ByteCount >= psProperties->ui64AnalyzeByteCount)
+      {
+        APP_UI64 ui64Delta = gui64ByteCount - psProperties->ui64AnalyzeByteCount;
+        if (ui64Delta > (APP_UI64) iNRead)
+        {
+          snprintf(pcError, MESSAGE_SIZE, "%s: Byte count delta exceeds the read count [%d]. That shouldn't happen.", acRoutine, iNRead);
+          fclose(pFile);
+#ifdef WINNT
+          CloseHandle(hFile);
+#endif
+          return ER;
+        }
+        iNRead -= (int) ui64Delta;
+        iBlockTag |= ANALYZE_FINAL_BLOCK;
+      }
     }
 
     /*-
@@ -416,7 +564,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
      */
     for (i = 0; i < psProperties->iLastAnalysisStage; i++)
     {
-      iError = psProperties->asAnalysisStages[i].piRoutine(&pucBuffer[iBlockSize], iNRead, iBlockTag, iBlockSize, psFTData, acLocalError);
+      iError = psProperties->asAnalysisStages[i].piRoutine(&pucBuffer[iBlockSize], iNRead, iBlockTag, iBlockSize, psFTFileData, acLocalError);
       if (iError != ER_OK)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -434,6 +582,19 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
     if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
     {
       iBlockTag ^= ANALYZE_FIRST_BLOCK;
+#ifdef USE_XMAGIC
+      /*-
+       *****************************************************************
+       *
+       * If XMagic was the only type of analysis requested, we're done.
+       *
+       *****************************************************************
+       */
+      if (psProperties->iLastAnalysisStage == 1 && psProperties->asAnalysisStages[0].piRoutine == AnalyzeDoXMagic)
+      {
+        iBlockTag |= ANALYZE_FINAL_BLOCK;
+      }
+#endif
     }
   }
   fclose(pFile);
@@ -484,7 +645,7 @@ AnalyzeEnableDigestEngine(FTIMES_PROPERTIES *psProperties)
  ***********************************************************************
  */
 int
-AnalyzeDoMd5Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+AnalyzeDoMd5Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
   static MD5_CONTEXT sFileMD5Context;
 
@@ -497,7 +658,8 @@ AnalyzeDoMd5Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, i
 
   if ((iBlockTag & ANALYZE_FINAL_BLOCK) == ANALYZE_FINAL_BLOCK)
   {
-    MD5Omega(&sFileMD5Context, psFTData->aucFileMd5);
+    MD5Omega(&sFileMD5Context, psFTFileData->aucFileMd5);
+    psFTFileData->ulAttributeMask |= MAP_MD5;
   }
 
   return ER_OK;
@@ -512,7 +674,7 @@ AnalyzeDoMd5Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, i
  ***********************************************************************
  */
 int
-AnalyzeDoSha1Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+AnalyzeDoSha1Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
   static SHA1_CONTEXT sFileSha1Context;
 
@@ -525,7 +687,8 @@ AnalyzeDoSha1Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, 
 
   if ((iBlockTag & ANALYZE_FINAL_BLOCK) == ANALYZE_FINAL_BLOCK)
   {
-    SHA1Omega(&sFileSha1Context, psFTData->aucFileSha1);
+    SHA1Omega(&sFileSha1Context, psFTFileData->aucFileSha1);
+    psFTFileData->ulAttributeMask |= MAP_SHA1;
   }
 
   return ER_OK;
@@ -540,7 +703,7 @@ AnalyzeDoSha1Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, 
  ***********************************************************************
  */
 int
-AnalyzeDoSha256Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+AnalyzeDoSha256Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
   static SHA256_CONTEXT sFileSha256Context;
 
@@ -553,7 +716,8 @@ AnalyzeDoSha256Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag
 
   if ((iBlockTag & ANALYZE_FINAL_BLOCK) == ANALYZE_FINAL_BLOCK)
   {
-    SHA256Omega(&sFileSha256Context, psFTData->aucFileSha256);
+    SHA256Omega(&sFileSha256Context, psFTFileData->aucFileSha256);
+    psFTFileData->ulAttributeMask |= MAP_SHA256;
   }
 
   return ER_OK;
@@ -584,10 +748,10 @@ AnalyzeEnableDigEngine(FTIMES_PROPERTIES *psProperties)
  ***********************************************************************
  */
 int
-AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
   const char          acRoutine[] = "AnalyzeDoDig()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   unsigned char      *pucToSearch;
 #ifdef USE_PCRE
   int                 iBlockSize = AnalyzeGetBlockSize();
@@ -600,7 +764,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBu
   unsigned char      *pucSaveBuffer = NULL;
   static int          iNToSave;
   static int          iSaveOffset;
-  static K_UINT64     ui64AbsoluteOffset;
+  static APP_UI64     ui64SearchOffset;
 
   /*-
    *********************************************************************
@@ -682,7 +846,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBu
       return ER;
     }
 
-    ui64AbsoluteOffset = 0;
+    ui64SearchOffset = 0;
     pucToSearch = pucBuffer;
     iNToSearch = iBufferLength;
   }
@@ -702,7 +866,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBu
    */
   for (iType = DIG_STRING_TYPE_NORMAL; iType < DIG_STRING_TYPE_NOMORE; iType++)
   {
-    iError = DigSearchData(pucToSearch, iNToSearch, iStopShort, iType, ui64AbsoluteOffset, psFTData->pcNeuteredPath, acLocalError);
+    iError = DigSearchData(pucToSearch, iNToSearch, iStopShort, iType, ui64SearchOffset, psFTFileData->pcNeuteredPath, acLocalError);
     if (iError != ER_OK)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -723,7 +887,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBu
   /*-
    *********************************************************************
    *
-   * Update the absolute file offset. This ensures that searcher is
+   * Update the search offset. This ensures that search routine is
    * passed the offset it expects. In other words, subtract off the
    * unsearched portion of the prior search buffer, and keep it for
    * next time.
@@ -732,11 +896,11 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBu
    */
   if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
   {
-    ui64AbsoluteOffset += iBufferLength - iNToSave;
+    ui64SearchOffset += iBufferLength - iNToSave;
   }
   else
   {
-    ui64AbsoluteOffset += iBufferLength;
+    ui64SearchOffset += iBufferLength;
   }
 
 #ifdef USE_PCRE
@@ -774,11 +938,12 @@ int
 AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "AnalyzeEnableXMagicEngine()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   unsigned char       aucMD5[MD5_HASH_SIZE];
   int                 i;
   int                 iError;
   FILE               *pFile;
+  APP_UI64            ui64Size;
 
   /*-
    *********************************************************************
@@ -829,11 +994,11 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
       if (psProperties->psXMagic == NULL)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-        return iError;
+        return ER_XMagic;
       }
       else
       {
-        if ((pFile = fopen(psProperties->acMagicFileName, "rb")) != NULL && MD5HashStream(pFile, aucMD5) == ER_OK)
+        if ((pFile = fopen(psProperties->acMagicFileName, "rb")) != NULL && MD5HashStream(pFile, aucMD5, &ui64Size) == ER_OK)
         {
           MD5HashToHex(aucMD5, psProperties->acMagicHash);
           fclose(pFile);
@@ -866,18 +1031,24 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
   const char          acRoutine[] = "AnalyzeDoXMagic()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 iError;
+  char                acLocalError[MESSAGE_SIZE] = "";
+  char                acMessage[MESSAGE_SIZE] = "";
+  int                 iError = 0;
+  int                 iMemoryMapped = 0;
+  int                 iMemoryMapSize = 0;
+  void               *pvMemoryMap = NULL;
   static int          iFirst = 1;
+  static int          iMemoryMapEnable = 0;
   static XMAGIC      *psXMagic = NULL;
 
   /*-
    *********************************************************************
    *
-   * Obtain a reference to the XMagic.
+   * Obtain a reference to the XMagic, and set other static variables
+   * on the first pass.
    *
    *********************************************************************
    */
@@ -885,29 +1056,133 @@ AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int 
   {
     FTIMES_PROPERTIES *psProperties = FTimesGetPropertiesReference();
     psXMagic = psProperties->psXMagic;
+    iMemoryMapEnable = psProperties->iMemoryMapEnable;
     iFirst = 0;
   }
 
   /*-
    *********************************************************************
    *
-   * Magic only inspects the first block of data.
+   * XMagic tests are only done once -- either on the first block or
+   * on a memory mapped view of the file.
    *
    *********************************************************************
    */
-  if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
+  if ((iBlockTag & ANALYZE_FIRST_BLOCK) != ANALYZE_FIRST_BLOCK)
   {
-    iError = XMagicTestBuffer(psXMagic, pucBuffer, iBufferLength, psFTData->acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
-    if (iError == ER)
+    return ER_OK;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally map the file into memory. If the file's size is
+   * zero, do not attempt to map it as this will lead to EINVAL errors
+   * on some platforms -- either for mmap() or munmap(). If the memory
+   * can't be mapped for whatever reason, fallback to using the block
+   * of data provided by the caller.
+   *
+   *********************************************************************
+   */
+  if (iMemoryMapEnable)
+  {
+#ifdef WINNT
+    if (psFTFileData->dwFileSizeHigh == 0 && psFTFileData->dwFileSizeLow < FTIMES_MAX_MMAP_SIZE)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-      return ER_XMagic;
+      iMemoryMapSize = psFTFileData->dwFileSizeLow;
     }
+#else
+    if (psFTFileData->sStatEntry.st_size < FTIMES_MAX_MMAP_SIZE)
+    {
+      iMemoryMapSize = psFTFileData->sStatEntry.st_size;
+    }
+#endif
+    else
+    {
+      iMemoryMapSize = FTIMES_MAX_MMAP_SIZE;
+    }
+    if (iMemoryMapSize > 0 && (pvMemoryMap = AnalyzeMapMemory(iMemoryMapSize)) != NULL)
+    {
+      pucBuffer = (unsigned char *) pvMemoryMap;
+      iBufferLength = iMemoryMapSize;
+      iMemoryMapped = 1;
+    }
+  }
+  snprintf(acMessage, MESSAGE_SIZE, "AnalysisStage=XMagic MemoryMapped=%d BufferLength=%d", iMemoryMapped, iBufferLength);
+  MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+
+  /*-
+   *********************************************************************
+   *
+   * Execute XMagic tests.
+   *
+   *********************************************************************
+   */
+  iError = XMagicTestBuffer(psXMagic, pucBuffer, iBufferLength, psFTFileData->acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
+  if (iError == ER)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    if (iMemoryMapped)
+    {
+      AnalyzeUnmapMemory(pvMemoryMap, iMemoryMapSize);
+    }
+    return ER_XMagic;
+  }
+  psFTFileData->ulAttributeMask |= MAP_MAGIC;
+  if (iMemoryMapped)
+  {
+    AnalyzeUnmapMemory(pvMemoryMap, iMemoryMapSize);
   }
 
   return ER_OK;
 }
 #endif
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeMapMemory
+ *
+ ***********************************************************************
+ */
+void *
+AnalyzeMapMemory(int iMemoryMapSize)
+{
+#ifdef WINNT
+  HANDLE              hMemoryMap = NULL;
+#endif
+  void               *pvMemoryMap = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * This routine does not detect or return errors because its caller
+   * (AnalyzeDoXMagic) is designed to use an alternate data buffer if
+   * the file can't be mapped into memory.
+   *
+   *********************************************************************
+   */
+#ifdef WINNT
+  hMemoryMap = CreateFileMapping(ghFile, NULL, PAGE_READONLY, 0, 0, 0);
+  if (hMemoryMap)
+  {
+    pvMemoryMap = MapViewOfFile(hMemoryMap, FILE_MAP_READ, 0, 0, 0);
+    CloseHandle(hMemoryMap);
+  }
+#else
+  pvMemoryMap = mmap(NULL, iMemoryMapSize, PROT_READ, MAP_PRIVATE, giFile, 0);
+#if defined(FTimes_HPUX) && !defined(MAP_FAILED)
+#define MAP_FAILED ((void *)-1)
+#endif
+  if (pvMemoryMap == MAP_FAILED)
+  {
+    return NULL;
+  }
+#endif
+
+  return pvMemoryMap;
+}
 
 
 /*-
@@ -952,3 +1227,114 @@ AnalyzeSetStepSize(int iStepSize)
   giAnalyzeStepSize = iStepSize;
 }
 #endif
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeThrottleDps
+ *
+ ***********************************************************************
+ */
+void
+AnalyzeThrottleDps(APP_UI64 ui64Bytes, int iMaxDps)
+{
+  static double       dNow = 0;
+  static double       dStartTime = 0;
+  static int          iFirst = 1;
+  double              dKBytes = 0;
+  double              dSleepTime = 0;
+  int                 iSleepTime = 0;
+#ifdef WINNT
+  APP_SI64            i64Bytes = (APP_SI64) ui64Bytes;
+#endif
+
+  /*-
+   *********************************************************************
+   *
+   * Get the current time. Record the start time on the first pass.
+   *
+   *********************************************************************
+   */
+  dNow = TimeGetTimeValueAsDouble();
+  if (iFirst)
+  {
+    dStartTime = dNow;
+    iFirst = 0;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Calculate the amount of time spent thus far. Force the result to
+   * be at least one microsecond to thwart divide by zero issues.
+   *
+   *********************************************************************
+   */
+  gdAnalysisTime = (double) (dNow - dStartTime);
+  if (gdAnalysisTime <= 0)
+  {
+    gdAnalysisTime = 0.000001;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Calculate the Data Processing Speed (DPS). If the maximum DPS is
+   * zero, do not apply the brakes. Otherwise, set the sleep time to a
+   * value in the range [1,60], and sleep. If the DPS value has a
+   * fractional component (of any amount), round it up.
+   *
+   *********************************************************************
+   */
+#ifdef WINNT
+  dKBytes = (double) ((double)  i64Bytes / (double) 1024);
+#else
+  dKBytes = (double) ((double) ui64Bytes / (double) 1024);
+#endif
+  gdDps = dKBytes / gdAnalysisTime;
+  if (iMaxDps && gdDps > (double) iMaxDps)
+  {
+    dSleepTime = (double) ((dKBytes / (double) iMaxDps) - gdAnalysisTime);
+    if (dSleepTime < 1)
+    {
+      iSleepTime = 1;
+    }
+    else if (dSleepTime > 60)
+    {
+      iSleepTime = 60;
+    }
+    else
+    {
+      iSleepTime = (int) dSleepTime;
+      if ((double) (dSleepTime / (double) iSleepTime))
+      {
+        iSleepTime += 1;
+      }
+    }
+#ifdef WINNT
+    Sleep(iSleepTime * 1000);
+#else
+    sleep(iSleepTime);
+#endif
+  }
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeUnmapMemory
+ *
+ ***********************************************************************
+ */
+void
+AnalyzeUnmapMemory(void *pvMemoryMap, int iMemoryMapSize)
+{
+#ifdef WINNT
+  UnmapViewOfFile(pvMemoryMap);
+#else
+  munmap(pvMemoryMap, iMemoryMapSize);
+#endif
+  return;
+}

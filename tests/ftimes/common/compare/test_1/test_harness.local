@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+# $Id: test_harness.local,v 1.5 2010/01/22 02:56:44 mavrik Exp $
 #
 ######################################################################
 
@@ -115,6 +115,18 @@ sub Check_bad_files
     my $sCommand;
     my ($sBaseline, $sSnapshot, $sBadFile) = split(/:/, $sTriple, -1);
 
+    ##################################################################
+    #
+    # For MinGW on WINX platforms, the redirection (i.e., '2>&1')
+    # causes the following error when UNIX path separators are used:
+    #
+    #   '..' is not recognized as an internal or external command,
+    #   operable program or batch file.
+    #
+    # To prevent this, the path separators must be switched.
+    #
+    ##################################################################
+
     if ($sBaseline eq "-")
     {
       $sCommand = "$$phProperties{'TargetProgram'} --compare all - $sSnapshot -l 6 < $sHeader 2>&1";
@@ -127,7 +139,10 @@ sub Check_bad_files
     {
       $sCommand = "$$phProperties{'TargetProgram'} --compare all $sBaseline $sSnapshot -l 6 2>&1";
     }
-
+    if ($$phProperties{'OsClass'} eq "WINDOWS")
+    {
+      $sCommand =~ s,/,\\,g;
+    }
     DebugPrint(3, "Command=$sCommand");
 
     if (!open(PH, "$sCommand |"))
@@ -148,7 +163,7 @@ sub Check_bad_files
       }
       $aLines[0] =~ s/[\r\n]*$//;
 
-      my $sTargetOutputRegExp = qq(^category\\|name\\|changed\\|unknown\$);
+      my $sTargetOutputRegExp = qq(^category\\|name\\|changed\\|unknown(?:\\|records)?\$);
       DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
       if ($aLines[0] !~ /$sTargetOutputRegExp/)
       {
@@ -166,6 +181,7 @@ sub Check_bad_files
       }
       $aLines[0] =~ s/[\r\n]*$//;
 
+      $sBadFile =~ s,/,[\\\\/],g; # Support both WINX and UNIX paths.
       my $sTargetOutputRegExp = qq(LOG_CRIT.*File = \\[$sBadFile\\]);
       DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
       if ($aLines[0] !~ /$sTargetOutputRegExp/)
@@ -278,6 +294,18 @@ sub Check_bad_magic
     my $sCommand;
     my ($sBaseline, $sSnapshot, $sBadFile) = split(/:/, $sTriple, -1);
 
+    ##################################################################
+    #
+    # For MinGW on WINX platforms, the redirection (i.e., '2>&1')
+    # causes the following error when UNIX path separators are used:
+    #
+    #   '..' is not recognized as an internal or external command,
+    #   operable program or batch file.
+    #
+    # To prevent this, the path separators must be switched.
+    #
+    ##################################################################
+
     if ($sBaseline eq "-")
     {
       $sCommand = "$$phProperties{'TargetProgram'} --compare all - $sSnapshot -l 6 < $sHeader 2>&1";
@@ -290,7 +318,10 @@ sub Check_bad_magic
     {
       $sCommand = "$$phProperties{'TargetProgram'} --compare all $sBaseline $sSnapshot -l 6 2>&1";
     }
-
+    if ($$phProperties{'OsClass'} eq "WINDOWS")
+    {
+      $sCommand =~ s,/,\\,g;
+    }
     DebugPrint(3, "Command=$sCommand");
 
     if (!open(PH, "$sCommand |"))
@@ -311,7 +342,7 @@ sub Check_bad_magic
       }
       $aLines[0] =~ s/[\r\n]*$//;
 
-      my $sTargetOutputRegExp = qq(^category\\|name\\|changed\\|unknown\$);
+      my $sTargetOutputRegExp = qq(^category\\|name\\|changed\\|unknown(?:\\|records)?\$);
       DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
       if ($aLines[0] !~ /$sTargetOutputRegExp/)
       {
@@ -329,6 +360,7 @@ sub Check_bad_magic
       }
       $aLines[0] =~ s/[\r\n]*$//;
 
+      $sBadFile =~ s,/,[\\\\/],g; # Support both WINX and UNIX paths.
       my $sTargetOutputRegExp = qq(LOG_CRIT.*File = \\[$sBadFile\\].*Header magic (?:is not recognized|indicates that this file contains compressed data));
       DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
       if ($aLines[0] !~ /$sTargetOutputRegExp/)

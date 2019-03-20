@@ -1,56 +1,13 @@
-########################################################################
-#
-# $Id: Makefile.in,v 1.15 2007/02/23 00:22:35 mavrik Exp $
-#
-########################################################################
-#
-# Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
-#
-########################################################################
-#
-# Purpose: Makefile for the project's etc directory.
-#
-########################################################################
 
-#.SILENT:
+PROJECT_ROOT=..
 
-prefix			= @prefix@
-exec_prefix		= @exec_prefix@
-etcdir			= @etcdir@
-srcdir			= @srcdir@
-VPATH			= ${srcdir}
+PREFIX=@prefix@
 
-INSTALL			= @INSTALL@
-SRC_FILES		=\
-			digfull.cfg.sample\
-			diglean.cfg.sample\
-			get.cfg.sample\
-			mapfull.cfg.sample\
-			maplean.cfg.sample\
-			nph-ftimes.cfg.sample
-DST_FILES		=\
-			${etcdir}/digfull.cfg.sample\
-			${etcdir}/diglean.cfg.sample\
-			${etcdir}/get.cfg.sample\
-			${etcdir}/mapfull.cfg.sample\
-			${etcdir}/maplean.cfg.sample\
-			${etcdir}/nph-ftimes.cfg.sample
+SRCDIR=@srcdir@
 
-all: ${SRC_FILES}
+VPATH=${SRCDIR}
 
-test:
+SUBDIRS=@etc_subdirs@
 
-install: ${DST_FILES}
-	@umask 22; if [ ! -d ${etcdir} ]; then mkdir -p ${etcdir}; fi
-	@for i in ${SRC_FILES}; do\
-		if test -f ${srcdir}/$$i; then file=${srcdir}/$$i; else file=$$i; fi;\
-		${INSTALL} -m 644 $$file ${etcdir};\
-	done
-
-clean:
-
-clean-all: clean
-	rm -f Makefile
-
-${DST_FILES}: ${SRC_FILES}
+include ${PROJECT_ROOT}/Mk/common-subdir.mk
 

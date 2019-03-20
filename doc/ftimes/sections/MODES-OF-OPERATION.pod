@@ -8,25 +8,25 @@ or '-'.  If the latter form is given, B<FTimes> expects to read the
 equivalent input from stdin.  Note, however, that the B<baseline> and
 B<snapshot> arguments can not be '-' simultaneously.  The elements and
 syntax rules of for all configuration files are described in the
-CONFIGURATION CONTROLS section of this document.  The B<level> option
-is described in the OPTIONS section of this document.  The B<list>
-option specifies one or more directories, files, or symbolic links
-that are to be scanned.  Collectively, these items represent an
-B<Include> list.  See the B<Include> control for more information.
+CONFIGURATION CONTROLS section of this document.  The B<-l> option is
+used to set the log level, and it is described in the OPTIONS section
+of this document.  The B<target> arguments identify directories and/or
+files that are to be scanned.  Collectively, these targets represent
+an B<Include> list.  See the B<Include> control for more information.
 
 =over 5
 
 =item B<--cfgtest> B<{file|-}> B<mode> B<[-s]>
 
 Verify the syntax of a given configuration B<file> in the context of a
-specified B<mode> where B<mode> can be one of: B<digauto>, B<digfull>,
-B<diglean>, B<getmode>, B<mapfull>, or B<maplean>.  The given
-configuration B<file> is parsed with the same methods that would be
-used if B<FTimes> had been invoked in that particular run B<mode>.  By
-default, directories and files are not checked for existence.  This
-allows config files to be tested in a separate environment from where
-they will be used.  Strict testing (i.e., directories and files must
-exist) may be enabled with the B<-s> option.
+specified B<mode> where B<mode> can be one of: B<digauto>, B<dig>,
+B<get>, B<mad>, or B<map>.  The given configuration B<file> is parsed
+with the same methods that would be used if B<FTimes> had been invoked
+in that particular run B<mode>.  By default, directories and files are
+not checked for existence.  This allows config files to be tested in a
+separate environment from where they will be used.  Strict testing
+(i.e., directories and files must exist) may be enabled with the B<-s>
+option.
 
 The value 'Syntax Passed' is written to stdout, if all syntax checks
 are satisfied.  Otherwise, the value 'Syntax Failed' and a description
@@ -34,14 +34,18 @@ of the failure will be written to stdout.
 
 Note: The fact that a given file passes all syntax checks does not
 guarantee that its use will lead to a successful outcome.  It merely
-ensures that specified controls are valid for a given mode, and
-the values for those controls meet basic syntax requirements.
+ensures that specified controls are valid for a given mode, and the
+values for those controls meet basic syntax requirements.
 
-=item B<--compare> B<mask> B<{baseline|-}> B<{snapshot|-}> B<[-l level]>
+=item B<--compare> B<mask> B<{baseline|-}> B<{snapshot|-}> B<[-l {0-6}]>
 
 Compare B<baseline> and B<snapshot> data according to the specified
-B<mask> where mask identifies the attributes to be analyzed.  Output
-is written to stdout and has the following format:
+compare B<mask>, which identifies the attributes to be analyzed.
+Output is written to stdout and has the following format:
+
+    category|name|changed|unknown|records
+
+Note: Legacy versions (3.8.0 and below) use the following format:
 
     category|name|changed|unknown
 
@@ -54,16 +58,22 @@ can have one of the following values:
     U - Unknown (i.e., one or both fields were NULL)
     X - Cross (i.e., Changed and Unknown)
 
-The changed field contains a comma separated list of fields that
+The changed field contains a comma-separated list of attributes that
 have changed.  This field will be NULL if the category is New or
 Missing.
 
-The unknown field contains a comma separated list of fields that
-could not be compared due to lack of information.  This field will
-be NULL if the category is New or Missing.
+The unknown field contains a comma-separated list of attributes that
+could not be compared due to lack of information.  This field will be
+NULL if the category is New or Missing.
 
-The specified B<mask> must comply with the syntax rules set forth
-for the B<FieldMask> control.
+The records field contains a comma-separated pair of record numbers.
+Each number indicates the line in the corresponding baseline or
+snapshot containing the attributes that were analyzed.  A value of
+zero means that no record was present in the corresponding file, which
+is expected when the category is New or Missing.
+
+The specified compare B<mask> must comply with the syntax rules set
+forth for the B<FieldMask> control.
 
 Note: The B<baseline> and B<snapshot> arguments can not be '-'
 simultaneously.
@@ -71,60 +81,47 @@ simultaneously.
 Note: Support for comparing compressed snapshots was added in version
 3.6.0.
 
-=item B<--decoder> B<{snapshot|-}> B<[-l level]>
+=item B<--decode> B<{snapshot|-}> B<[-l {0-6}]>
 
-Decode a compressed B<snapshot>.  A compressed snapshot can be
-created by running B<FTimes> in map mode (i.e., B<mapfull> or
-B<maplean>) with B<Compress> enabled.  Output is written to stdout.
+Decode a compressed B<snapshot>.  A compressed snapshot can be created
+by running B<FTimes> in map mode with B<Compress> enabled.  Output is
+written to stdout.
 
-=item B<--digauto> B<{file|-}> B<[-l level]> B<[list]>
+=item B<--dig> B<{file|-}> B<[-l {0-6}]> B<[target [...]]>
 
-Use default configuration settings to search an B<Include> list for
-a set of user defined strings.  These strings are defined in B<file>
-according to the syntax for the B<DigStringNormal>, B<DigStringNoCase>,
-and B<DigStringRegExp> controls.  If B<list> is not specified,
-B<FTimes> will search the entire system including remote shares or
-mount points.  Any device files specifically included in the B<list>
-will be searched (i.e., B<AnalyzeDeviceFiles> is always enabled in
-this mode of operation).  Output is written to stdout and has the
-following format.
+Use the configuration settings in B<file> to search an B<Include> list
+for a set of user defined strings.  The B<Include> list may be
+specified by a combination of B<Include> controls and B<target>
+arguments.  If an B<Include> list is not specified, B<FTimes> will
+search the entire system.  Remote shares or mount points will only be
+searched if B<AnalyzeRemoteFiles> is enabled.  Device files
+specifically included (i.e., by name) will only be searched if
+B<AnalyzeDeviceFiles> is enabled.
+
+=item B<--digauto> B<{file|-}> B<[-l {0-6}]> B<[target [...]]>
+
+Use default configuration settings to search an B<Include> list for a
+set of user defined strings.  These strings are defined in B<file>
+according to the syntax for the B<DigStringNormal>,
+B<DigStringNoCase>, and B<DigStringRegExp> controls.  If no B<targets>
+are specified, B<FTimes> will search the entire system including
+remote shares or mount points.  Device files specifically included
+(i.e., by name) will be searched (i.e., B<AnalyzeDeviceFiles> is
+always enabled in this mode of operation).  Output is written to
+stdout and has the following format.
 
     name|type|tag|offset|string
 
 The offset field, represented as a decimal value, contains the
-location in the file identified by name where the specified string
-was found.
+location in the file identified by name where the specified string was
+found.
 
-=item B<--digfull> B<{file|-}> B<[-l level]> B<[list]>
+=item B<--get> B<{file|-}>
 
-Use the configuration settings in B<file> to search an B<Include> list
-for a set of user defined strings.  The B<Include> list may be specified
-by a combination of B<Include> controls and B<list> arguments.  If
-an B<Include> list is not specified, B<FTimes> will search the entire
-system.  Remote shares or mount points will only be searched if
-B<AnalyzeRemoteFiles> is enabled.  Any device files specifically
-included in the B<list> will only be searched if B<AnalyzeDeviceFiles>
-is enabled.
-
-=item B<--diglean> B<{file|-}> B<[-l level]> B<[list]>
-
-Use the configuration settings in B<file> to search an B<Include> list
-for a set of user defined strings.  The B<Include> list may be specified
-by a combination of B<Include> controls and B<list> arguments.  If
-an B<Include> list is not specified, B<FTimes> will search the entire
-system.  Remote shares or mount points will only be searched if
-B<AnalyzeRemoteFiles> is enabled.  Any device files specifically
-included in the B<list> will only be searched if B<AnalyzeDeviceFiles>
-is enabled.  The difference between this mode and B<--digfull> is
-that fewer controls are defined/available and output can be written
-directly to std{err,out}.
-
-=item B<--getmode> B<{file|-}>
-
-Use the configuration settings in B<file> to download digfull,
-diglean, mapfull, or maplean configuration information.  One of
-three possible actions, depending on how getmode is configured,
-will take place once the download is complete:
+Use the configuration settings in B<file> to download dig or map
+configuration information.  One of three possible actions, depending
+on how get mode is configured, will take place once the download is
+complete:
 
 =over 5
 
@@ -138,53 +135,51 @@ B<FTimes> writes the downloaded information to the file specified by B<GetFileNa
 
 =item *
 
-B<FTimes> restarts in B<digfull>, B<diglean>, B<mapfull>, or B<maplean> using the downloaded information as its new configuration file
+B<FTimes> restarts in B<dig>, or B<map> mode using the downloaded information as its new configuration file
 
 =back
 
 The first action is effected when B<GetAndExec> is disabled and
-B<GetFileName> is not specified.  The second action is effected
-when B<GetAndExec> is disabled and B<GetFileName> is specified.
-The third action is effected when B<GetAndExec> is enabled and
-B<GetFileName> is specified.
+B<GetFileName> is not specified.  The second action is effected when
+B<GetAndExec> is disabled and B<GetFileName> is specified.  The third
+action is effected when B<GetAndExec> is enabled and B<GetFileName> is
+specified.
 
-=item B<--mapauto> B<mask> B<[-l level]> B<[list]>
+=item B<--mad> B<{file|-}> B<[-l {0-6}]> B<[target [...]]>
 
-Use default configuration settings to map an B<Include> list according
-to the specified B<mask> where mask identifies the attributes to
-be collected.  If B<list> is not specified, B<FTimes> will map the
-entire system including remote shares or mount points.  Any device
-files specifically included in the B<list> will be mapped (i.e.,
-B<AnalyzeDeviceFiles> is always enabled in this mode of operation).
-Output is written to stdout, and its format depends on the value
-of B<mask>.
+Use configuration settings in B<file> to map and dig an B<Include>
+list.  The B<Include> list may be specified by a combination of
+B<Include> controls and B<target> arguments.  If an B<Include> list is
+not specified, B<FTimes> will process the entire system.  Remote
+shares or mount points will only be processed if B<AnalyzeRemoteFiles>
+is enabled.  Device files specifically included (i.e., by name) will
+only be processed if B<AnalyzeDeviceFiles> is enabled.
 
-The specified B<mask> must comply with the syntax rules set forth
-for the B<FieldMask> control.
-
-=item B<--mapfull> B<{file|-}> B<[-l level]> B<[list]>
+=item B<--map> B<{file|-}> B<[-l {0-6}]> B<[target [...]]>
 
 Use configuration settings in B<file> to map an B<Include> list.  The
-B<Include> list may be specified by a combination of B<Include> controls
-and B<list> arguments.  If an B<Include> list is not specified,
-B<FTimes> will map the entire system.  Remote shares or mount points
-will only be mapped if B<AnalyzeRemoteFiles> is enabled.  Any device
-files specifically included in the B<list> will only be mapped
+B<Include> list may be specified by a combination of B<Include>
+controls and B<target> arguments.  If an B<Include> list is not
+specified, B<FTimes> will map the entire system.  Remote shares or
+mount points will only be mapped if B<AnalyzeRemoteFiles> is enabled.
+Device files specifically included (i.e., by name) will only be mapped
 if B<AnalyzeDeviceFiles> is enabled.
 
-=item B<--maplean> B<{file|-}> B<[-l level]> B<[list]>
+=item B<--mapauto> B<mask> B<[-l {0-6}]> B<[target [...]]>
 
-Use configuration settings in B<file> to map an B<Include> list.  The
-B<Include> list may be specified by a combination of B<Include> controls
-and B<list> arguments.  If an B<Include> list is not specified, B<FTimes>
-will map the entire system.  Remote shares or mount points will
-only be mapped if B<AnalyzeRemoteFiles> is enabled.  Any device
-files specifically included in the B<list> will only be mapped
-if B<AnalyzeDeviceFiles> is enabled.  The difference between this mode
-and B<--mapfull> is that fewer controls are defined/available and
-output can be written directly to std{err,out}.
+Use default configuration settings to map an B<Include> list according
+to the specified B<mask> where mask identifies the attributes to be
+collected.  If no B<targets> are specified, B<FTimes> will map the
+entire system including remote shares or mount points.  Device files
+specifically included (i.e., by name) will be mapped (i.e.,
+B<AnalyzeDeviceFiles> is always enabled in this mode of operation).
+Output is written to stdout, and its format depends on the value of
+B<mask>.
 
-=item B<--version>
+The specified B<mask> must comply with the syntax rules set forth for
+the B<FieldMask> control.
+
+=item B<{-v|--version}>
 
 Display version information and exit.
 

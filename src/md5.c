@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: md5.c,v 1.14 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: md5.c,v 1.22 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2003-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -80,7 +80,7 @@ MD5HashToHex(unsigned char *pucHash, char *pcHexHash)
  ***********************************************************************
  */
 int
-MD5HashStream(FILE *pFile, unsigned char *pucMD5)
+MD5HashStream(FILE *pFile, unsigned char *pucMD5, APP_UI64 *pui64Size)
 {
   unsigned char       aucData[MD5_READ_SIZE];
 #ifdef MD5_PRE_MEMSET_MEMCPY
@@ -106,6 +106,7 @@ MD5HashStream(FILE *pFile, unsigned char *pucMD5)
 #endif
     return -1;
   }
+  *pui64Size += (APP_UI64) iNRead;
   MD5Cycle(&sMD5Context, aucData, iNRead);
   MD5Omega(&sMD5Context, pucMD5);
   return 0;
@@ -175,10 +176,10 @@ MD5Alpha(MD5_CONTEXT *psMD5Context)
  ***********************************************************************
  */
 void
-MD5Cycle(MD5_CONTEXT *psMD5Context, unsigned char *pucData, K_UINT32 ui32Length)
+MD5Cycle(MD5_CONTEXT *psMD5Context, unsigned char *pucData, APP_UI32 ui32Length)
 {
   unsigned char      *pucTemp;
-  K_UINT32            ui32;
+  APP_UI32            ui32;
 
   /*-
    *********************************************************************
@@ -187,7 +188,7 @@ MD5Cycle(MD5_CONTEXT *psMD5Context, unsigned char *pucData, K_UINT32 ui32Length)
    *
    *********************************************************************
    */
-  psMD5Context->ui64MessageLength += (K_UINT64) ui32Length;
+  psMD5Context->ui64MessageLength += (APP_UI64) ui32Length;
 
   /*-
    *********************************************************************
@@ -358,11 +359,11 @@ MD5Omega(MD5_CONTEXT *psMD5Context, unsigned char *pucMD5)
 void
 MD5Grind(MD5_CONTEXT *psMD5Context, unsigned char *pucData)
 {
-  K_UINT32            a;
-  K_UINT32            b;
-  K_UINT32            c;
-  K_UINT32            d;
-  K_UINT32            M[16];
+  APP_UI32            a;
+  APP_UI32            b;
+  APP_UI32            c;
+  APP_UI32            d;
+  APP_UI32            M[16];
   int                 i;
 
   /*-

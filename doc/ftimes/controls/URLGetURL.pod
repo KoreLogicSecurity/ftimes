@@ -1,6 +1,6 @@
 =item B<URLGetURL>: <url>
 
-Applies to B<getmode>.
+Applies to B<get>.
 
 B<URLGetURL> is required.  It defines the scheme, user credentials,
 host address, port, and CGI application to be used when making

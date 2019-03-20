@@ -1,6 +1,6 @@
 =item B<DigStringNormal>: <string> [<tag>]
 
-Applies to B<digauto>, B<digfull>, and B<diglean>.
+Applies to B<digauto>, B<dig>, and B<mad>.
 
 B<DigStringNormal> is conditionally required.  It specifies a search
 string.  This string must be URL encoded if it contains '%', '+',

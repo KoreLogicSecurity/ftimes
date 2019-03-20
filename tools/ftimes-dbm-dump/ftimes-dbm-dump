@@ -1,0 +1,387 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-dbm-dump,v 1.4 2012/01/04 03:12:37 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Enumerate a Berkeley database.
+#
+######################################################################
+
+use strict;
+use DB_File;
+use File::Basename;
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('d:M:m:o:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # A database, '-d', is required.
+  #
+  ####################################################################
+
+  if (!exists($hOptions{'d'}) || !defined($hOptions{'d'}) || length($hOptions{'d'}) < 1)
+  {
+    Usage($$phProperties{'Program'});
+  }
+  $$phProperties{'DbFile'} = $hOptions{'d'};
+
+  ####################################################################
+  #
+  # A match pattern, '-M', is optional.
+  #
+  ####################################################################
+
+  my (@aPatterns);
+
+  $$phProperties{'Pattern'} = (exists($hOptions{'M'})) ? $hOptions{'M'} : undef;
+
+  if (defined($$phProperties{'Pattern'}))
+  {
+    $$phProperties{'MatchPatterns'} = 1;
+    push(@aPatterns, $$phProperties{'Pattern'});
+  }
+
+  ####################################################################
+  #
+  # A match pattern file, '-m', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'PatternFile'} = (exists($hOptions{'m'})) ? $hOptions{'m'} : undef;
+
+  if (defined($$phProperties{'PatternFile'}))
+  {
+    if (!open(MH, "< $$phProperties{'PatternFile'}"))
+    {
+      print STDERR "$$phProperties{'Program'}: PatternFile='$$phProperties{'PatternFile'}' Error='$!'\n";
+      exit(2);
+    }
+    while (my $sLine = <MH>)
+    {
+      $sLine =~ s/[\r\n]+$//;
+      next if ($sLine =~ /^#/ || $sLine =~ /^\s*$/);
+      push(@aPatterns, $sLine);
+    }
+    close(MH);
+    $$phProperties{'MatchPatterns'} = 1;
+  }
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'InvertMatch'} = 0;
+  $$phProperties{'KeysOnly'} = 0;
+  $$phProperties{'MatchKeys'} = 0;
+  $$phProperties{'ReverseFields'} = 0;
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  {
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('InvertMatch', 'KeysOnly', 'MatchKeys', 'ReverseFields')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Conditionally reverse the field order.
+  #
+  ####################################################################
+
+  my ($sVIndex, $sKIndex);
+
+  if ($$phProperties{'ReverseFields'})
+  {
+    $sVIndex = 0;
+    $sKIndex = 1;
+  }
+  else
+  {
+    $sVIndex = 1;
+    $sKIndex = 0;
+  }
+
+  ####################################################################
+  #
+  # Conditionally flip the match index.
+  #
+  ####################################################################
+
+  my ($sMIndex);
+
+  if ($$phProperties{'MatchKeys'})
+  {
+    $sMIndex = 0;
+  }
+  else
+  {
+    $sMIndex = 1;
+  }
+
+  ####################################################################
+  #
+  # Tie OnDiskList to the db.
+  #
+  ####################################################################
+
+  my (%hOnDiskList);
+
+  if (!tie(%hOnDiskList, "DB_File", $$phProperties{'DbFile'}, O_RDONLY, 0644, $DB_BTREE))
+  {
+    print STDERR "$$phProperties{'Program'}: File='$$phProperties{'DbFile'}' Error='$!'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Enumerate db. Write output to stdout.
+  #
+  ####################################################################
+
+  if ($$phProperties{'MatchPatterns'})
+  {
+    if ($$phProperties{'KeysOnly'})
+    {
+      while (my (@aPair) = each(%hOnDiskList))
+      {
+        my $sMatch = 0;
+        foreach my $sPattern (@aPatterns)
+        {
+          if ($aPair[$sMIndex] =~ /$sPattern/)
+          {
+            $sMatch = 1;
+            last;
+          }
+        }
+        $sMatch ^= $$phProperties{'InvertMatch'};
+        if ($sMatch)
+        {
+          print "$aPair[0]\n";
+        }
+      }
+    }
+    else
+    {
+      while (my (@aPair) = each(%hOnDiskList))
+      {
+        my $sMatch = 0;
+        foreach my $sPattern (@aPatterns)
+        {
+          if ($aPair[$sMIndex] =~ /$sPattern/)
+          {
+            $sMatch = 1;
+            last;
+          }
+        }
+        $sMatch ^= $$phProperties{'InvertMatch'};
+        if ($sMatch)
+        {
+          print "$aPair[$sKIndex]|$aPair[$sVIndex]\n";
+        }
+      }
+    }
+  }
+  else
+  {
+    if ($$phProperties{'KeysOnly'})
+    {
+      while (my (@aPair) = each(%hOnDiskList))
+      {
+        print "$aPair[0]\n";
+      }
+    }
+    else
+    {
+      while (my (@aPair) = each(%hOnDiskList))
+      {
+        print "$aPair[$sKIndex]|$aPair[$sVIndex]\n";
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  untie(%hOnDiskList);
+
+  1;
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-M pattern] [-m pattern-file] [-o option[,option[,...]]] -d db\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-dbm-dump - Enumerate a Berkeley database
+
+=head1 SYNOPSIS
+
+B<ftimes-dbm-dump> B<[-M pattern]> B<[-m pattern-file]> B<[-o option[,option[,...]]]> B<-d db>
+
+=head1 DESCRIPTION
+
+This utility enumerates a Berkeley database that has been created with
+ftimes-dbm-make(1).  Output is written to stdout and has the following
+format:
+
+    key|value
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d db>
+
+Specifies the name of the database to dump.
+
+=item B<-M>
+
+Specifies a pattern that is to be applied to the values.  The output
+records for any values not matched by the pattern will be discarded.
+Use the B<InvertMatch> option to invert the sense of the match.
+
+=item B<-m>
+
+Specifies a file containing zero or more patterns, one per line, that
+are to be applied to the values.  The output records for any values
+matched by the patterns will be discarded.  Use the B<InvertMatch>
+option to invert the sense of the match.  Use the B<MatchKeys> option
+to apply pattern matching to keys instead of values.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently the following
+options are supported:
+
+=over 4
+
+=item KeysOnly
+
+Output keys only.  By default, both keys and values are written to
+stdout.
+
+=item MatchKeys
+
+Apply pattern matching to keys instead of values.
+
+=item InvertMatch
+
+Invert the sense of pattern matching.
+
+=item ReverseFields
+
+Output keys and values in the reverse order (i.e., value|key).  This
+option is silently ignored if the B<KeysOnly> option has been set.
+
+=back
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes-dbm-dump(1), ftimes-dbm-make(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

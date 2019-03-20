@@ -1,6 +1,6 @@
 =item B<Exclude>: [directory|file|link]
 
-Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<Exclude> controls are optional, and there is no predefined limit
 on the number that may be specified.  However, there can be only
@@ -11,6 +11,13 @@ them.  B<Exclude> values must be specified as a fully qualified
 path (see B<Include> control).  If B<ExcludesMustExist> is enabled,
 then each B<Exclude> must reference an existing file, directory,
 or symbolic link.  Otherwise, B<FTimes> will abort.
+
+If you need to exclude paths that contain special or non-printable
+characters, you must specify the path in the form of a file URL.
+Special characters are defined (in square brackets) as C<[`'"|%+#]> or
+any non-printable character except for the NULL byte (%00), which is
+not allowed for excludes.  For example, the path '/tmp/foo#bar' would
+need to be specified as 'file:///tmp/foo%23bar'.
 
 Note: Symbolic links are not supported in WIN32-based file systems.
 

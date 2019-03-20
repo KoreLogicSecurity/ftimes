@@ -63,7 +63,11 @@ compare - compare two map snapshots to detect change
 
 =item *
 
-decoder - decode a compressed map snapshot
+decode - decode a compressed map snapshot
+
+=item *
+
+dig - search for strings in files using a specified configuration
 
 =item *
 
@@ -71,27 +75,19 @@ digauto - search for strings in files using a default configuration
 
 =item *
 
-digfull - search for strings in files using a specified configuration
+get - download a dig or map config file from an Integrity Server
 
 =item *
 
-diglean - same as digfull except that the range of controls is limited and output can be written directly to std{err,out}
+mad - map and dig using a specified configuration
 
 =item *
 
-getmode - download a config file from an Integrity Server
+map - collect directory and file attributes using a specified configuration
 
 =item *
 
 mapauto - collect directory and file attributes using a default configuration
-
-=item *
-
-mapfull - collect directory and file attributes using a specified configuration
-
-=item *
-
-maplean - same as mapfull except that the range of controls is limited and output can be written directly to std{err,out}
 
 =item *
 
@@ -105,64 +101,77 @@ few.  The following table summarizes what controls apply to each
 mode of operation.  An 'X' indicates that the given control applies
 to the selected mode.
 
-                      ==========   MODES   =======
-                      c  c  d  d  d  g  m  m  m  v
-                      f  o  i  i  i  e  a  a  a  e
-                      g  m  g  g  g  t  p  p  p  r
-                      t  p  a  f  l  m  a  f  l  s
-                      e  a  u  u  e  o  u  u  e  i
-                      s  r  t  l  a  d  t  l  a  o
-                      t  e  o  l  n  e  o  l  n  n
-   ======   CONTROL   ============================
-   AnalyzeBlockSize   .  .  .  X  X  .  .  X  X  .
-   AnalyzeCarrySize   .  .  .  X  X  .  .  .  .  .
-   AnalyzeDeviceFiles .  .  .  X  X  .  .  X  X  .
-   AnalyzeRemoteFiles .  .  .  X  X  .  .  X  X  .
-   AnalyzeStepSize    .  .  .  X  X  .  .  .  .  .
-   BaseName           .  .  .  X  X  X  .  X  X  .
-   BaseNameSuffix     .  .  .  X  X  .  .  X  X  .
-   Compress           .  .  .  .  .  .  .  X  X  .
-   DigString          .  .  X  X  X  .  .  .  .  .
-   DigStringNoCase    .  .  X  X  X  .  .  .  .  .
-   DigStringNormal    .  .  X  X  X  .  .  .  .  .
-   DigStringRegExp    .  .  X  X  X  .  .  .  .  .
-   DigStringXMagic    .  .  X  X  X  .  .  .  .  .
-   EnableRecursion    .  .  .  X  X  .  .  X  X  .
-   Exclude            .  .  .  X  X  .  .  X  X  .
-   ExcludeFilter      .  .  .  X  X  .  .  X  X  .
-   ExcludesMustExist  .  .  .  X  X  .  .  X  X  .
-   FieldMask          .  X  .  .  .  .  X  X  X  .
-   FileSizeLimit      .  .  .  X  X  .  .  X  X  .
-   GetAndExec         .  .  .  .  .  X  .  .  .  .
-   GetFileName        .  .  .  .  .  X  .  .  .  .
-   HashDirectories    .  .  .  .  .  .  .  X  X  .
-   HashSymbolicLinks  .  .  .  .  .  .  .  X  X  .
-   Import             .  .  .  X  X  X  .  X  X  .
-   Include            .  .  .  X  X  .  .  X  X  .
-   IncludeFilter      .  .  .  X  X  .  .  X  X  .
-   IncludesMustExist  .  .  .  X  X  .  .  X  X  .
-   LogDir             .  .  .  X  X  .  .  X  X  .
-   MagicFile          .  .  .  .  .  .  .  X  X  .
-   MapRemoteFiles     .  .  .  X  X  .  .  X  X  .
-   MatchLimit         .  .  .  X  X  .  .  .  .  .
-   NewLine            .  .  .  X  X  .  .  X  X  .
-   OutDir             .  .  .  X  X  .  .  X  X  .
-   RequirePrivilege   .  .  .  X  X  .  .  X  X  .
-   RunType            .  .  .  X  .  .  .  X  .  .
-   SSLBundledCAsFile  .  .  .  X  .  X  .  X  .  .
-   SSLExpectedPeerCN  .  .  .  X  .  X  .  X  .  .
-   SSLMaxChainLength  .  .  .  X  .  X  .  X  .  .
-   SSLPassPhrase      .  .  .  X  .  X  .  X  .  .
-   SSLPrivateKeyFile  .  .  .  X  .  X  .  X  .  .
-   SSLPublicCertFile  .  .  .  X  .  X  .  X  .  .
-   SSLUseCertificate  .  .  .  X  .  X  .  X  .  .
-   SSLVerifyPeerCert  .  .  .  X  .  X  .  X  .  .
-   URLAuthType        .  .  .  X  .  X  .  X  .  .
-   URLGetRequest      .  .  .  .  .  X  .  .  .  .
-   URLGetURL          .  .  .  .  .  X  .  .  .  .
-   URLPassword        .  .  .  X  .  X  .  X  .  .
-   URLPutSnapshot     .  .  .  X  .  .  .  X  .  .
-   URLPutURL          .  .  .  X  .  .  .  X  .  .
-   URLUnlinkOutput    .  .  .  X  .  .  .  X  .  .
-   URLUsername        .  .  .  X  .  X  .  X  .  .
+                       =======   MODES   =======
+                       c  c  d  d  g  m  m  m  v
+                       f  o  i  i  e  a  a  a  e
+                       g  m  g  g  t  d  p  p  r
+                       t  p  a     m     a     s
+                       e  a  u     o     u     i
+                       s  r  t     d     t     o
+                       t  e  o     e     o     n
+   ======   CONTROL    =========================
+   AnalyzeBlockSize    .  .  .  X  .  X  .  X  .
+   AnalyzeByteCount    .  .  .  X  .  X  .  X  .
+   AnalyzeCarrySize    .  .  .  X  .  X  .  .  .
+   AnalyzeDeviceFiles  .  .  .  X  .  X  .  X  .
+   AnalyzeMaxDps       .  .  .  X  .  X  .  X  .
+   AnalyzeRemoteFiles  .  .  .  X  .  X  .  X  .
+   AnalyzeStartOffset  .  .  .  X  .  X  .  X  .
+   AnalyzeStepSize     .  .  .  X  .  X  .  .  .
+   BaseName            .  .  .  X  X  X  .  X  .
+   BaseNameSuffix      .  .  .  X  .  X  .  X  .
+   Compress            .  .  .  .  .  .  .  X  .
+   DigString           .  .  X  X  .  X  .  .  .
+   DigStringNoCase     .  .  X  X  .  X  .  .  .
+   DigStringNormal     .  .  X  X  .  X  .  .  .
+   DigStringRegExp     .  .  X  X  .  X  .  .  .
+   DigStringXMagic     .  .  X  X  .  X  .  .  .
+   EnableRecursion     .  .  .  X  .  X  .  X  .
+   Exclude             .  .  .  X  .  X  .  X  .
+   ExcludeFilter       .  .  .  X  .  X  .  X  .
+   ExcludeFilterMd5    .  .  .  .  .  X  .  X  .
+   ExcludeFilterSha1   .  .  .  .  .  X  .  X  .
+   ExcludeFilterSha256 .  .  .  .  .  X  .  X  .
+   ExcludesMustExist   .  .  .  X  .  X  .  X  .
+   FieldMask           .  X  .  .  .  X  X  X  .
+   FileHook            .  .  .  X  .  X  .  X  .
+   FileSizeLimit       .  .  .  X  .  X  .  X  .
+   GetAndExec          .  .  .  .  X  .  .  .  .
+   GetFileName         .  .  .  .  X  .  .  .  .
+   HashDirectories     .  .  .  .  .  X  .  X  .
+   HashSymbolicLinks   .  .  .  .  .  X  .  X  .
+   Import              .  .  .  X  X  X  .  X  .
+   Include             .  .  .  X  .  X  .  X  .
+   IncludeFilter       .  .  .  X  .  X  .  X  .
+   IncludeFilterMd5    .  .  .  .  .  X  .  X  .
+   IncludeFilterSha1   .  .  .  .  .  X  .  X  .
+   IncludeFilterSha256 .  .  .  .  .  X  .  X  .
+   IncludesMustExist   .  .  .  X  .  X  .  X  .
+   LogDigStrings       .  .  .  X  .  X  .  .  .
+   LogDir              .  .  .  X  .  X  .  X  .
+   MagicFile           .  .  .  .  .  X  .  X  .
+   MapRemoteFiles      .  .  .  X  .  X  .  X  .
+   MatchLimit          .  .  .  X  .  X  .  .  .
+   NewLine             .  .  .  X  .  X  .  X  .
+   OutDir              .  .  .  X  .  X  .  X  .
+   Priority            .  X  X  X  .  X  X  X  .
+   RequirePrivilege    .  .  .  X  .  X  .  X  .
+   RunType             .  .  .  X  .  X  .  X  .
+   StrictControls      .  .  .  X  X  X  .  X  .
+   SSLBundledCAsFile   .  .  .  X  X  X  .  X  .
+   SSLExpectedPeerCN   .  .  .  X  X  X  .  X  .
+   SSLMaxChainLength   .  .  .  X  X  X  .  X  .
+   SSLPassPhrase       .  .  .  X  X  X  .  X  .
+   SSLPrivateKeyFile   .  .  .  X  X  X  .  X  .
+   SSLPublicCertFile   .  .  .  X  X  X  .  X  .
+   SSLUseCertificate   .  .  .  X  X  X  .  X  .
+   SSLVerifyPeerCert   .  .  .  X  X  X  .  X  .
+   URLAuthType         .  .  .  X  X  X  .  X  .
+   URLGetRequest       .  .  .  .  X  .  .  .  .
+   URLGetURL           .  .  .  .  X  .  .  .  .
+   URLPassword         .  .  .  X  X  X  .  X  .
+   URLPutSnapshot      .  .  .  X  .  X  .  X  .
+   URLPutURL           .  .  .  X  .  X  .  X  .
+   URLUnlinkOutput     .  .  .  X  .  X  .  X  .
+   URLUsername         .  .  .  X  X  X  .  X  .
 

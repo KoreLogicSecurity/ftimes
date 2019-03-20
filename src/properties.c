@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: properties.c,v 1.38 2007/04/14 20:10:57 mavrik Exp $
+ * $Id: properties.c,v 1.64 2012/01/18 03:09:44 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -66,7 +66,7 @@
 int
 PropertiesTestFile(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
 
   iError = PropertiesReadFile(psProperties->acConfigFile, psProperties, acLocalError);
@@ -94,7 +94,7 @@ int
 PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "PropertiesReadFile()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acLine[PROPERTIES_MAX_LINE];
   char               *pc;
   int                 iError;
@@ -264,7 +264,7 @@ int
 PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "PropertiesReadLine()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
 #ifdef USE_SSL
   char                acTempFile[FTIMES_MAX_PATH];
 #endif
@@ -274,6 +274,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
   int                 iError;
   int                 iRunMode;
   int                 iValue;
+  APP_UI64            ui64Value = 0;
   unsigned int        iLength;
 
   /*-
@@ -374,26 +375,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
 
   iRunMode = (psProperties->iRunMode == FTIMES_CFGTEST) ? psProperties->iTestRunMode : psProperties->iRunMode;
 
-  if (strcasecmp(pcControl, KEY_URLAuthType) == 0 && RUN_MODE_IS_SET(MODES_URLAuthType, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bURLAuthTypeFound);
-    if (strcasecmp(pc, "basic") == 0)
-    {
-      psProperties->iURLAuthType = HTTP_AUTH_TYPE_BASIC;
-    }
-    else if (strcasecmp(pc, "none") == 0)
-    {
-      psProperties->iURLAuthType = HTTP_AUTH_TYPE_NONE;
-    }
-    else
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value must be [basic|none].", acRoutine, pcControl);
-      return ER;
-    }
-    psProperties->sFound.bURLAuthTypeFound = TRUE;
-  }
-
-  else if (strcasecmp(pcControl, KEY_AnalyzeBlockSize) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeBlockSize, iRunMode))
+  if (strcasecmp(pcControl, KEY_AnalyzeBlockSize) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeBlockSize, iRunMode))
   {
     DUPLICATE_ERROR(psProperties->sFound.bAnalyzeBlockSizeFound);
     while (iLength > 0)
@@ -417,6 +399,22 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       AnalyzeSetBlockSize(psProperties->iAnalyzeBlockSize);
     }
     psProperties->sFound.bAnalyzeBlockSizeFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_AnalyzeByteCount) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeByteCount, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bAnalyzeByteCountFound);
+    iError = SupportStringToUInt64(pc, &ui64Value, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    else
+    {
+      psProperties->ui64AnalyzeByteCount = ui64Value;
+    }
+    psProperties->sFound.bAnalyzeByteCountFound = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_AnalyzeCarrySize) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeCarrySize, iRunMode))
@@ -443,6 +441,61 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       AnalyzeSetCarrySize(psProperties->iAnalyzeCarrySize);
     }
     psProperties->sFound.bAnalyzeCarrySizeFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_AnalyzeDeviceFiles) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeDeviceFiles, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bAnalyzeDeviceFilesFound);
+    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bAnalyzeDeviceFiles);
+    psProperties->sFound.bAnalyzeDeviceFilesFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_AnalyzeMaxDps) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeMaxDps, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bAnalyzeMaxDpsFound);
+    while (iLength > 0)
+    {
+      if (!isdigit((int) pc[iLength - 1]))
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%s], Value must be an integer.", acRoutine, pcControl, pc);
+        return ER;
+      }
+      iLength--;
+    }
+    iValue = atoi(pc);
+    if (iValue < 0 || iValue > FTIMES_MAX_KBPS)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%s], Value out of range.", acRoutine, pcControl, pc);
+      return ER;
+    }
+    else
+    {
+      psProperties->iAnalyzeMaxDps = iValue;
+    }
+    psProperties->sFound.bAnalyzeMaxDpsFound = TRUE;
+  }
+
+  else if ((strcasecmp(pcControl, KEY_AnalyzeRemoteFiles) == 0 || strcasecmp(pcControl, KEY_MapRemoteFiles) == 0) && RUN_MODE_IS_SET(MODES_AnalyzeRemoteFiles, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bAnalyzeRemoteFilesFound);
+    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bAnalyzeRemoteFiles);
+    psProperties->sFound.bAnalyzeRemoteFilesFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_AnalyzeStartOffset) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeStartOffset, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bAnalyzeStartOffsetFound);
+    iError = SupportStringToUInt64(pc, &ui64Value, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    else
+    {
+      psProperties->ui64AnalyzeStartOffset = ui64Value;
+    }
+    psProperties->sFound.bAnalyzeStartOffsetFound = TRUE;
   }
 
 #ifdef USE_XMAGIC
@@ -473,20 +526,6 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
   }
 #endif
 
-  else if (strcasecmp(pcControl, KEY_AnalyzeDeviceFiles) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeDeviceFiles, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bAnalyzeDeviceFilesFound);
-    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bAnalyzeDeviceFiles);
-    psProperties->sFound.bAnalyzeDeviceFilesFound = TRUE;
-  }
-
-  else if ((strcasecmp(pcControl, KEY_AnalyzeRemoteFiles) == 0 || strcasecmp(pcControl, KEY_MapRemoteFiles) == 0) && RUN_MODE_IS_SET(MODES_AnalyzeRemoteFiles, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bAnalyzeRemoteFilesFound);
-    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bAnalyzeRemoteFiles);
-    psProperties->sFound.bAnalyzeRemoteFilesFound = TRUE;
-  }
-
   else if (strcasecmp(pcControl, KEY_BaseName) == 0 && RUN_MODE_IS_SET(MODES_BaseName, iRunMode))
   {
     DUPLICATE_ERROR(psProperties->sFound.bBaseNameFound);
@@ -497,9 +536,9 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     }
     while (iLength > 0)
     {
-      if (!isalnum((int) pc[iLength - 1]) && pc[iLength - 1] != '_' && pc[iLength - 1] != '-')
+      if (!isalnum((int) pc[iLength - 1]) && pc[iLength - 1] != '_' && pc[iLength - 1] != '-' && pc[iLength - 1] != '.')
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], BaseNames must constructed from the following character set: [0-9a-zA-Z_-].", acRoutine, pcControl);
+        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], BaseNames must constructed from the following character set: [0-9a-zA-Z._-].", acRoutine, pcControl);
         return ER;
       }
       iLength--;
@@ -538,9 +577,9 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->sFound.bCompressFound = TRUE;
   }
 
-  else if ((strcasecmp(pcControl, KEY_DigStringNormal) == 0 || strcasecmp(pcControl, KEY_DigString) == 0) && RUN_MODE_IS_SET(MODES_DigStringNormal, iRunMode))
+  else if (strcasecmp(pcControl, KEY_DigStringNoCase) == 0 && RUN_MODE_IS_SET(MODES_DigStringNoCase, iRunMode))
   {
-    iError = DigAddDigString(pc, DIG_STRING_TYPE_NORMAL, acLocalError);
+    iError = DigAddDigString(pc, DIG_STRING_TYPE_NOCASE, acLocalError);
     if (iError != ER_OK)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
@@ -548,9 +587,9 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     }
   }
 
-  else if (strcasecmp(pcControl, KEY_DigStringNoCase) == 0 && RUN_MODE_IS_SET(MODES_DigStringNoCase, iRunMode))
+  else if ((strcasecmp(pcControl, KEY_DigStringNormal) == 0 || strcasecmp(pcControl, KEY_DigString) == 0) && RUN_MODE_IS_SET(MODES_DigStringNormal, iRunMode))
   {
-    iError = DigAddDigString(pc, DIG_STRING_TYPE_NOCASE, acLocalError);
+    iError = DigAddDigString(pc, DIG_STRING_TYPE_NORMAL, acLocalError);
     if (iError != ER_OK)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
@@ -589,12 +628,91 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->sFound.bEnableRecursionFound = TRUE;
   }
 
+  else if (strcasecmp(pcControl, KEY_Exclude) == 0 && RUN_MODE_IS_SET(MODES_Exclude, iRunMode))
+  {
+    iError = SupportAddToList(pc, &psProperties->psExcludeList, "Exclude", acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+  }
+
+#ifdef USE_PCRE
+  else if (strcasecmp(pcControl, KEY_ExcludeFilter) == 0 && RUN_MODE_IS_SET(MODES_ExcludeFilter, iRunMode))
+  {
+    iError = SupportAddFilter(pc, &psProperties->psExcludeFilterList, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+  }
+
+  else if (strcasecmp(pcControl, KEY_ExcludeFilterMd5) == 0 && RUN_MODE_IS_SET(MODES_ExcludeFilterMd5, iRunMode))
+  {
+    iError = SupportAddFilter(pc, &psProperties->psExcludeFilterMd5List, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    psProperties->bHaveAttributeFilters = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_ExcludeFilterSha1) == 0 && RUN_MODE_IS_SET(MODES_ExcludeFilterSha1, iRunMode))
+  {
+    iError = SupportAddFilter(pc, &psProperties->psExcludeFilterSha1List, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    psProperties->bHaveAttributeFilters = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_ExcludeFilterSha256) == 0 && RUN_MODE_IS_SET(MODES_ExcludeFilterSha256, iRunMode))
+  {
+    iError = SupportAddFilter(pc, &psProperties->psExcludeFilterSha256List, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    psProperties->bHaveAttributeFilters = TRUE;
+  }
+#endif
+
   else if (strcasecmp(pcControl, KEY_ExcludesMustExist) == 0 && RUN_MODE_IS_SET(MODES_ExcludesMustExist, iRunMode))
   {
     DUPLICATE_ERROR(psProperties->sFound.bExcludesMustExistFound);
     EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bExcludesMustExist);
     psProperties->sFound.bExcludesMustExistFound = TRUE;
   }
+
+  else if (strcasecmp(pcControl, KEY_FieldMask) == 0 && RUN_MODE_IS_SET(MODES_FieldMask, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bFieldMaskFound);
+    psProperties->psFieldMask = MaskParseMask(pc, MASK_RUNMODE_TYPE_MAP, acLocalError);
+    if (psProperties->psFieldMask == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    psProperties->sFound.bFieldMaskFound = TRUE;
+  }
+
+#ifdef USE_FILE_HOOKS
+  else if (strcasecmp(pcControl, KEY_FileHook) == 0 && RUN_MODE_IS_SET(MODES_FileHook, iRunMode))
+  {
+    iError = HookAddHook(pc, &psProperties->psFileHookList, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+  }
+#endif
 
   else if (strcasecmp(pcControl, KEY_FileSizeLimit) == 0 && RUN_MODE_IS_SET(MODES_FileSizeLimit, iRunMode))
   {
@@ -650,89 +768,20 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->sFound.bHashSymbolicLinksFound = TRUE;
   }
 
-  else if (strcasecmp(pcControl, KEY_URLGetRequest) == 0 && RUN_MODE_IS_SET(MODES_URLGetRequest, iRunMode))
+  else if (strcasecmp(pcControl, KEY_Import) == 0 && RUN_MODE_IS_SET(MODES_Import, iRunMode))
   {
-    DUPLICATE_ERROR(psProperties->sFound.bURLGetRequestFound);
-    if (strcasecmp(pc, "MapFullConfig") == 0)
-    {
-      strncpy(psProperties->acURLGetRequest, "MapFullConfig", GET_REQUEST_BUFSIZE);
-      psProperties->iNextRunMode = FTIMES_MAPFULL;
-    }
-    else if (strcasecmp(pc, "MapLeanConfig") == 0)
-    {
-      strncpy(psProperties->acURLGetRequest, "MapLeanConfig", GET_REQUEST_BUFSIZE);
-      psProperties->iNextRunMode = FTIMES_MAPLEAN;
-    }
-    else if (strcasecmp(pc, "DigFullConfig") == 0)
-    {
-      strncpy(psProperties->acURLGetRequest, "DigFullConfig", GET_REQUEST_BUFSIZE);
-      psProperties->iNextRunMode = FTIMES_DIGFULL;
-    }
-    else if (strcasecmp(pc, "DigLeanConfig") == 0)
-    {
-      strncpy(psProperties->acURLGetRequest, "DigLeanConfig", GET_REQUEST_BUFSIZE);
-      psProperties->iNextRunMode = FTIMES_DIGLEAN;
-    }
-    else
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value must be [Dig{Full,Lean}Config|Map{Full,Lean}Config].", acRoutine, pcControl);
-      return ER;
-    }
-    psProperties->sFound.bURLGetRequestFound = TRUE;
-  }
-
-  else if (strcasecmp(pcControl, KEY_URLGetURL) == 0 && RUN_MODE_IS_SET(MODES_URLGetURL, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bURLGetURLFound);
-    if (iLength < 1 || iLength > FTIMES_MAX_PATH - 1)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Invalid length [%d].", acRoutine, pcControl, iLength);
-      return ER;
-    }
-
-    psProperties->psGetURL = HTTPParseURL(pc, acLocalError);
-    if (psProperties->psGetURL == NULL)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
-      return ER;
-    }
-    psProperties->sFound.bURLGetURLFound = TRUE;
-  }
-
-  else if (strcasecmp(pcControl, KEY_Exclude) == 0 && RUN_MODE_IS_SET(MODES_Exclude, iRunMode))
-  {
-    if (iLength < 1 || iLength > FTIMES_MAX_PATH - 1)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Invalid length [%d].", acRoutine, pcControl, iLength);
-      return ER;
-    }
-    iError = SupportAddToList(pc, &psProperties->psExcludeList, "Exclude", acLocalError);
+    psProperties->iImportRecursionLevel++;
+    iError = PropertiesReadFile(pc, psProperties, acLocalError);
     if (iError != ER_OK)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
       return ER;
     }
+    psProperties->iImportRecursionLevel--;
   }
-
-#ifdef USE_PCRE
-  else if (strcasecmp(pcControl, KEY_ExcludeFilter) == 0 && RUN_MODE_IS_SET(MODES_ExcludeFilter, iRunMode))
-  {
-    iError = SupportAddFilter(pc, &psProperties->psExcludeFilterList, acLocalError);
-    if (iError != ER_OK)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
-      return ER;
-    }
-  }
-#endif
 
   else if (strcasecmp(pcControl, KEY_Include) == 0 && RUN_MODE_IS_SET(MODES_Include, iRunMode))
   {
-    if (iLength < 1 || iLength > FTIMES_MAX_PATH - 1)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Invalid length [%d].", acRoutine, pcControl, iLength);
-      return ER;
-    }
     iError = SupportAddToList(pc, &psProperties->psIncludeList, "Include", acLocalError);
     if (iError != ER_OK)
     {
@@ -751,6 +800,39 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       return ER;
     }
   }
+
+  else if (strcasecmp(pcControl, KEY_IncludeFilterMd5) == 0 && RUN_MODE_IS_SET(MODES_IncludeFilterMd5, iRunMode))
+  {
+    iError = SupportAddFilter(pc, &psProperties->psIncludeFilterMd5List, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    psProperties->bHaveAttributeFilters = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_IncludeFilterSha1) == 0 && RUN_MODE_IS_SET(MODES_IncludeFilterSha1, iRunMode))
+  {
+    iError = SupportAddFilter(pc, &psProperties->psIncludeFilterSha1List, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    psProperties->bHaveAttributeFilters = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_IncludeFilterSha256) == 0 && RUN_MODE_IS_SET(MODES_IncludeFilterSha256, iRunMode))
+  {
+    iError = SupportAddFilter(pc, &psProperties->psIncludeFilterSha256List, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    psProperties->bHaveAttributeFilters = TRUE;
+  }
 #endif
 
   else if (strcasecmp(pcControl, KEY_IncludesMustExist) == 0 && RUN_MODE_IS_SET(MODES_IncludesMustExist, iRunMode))
@@ -760,16 +842,11 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->sFound.bIncludesMustExistFound = TRUE;
   }
 
-  else if (strcasecmp(pcControl, KEY_Import) == 0 && RUN_MODE_IS_SET(MODES_Import, iRunMode))
+  else if (strcasecmp(pcControl, KEY_LogDigStrings) == 0 && RUN_MODE_IS_SET(MODES_LogDigStrings, iRunMode))
   {
-    psProperties->iImportRecursionLevel++;
-    iError = PropertiesReadFile(pc, psProperties, acLocalError);
-    if (iError != ER_OK)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
-      return ER;
-    }
-    psProperties->iImportRecursionLevel--;
+    DUPLICATE_ERROR(psProperties->sFound.bLogDigStringsFound);
+    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bLogDigStrings);
+    psProperties->sFound.bLogDigStringsFound = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_LogDir) == 0 && RUN_MODE_IS_SET(MODES_LogDir, iRunMode))
@@ -797,6 +874,31 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     }
     strncpy(psProperties->acMagicFileName, pc, FTIMES_MAX_PATH);
     psProperties->sFound.bMagicFileFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_MatchLimit) == 0 && RUN_MODE_IS_SET(MODES_MatchLimit, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bMatchLimitFound);
+    while (iLength > 0)
+    {
+      if (!isdigit((int) pc[iLength - 1]))
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%s], Value must be an integer.", acRoutine, pcControl, pc);
+        return ER;
+      }
+      iLength--;
+    }
+    iValue = atoi(pc);
+    if (iValue < FTIMES_MIN_STRING_REPEATS || iValue > FTIMES_MAX_STRING_REPEATS)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%d], Value is out of range.", acRoutine, pcControl, iValue);
+      return ER;
+    }
+    else
+    {
+      psProperties->iMatchLimit = iValue;
+    }
+    psProperties->sFound.bMatchLimitFound = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_NewLine) == 0 && RUN_MODE_IS_SET(MODES_NewLine, iRunMode))
@@ -833,35 +935,23 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->sFound.bOutDirFound = TRUE;
   }
 
-  else if (strcasecmp(pcControl, KEY_FieldMask) == 0 && RUN_MODE_IS_SET(MODES_FieldMask, iRunMode))
+  else if (strcasecmp(pcControl, KEY_Priority) == 0 && RUN_MODE_IS_SET(MODES_Priority, iRunMode))
   {
-    DUPLICATE_ERROR(psProperties->sFound.bFieldMaskFound);
-    psProperties->psFieldMask = MaskParseMask(pc, MASK_RUNMODE_TYPE_MAP, acLocalError);
-    if (psProperties->psFieldMask == NULL)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], %s", acRoutine, pcControl, acLocalError);
-      return ER;
-    }
-    psProperties->sFound.bFieldMaskFound = TRUE;
-  }
-
-  else if (strcasecmp(pcControl, KEY_URLPassword) == 0 && RUN_MODE_IS_SET(MODES_URLPassword, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bURLPasswordFound);
-    if (iLength < 1 || iLength > FTIMES_MAX_PASSWORD_LENGTH - 1)
+    DUPLICATE_ERROR(psProperties->sFound.bPriorityFound);
+    if (iLength < 1 || iLength > FTIMES_MAX_PRIORITY_LENGTH - 1)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Invalid length [%d].", acRoutine, pcControl, iLength);
-      return ER;
+      return ER_Length;
     }
-    strncpy(psProperties->acURLPassword, pc, FTIMES_MAX_PASSWORD_LENGTH);
-    psProperties->sFound.bURLPasswordFound = TRUE;
+    strncpy(psProperties->acPriority, pc, FTIMES_MAX_PRIORITY_LENGTH);
+    psProperties->sFound.bPriorityFound = TRUE;
   }
 
-  else if (strcasecmp(pcControl, KEY_URLUnlinkOutput) == 0 && RUN_MODE_IS_SET(MODES_URLUnlinkOutput, iRunMode))
+  else if (strcasecmp(pcControl, KEY_RequirePrivilege) == 0 && RUN_MODE_IS_SET(MODES_RequirePrivilege, iRunMode))
   {
-    DUPLICATE_ERROR(psProperties->sFound.bURLUnlinkOutputFound);
-    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bURLUnlinkOutput);
-    psProperties->sFound.bURLUnlinkOutputFound = TRUE;
+    DUPLICATE_ERROR(psProperties->sFound.bRequirePrivilegeFound);
+    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bRequirePrivilege);
+    psProperties->sFound.bRequirePrivilegeFound = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_RunType) == 0 && RUN_MODE_IS_SET(MODES_RunType, iRunMode))
@@ -887,76 +977,6 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->sFound.bRunTypeFound = TRUE;
   }
 
-  else if (strcasecmp(pcControl, KEY_MatchLimit) == 0 && RUN_MODE_IS_SET(MODES_MatchLimit, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bMatchLimitFound);
-    while (iLength > 0)
-    {
-      if (!isdigit((int) pc[iLength - 1]))
-      {
-        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%s], Value must be an integer.", acRoutine, pcControl, pc);
-        return ER;
-      }
-      iLength--;
-    }
-    iValue = atoi(pc);
-    if (iValue < FTIMES_MIN_STRING_REPEATS || iValue > FTIMES_MAX_STRING_REPEATS)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%d], Value is out of range.", acRoutine, pcControl, iValue);
-      return ER;
-    }
-    else
-    {
-      psProperties->iMatchLimit = iValue;
-      DigSetMatchLimit(psProperties->iMatchLimit);
-    }
-    psProperties->sFound.bMatchLimitFound = TRUE;
-  }
-
-  else if (strcasecmp(pcControl, KEY_URLPutSnapshot) == 0 && RUN_MODE_IS_SET(MODES_URLPutSnapshot, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bURLPutSnapshotFound);
-    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bURLPutSnapshot);
-    psProperties->sFound.bURLPutSnapshotFound = TRUE;
-  }
-
-  else if (strcasecmp(pcControl, KEY_URLPutURL) == 0 && RUN_MODE_IS_SET(MODES_URLPutURL, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bURLPutURLFound);
-    if (iLength < 1 || iLength > FTIMES_MAX_PATH - 1)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Invalid length [%d].", acRoutine, pcControl, iLength);
-      return ER;
-    }
-
-    psProperties->psPutURL = HTTPParseURL(pc, acLocalError);
-    if (psProperties->psPutURL == NULL)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
-      return ER;
-    }
-    psProperties->sFound.bURLPutURLFound = TRUE;
-  }
-
-  else if (strcasecmp(pcControl, KEY_RequirePrivilege) == 0 && RUN_MODE_IS_SET(MODES_RequirePrivilege, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bRequirePrivilegeFound);
-    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bRequirePrivilege);
-    psProperties->sFound.bRequirePrivilegeFound = TRUE;
-  }
-
-  else if (strcasecmp(pcControl, KEY_URLUsername) == 0 && RUN_MODE_IS_SET(MODES_URLUsername, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bURLUsernameFound);
-    if (iLength < 1 || iLength > FTIMES_MAX_USERNAME_LENGTH - 1)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Invalid length [%d].", acRoutine, pcControl, iLength);
-      return ER;
-    }
-    strncpy(psProperties->acURLUsername, pc, FTIMES_MAX_USERNAME_LENGTH);
-    psProperties->sFound.bURLUsernameFound = TRUE;
-  }
-
 #ifdef USE_SSL
   else if (strcasecmp(pcControl, KEY_SSLBundledCAsFile) == 0 && RUN_MODE_IS_SET(MODES_SSLBundledCAsFile, iRunMode))
   {
@@ -969,7 +989,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
         snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
         return ER;
       }
-      iError = SSLSetBundledCAsFile(psProperties->psSSLProperties, acTempFile, acLocalError);
+      iError = SslSetBundledCAsFile(psProperties->psSslProperties, acTempFile, acLocalError);
       if (iError != ER_OK)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
@@ -979,37 +999,16 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->sFound.bSSLBundledCAsFileFound = TRUE;
   }
 
-  else if (strcasecmp(pcControl, KEY_SSLPassPhrase) == 0 && RUN_MODE_IS_SET(MODES_SSLPassPhrase, iRunMode))
+  else if (strcasecmp(pcControl, KEY_SSLExpectedPeerCN) == 0 && RUN_MODE_IS_SET(MODES_SSLExpectedPeerCN, iRunMode))
   {
-    DUPLICATE_ERROR(psProperties->sFound.bSSLPassPhraseFound);
-    iError = SSLSetPassPhrase(psProperties->psSSLProperties, pc, acLocalError);
+    DUPLICATE_ERROR(psProperties->sFound.bSSLExpectedPeerCNFound);
+    iError = SslSetExpectedPeerCN(psProperties->psSslProperties, pc, acLocalError);
     if (iError != ER_OK)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
       return ER;
     }
-    psProperties->sFound.bSSLPassPhraseFound = TRUE;
-  }
-
-  else if (strcasecmp(pcControl, KEY_SSLPublicCertFile) == 0 && RUN_MODE_IS_SET(MODES_SSLPublicCertFile, iRunMode))
-  {
-    DUPLICATE_ERROR(psProperties->sFound.bSSLPublicCertFileFound);
-    if (psProperties->iRunMode != FTIMES_CFGTEST || psProperties->iTestLevel == FTIMES_TEST_STRICT)
-    {
-      iError = SupportExpandPath(pc, acTempFile, FTIMES_MAX_PATH, 1, acLocalError);
-      if (iError != ER_OK)
-      {
-        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
-        return ER;
-      }
-      iError = SSLSetPublicCertFile(psProperties->psSSLProperties, acTempFile, acLocalError);
-      if (iError != ER_OK)
-      {
-        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
-        return ER;
-      }
-    }
-    psProperties->sFound.bSSLPublicCertFileFound = TRUE;
+    psProperties->sFound.bSSLExpectedPeerCNFound = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_SSLMaxChainLength) == 0 && RUN_MODE_IS_SET(MODES_SSLMaxChainLength, iRunMode))
@@ -1032,9 +1031,21 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     }
     else
     {
-      psProperties->psSSLProperties->iMaxChainLength = iValue;
+      psProperties->psSslProperties->iMaxChainLength = iValue;
     }
     psProperties->sFound.bSSLMaxChainLengthFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_SSLPassPhrase) == 0 && RUN_MODE_IS_SET(MODES_SSLPassPhrase, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bSSLPassPhraseFound);
+    iError = SslSetPassPhrase(psProperties->psSslProperties, pc, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    psProperties->sFound.bSSLPassPhraseFound = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_SSLPrivateKeyFile) == 0 && RUN_MODE_IS_SET(MODES_SSLPrivateKeyFile, iRunMode))
@@ -1048,7 +1059,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
         snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
         return ER;
       }
-      iError = SSLSetPrivateKeyFile(psProperties->psSSLProperties, acTempFile, acLocalError);
+      iError = SslSetPrivateKeyFile(psProperties->psSslProperties, acTempFile, acLocalError);
       if (iError != ER_OK)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
@@ -1058,37 +1069,166 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->sFound.bSSLPrivateKeyFileFound = TRUE;
   }
 
-  else if (strcasecmp(pcControl, KEY_SSLExpectedPeerCN) == 0 && RUN_MODE_IS_SET(MODES_SSLExpectedPeerCN, iRunMode))
+  else if (strcasecmp(pcControl, KEY_SSLPublicCertFile) == 0 && RUN_MODE_IS_SET(MODES_SSLPublicCertFile, iRunMode))
   {
-    DUPLICATE_ERROR(psProperties->sFound.bSSLExpectedPeerCNFound);
-    iError = SSLSetExpectedPeerCN(psProperties->psSSLProperties, pc, acLocalError);
-    if (iError != ER_OK)
+    DUPLICATE_ERROR(psProperties->sFound.bSSLPublicCertFileFound);
+    if (psProperties->iRunMode != FTIMES_CFGTEST || psProperties->iTestLevel == FTIMES_TEST_STRICT)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
-      return ER;
+      iError = SupportExpandPath(pc, acTempFile, FTIMES_MAX_PATH, 1, acLocalError);
+      if (iError != ER_OK)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+        return ER;
+      }
+      iError = SslSetPublicCertFile(psProperties->psSslProperties, acTempFile, acLocalError);
+      if (iError != ER_OK)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+        return ER;
+      }
     }
-    psProperties->sFound.bSSLExpectedPeerCNFound = TRUE;
+    psProperties->sFound.bSSLPublicCertFileFound = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_SSLUseCertificate) == 0 && RUN_MODE_IS_SET(MODES_SSLUseCertificate, iRunMode))
   {
     DUPLICATE_ERROR(psProperties->sFound.bSSLUseCertificateFound);
-    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->psSSLProperties->iUseCertificate);
+    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->psSslProperties->iUseCertificate);
     psProperties->sFound.bSSLUseCertificateFound = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_SSLVerifyPeerCert) == 0 && RUN_MODE_IS_SET(MODES_SSLVerifyPeerCert, iRunMode))
   {
     DUPLICATE_ERROR(psProperties->sFound.bSSLVerifyPeerCertFound);
-    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->psSSLProperties->iVerifyPeerCert);
+    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->psSslProperties->iVerifyPeerCert);
     psProperties->sFound.bSSLVerifyPeerCertFound = TRUE;
   }
 #endif
 
+  else if (strcasecmp(pcControl, KEY_StrictControls) == 0 && RUN_MODE_IS_SET(MODES_StrictControls, iRunMode))
+  {
+    EVALUATE_TWOSTATE(pc, "y", "n", psProperties->bStrictControls);
+  }
+
+  else if (strcasecmp(pcControl, KEY_URLAuthType) == 0 && RUN_MODE_IS_SET(MODES_URLAuthType, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bURLAuthTypeFound);
+    if (strcasecmp(pc, "basic") == 0)
+    {
+      psProperties->iURLAuthType = HTTP_AUTH_TYPE_BASIC;
+    }
+    else if (strcasecmp(pc, "none") == 0)
+    {
+      psProperties->iURLAuthType = HTTP_AUTH_TYPE_NONE;
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value must be [basic|none].", acRoutine, pcControl);
+      return ER;
+    }
+    psProperties->sFound.bURLAuthTypeFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_URLGetRequest) == 0 && RUN_MODE_IS_SET(MODES_URLGetRequest, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bURLGetRequestFound);
+    if (strcasecmp(pc, "DigConfig") == 0)
+    {
+      strncpy(psProperties->acURLGetRequest, "DigConfig", GET_REQUEST_BUFSIZE);
+      psProperties->iNextRunMode = FTIMES_DIGMODE;
+    }
+    else if (strcasecmp(pc, "MapConfig") == 0)
+    {
+      strncpy(psProperties->acURLGetRequest, "MapConfig", GET_REQUEST_BUFSIZE);
+      psProperties->iNextRunMode = FTIMES_MAPMODE;
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value must be [DigConfig|MapConfig].", acRoutine, pcControl);
+      return ER;
+    }
+    psProperties->sFound.bURLGetRequestFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_URLGetURL) == 0 && RUN_MODE_IS_SET(MODES_URLGetURL, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bURLGetURLFound);
+    if (iLength < 1 || iLength > FTIMES_MAX_PATH - 1)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Invalid length [%d].", acRoutine, pcControl, iLength);
+      return ER;
+    }
+    psProperties->psGetURL = HttpParseUrl(pc, acLocalError);
+    if (psProperties->psGetURL == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    psProperties->sFound.bURLGetURLFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_URLPassword) == 0 && RUN_MODE_IS_SET(MODES_URLPassword, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bURLPasswordFound);
+    if (iLength < 1 || iLength > FTIMES_MAX_PASSWORD_LENGTH - 1)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Invalid length [%d].", acRoutine, pcControl, iLength);
+      return ER;
+    }
+    strncpy(psProperties->acURLPassword, pc, FTIMES_MAX_PASSWORD_LENGTH);
+    psProperties->sFound.bURLPasswordFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_URLPutSnapshot) == 0 && RUN_MODE_IS_SET(MODES_URLPutSnapshot, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bURLPutSnapshotFound);
+    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bURLPutSnapshot);
+    psProperties->sFound.bURLPutSnapshotFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_URLPutURL) == 0 && RUN_MODE_IS_SET(MODES_URLPutURL, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bURLPutURLFound);
+    if (iLength < 1 || iLength > FTIMES_MAX_PATH - 1)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Invalid length [%d].", acRoutine, pcControl, iLength);
+      return ER;
+    }
+    psProperties->psPutURL = HttpParseUrl(pc, acLocalError);
+    if (psProperties->psPutURL == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+    psProperties->sFound.bURLPutURLFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_URLUnlinkOutput) == 0 && RUN_MODE_IS_SET(MODES_URLUnlinkOutput, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bURLUnlinkOutputFound);
+    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bURLUnlinkOutput);
+    psProperties->sFound.bURLUnlinkOutputFound = TRUE;
+  }
+
+  else if (strcasecmp(pcControl, KEY_URLUsername) == 0 && RUN_MODE_IS_SET(MODES_URLUsername, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bURLUsernameFound);
+    if (iLength < 1 || iLength > FTIMES_MAX_USERNAME_LENGTH - 1)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Invalid length [%d].", acRoutine, pcControl, iLength);
+      return ER;
+    }
+    strncpy(psProperties->acURLUsername, pc, FTIMES_MAX_USERNAME_LENGTH);
+    psProperties->sFound.bURLUsernameFound = TRUE;
+  }
+
   else
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], The specified control is not valid in this mode of operation.", acRoutine, pcControl);
-    return ER;
+    if (psProperties->bStrictControls)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], The specified control is not valid in this mode of operation.", acRoutine, pcControl);
+      return ER;
+    }
   }
 
   return ER_OK;
@@ -1106,10 +1246,16 @@ void
 PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
 {
   char                acMessage[MESSAGE_SIZE];
+#ifdef USE_FILE_HOOKS
+  char               *pcExpression = NULL;
+#endif
   DIG_STRING         *psDigString;
   FILE_LIST          *psList;
 #ifdef USE_PCRE
   FILTER_LIST        *psFilterList;
+#endif
+#ifdef USE_FILE_HOOKS
+  HOOK_LIST          *psHook = NULL;
 #endif
   int                 i;
 
@@ -1119,10 +1265,42 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 
+  if (RUN_MODE_IS_SET(MODES_AnalyzeByteCount, psProperties->iRunMode))
+  {
+#ifdef WIN32
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%I64u", KEY_AnalyzeByteCount, (APP_UI64) psProperties->ui64AnalyzeByteCount);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+#else
+#ifdef USE_AP_SNPRINTF
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%qu", KEY_AnalyzeByteCount, (unsigned long long) psProperties->ui64AnalyzeByteCount);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+#else
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%llu", KEY_AnalyzeByteCount, (unsigned long long) psProperties->ui64AnalyzeByteCount);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+#endif
+#endif
+  }
+
   if (RUN_MODE_IS_SET(MODES_AnalyzeCarrySize, psProperties->iRunMode))
   {
     snprintf(acMessage, MESSAGE_SIZE, "%s=%d", KEY_AnalyzeCarrySize, psProperties->iAnalyzeCarrySize);
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+  }
+
+  if (RUN_MODE_IS_SET(MODES_AnalyzeStartOffset, psProperties->iRunMode))
+  {
+#ifdef WIN32
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%I64u", KEY_AnalyzeStartOffset, (APP_UI64) psProperties->ui64AnalyzeStartOffset);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+#else
+#ifdef USE_AP_SNPRINTF
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%qu", KEY_AnalyzeStartOffset, (unsigned long long) psProperties->ui64AnalyzeStartOffset);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+#else
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%llu", KEY_AnalyzeStartOffset, (unsigned long long) psProperties->ui64AnalyzeStartOffset);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+#endif
+#endif
   }
 
 #ifdef USE_XMAGIC
@@ -1136,6 +1314,12 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
   if (RUN_MODE_IS_SET(MODES_AnalyzeDeviceFiles, psProperties->iRunMode))
   {
     snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_AnalyzeDeviceFiles, psProperties->bAnalyzeDeviceFiles ? "Y" : "N");
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+  }
+
+  if (RUN_MODE_IS_SET(MODES_AnalyzeMaxDps, psProperties->iRunMode))
+  {
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%d (KB/s)", KEY_AnalyzeMaxDps, psProperties->iAnalyzeMaxDps);
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 
@@ -1265,6 +1449,12 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
     }
   }
 
+  if (RUN_MODE_IS_SET(MODES_Priority, psProperties->iRunMode))
+  {
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_Priority, psProperties->acPriority);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+  }
+
   if (RUN_MODE_IS_SET(MODES_RequirePrivilege, psProperties->iRunMode))
   {
     snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_RequirePrivilege, psProperties->bRequirePrivilege ? "Y" : "N");
@@ -1308,6 +1498,15 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
     }
   }
 
+  /*-
+   *********************************************************************
+   *
+   * Conditionally print URL/SSL properties.
+   *
+   *********************************************************************
+   */
+if (RUN_MODE_IS_SET(MODES_URLPutSnapshot, psProperties->iRunMode) && psProperties->bURLPutSnapshot)
+{
   if (RUN_MODE_IS_SET(MODES_URLPutSnapshot, psProperties->iRunMode))
   {
     snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_URLPutSnapshot, psProperties->bURLPutSnapshot ? "Y" : "N");
@@ -1369,72 +1568,73 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
 #ifdef USE_SSL
   if (RUN_MODE_IS_SET(MODES_SSLVerifyPeerCert, psProperties->iRunMode))
   {
-    snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLVerifyPeerCert, psProperties->psSSLProperties->iVerifyPeerCert ? "Y" : "N");
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLVerifyPeerCert, psProperties->psSslProperties->iVerifyPeerCert ? "Y" : "N");
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 
   if (RUN_MODE_IS_SET(MODES_SSLBundledCAsFile, psProperties->iRunMode))
   {
-    if (psProperties->psSSLProperties->iVerifyPeerCert && psProperties->psSSLProperties->pcBundledCAsFile[0])
+    if (psProperties->psSslProperties->iVerifyPeerCert && psProperties->psSslProperties->pcBundledCAsFile[0])
     {
-      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLBundledCAsFile, psProperties->psSSLProperties->pcBundledCAsFile);
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLBundledCAsFile, psProperties->psSslProperties->pcBundledCAsFile);
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }
 
   if (RUN_MODE_IS_SET(MODES_SSLExpectedPeerCN, psProperties->iRunMode))
   {
-    if (psProperties->psSSLProperties->iVerifyPeerCert && psProperties->psSSLProperties->pcExpectedPeerCN[0])
+    if (psProperties->psSslProperties->iVerifyPeerCert && psProperties->psSslProperties->pcExpectedPeerCN[0])
     {
-      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLExpectedPeerCN, psProperties->psSSLProperties->pcExpectedPeerCN);
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLExpectedPeerCN, psProperties->psSslProperties->pcExpectedPeerCN);
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }
 
   if (RUN_MODE_IS_SET(MODES_SSLMaxChainLength, psProperties->iRunMode))
   {
-    if (psProperties->psSSLProperties->iVerifyPeerCert)
+    if (psProperties->psSslProperties->iVerifyPeerCert)
     {
-      snprintf(acMessage, MESSAGE_SIZE, "%s=%d", KEY_SSLMaxChainLength, psProperties->psSSLProperties->iMaxChainLength);
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%d", KEY_SSLMaxChainLength, psProperties->psSslProperties->iMaxChainLength);
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }
 
   if (RUN_MODE_IS_SET(MODES_SSLUseCertificate, psProperties->iRunMode))
   {
-    snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLUseCertificate, psProperties->psSSLProperties->iUseCertificate ? "Y" : "N");
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLUseCertificate, psProperties->psSslProperties->iUseCertificate ? "Y" : "N");
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 
   if (RUN_MODE_IS_SET(MODES_SSLPrivateKeyFile, psProperties->iRunMode))
   {
-    if (psProperties->psSSLProperties->iUseCertificate && psProperties->psSSLProperties->pcPrivateKeyFile[0])
+    if (psProperties->psSslProperties->iUseCertificate && psProperties->psSslProperties->pcPrivateKeyFile[0])
     {
-      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLPrivateKeyFile, psProperties->psSSLProperties->pcPrivateKeyFile);
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLPrivateKeyFile, psProperties->psSslProperties->pcPrivateKeyFile);
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }
 
   if (RUN_MODE_IS_SET(MODES_SSLPublicCertFile, psProperties->iRunMode))
   {
-    if (psProperties->psSSLProperties->iUseCertificate && psProperties->psSSLProperties->pcPublicCertFile[0])
+    if (psProperties->psSslProperties->iUseCertificate && psProperties->psSslProperties->pcPublicCertFile[0])
     {
-      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLPublicCertFile, psProperties->psSSLProperties->pcPublicCertFile);
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_SSLPublicCertFile, psProperties->psSslProperties->pcPublicCertFile);
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }
 
   if (RUN_MODE_IS_SET(MODES_SSLPassPhrase, psProperties->iRunMode))
   {
-    if (psProperties->psSSLProperties->iUseCertificate && psProperties->psSSLProperties->pcPassPhrase[0])
+    if (psProperties->psSslProperties->iUseCertificate && psProperties->psSslProperties->pcPassPhrase[0])
     {
       snprintf(acMessage, MESSAGE_SIZE, "%s=########", KEY_SSLPassPhrase);
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }
 #endif
+}
 
-  if (RUN_MODE_IS_SET(MODES_DigStringNormal, psProperties->iRunMode))
+  if (RUN_MODE_IS_SET(MODES_DigStringNormal, psProperties->iRunMode) && psProperties->bLogDigStrings)
   {
     for (i = 0; i < DIG_MAX_CHAINS; i++)
     {
@@ -1451,7 +1651,7 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
     }
   }
 
-  if (RUN_MODE_IS_SET(MODES_DigStringNoCase, psProperties->iRunMode))
+  if (RUN_MODE_IS_SET(MODES_DigStringNoCase, psProperties->iRunMode) && psProperties->bLogDigStrings)
   {
     for (i = 0; i < DIG_MAX_CHAINS; i++)
     {
@@ -1469,7 +1669,7 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
   }
 
 #ifdef USE_PCRE
-  if (RUN_MODE_IS_SET(MODES_DigStringRegExp, psProperties->iRunMode))
+  if (RUN_MODE_IS_SET(MODES_DigStringRegExp, psProperties->iRunMode) && psProperties->bLogDigStrings)
   {
     for (psDigString = DigGetSearchList(DIG_STRING_TYPE_REGEXP, 0); psDigString != NULL; psDigString = psDigString->psNext)
     {
@@ -1485,7 +1685,7 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
 #endif
 
 #ifdef USE_XMAGIC
-  if (RUN_MODE_IS_SET(MODES_DigStringXMagic, psProperties->iRunMode))
+  if (RUN_MODE_IS_SET(MODES_DigStringXMagic, psProperties->iRunMode) && psProperties->bLogDigStrings)
   {
     for (psDigString = DigGetSearchList(DIG_STRING_TYPE_XMAGIC, 0); psDigString != NULL; psDigString = psDigString->psNext)
     {
@@ -1504,7 +1704,7 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
   {
     for (psList = psProperties->psIncludeList; psList != NULL; psList = psList->psNext)
     {
-      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_Include, psList->acPath);
+      snprintf(acMessage, MESSAGE_SIZE, "%s=file://%s", KEY_Include, psList->pcEncodedPath);
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }
@@ -1513,7 +1713,7 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
   {
     for (psList = psProperties->psExcludeList; psList != NULL; psList = psList->psNext)
     {
-      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_Exclude, psList->acPath);
+      snprintf(acMessage, MESSAGE_SIZE, "%s=file://%s", KEY_Exclude, psList->pcEncodedPath);
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }
@@ -1536,5 +1736,74 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }
+
+  if (RUN_MODE_IS_SET(MODES_IncludeFilterMd5, psProperties->iRunMode))
+  {
+    for (psFilterList = psProperties->psIncludeFilterMd5List; psFilterList != NULL; psFilterList = psFilterList->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_IncludeFilterMd5, psFilterList->pcFilter);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+
+  if (RUN_MODE_IS_SET(MODES_ExcludeFilterMd5, psProperties->iRunMode))
+  {
+    for (psFilterList = psProperties->psExcludeFilterMd5List; psFilterList != NULL; psFilterList = psFilterList->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_ExcludeFilterMd5, psFilterList->pcFilter);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+
+  if (RUN_MODE_IS_SET(MODES_IncludeFilterSha1, psProperties->iRunMode))
+  {
+    for (psFilterList = psProperties->psIncludeFilterSha1List; psFilterList != NULL; psFilterList = psFilterList->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_IncludeFilterSha1, psFilterList->pcFilter);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+
+  if (RUN_MODE_IS_SET(MODES_ExcludeFilterSha1, psProperties->iRunMode))
+  {
+    for (psFilterList = psProperties->psExcludeFilterSha1List; psFilterList != NULL; psFilterList = psFilterList->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_ExcludeFilterSha1, psFilterList->pcFilter);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+
+  if (RUN_MODE_IS_SET(MODES_IncludeFilterSha256, psProperties->iRunMode))
+  {
+    for (psFilterList = psProperties->psIncludeFilterSha256List; psFilterList != NULL; psFilterList = psFilterList->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_IncludeFilterSha256, psFilterList->pcFilter);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+
+  if (RUN_MODE_IS_SET(MODES_ExcludeFilterSha256, psProperties->iRunMode))
+  {
+    for (psFilterList = psProperties->psExcludeFilterSha256List; psFilterList != NULL; psFilterList = psFilterList->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_ExcludeFilterSha256, psFilterList->pcFilter);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+#endif
+
+#ifdef USE_FILE_HOOKS
+{
+  if (RUN_MODE_IS_SET(MODES_FileHook, psProperties->iRunMode))
+  {
+    for (psHook = psProperties->psFileHookList; psHook != NULL; psHook = psHook->psNext)
+    {
+      pcExpression = KlelExpressionToString(psHook->psExpression, KLEL_EXPRESSION_PLUS_EVERYTHING);
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_FileHook, pcExpression);
+      free(pcExpression);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+}
 #endif
 }

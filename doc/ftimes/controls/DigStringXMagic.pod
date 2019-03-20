@@ -1,6 +1,6 @@
 =item B<DigStringXMagic>: <file> [<tag>]
 
-Applies to B<digauto>, B<digfull>, and B<diglean>.
+Applies to B<digauto>, B<dig>, and B<mad>.
 
 B<DigStringXMagic> is conditionally required.  It specifies the name
 of a file that contains one or more XMagic incantations.  The XMagic

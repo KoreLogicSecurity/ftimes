@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.2 2006/10/03 22:52:38 mavrik Exp $
+# $Id: test_harness.local,v 1.7 2010/01/22 02:56:44 mavrik Exp $
 #
 ######################################################################
 
@@ -74,8 +74,23 @@ sub Check_file_1
 
   my ($sFile, $sName) = MakeTestName($phProperties);
 
-  my $sCommand = "$$phProperties{'TargetProgram'} --map --file $sFile 2>&1";
+  ####################################################################
+  #
+  # For MinGW on WINX platforms, the redirection (i.e., '2>&1')
+  # causes the following error when UNIX path separators are used:
+  #
+  #   '..' is not recognized as an internal or external command,
+  #   operable program or batch file.
+  #
+  # To prevent this, the path separators must be switched.
+  #
+  ####################################################################
 
+  my $sCommand = "$$phProperties{'TargetProgram'} --map --file $sFile 2>&1";
+  if ($$phProperties{'OsClass'} eq "WINDOWS")
+  {
+    $sCommand =~ s,/,\\,g;
+  }
   DebugPrint(3, "Command=$sCommand");
 
   if (!open(PH, "$sCommand |"))
@@ -94,7 +109,7 @@ sub Check_file_1
   }
   $aLines[1] =~ s/[\r\n]*$//;
 
-  my $sTargetOutputRegExp = qq("file_1"[|]6[|]ba9d332813a722b273a95fa13dd88d94[|]2b76b53cd6b8b98ee742c926277ea86625228451);
+  my $sTargetOutputRegExp = qq("file_1"[|]100[0-7]{3}[|]\\d+[|]\\d+[|]6[|]ba9d332813a722b273a95fa13dd88d94[|]2b76b53cd6b8b98ee742c926277ea86625228451);
   DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
   if ($aLines[1] !~ /^$sTargetOutputRegExp$/)
   {

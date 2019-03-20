@@ -9,13 +9,13 @@ VPATH=@srcdir@
 
 INCLUDES_PREFIX=${PROJECT_ROOT}/Mk
 
-SUBDIRS=test_1 test_2 test_3
+SUBDIRS=test_1 test_2 test_3 test_4
 
 all:
 
 check clean clean-all setup test:
-	@cwd=`pwd`; for subdir in ${SUBDIRS}; do\
-		${SUBDIR_TRACE} && ${SUBDIR_MAKE} ;\
+	@cwd=`pwd` ; for subdir in ${SUBDIRS} ; do \
+		${SUBDIR_TRACE} && ${SUBDIR_MAKE} ; \
 	done
 
 include ${INCLUDES_PREFIX}/common.mk

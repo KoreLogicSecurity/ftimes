@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.1 2006/07/24 05:20:38 mavrik Exp $
+# $Id: Makefile.vs,v 1.5 2010/06/18 18:00:04 mavrik Exp $
 #
 ########################################################################
 #
@@ -12,7 +12,7 @@ BUILD_TYPE		= RELEASE	# [RELEASE|DEBUG]
 
 INSTALL_DIR		= C:\FTimes
 SOURCE_DIR		= .
-OBJECT_DIR		= build
+OBJECT_DIR		= b
 
 COMPILER		= cl.exe
 
@@ -20,12 +20,13 @@ COMPILER_FLAGS		=\
 			/nologo\
 			/D _MBCS\
 			/D _CONSOLE\
+			/D _CRT_SECURE_NO_DEPRECATE\
 			/D WIN32\
 			/I"."\
 			/Fo"$(OBJECT_DIR)\\"\
 			/Fd"$(OBJECT_DIR)\\"\
 			/Fp"$(OBJECT_DIR)\tarmap.pch"\
-			/c /W3 /GX /YX /FD\
+			/c /W3 /EHsc /FD\
 !IF "$(BUILD_TYPE)" == "DEBUG" || "$(BUILD_TYPE)" == "debug"
 			/D _DEBUG\
 			/MTd /Od /Zi /Gm
@@ -52,16 +53,18 @@ LINKER			= link.exe
 LINKER_FLAGS		=\
 			/nologo\
 			/subsystem:console\
-			/machine:I386\
+			/machine:x86\
 			/out:"$(EXECUTEABLE)"\
-			/pdb:"$(OBJECT_DIR)\tarmap.pdb"\
 !IF "$(BUILD_TYPE)" == "DEBUG" || "$(BUILD_TYPE)" == "debug"
 			/incremental:yes\
 			/debug\
-			/pdbtype:sept
+			/pdb:"$(OBJECT_DIR)\tarmap.pdb"\
 !ELSE
-			/incremental:no
+			/incremental:no\
+			/release\
+			/pdb:none\
 !ENDIF
+			advapi32.lib wsock32.lib
 
 all: "$(EXECUTEABLE)"
 

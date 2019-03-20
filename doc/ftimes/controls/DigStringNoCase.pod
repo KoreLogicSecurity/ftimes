@@ -1,6 +1,6 @@
 =item B<DigStringNoCase>: <string> [<tag>]
 
-Applies to B<digauto>, B<digfull>, and B<diglean>.
+Applies to B<digauto>, B<dig>, and B<mad>.
 
 B<DigStringNoCase> is conditionally required.  It specifies a case
 insensitive search string.  This string must be URL encoded in the

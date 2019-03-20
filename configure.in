@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: configure.in,v 1.54 2007/01/02 22:34:13 mavrik Exp $
+# $Id: configure.in,v 1.103 2012/05/06 02:07:04 mavrik Exp $
 #
 ########################################################################
 
@@ -27,20 +27,21 @@ AC_SUBST(logdir)
 AC_SUBST(mandir)
 AC_SUBST(rundir)
 
-additional_testdirs=
-additional_ftimes_testdirs=
-ap_srcs=
-ap_incs=
-extension=
+additional_testdirs=""
+additional_ftimes_testdirs=""
+ap_srcs=""
+ap_incs=""
+extension=""
 
 AC_CANONICAL_SYSTEM
-case "$target_os" in
+case "${target_os}" in
 *aix*)
   OS_CFLAGS="-DUNIX"
   AC_DEFINE(FTimes_AIX, 1, [Define to 1 if the target OS is AIX.])
   AC_DEFINE(USE_AP_SNPRINTF, 1, [Define to 1 if snprintf() support is enabled.])
-  ap_srcs=ap_snprintf.c
-  ap_incs=ap_snprintf.h
+  ac_cv_func_malloc_0_nonnull="yes"
+  ap_srcs="ap_snprintf.c"
+  ap_incs="ap_snprintf.h"
   ;;
 *bsd*)
   OS_CFLAGS="-DUNIX"
@@ -54,30 +55,36 @@ case "$target_os" in
   OS_CFLAGS="-DUNIX"
   AC_DEFINE(FTimes_HPUX, 1, [Define to 1 if the target OS is HP-UX.])
   AC_DEFINE(USE_AP_SNPRINTF, 1, [Define to 1 if snprintf() support is enabled.])
-  ap_srcs=ap_snprintf.c
-  ap_incs=ap_snprintf.h
+  ap_srcs="ap_snprintf.c"
+  ap_incs="ap_snprintf.h"
   ;;
 *linux*)
   OS_CFLAGS="-DUNIX"
   AC_DEFINE(FTimes_LINUX, 1, [Define to 1 if the target OS is Linux.])
+  case "${host_cpu}" in
+  arm)
+    ac_cv_func_malloc_0_nonnull="yes"
+    ;;
+  *)
+    ;;
+  esac
   ;;
 *mingw32*)
-  OS_CFLAGS="-DWINNT -DWIN32 -DMINGW32"
+  OS_CFLAGS="-DWINNT -DWIN32 -DMINGW32 -DUSE_SDDL"
   LIBS="-lwsock32"
   AC_DEFINE(FTimes_MINGW32, 1, [Define to 1 if the target OS is MinGW32.])
-  additional_ftimes_testdirs=common_windows_ads
-  extension=.exe
+  ac_cv_func_malloc_0_nonnull="yes"
+  additional_ftimes_testdirs="common_windows_ads"
+  extension=".exe"
   ;;
 *solaris*)
   OS_CFLAGS="-DUNIX"
+  LIBS="-ldl"
   AC_DEFINE(FTimes_SOLARIS, 1, [Define to 1 if the target OS is Solaris.])
-  AC_DEFINE(USE_AP_SNPRINTF, 1, [Define to 1 if snprintf() support is enabled.])
-  ap_srcs=ap_snprintf.c
-  ap_incs=ap_snprintf.h
   ;;
 *)
   echo
-  echo "The target operating system, $target_os, is not currently supported."
+  echo "The target operating system, ${target_os}, is not currently supported."
   echo
   exit
   ;;
@@ -89,34 +96,37 @@ AC_SUBST(ap_srcs)
 AC_SUBST(ap_incs)
 AC_SUBST(extension)
 
-case $host_cpu in
+case ${host_cpu} in
 alpha*)
-  AC_DEFINE(K_CPU_ALPHA, 1, [Define to 1 if the host cpu is alpha.])
+  AC_DEFINE(APP_CPU_ALPHA, 1, [Define to 1 if the host cpu is alpha.])
   ;;
 amd64*)
-  AC_DEFINE(K_CPU_AMD64, 1, [Define to 1 if the host cpu is amd64.])
+  AC_DEFINE(APP_CPU_AMD64, 1, [Define to 1 if the host cpu is amd64.])
+  ;;
+arm*)
+  AC_DEFINE(APP_CPU_ARM, 1, [Define to 1 if the host cpu is arm.])
   ;;
 hppa*)
-  AC_DEFINE(K_CPU_HPPA, 1, [Define to 1 if the host cpu is hppa.])
+  AC_DEFINE(APP_CPU_HPPA, 1, [Define to 1 if the host cpu is hppa.])
   ;;
 ia64*)
-  AC_DEFINE(K_CPU_IA64, 1, [Define to 1 if the host cpu is ia64.])
+  AC_DEFINE(APP_CPU_IA64, 1, [Define to 1 if the host cpu is ia64.])
   ;;
 x86_64*)
-  AC_DEFINE(K_CPU_X86_64, 1, [Define to 1 if the host cpu is x86_64.])
+  AC_DEFINE(APP_CPU_X86_64, 1, [Define to 1 if the host cpu is x86_64.])
   ;;
 i?86*)
-  AC_DEFINE(K_CPU_I386, 1, [Define to 1 if the host cpu is iX86.])
+  AC_DEFINE(APP_CPU_I386, 1, [Define to 1 if the host cpu is iX86.])
   ;;
 powerpc*)
-  AC_DEFINE(K_CPU_POWERPC, 1, [Define to 1 if the host cpu is powerpc.])
+  AC_DEFINE(APP_CPU_POWERPC, 1, [Define to 1 if the host cpu is powerpc.])
   ;;
 sparc*)
-  AC_DEFINE(K_CPU_SPARC, 1, [Define to 1 if the host cpu is sparc.])
+  AC_DEFINE(APP_CPU_SPARC, 1, [Define to 1 if the host cpu is sparc.])
   ;;
 *)
   echo
-  echo "The target cpu, $host_cpu, is not currently supported."
+  echo "The target cpu, ${host_cpu}, is not currently supported."
   echo
   exit
   ;;
@@ -128,10 +138,10 @@ dnl # Initialize CFLAGS before AC_PROG_CC does.
 dnl #
 dnl ####################################################################
 
-if test -n "$CFLAGS" ; then
-  CFLAGS="$CFLAGS -Wall $OS_CFLAGS"
+if test -n "${CFLAGS}" ; then
+  CFLAGS="${CFLAGS} -Wall ${OS_CFLAGS}"
 else
-  CFLAGS="-O2 -Wall $OS_CFLAGS"
+  CFLAGS="-O2 -Wall ${OS_CFLAGS}"
 fi
 
 dnl ####################################################################
@@ -195,7 +205,85 @@ AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_FUNC_STAT
 AC_FUNC_STRFTIME
-AC_CHECK_FUNCS([getcwd gethostbyname memset modf socket strcasecmp strchr strerror strncasecmp strstr strtoul uname])
+AC_CHECK_FUNCS([fseeko getcwd gethostbyname memset modf socket strcasecmp strchr strerror strncasecmp strstr strtoul uname])
+
+dnl ####################################################################
+dnl #
+dnl # Check for KLEL.
+dnl #
+dnl ####################################################################
+
+CheckKlelComponents()
+{
+  KLELDIR=${1}
+  INCLUDE_LIST="klel.h"
+  for INCLUDE_FILE in ${INCLUDE_LIST} ; do
+    if test ! -f "${KLELDIR}/include/${INCLUDE_FILE}" ; then
+      return 1
+    fi
+  done
+  kleldir=${KLELDIR}
+  return 0
+}
+
+AC_MSG_CHECKING([for KLEL support])
+AC_ARG_WITH(klel,
+  [  --with-klel=DIR         Use KLEL with includes and libs from [DIR]/include and [DIR]/lib
+  --without-klel          Disable KLEL support],
+  [
+    dnl ################################################################
+    dnl #
+    dnl # Check the specified location only.
+    dnl #
+    dnl ################################################################
+    case `echo ${withval} | tr "A-Z" "a-z"` in
+    no)
+      use_klel="2"
+      ;;
+    *)
+      use_klel="1"
+      CheckKlelComponents "${withval}"
+      ;;
+    esac
+  ],
+  [
+    use_klel="0"
+  ]
+)
+if test ${use_klel} -eq 1 ; then
+  case "${target_os}" in
+  *mingw*)
+    AC_MSG_RESULT([this feature can not be enabled on this platform (aborting)])
+    exit 1
+    ;;
+  esac
+  AC_DEFINE(USE_KLEL, 1, [Define to 1 if KLEL support is enabled.])
+  if test -z "${kleldir}" ; then
+    AC_MSG_RESULT(missing or incomplete)
+    echo
+    echo "Unable to locate required KLEL components. Use --with-klel=DIR to"
+    echo "specify a known/different location, or use --without-klel to disable"
+    echo "this support. The following files must exist for this check to pass:"
+    echo
+    echo "  DIR/include/klel.h"
+    echo
+    exit 1
+  else
+    AC_MSG_RESULT(${kleldir})
+    klel_srcs=""
+    klel_incs=""
+    klel_incflags="-I${kleldir}/include"
+    klel_libflags="-L${kleldir}/lib -lklel"
+    AC_SUBST(klel_srcs)
+    AC_SUBST(klel_incs)
+    AC_SUBST(klel_incflags)
+    AC_SUBST(klel_libflags)
+  fi
+elif test ${use_klel} -eq 2 ; then
+  AC_MSG_RESULT(check explicitly disabled)
+else
+  AC_MSG_RESULT(not enabled)
+fi
 
 dnl ####################################################################
 dnl #
@@ -203,12 +291,12 @@ dnl # Check for OpenSSL.
 dnl #
 dnl ####################################################################
 
-CheckSSLComponents()
+CheckSslComponents()
 {
-  SSLDIR="$1"
+  SSLDIR=${1}
   INCLUDE_LIST="crypto.h err.h pem.h rand.h ssl.h x509.h"
-  for INCLUDE_FILE in ${INCLUDE_LIST}; do
-    if test ! -f "${SSLDIR}/include/openssl/${INCLUDE_FILE}"; then
+  for INCLUDE_FILE in ${INCLUDE_LIST} ; do
+    if test ! -f "${SSLDIR}/include/openssl/${INCLUDE_FILE}" ; then
       return 1
     fi
   done
@@ -226,13 +314,13 @@ AC_ARG_WITH(ssl,
     dnl # Check the specified location only.
     dnl #
     dnl ################################################################
-    case `echo $withval | tr "A-Z" "a-z"` in
+    case `echo ${withval} | tr "A-Z" "a-z"` in
     no)
-      use_ssl=0
+      use_ssl="0"
       ;;
     *)
-      use_ssl=1
-      CheckSSLComponents "$withval"
+      use_ssl="1"
+      CheckSslComponents "${withval}"
       ;;
     esac
   ],
@@ -242,22 +330,22 @@ AC_ARG_WITH(ssl,
     dnl # Search common OpenSSL locations.
     dnl #
     dnl ################################################################
-    use_ssl=1
-    for basedir in /usr /usr/local /usr/pkg /opt /opt/local; do
-      for dir in $basedir $basedir/openssl $basedir/ssl; do
-        CheckSSLComponents $dir && break 2
+    use_ssl="1"
+    for basedir in /usr /usr/local /usr/pkg /opt /opt/local ; do
+      for dir in ${basedir} ${basedir}/openssl ${basedir}/ssl ; do
+        CheckSslComponents ${dir} && break 2
       done
     done
   ]
 )
-if test $use_ssl -ne 0; then
+if test ${use_ssl} -ne 0 ; then
   AC_DEFINE(USE_SSL, 1, [Define to 1 if OpenSSL support is enabled.])
-  if test -z "$ssldir"; then
+  if test -z "${ssldir}" ; then
     AC_MSG_RESULT(missing or incomplete)
     echo
-    echo "Unable to locate required OpenSSL components. Use --with-ssl=DIR"
-    echo "to specify a known or different location. The files that must exist"
-    echo "for this check to pass are:"
+    echo "Unable to locate required OpenSSL components. Use --with-ssl=DIR to"
+    echo "specify a known/different location, or use --without-ssl to disable"
+    echo "this support. The following files must exist for this check to pass:"
     echo
     echo "  DIR/include/openssl/crypto.h"
     echo "  DIR/include/openssl/err.h"
@@ -268,11 +356,18 @@ if test $use_ssl -ne 0; then
     echo
     exit 1
   else
-    AC_MSG_RESULT($ssldir)
-    ssl_srcs=ssl.c
+    AC_MSG_RESULT(${ssldir})
+    ssl_srcs="ssl.c"
     ssl_incs="ssl.h ssl-pool.h"
-    ssl_incflags="-I$ssldir/include"
-    ssl_libflags="-L$ssldir/lib -lssl -lcrypto"
+    ssl_incflags="-I${ssldir}/include"
+    case "${target_os}" in
+    *mingw32*)
+      ssl_libflags="-L${ssldir}/lib -lssl -lcrypto -lws2_32 -lgdi32" # Order matters -- ws2_32 and gdi32 must follow crypto.
+      ;;
+    *)
+      ssl_libflags="-L${ssldir}/lib -lssl -lcrypto"
+      ;;
+    esac
     AC_SUBST(ssl_srcs)
     AC_SUBST(ssl_incs)
     AC_SUBST(ssl_incflags)
@@ -288,12 +383,12 @@ dnl # Check for PCRE.
 dnl #
 dnl ####################################################################
 
-CheckPCREComponents()
+CheckPcreComponents()
 {
-  PCREDIR="$1"
+  PCREDIR=${1}
   INCLUDE_LIST="pcre.h"
-  for INCLUDE_FILE in ${INCLUDE_LIST}; do
-    if test ! -f "${PCREDIR}/include/${INCLUDE_FILE}"; then
+  for INCLUDE_FILE in ${INCLUDE_LIST} ; do
+    if test ! -f "${PCREDIR}/include/${INCLUDE_FILE}" ; then
       return 1
     fi
   done
@@ -311,13 +406,13 @@ AC_ARG_WITH(pcre,
     dnl # Check the specified location only.
     dnl #
     dnl ################################################################
-    case `echo $withval | tr "A-Z" "a-z"` in
+    case `echo ${withval} | tr "A-Z" "a-z"` in
     no)
-      use_pcre=0
+      use_pcre="0"
       ;;
     *)
-      use_pcre=1
-      CheckPCREComponents "$withval"
+      use_pcre="1"
+      CheckPcreComponents "${withval}"
       ;;
     esac
   ],
@@ -327,32 +422,41 @@ AC_ARG_WITH(pcre,
     dnl # Search common PCRE locations.
     dnl #
     dnl ################################################################
-    use_pcre=1
-    for basedir in /usr /usr/local /usr/pkg /opt /opt/local; do
-      for dir in $basedir $basedir/pcre; do
-        CheckPCREComponents $dir && break 2
+    use_pcre="1"
+    for basedir in /usr /usr/local /usr/pkg /opt /opt/local ; do
+      for dir in ${basedir} ${basedir}/pcre ; do
+        CheckPcreComponents ${dir} && break 2
       done
     done
   ]
 )
-if test $use_pcre -ne 0; then
+if test ${use_pcre} -ne 0 ; then
   AC_DEFINE(USE_PCRE, 1, [Define to 1 if PCRE support is enabled.])
-  if test -z "$pcredir"; then
+  if test -z "${pcredir}" ; then
     AC_MSG_RESULT(missing or incomplete)
     echo
     echo "Unable to locate required PCRE components. Use --with-pcre=DIR to"
-    echo "specify a known or different location. The files that must exist for"
-    echo "this check to pass are:"
+    echo "specify a known/different location, or use --without-pcre to disable"
+    echo "this support. The following files must exist for this check to pass:"
     echo
     echo "  DIR/include/pcre.h"
     echo
     exit 1
   else
-    AC_MSG_RESULT($pcredir)
-    pcre_srcs=
-    pcre_incs=
-    pcre_incflags="-I$pcredir/include"
-    pcre_libflags="-L$pcredir/lib -lpcre"
+    AC_MSG_RESULT(${pcredir})
+    pcre_srcs=""
+    pcre_incs=""
+    pcre_incflags="-I${pcredir}/include"
+    pcre_libflags="-L${pcredir}/lib -lpcre"
+    case "${target_os}" in
+    *mingw*)
+      if test -z "${CFLAGS}" ; then
+        CFLAGS="-DPCRE_STATIC"
+      else
+        CFLAGS="${CFLAGS} -DPCRE_STATIC"
+      fi
+      ;;
+    esac
     AC_SUBST(pcre_srcs)
     AC_SUBST(pcre_incs)
     AC_SUBST(pcre_incflags)
@@ -364,29 +468,121 @@ fi
 
 dnl ####################################################################
 dnl #
-dnl # Check whether or not to include XMagic.
+dnl # Check for Perl.
 dnl #
 dnl ####################################################################
 
-AC_MSG_CHECKING([whether to include XMagic support])
-AC_ARG_ENABLE(xmagic,
-  [  --enable-xmagic         Enable XMagic support (disabled by default)],
-  [ enable_xmagic=1 ],
-  [ enable_xmagic=0 ]
+CheckPerl()
+{
+  REFERENCE_PERL=${1}
+  if test ! -f "${REFERENCE_PERL}" ; then
+    return 1
+  fi
+  if test ! -x "${REFERENCE_PERL}" ; then
+    return 1
+  fi
+  perl_version=`${REFERENCE_PERL} -V:version | awk -F= '{print $2}' | sed "s/'//g; s/;//;"`
+  return 0
+}
+
+AC_MSG_CHECKING([for embedded Perl support])
+AC_ARG_WITH(perl,
+  [  --with-perl=PATH        Embed Perl using PATH as the reference version (disabled by default)],
+  [
+    dnl ################################################################
+    dnl #
+    dnl # Check the specified reference version only.
+    dnl #
+    dnl ################################################################
+    case `echo ${withval} | tr "A-Z" "a-z"` in
+    no)
+      use_perl="0"
+      ;;
+    *)
+      use_perl="1"
+      CheckPerl "${withval}"
+      ;;
+    esac
+  ],
+  [
+    use_perl="0"
+  ]
 )
-if test $enable_xmagic -eq 1; then
-  if test $use_pcre -eq 1; then
+if test ${use_perl} -ne 0 ; then
+  case "${target_os}" in
+  *mingw*)
+    AC_MSG_RESULT([this feature can not be enabled on this platform (aborting)])
+    exit 1
+    ;;
+  esac
+  AC_DEFINE(USE_EMBEDDED_PERL, 1, [Define to 1 if embedded Perl support is enabled.])
+  if test -z "${perl_version}" ; then
+    AC_MSG_RESULT(missing or incomplete)
+    echo
+    echo "Unable to locate required Perl components. Use --with-perl=PATH to"
+    echo "specify a known/different Perl binary."
+    echo
+    exit 1
+  else
+    AC_MSG_RESULT(${perl_version})
+    perl_cflags=`${REFERENCE_PERL} -MExtUtils::Embed -e ccflags`
+    case "${target_os}" in
+    *mingw32*)
+      perl_incflags=`${REFERENCE_PERL} -MExtUtils::Embed -e perl_inc | tr '\\\\' '/'`
+      perl_libflags=`${REFERENCE_PERL} -MExtUtils::Embed -e ldopts | tr '\\\\' '/'`
+      ;;
+    *)
+      perl_incflags=`${REFERENCE_PERL} -MExtUtils::Embed -e perl_inc`
+      perl_libflags=`${REFERENCE_PERL} -MExtUtils::Embed -e ldopts`
+      case `${REFERENCE_PERL} -V:usethreads` in
+      usethreads=?define??)
+        AC_DEFINE(USE_EMBEDDED_PERL_XSUB, 1, [Define to 1 if embedded Perl needs XSUB.h.])
+        ;;
+      esac
+      ;;
+    esac
+    perl5_lib="${prefix}/lib/perl5"
+    perl5_site_lib="${prefix}/lib/perl5/site_perl"
+    AC_DEFINE_UNQUOTED(PERL5LIB, "${perl5_site_lib}:${perl5_lib}", [Location of Perl library components specific to WebJob.])
+    AC_SUBST(perl_cflags)
+    AC_SUBST(perl_incflags)
+    AC_SUBST(perl_libflags)
+  fi
+else
+  AC_MSG_RESULT(no)
+fi
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to enable XMagic support.
+dnl #
+dnl ####################################################################
+
+AC_MSG_CHECKING([whether to enable XMagic support])
+AC_ARG_ENABLE(xmagic,
+  [  --disable-xmagic        Disable XMagic support (enabled by default)],
+  [
+    case `echo ${enableval} | tr "A-Z" "a-z"` in
+    yes)
+      enable_xmagic="1"
+      ;;
+    *)
+      enable_xmagic="0"
+      ;;
+    esac
+  ],
+  [ enable_xmagic="1" ]
+)
+if test ${enable_xmagic} -eq 1 ; then
+  if test ${use_pcre} -eq 1 ; then
     AC_MSG_RESULT(yes)
     AC_DEFINE(USE_XMAGIC, 1, [Define to 1 if XMagic support is enabled.])
-    xmagic_srcs=xmagic.c
-    xmagic_incs=xmagic.h
+    xmagic_srcs="xmagic.c"
+    xmagic_incs="xmagic.h"
     AC_SUBST(xmagic_srcs)
     AC_SUBST(xmagic_incs)
   else
-    AC_MSG_RESULT(missing or incomplete)
-    echo
-    echo "XMagic requires PCRE support, which has been explicitly disabled."
-    echo
+    AC_MSG_RESULT([PCRE support is required, but it has been explicitly disabled (aborting)])
     exit 1
   fi
 else
@@ -395,31 +591,152 @@ fi
 
 dnl ####################################################################
 dnl #
-dnl # Check whether or not to compile using pre-mem{set,cpy} MD5 logic.
+dnl # Check whether or not to enable file hooks.
 dnl #
 dnl ####################################################################
 
-AC_MSG_CHECKING([whether to compile using pre-mem{set,cpy} MD5 logic])
-AC_ARG_ENABLE(md5-pre-msmc,
-  [  --enable-md5-pre-msmc   Enable pre-mem{set,cpy} MD5 logic (disabled by default)],
+AC_MSG_CHECKING([whether to enable file hooks])
+AC_ARG_ENABLE(file-hooks,
+  [  --enable-file-hooks     Enable file hooks (disabled by default)],
+  [
+    case `echo ${enableval} | tr "A-Z" "a-z"` in
+    yes)
+      enable_file_hooks="1"
+      ;;
+    *)
+      enable_file_hooks="0"
+      ;;
+    esac
+  ],
+  [ enable_file_hooks="0" ]
+)
+if test ${enable_file_hooks} -eq 1; then
+  case "${target_os}" in
+  *mingw*)
+    AC_MSG_RESULT([this feature can not be enabled on this platform (aborting)])
+    exit 1
+    ;;
+  esac
+  if test ${use_klel} -eq 1; then
+    AC_MSG_RESULT(yes)
+    AC_DEFINE(USE_FILE_HOOKS, 1, [Define to 1 if file hooks are enabled.])
+    hook_srcs="hook.c"
+    hook_incs="hook.h"
+    AC_SUBST(hook_srcs)
+    AC_SUBST(hook_incs)
+  elif test ${use_klel} -eq 2; then
+    AC_MSG_RESULT([KLEL support is required, but it has been explicitly disabled (aborting)])
+    exit 1
+  else
+    AC_MSG_RESULT([KLEL support is required, but it has not been explicitly enabled (aborting)])
+    exit 1
+  fi
+else
+  AC_MSG_RESULT(no)
+fi
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to enable pre-mem{set,cpy} hash logic.
+dnl #
+dnl ####################################################################
+
+AC_MSG_CHECKING([whether to enable pre-mem{set,cpy} hash logic])
+AC_ARG_ENABLE(hash-pre-msmc,
+  [  --enable-hash-pre-msmc  Enable pre-mem{set,cpy} hash logic (disabled by default)],
   [ AC_MSG_RESULT(yes)
-    AC_DEFINE(MD5_PRE_MEMSET_MEMCPY, 1, [Define to 1 if pre-mem{set,cpy} MD5 logic is enabled.])],
+    AC_DEFINE(MD5_PRE_MEMSET_MEMCPY, 1, [Define to 1 if pre-mem{set,cpy} hash logic is enabled.])
+    AC_DEFINE(SHA1_PRE_MEMSET_MEMCPY, 1, [Define to 1 if pre-mem{set,cpy} hash logic is enabled.])
+    AC_DEFINE(SHA256_PRE_MEMSET_MEMCPY, 1, [Define to 1 if pre-mem{set,cpy} hash logic is enabled.])
+  ],
   [ AC_MSG_RESULT(no) ]
 )
 
 dnl ####################################################################
 dnl #
-dnl # Check whether or not to compile using pre-mem{set,cpy} SHA1 logic.
+dnl # Initialize variables needed by several follow-on sections.
 dnl #
 dnl ####################################################################
 
-AC_MSG_CHECKING([whether to compile using pre-mem{set,cpy} SHA1 logic])
-AC_ARG_ENABLE(sha1-pre-msmc,
-  [  --enable-sha1-pre-msmc  Enable pre-mem{set,cpy} SHA1 logic (disabled by default)],
-  [ AC_MSG_RESULT(yes)
-    AC_DEFINE(SHA1_PRE_MEMSET_MEMCPY, 1, [Define to 1 if pre-mem{set,cpy} SHA1 logic is enabled.])],
-  [ AC_MSG_RESULT(no) ]
+install_lib_perl="0"
+
+doc_makefiles="doc/Makefile doc/ftimes/Makefile"
+etc_makefiles="etc/Makefile etc/ftimes-dig.cfg/Makefile etc/ftimes-get.cfg/Makefile etc/ftimes-map.cfg/Makefile"
+if test ${enable_xmagic} -eq 1 ; then
+  etc_makefiles="${etc_makefiles} etc/xmagic/Makefile"
+fi
+lib_makefiles="lib/Makefile"
+test_makefiles="
+  tests/Makefile
+  tests/ftimes/Makefile
+  tests/ftimes/common/Makefile
+  tests/ftimes/common/compare/Makefile
+  tests/ftimes/common/compare/test_1/Makefile
+  tests/ftimes/common/compare/test_2/Makefile
+  tests/ftimes/common/compare/test_3/Makefile
+  tests/ftimes/common/decoder/Makefile
+  tests/ftimes/common/decoder/test_1/Makefile
+  tests/ftimes/common/dig/Makefile
+  tests/ftimes/common/dig/test_1/Makefile
+  tests/ftimes/common/dig/test_2/Makefile
+  tests/ftimes/common/dig/test_3/Makefile
+  tests/ftimes/common/dig/test_4/Makefile
+  tests/ftimes/common/map/Makefile
+  tests/ftimes/common/map/test_1/Makefile
+  tests/ftimes/common/map/test_2/Makefile
+  tests/ftimes/common/map/test_3/Makefile
+  tests/ftimes/common/map/test_4/Makefile
+  tests/ftimes/common/map/test_5/Makefile
+  tests/ftimes/common/map/test_6/Makefile
+  tests/ftimes/common/map/test_7/Makefile
+  tests/ftimes/common_windows_ads/Makefile
+  tests/ftimes/common_windows_ads/map/Makefile
+  tests/ftimes/common_windows_ads/map/test_1/Makefile
+  "
+tool_makefiles="tools/Makefile"
+
+doc_subdirs="ftimes"
+etc_subdirs="ftimes-dig.cfg ftimes-get.cfg ftimes-map.cfg"
+if test ${enable_xmagic} -eq 1 ; then
+  etc_subdirs="${etc_subdirs} xmagic"
+fi
+lib_subdirs=""
+test_subdirs="ftimes"
+tool_subdirs=""
+
+tool_config_subdirs=""
+
+html_files="ftimes.html"
+man1_files="ftimes.1"
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to install everything.
+dnl #
+dnl ####################################################################
+
+AC_MSG_CHECKING([whether to install everything])
+AC_ARG_WITH(everything,
+  [  --with-everything       Install everything (disabled by default)],
+  [
+    case `echo ${withval} | tr "A-Z" "a-z"` in
+    no)
+      install_everything="0"
+      ;;
+    *)
+      install_everything="1"
+      ;;
+    esac
+  ],
+  [
+    install_everything="0"
+  ]
 )
+if test ${install_everything} -ne 0 ; then
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
+fi
 
 dnl ####################################################################
 dnl #
@@ -427,194 +744,320 @@ dnl # Check whether or not to install server-side components.
 dnl #
 dnl ####################################################################
 
-server_subdirs=
-server_makefiles=
-
 AC_MSG_CHECKING([whether to install server-side components])
 AC_ARG_WITH(server-side,
   [  --with-server-side      Install server-side components (disabled by default)],
   [
-    case `echo $withval | tr "A-Z" "a-z"` in
+    case `echo ${withval} | tr "A-Z" "a-z"` in
     no)
-      install_server=0
+      install_server="0"
       ;;
     *)
-      install_server=1
+      install_server="1"
       ;;
     esac
   ],
   [
-    install_server=0
+    install_server="0"
   ]
 )
-if test $install_server -ne 0; then
+if test ${install_everything} -ne 0 -o ${install_server} -ne 0 ; then
   AC_MSG_RESULT(yes)
-  server_subdirs="cgi"
-  server_makefiles="cgi/Makefile"
+  server_list="nph-ftimes.cgi"
+  etc_makefiles="${etc_makefiles} etc/nph-ftimes.cfg/Makefile"
+  etc_subdirs="${etc_subdirs} nph-ftimes.cfg"
+  tool_subdirs="${tool_subdirs} ${server_list}"
+  tool_makefiles="${tool_makefiles} "`{ for item in ${server_list} ; do echo ${item} | sed 's,^,tools/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
 else
   AC_MSG_RESULT(no)
 fi
 
-AC_SUBST(server_subdirs)
-
 dnl ####################################################################
 dnl #
-dnl # Check whether or not to install various tools.
+dnl # Check whether or not to install all utilities.
 dnl #
 dnl ####################################################################
-
-doc_makefiles="doc/Makefile doc/ftimes/Makefile"
-doc_subdirs="ftimes"
-html_files="ftimes.html"
-man1_files="ftimes.1"
-tool_subdirs=
-tool_makefiles="tools/Makefile"
 
 AC_MSG_CHECKING([whether to install all utilities])
 AC_ARG_WITH(all-tools,
   [  --with-all-tools        Install all utilities (disabled by default)],
   [
-    case `echo $withval | tr "A-Z" "a-z"` in
+    case `echo ${withval} | tr "A-Z" "a-z"` in
     no)
-      install_all=0
+      install_all_tools="0"
       ;;
     *)
-      install_all=1
+      install_all_tools="1"
       ;;
     esac
   ],
   [
-    install_all=0
+    install_all_tools="0"
   ]
 )
-if test $install_all -ne 0; then
+if test ${install_everything} -ne 0 -o ${install_all_tools} -ne 0 ; then
   AC_MSG_RESULT(yes)
+  install_all_tools="1"
 else
   AC_MSG_RESULT(no)
 fi
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to install dbm utilities.
+dnl #
+dnl ####################################################################
+
+AC_MSG_CHECKING([whether to install dbm utilities])
+AC_ARG_WITH(dbm-tools,
+  [  --with-dbm-tools        Install dbm utilities (disabled by default)],
+  [
+    case `echo ${withval} | tr "A-Z" "a-z"` in
+    no)
+      install_dbm="0"
+      ;;
+    *)
+      install_dbm="1"
+      ;;
+    esac
+  ],
+  [
+    if test ${install_all_tools} -eq 0 ; then
+      install_dbm="0"
+    else
+      install_dbm="1"
+    fi
+  ]
+)
+if test ${install_dbm} -ne 0 ; then
+  AC_MSG_RESULT(yes)
+  dbm_list="ftimes-dbm-bash ftimes-dbm-dump ftimes-dbm-find ftimes-dbm-make ftimes-dbm-reap ftimes-dbm-weed"
+  doc_subdirs="${doc_subdirs} ${dbm_list}"
+  doc_makefiles="${doc_makefiles} "`{ for item in ${dbm_list} ; do echo ${item} | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
+  html_files="${html_files} "`{ for item in ${dbm_list} ; do echo ${item} | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
+  man1_files="${man1_files} "`{ for item in ${dbm_list} ; do echo ${item} | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
+  tool_subdirs="${tool_subdirs} ${dbm_list}"
+  tool_makefiles="${tool_makefiles} "`{ for item in ${dbm_list} ; do echo ${item} | sed 's,^,tools/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
+else
+  AC_MSG_RESULT(no)
+fi
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to install dig utilities.
+dnl #
+dnl ####################################################################
 
 AC_MSG_CHECKING([whether to install dig utilities])
 AC_ARG_WITH(dig-tools,
   [  --with-dig-tools        Install dig utilities (disabled by default)],
   [
-    case `echo $withval | tr "A-Z" "a-z"` in
+    case `echo ${withval} | tr "A-Z" "a-z"` in
     no)
-      install_dig=0
+      install_dig="0"
       ;;
     *)
-      install_dig=1
+      install_dig="1"
       ;;
     esac
   ],
   [
-    if test $install_all -eq 0; then
-      install_dig=0
+    if test ${install_all_tools} -eq 0 ; then
+      install_dig="0"
     else
-      install_dig=1
+      install_dig="1"
     fi
   ]
 )
-if test $install_dig -ne 0; then
+if test ${install_dig} -ne 0 ; then
   AC_MSG_RESULT(yes)
   dig_list="ftimes-crv2dbi ftimes-crv2raw ftimes-dig2ctx ftimes-dig2dbi hipdig"
-  doc_subdirs="$doc_subdirs $dig_list"
-  doc_makefiles="$doc_makefiles "`{ for item in $dig_list ; do echo $item | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
-  html_files="$html_files "`{ for item in $dig_list ; do echo $item | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
-  man1_files="$man1_files "`{ for item in $dig_list ; do echo $item | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
-  tool_subdirs="$tool_subdirs dig"
-  tool_makefiles="$tool_makefiles tools/dig/Makefile"
-  additional_testdirs="$additional_testdirs ftimes-crv2raw"
+  doc_subdirs="${doc_subdirs} ${dig_list}"
+  doc_makefiles="${doc_makefiles} "`{ for item in ${dig_list} ; do echo ${item} | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
+  html_files="${html_files} "`{ for item in ${dig_list} ; do echo ${item} | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
+  man1_files="${man1_files} "`{ for item in ${dig_list} ; do echo ${item} | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
+  tool_subdirs="${tool_subdirs} dig"
+  tool_makefiles="${tool_makefiles} tools/dig/Makefile"
+  additional_testdirs="${additional_testdirs} ftimes-crv2raw hipdig"
   test_makefiles="
-$test_makefiles
+${test_makefiles}
 tests/ftimes-crv2raw/Makefile
 tests/ftimes-crv2raw/common/Makefile
 tests/ftimes-crv2raw/common/carve/Makefile
 tests/ftimes-crv2raw/common/carve/test_1/Makefile
+tests/hipdig/Makefile
+tests/hipdig/common/Makefile
+tests/hipdig/common/dig/Makefile
+tests/hipdig/common/dig/test_1/Makefile
 "
 else
   AC_MSG_RESULT(no)
 fi
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to install hashdig utilities.
+dnl #
+dnl ####################################################################
 
 AC_MSG_CHECKING([whether to install hashdig utilities])
 AC_ARG_WITH(hashdig-tools,
   [  --with-hashdig-tools    Install hashdig utilities (disabled by default)],
   [
-    case `echo $withval | tr "A-Z" "a-z"` in
+    case `echo ${withval} | tr "A-Z" "a-z"` in
     no)
-      install_hashdig=0
+      install_hashdig="0"
       ;;
     *)
-      install_hashdig=1
+      install_hashdig="1"
       ;;
     esac
   ],
   [
-    if test $install_all -eq 0; then
-      install_hashdig=0
+    if test ${install_all_tools} -eq 0 ; then
+      install_hashdig="0"
     else
-      install_hashdig=1
+      install_hashdig="1"
     fi
   ]
 )
-if test $install_hashdig -ne 0; then
+if test ${install_hashdig} -ne 0 ; then
   AC_MSG_RESULT(yes)
   hashdig_list="hashdig-bash hashdig-bind hashdig-dump hashdig-filter hashdig-find hashdig-harvest hashdig-harvest-sunsolve hashdig-make hashdig-resolve-sunsolve hashdig-stat hashdig-weed"
-  doc_subdirs="$doc_subdirs $hashdig_list"
-  doc_makefiles="$doc_makefiles "`{ for item in $hashdig_list ; do echo $item | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
-  html_files="$html_files "`{ for item in $hashdig_list ; do echo $item | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
-  man1_files="$man1_files "`{ for item in $hashdig_list ; do echo $item | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
-  tool_subdirs="$tool_subdirs hashdig"
-  tool_makefiles="$tool_makefiles tools/hashdig/Makefile"
+  doc_subdirs="${doc_subdirs} ${hashdig_list}"
+  doc_makefiles="${doc_makefiles} "`{ for item in ${hashdig_list} ; do echo ${item} | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
+  html_files="${html_files} "`{ for item in ${hashdig_list} ; do echo ${item} | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
+  man1_files="${man1_files} "`{ for item in ${hashdig_list} ; do echo ${item} | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
+  tool_subdirs="${tool_subdirs} hashdig"
+  tool_makefiles="${tool_makefiles} tools/hashdig/Makefile"
 else
   AC_MSG_RESULT(no)
 fi
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to install map utilities.
+dnl #
+dnl ####################################################################
 
 AC_MSG_CHECKING([whether to install map utilities])
 AC_ARG_WITH(map-tools,
   [  --with-map-tools        Install map utilities (disabled by default)],
   [
-    case `echo $withval | tr "A-Z" "a-z"` in
+    case `echo ${withval} | tr "A-Z" "a-z"` in
     no)
-      install_map=0
+      install_map="0"
       ;;
     *)
-      install_map=1
+      install_map="1"
       ;;
     esac
   ],
   [
-    if test $install_all -eq 0; then
-      install_map=0
+    if test ${install_all_tools} -eq 0 ; then
+      install_map="0"
     else
-      install_map=1
+      install_map="1"
     fi
   ]
 )
-if test $install_map -ne 0; then
+if test ${install_map} -ne 0 ; then
   AC_MSG_RESULT(yes)
-  map_list="ftimes-cmp2dbi ftimes-map2dbi ftimes-map2mac tarmap"
-  doc_subdirs="$doc_subdirs $map_list"
-  doc_makefiles="$doc_makefiles "`{ for item in $map_list ; do echo $item | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
-  html_files="$html_files "`{ for item in $map_list ; do echo $item | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
-  man1_files="$man1_files "`{ for item in $map_list ; do echo $item | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
-  tool_subdirs="$tool_subdirs map tarmap"
-  tool_makefiles="$tool_makefiles tools/map/Makefile tools/tarmap/Makefile"
-  additional_testdirs="$additional_testdirs tarmap"
+  map_list="ftimes-cat ftimes-cmp2dbi ftimes-cmp2diff ftimes-encoder ftimes-grabber ftimes-map2dbi ftimes-map2mac ftimes-proximo ftimes-sizimus ftimes-sortini ftimes-xformer ftimes-xpa hashcp tarmap zipmap"
+  doc_subdirs="${doc_subdirs} ${map_list}"
+  doc_makefiles="${doc_makefiles} "`{ for item in ${map_list} ; do echo ${item} | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
+  html_files="${html_files} "`{ for item in ${map_list} ; do echo ${item} | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
+  man1_files="${man1_files} "`{ for item in ${map_list} ; do echo ${item} | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
+  tool_subdirs="${tool_subdirs} ftimes-cat ftimes-cmp2diff ftimes-encoder ftimes-grabber ftimes-proximo ftimes-sizimus ftimes-sortini ftimes-xformer ftimes-xpa hashcp map tarmap zipmap"
+  tool_config_subdirs="${tool_config_subdirs} ftimes-cat ftimes-xpa hashcp tarmap"
+  tool_makefiles="${tool_makefiles} tools/ftimes-cat/Makefile tools/ftimes-cmp2diff/Makefile tools/ftimes-encoder/Makefile tools/ftimes-grabber/Makefile tools/ftimes-proximo/Makefile tools/ftimes-sizimus/Makefile tools/ftimes-sortini/Makefile tools/ftimes-xformer/Makefile tools/ftimes-xpa/Makefile tools/hashcp/Makefile tools/map/Makefile tools/tarmap/Makefile tools/zipmap/Makefile"
+  additional_testdirs="${additional_testdirs} ftimes-encoder ftimes-xformer tarmap"
   test_makefiles="
-$test_makefiles
+${test_makefiles}
+tests/ftimes-encoder/Makefile
+tests/ftimes-encoder/common/Makefile
+tests/ftimes-encoder/common/decode/Makefile
+tests/ftimes-encoder/common/decode/test_1/Makefile
+tests/ftimes-encoder/common/encode/Makefile
+tests/ftimes-encoder/common/encode/test_1/Makefile
+tests/ftimes-xformer/Makefile
+tests/ftimes-xformer/common/Makefile
+tests/ftimes-xformer/common/xform/Makefile
+tests/ftimes-xformer/common/xform/test_1/Makefile
 tests/tarmap/Makefile
 tests/tarmap/common/Makefile
 tests/tarmap/common/map/Makefile
 tests/tarmap/common/map/test_1/Makefile
+tests/tarmap/common/map/test_2/Makefile
 "
+  case "${target_os}" in
+  *mingw32*)
+    tool_subdirs="${tool_subdirs} rtimes"
+    tool_config_subdirs="${tool_config_subdirs} rtimes"
+    tool_makefiles="${tool_makefiles} tools/rtimes/Makefile"
+    ;;
+  esac
+  install_lib_perl="1"
 else
   AC_MSG_RESULT(no)
 fi
 
+dnl ####################################################################
+dnl #
+dnl # Set server prefix.
+dnl #
+dnl ####################################################################
+
+AC_MSG_CHECKING([server prefix])
+AC_ARG_WITH(server-prefix,
+  [  --with-server-prefix=PREFIX Set server prefix (PREFIX/var by default)],
+  [
+    case `echo ${withval} | tr "A-Z" "a-z"` in
+    ""|n|no|y|ye|yes)
+      server_prefix=""
+      ;;
+    *)
+      server_prefix=${withval}
+      ;;
+    esac
+  ],
+  [
+    server_prefix=${prefix}
+  ]
+)
+AC_MSG_RESULT(${server_prefix})
+if test ${install_everything} -ne 0 -o ${install_server} -ne 0 ; then
+  if test -z "${server_prefix}" ; then
+    AC_MSG_ERROR([*** server prefix is invalid or missing ... try using --with-server-prefix=PREFIX])
+  fi
+fi
+AC_SUBST(server_prefix)
+
+dnl ####################################################################
+dnl #
+dnl # Finalize pending variables.
+dnl #
+dnl ####################################################################
+
+if test ${install_lib_perl} -eq 1 ; then
+  lib_subdirs="${lib_subdirs} perl"
+  lib_makefiles="${lib_makefiles} lib/perl/Makefile.PL"
+fi
+
+dnl ####################################################################
+dnl #
+dnl # Do substitutions.
+dnl #
+dnl ####################################################################
+
 AC_SUBST(doc_subdirs)
+AC_SUBST(etc_subdirs)
+AC_SUBST(lib_subdirs)
+AC_SUBST(test_subdirs)
+AC_SUBST(tool_subdirs)
+
 AC_SUBST(html_files)
 AC_SUBST(man1_files)
-AC_SUBST(tool_subdirs)
 
 dnl ####################################################################
 dnl #
@@ -628,56 +1071,82 @@ AC_CONFIG_FILES(
     Mk/common.mk
     Mk/common-doc-c.mk
     Mk/common-doc-perl.mk
+    Mk/common-etc-conf.mk
     Mk/common-src-c.mk
+    Mk/common-src-perl.mk
     Mk/common-subdir.mk
     Mk/common-tests.mk
-    $server_makefiles
-    $doc_makefiles
-    etc/Makefile
+    ${doc_makefiles}
+    ${etc_makefiles}
+    ${lib_makefiles}
     src/Makefile
-    tests/Makefile
-    tests/ftimes/Makefile
-    tests/ftimes/common/Makefile
-    tests/ftimes/common/compare/Makefile
-    tests/ftimes/common/compare/test_1/Makefile
-    tests/ftimes/common/compare/test_2/Makefile
-    tests/ftimes/common/compare/test_3/Makefile
-    tests/ftimes/common/decoder/Makefile
-    tests/ftimes/common/decoder/test_1/Makefile
-    tests/ftimes/common/dig/Makefile
-    tests/ftimes/common/dig/test_1/Makefile
-    tests/ftimes/common/dig/test_2/Makefile
-    tests/ftimes/common/dig/test_3/Makefile
-    tests/ftimes/common/map/Makefile
-    tests/ftimes/common/map/test_1/Makefile
-    tests/ftimes/common/map/test_2/Makefile
-    tests/ftimes/common/map/test_3/Makefile
-    tests/ftimes/common/map/test_4/Makefile
-    tests/ftimes/common/map/test_5/Makefile
-    tests/ftimes/common/map/test_6/Makefile
-    tests/ftimes/common_windows_ads/Makefile
-    tests/ftimes/common_windows_ads/map/Makefile
-    tests/ftimes/common_windows_ads/map/test_1/Makefile
-    $test_makefiles
-    $tool_makefiles
+    ${test_makefiles}
+    ${tool_makefiles}
   ]
 )
 
-AC_CONFIG_HEADERS(  
+AC_CONFIG_HEADERS(
   [src/config.h],
   [
-    for dir in $tool_subdirs ; do
-      case "${dir}" in
-      tarmap)
-        cp -f src/config.h tools/$dir/
-        ;;
-      *)
-        :
-        ;;
-      esac
+    for dir in ${tool_config_subdirs} ; do
+      cp -f src/config.h tools/${dir}/
     done
-  ],  
-  [ tool_subdirs="$tool_subdirs" ]
+  ],
+  [ tool_config_subdirs="${tool_config_subdirs}" ]
 )
 
+dnl ####################################################################
+dnl #
+dnl # FIXME 2008-08-10 mavrik
+dnl #
+dnl # For some reason, I was unable to get more than one instance of
+dnl # AC_CONFIG_COMMANDS to work. If that were possible, I'd have the
+dnl # MinGW builds run the following:
+dnl #
+dnl #   (cd lib/perl && perl config && perl Makefile.PL)
+dnl #
+dnl # I tried putting the commands in a variable and passing that to
+dnl # AC_CONFIG_COMMANDS, but it broke the UNIX builds. For now, the
+dnl # following will do, but this issue should be revisited.
+dnl #
+dnl ####################################################################
+
+if test ${install_lib_perl} -eq 1 ; then
+  case "${target_os}" in
+  *mingw32*)
+    lib_subdirs=""
+    ;;
+  *)
+    AC_CONFIG_COMMANDS(
+      [perl-configure],
+      [(cd lib/perl && perl Makefile.PL)],
+      []
+    )
+    ;;
+  esac
+fi
+
 AC_OUTPUT
+
+case "${target_os}" in
+*mingw32*)
+  echo "Note: To build the Perl modules in this project under MinGW, you must"
+  echo "      start a command shell (not an MSYS shell) and run the following"
+  echo "      commands:"
+  echo
+  echo "        cmd> cd <project>\lib\perl"
+  echo "        cmd> perl config"
+  echo "        cmd> perl Makefile.PL"
+  echo "        cmd> dmake"
+  echo "        cmd> dmake test"
+  echo "        cmd> dmake install"
+  echo
+  echo "Note: These steps are only required if you plan to test and/or install"
+  echo "      the various Perl utilities that are part of the project. You must"
+  echo "      have ActiveState Perl 5.8.8 build 822 or higher installed. If you"
+  echo "      have nmake available, you can use that instead of dmake."
+  echo
+  echo "Note: Once you have successfully built and installed the Perl modules,"
+  echo "      you may resume the FTimes build process in the MSYS shell."
+  ;;
+esac

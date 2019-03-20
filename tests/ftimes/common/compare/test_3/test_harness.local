@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+# $Id: test_harness.local,v 1.8 2010/01/22 02:56:44 mavrik Exp $
 #
 ######################################################################
 
@@ -112,8 +112,23 @@ sub Check_tree_0r_D4_d3_f6_l2
     my $sCommand;
     my ($sBaseline, $sSnapshot, $sTargetLineCount) = split(/:/, $sTriple, -1);
 
-    $sCommand = "$$phProperties{'TargetProgram'} --compare all $sBaseline $sSnapshot -l 6 2>&1";
+    ##################################################################
+    #
+    # For MinGW on WINX platforms, the redirection (i.e., '2>&1')
+    # causes the following error when UNIX path separators are used:
+    #
+    #   '..' is not recognized as an internal or external command,
+    #   operable program or batch file.
+    #
+    # To prevent this, the path separators must be switched.
+    #
+    ##################################################################
 
+    $sCommand = "$$phProperties{'TargetProgram'} --compare all $sBaseline $sSnapshot -l 6 2>&1";
+    if ($$phProperties{'OsClass'} eq "WINDOWS")
+    {
+      $sCommand =~ s,/,\\,g;
+    }
     DebugPrint(3, "Command=$sCommand");
 
     if (!open(PH, "$sCommand |"))
@@ -134,9 +149,9 @@ sub Check_tree_0r_D4_d3_f6_l2
       }
       $aLines[0] =~ s/[\r\n]*$//;
 
-      my $sTargetOutput = "category|name|changed|unknown";
-      DebugPrint(4, "TargetOutput=$sTargetOutput");
-      if ($aLines[0] ne $sTargetOutput)
+      my $sTargetOutputRegExp = qq(^category\\|name\\|changed\\|unknown(?:\\|records)?\$);
+      DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+      if ($aLines[0] !~ /$sTargetOutputRegExp/)
       {
         DebugPrint(4, "ActualOutput=$aLines[0]");
         return "fail";
@@ -192,23 +207,32 @@ sub Setup_tree_0r_D4_d3_f6_l2
 
   (my $sTreeBuilder = $0) =~ s/test_harness/tree_builder/;
 
+  my $sCommand = "perl $sTreeBuilder -D4 -d3 -f6 -l2 -o $sFile > $sTreeMap";
   if ($$phProperties{'OsClass'} eq "WINDOWS")
   {
-    qx(perl $sTreeBuilder -D4 -d3 -f6 -o $sFile > $sTreeMap);
+    $sCommand = "perl $sTreeBuilder -D4 -d3 -f6 -o $sFile > $sTreeMap";
+    $sCommand =~ s,/,\\,g;
   }
-  else
-  {
-    qx(perl $sTreeBuilder -D4 -d3 -f6 -l2 -o $sFile > $sTreeMap);
-  }
+  qx($sCommand);
 
   if (!CreateConfig("_config", { 'FieldMask' => "all-magic", 'Compress' => "Y" }))
   {
     return "fail";
   }
 
-  qx($$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile > $sZBaseline);
+  $sCommand = "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile > $sZBaseline";
+  if ($$phProperties{'OsClass'} eq "WINDOWS")
+  {
+    $sCommand =~ s,/,\\,g;
+  }
+  qx($sCommand);
 
-  qx($$phProperties{'TargetProgram'} --decoder $sZBaseline -l 6 > $sNBaseline);
+  $sCommand = "$$phProperties{'TargetProgram'} --decode $sZBaseline -l 6 > $sNBaseline";
+  if ($$phProperties{'OsClass'} eq "WINDOWS")
+  {
+    $sCommand =~ s,/,\\,g;
+  }
+  qx($sCommand);
 
   return "pass";
 }

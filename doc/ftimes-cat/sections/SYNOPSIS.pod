@@ -1,0 +1,6 @@
+=head1 SYNOPSIS
+
+B<ftimes-cat> B<{file|-} [...]>
+
+B<ftimes-cat> B<{-v|--version}>
+

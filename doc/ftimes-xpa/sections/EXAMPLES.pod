@@ -1,0 +1,37 @@
+=head1 EXAMPLES
+
+=head2 Example 1. Standard operation
+
+This example demonstrates how to create a cross-platform archive of a
+file with a neutered name.  In this case, the name contains space and
+newline characters.
+
+    ftimes-xpa --archive -- name+with+spaces%0aand%0anewlines > out.xpa
+
+Such a file can be created with the following Perl one-liner:
+
+    perl -e 'open(F, ">name with spaces\nand\nnewlines"); print F "jinx\n";'
+
+=head2 Example 2. Standard operation with input from stdin
+
+This example demonstrates how to create a cross-platform archive from
+a list of files passed on stdin.  The list for stdin will be generated
+by ftimes(1).
+
+    ftimes --mapauto none -l 6 *.o | ftimes-xpa --archive --list - > out.xpa
+
+=head2 Example 3. Files with alternate data streams
+
+This example demonstrates how to create a cross-platform archive of an
+alternate data stream called 'ads1'.
+
+    ftimes-xpa --archive -- some-file-with-a-stream:ads1
+
+If you believe a file contains an alternate data stream, you can use
+ftimes(1) to determine its name as follows:
+
+    ftimes --mapauto none -l 6 some-file-with-a-stream
+
+Note that alternate data streams are specific to WINX platforms and
+NTFS.
+

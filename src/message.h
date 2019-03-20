@@ -1,14 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: message.h,v 1.9 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: message.h,v 1.17 2012/01/18 03:09:44 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _MESSAGE_H_INCLUDED
+#define _MESSAGE_H_INCLUDED
 
 /*-
  ***********************************************************************
@@ -41,6 +43,9 @@
 #define MESSAGE_WARNING_STRING  "***  LOG_WARN  ***"
 #define MESSAGE_FAILURE_STRING  "***  LOG_FAIL  ***"
 #define MESSAGE_CRITICAL_STRING "***  LOG_CRIT  ***"
+#if defined(USE_FILE_HOOKS)
+#define MESSAGE_HOOK_STRING     "***  LOG_HOOK  ***"
+#endif
 
 /*-
  ***********************************************************************
@@ -54,3 +59,5 @@ void                MessageSetAutoFlush(int iOnOff);
 void                MessageSetLogLevel(int iLevel);
 void                MessageSetNewLine(char *pcNewLine);
 void                MessageSetOutputStream(FILE *pFile);
+
+#endif /* !_MESSAGE_H_INCLUDED */

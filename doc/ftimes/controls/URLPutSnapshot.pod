@@ -1,6 +1,6 @@
 =item B<URLPutSnapshot>: [Y|N]
 
-Applies to B<digfull> and B<mapfull>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<URLPutSnapshot> is optional.  When enabled ('Y' or 'y'), B<FTimes>
 attempts to post the snapshot to an Integrity Server.  Prior to

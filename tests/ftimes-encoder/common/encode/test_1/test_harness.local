@@ -1,0 +1,167 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.3 2008/05/19 18:55:24 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "1";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "url_encode_bytes",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'url_encode_bytes' => "tests URL encoding for '%00' through '%ff' sans '%0a' and '%0d'",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+  );
+
+
+######################################################################
+#
+# TestGroup_url_encode_bytes
+#
+######################################################################
+
+sub Hitch_url_encode_bytes
+{
+  my $phTestTargetValues = GetTestTargetValues();
+
+  foreach my $sValue (0..255)
+  {
+    next if ($sValue == 10 || $sValue == 13);
+    my $sByteValue = sprintf("0x%02x", $sValue);
+    $$phTestTargetValues{'url_encode_bytes'}{$sByteValue} = FTimesUrlEncode(chr($sValue) x 4);
+  }
+}
+
+
+sub Check_url_encode_bytes
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sByteValue (sort(keys(%{$$phTestTargetValues{'url_encode_bytes'}})))
+  {
+    my $sSequenceFile = $sFile . "." . $sByteValue;
+    my $sCommand = "perl -I $$phProperties{'LibDir'} $$phProperties{'TargetProgram'} -m encode -t ftimes-url -f $sSequenceFile";
+    DebugPrint(3, "Command=$sCommand");
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    DebugPrint(4, "TargetLineCount=1");
+    if (scalar(@aLines) != 1)
+    {
+      DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+      return "fail";
+    }
+    $aLines[0] =~ s/[\r\n]*$//;
+
+    my $sTargetOutput = $$phTestTargetValues{'url_encode_bytes'}{$sByteValue};
+    DebugPrint(5, "TargetOutput=$sTargetOutput");
+    if ($aLines[0] ne $sTargetOutput)
+    {
+      DebugPrint(4, "ActualOutput=$aLines[0]");
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_url_encode_bytes
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  foreach my $sByteValue (sort(keys(%{$$phTestTargetValues{'url_encode_bytes'}})))
+  {
+    my $sSequenceFile = $sFile . "." . $sByteValue;
+    if (-f $sSequenceFile && !unlink($sFile))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Setup_url_encode_bytes
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  foreach my $sByteValue (sort(keys(%{$$phTestTargetValues{'url_encode_bytes'}})))
+  {
+    my $sData = FTimesUrlDecode($$phTestTargetValues{'url_encode_bytes'}{$sByteValue}) . "\n";
+    my $sSequenceFile = $sFile . "." . $sByteValue;
+    if (!defined(FillFile($sSequenceFile, $sData, 1)))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+1;

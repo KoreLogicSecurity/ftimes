@@ -1,0 +1,499 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: zipmap,v 1.6 2012/01/04 03:12:40 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2009-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Map the contents of a ZIP archive.
+#
+######################################################################
+
+use strict;
+use Archive::Zip qw(:ERROR_CODES :CONSTANTS);
+use Digest::MD5;
+use Digest::SHA1;
+use File::Basename;
+use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
+use FTimes::EadRoutines;
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('f:m:o:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # An input file, '-f', is required.
+  #
+  ####################################################################
+
+  my ($sFileHandle);
+
+  if (!exists($hOptions{'f'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+  else
+  {
+    my $sFile = $hOptions{'f'};
+    if (-f $sFile)
+    {
+      if (!open(FH, "< $sFile"))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unable to open $sFile ($!).'\n";
+        exit(2);
+      }
+      $sFileHandle = \*FH;
+    }
+    else
+    {
+      print STDERR "$$phProperties{'Program'}: Error='File does not exist or is not regular.'\n";
+      exit(2);
+    }
+  }
+
+  ####################################################################
+  #
+  # A field mask, '-m', is optional.
+  #
+  ####################################################################
+
+  my (%hFieldMask);
+
+  $$phProperties{'FieldMask'} = (exists($hOptions{'m'})) ? $hOptions{'m'} : "all";
+
+  if (!ParseFieldMask($$phProperties{'FieldMask'}, \%hFieldMask))
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid field mask ($$phProperties{'FieldMask'}).'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'GrabberRanOnWindows'} = 0;
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  {
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('GrabberRanOnWindows')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Open the archive and read member headers.
+  #
+  ####################################################################
+
+  my ($oZip, $sStatus);
+
+  $oZip = Archive::Zip->new();
+  $sStatus = $oZip->read($sFileHandle);
+  if ($sStatus != AZ_OK)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Unable to read member headers (AZ error code was $sStatus).'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Print header.
+  #
+  ####################################################################
+
+  PrintHeader(\%hFieldMask);
+
+  ####################################################################
+  #
+  # Loop through each member in the archive.
+  #
+  ####################################################################
+
+  foreach my $oMember ($oZip->members())
+  {
+    my (%hFields, $oMd5, $oSha1);
+
+    if ($hFieldMask{'md5'} || $hFieldMask{'sha1'})
+    {
+      my $sErrorFlag = 0;
+      $oMd5 = Digest::MD5->new() if ($hFieldMask{'md5'});
+      $oSha1 = Digest::SHA1->new if ($hFieldMask{'sha1'});
+      $oMember->desiredCompressionMethod(COMPRESSION_STORED);
+      $oMember->rewindData();
+      while (!$oMember->readIsDone())
+      {
+        my ($psData, $sStatus) = $oMember->readChunk();
+        if ($sStatus != AZ_OK && $sStatus != AZ_STREAM_END)
+        {
+          print STDERR "$$phProperties{'Program'}: Error='Unable to read member data (AZ error code was $sStatus).'\n";
+          $sErrorFlag = 1;
+          last;
+        }
+        $oMd5->add($$psData) if ($hFieldMask{'md5'});
+        $oSha1->add($$psData) if ($hFieldMask{'sha1'});
+        my $sDump = $$psData; # This is needed to avoid a memory consumption issue.
+      }
+      $sStatus = $oMember->endRead();
+      if ($sStatus != AZ_OK)
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unable to do end read (AZ error code was $sStatus).'\n";
+        $sErrorFlag = 1;
+      }
+      next if ($sErrorFlag);
+    }
+    $hFields{'Name'} = EadFTimesUrlEncode($oMember->fileName());
+    $hFields{'Name'} =~ s,/,\\,g if ($$phProperties{'GrabberRanOnWindows'});
+    $hFields{'Name'} =~ s,^([A-Za-z])\\,$1:\\, if ($$phProperties{'GrabberRanOnWindows'});
+    $hFields{'Name'} =~ s,^,",;
+    $hFields{'Name'} =~ s,$,",;
+    $hFields{'Size'} = $oMember->uncompressedSize() if ($hFieldMask{'size'});
+    $hFields{'Md5'} = $oMd5->hexdigest() if ($hFieldMask{'md5'});
+    $hFields{'Sha1'} = $oSha1->hexdigest() if ($hFieldMask{'sha1'});
+    PrintRecord(\%hFieldMask, \%hFields);
+  }
+
+  ####################################################################
+  #
+  # Shutdown and go home.
+  #
+  ####################################################################
+
+  1;
+
+
+######################################################################
+#
+# ParseFieldMask
+#
+######################################################################
+
+sub ParseFieldMask
+{
+  my ($sFieldMask, $phFieldMask) = @_;
+
+  ####################################################################
+  #
+  # Squash input and check syntax.
+  #
+  ####################################################################
+
+  $sFieldMask =~ tr/A-Z/a-z/;
+  if ($sFieldMask !~ /^(all|none)([+-](?:hashes|md5|sha1|size)+)*$/)
+  {
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Split input once for fields and then for tokens.
+  #
+  ####################################################################
+
+  my @aFields = split(/[+-]/, $sFieldMask);
+  my @aTokens = split(/[^+-]+/, $sFieldMask);
+
+  ####################################################################
+  #
+  # Remove base element from the arrays.
+  #
+  ####################################################################
+
+  my $sBaseField = $aFields[0];
+  my $sBaseToken = $aTokens[0];
+  shift(@aFields);
+  shift(@aTokens);
+
+  ####################################################################
+  #
+  # Initialize the field mask.
+  #
+  ####################################################################
+
+  if ($sBaseField eq "all")
+  {
+    $$phFieldMask{'name'} = 1;
+    $$phFieldMask{'size'} = 1;
+    $$phFieldMask{'md5'}  = 1;
+    $$phFieldMask{'sha1'} = 1;
+  }
+  else
+  {
+    $$phFieldMask{'name'} = 1;
+    $$phFieldMask{'size'} = 0;
+    $$phFieldMask{'md5'}  = 0;
+    $$phFieldMask{'sha1'} = 0;
+  }
+  for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
+  {
+    if ($aFields[$sIndex] eq "hashes")
+    {
+      $$phFieldMask{'md5'} = ($aTokens[$sIndex] eq "+") ? 1 : 0;
+      $$phFieldMask{'sha1'} = ($aTokens[$sIndex] eq "+") ? 1 : 0;
+      next;
+    }
+    $$phFieldMask{$aFields[$sIndex]} = ($aTokens[$sIndex] eq "+") ? 1 : 0;
+  }
+  if ($sBaseField eq "all")
+  {
+    foreach my $sField (keys(%$phFieldMask))
+    {
+      if ($$phFieldMask{$sField} == 0)
+      {
+        $$phFieldMask{$sField} = 0;
+      }
+    }
+  }
+  else
+  {
+    foreach my $sField (keys(%$phFieldMask))
+    {
+      if ($$phFieldMask{$sField} == 0)
+      {
+        $$phFieldMask{$sField} = 0;
+      }
+    }
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# PrintHeader
+#
+######################################################################
+
+sub PrintHeader
+{
+  my ($phFieldMask) = @_;
+
+  my @aFields = ();
+  push(@aFields, "name");
+  push(@aFields, "size") if ($$phFieldMask{'size'});
+  push(@aFields, "md5") if ($$phFieldMask{'md5'});
+  push(@aFields, "sha1") if ($$phFieldMask{'sha1'});
+  print join("|", @aFields), "\n";
+}
+
+
+######################################################################
+#
+# PrintRecord
+#
+######################################################################
+
+sub PrintRecord
+{
+  my ($phFieldMask, $phFields) = @_;
+
+  my @aFields = ();
+  push(@aFields, $$phFields{'Name'});
+  push(@aFields, $$phFields{'Size'}) if ($$phFieldMask{'size'});
+  push(@aFields, $$phFields{'Md5'}) if ($$phFieldMask{'md5'});
+  push(@aFields, $$phFields{'Sha1'}) if (exists($$phFields{'Sha1'}) && $$phFieldMask{'sha1'});
+  print join("|", @aFields), "\n";
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-m mask] [-o option[,option[,...]]] -f {file|-}\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+=pod
+
+=head1 NAME
+
+zipmap - Map the contents of a ZIP archive.
+
+=head1 SYNOPSIS
+
+B<zipmap> B<[-m mask]> B<[-o option[,option[,...]]]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+B<ZipMap> is a utility for mapping the files in a ZIP archive without
+having to unpack and write them to disk first.  The output produced by
+this utility is roughly equivalent to FTimes output produced with the
+following FieldMask:
+
+    none+size+md5+sha1
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.
+
+=item B<-m mask>
+
+The field mask specifies which attributes to collect/compute while
+processing the archive.  The field mask value must comply with the
+following case-insensitive syntax:
+
+    ALL[<+|-><field>[...]]
+
+or
+
+    NONE<+|-><field>[<+|-><field>[...]]
+
+The following fields may be specified:
+
+    size   - Member size in bytes
+    md5    - Member MD5 digest
+    sha1   - Member SHA1 digest
+
+In addition to the standard fields, the following group fields may be
+specified:
+
+    hashes - Compute all supported digests
+
+The default field mask is 'all'.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item GrabberRanOnWindows
+
+Member names for archives created on WINX platforms using the
+ftimes-grabber(1) are stored in a UNIX format.  This flag indicates
+that those names should be converted back to their original format.
+
+=back
+
+=back
+
+=head1 EXAMPLES
+
+=head2 Example 1. Map the contents of a ZIP archive
+
+This example demonstrates how to map the contents of a ZIP archive
+called 'test.zip'.
+
+    zipmap -f test.zip
+
+If you're only interested in the size and MD5 attributes, you can
+specify a field mask to limit the output as follows:
+
+    zipmap -m none+size+md5 -f test.zip
+
+=head2 Example 2. Compare the contents of two ZIP archives
+
+This example demonstrates how to use this utility and ftimes(1) to
+compare the contents of two ZIP archives called 'test.old.zip' and
+'test.new.zip'.
+
+    zipmap -f test.old.zip > test.old.map
+    zipmap -f test.new.zip > test.new.map
+    ftimes --compare all test.old.map test.new.map -l 6
+
+=head1 AUTHORS
+
+Klayton Monroe and Jason Smith
+
+=head1 SEE ALSO
+
+ftimes(1), ftimes-grabber(1), tarmap(1), and unzip(1)
+
+=head1 HISTORY
+
+This utility was initially written to assist in validating the
+contents of ZIP archives created by ftimes-grabber(1).
+
+This utility first appeared in FTimes 3.9.0.
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

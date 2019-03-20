@@ -1,6 +1,8 @@
 
 PROJECT_ROOT=../../../../..
 
+PROJECT_LIBDIR=${PROJECT_ROOT}/lib/perl/blib/lib
+
 PROJECT_SRCDIR=@srcdir@
 
 PROJECT_TOPDIR=@top_srcdir@

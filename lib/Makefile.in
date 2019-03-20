@@ -1,0 +1,61 @@
+
+PROJECT_ROOT=..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+SUBDIRS=@lib_subdirs@
+
+########################################################################
+#
+# NOTE: This Makefile does not include common-subdir.mk because it
+#       contains custom targets that bridge the gap between this
+#       project's configure/build process and the way things are
+#       done in a regular Perl module build tree.
+#
+# NOTE: The setting of ARCH in the install target was done as a hack
+#       to disable BSDPAN, which attempts to step in and register the
+#       Perl module -- even if it is being installed in a custom or
+#       private directory. It'd be nice if BSDPAN provided an
+#       environment variable (e.g., NOBSDPAN) that could be used to
+#       explicitly disable this unwanted behavior.
+#
+########################################################################
+
+all test install:
+	@cwd=`pwd` ; for subdir in ${SUBDIRS} "end-of-list" ; do \
+		ARCH=`{ uname -p 2> /dev/null || uname -m 2> /dev/null ; }` ; export ARCH ; \
+		if test $${subdir} != "end-of-list" ; then \
+			${SUBDIR_TRACE} && ${SUBDIR_MAKE} ; \
+		fi ; \
+	done
+
+clean:
+	@cwd=`pwd` ; for subdir in ${SUBDIRS} "end-of-list" ; do \
+		if test $${subdir} != "end-of-list" ; then \
+			if test $$subdir = "perl" ; then \
+				${SUBDIR_TRACE} && cd $${cwd}/$${subdir} && rm -rf blib pm_to_blib ; \
+			else \
+				${SUBDIR_TRACE} && ${SUBDIR_MAKE} ; \
+			fi ; \
+		fi ; \
+	done
+
+clean-all:
+	@cwd=`pwd` ; for subdir in ${SUBDIRS} "end-of-list" ; do \
+		if test $${subdir} != "end-of-list" ; then \
+			if test $$subdir = "perl" ; then \
+				${SUBDIR_TRACE} && cd $${cwd}/$${subdir} && ${MAKE} realclean ; \
+				rm -f $${cwd}/$${subdir}/Makefile.PL ; \
+			else \
+				${SUBDIR_TRACE} && ${SUBDIR_MAKE} ; \
+			fi ; \
+		fi ; \
+	done
+	@rm -f Makefile
+
+include ${PROJECT_ROOT}/Mk/common.mk
+

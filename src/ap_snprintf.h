@@ -1,10 +1,12 @@
 /*-
  ***********************************************************************
  *
- * $Id: ap_snprintf.h,v 1.2 2003/02/23 17:40:07 mavrik Exp $
+ * $Id: ap_snprintf.h,v 1.3 2008/10/16 06:21:00 mavrik Exp $
  *
  ***********************************************************************
  */
+#ifndef _AP_SNPRINTF_H_INCLUDED
+#define _AP_SNPRINTF_H_INCLUDED
 
 /*
  * This header was created to support solaris 2.5.1 which does not have
@@ -173,3 +175,5 @@ API_EXPORT(int) ap_snprintf(char *buf, size_t len, const char *format,...)
 			    __attribute__((format(printf,3,4)));
 API_EXPORT(int) ap_vsnprintf(char *buf, size_t len, const char *format,
 			     va_list ap);
+
+#endif /* !_AP_SNPRINTF_H_INCLUDED */

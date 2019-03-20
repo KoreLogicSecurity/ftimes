@@ -1,0 +1,85 @@
+######################################################################
+######################################################################
+######################################################################
+#
+# $Id: ftimes-map.cfg.base,v 1.1 2012/05/05 22:49:46 mavrik Exp $
+#
+######################################################################
+######################################################################
+######################################################################
+#
+# This config file contains a condensed list of controls specific to
+# map mode.  A full description for each control can be found in the
+# documentation.  All controls are commented out, and controls that
+# are set have been set to their default value.  To override the
+# default behavior, uncomment the desired control and specify a new
+# value.
+#
+######################################################################
+######################################################################
+######################################################################
+#
+# Synopsis:
+#
+#   ftimes --map file [-l {0-6}] [target [...]]
+#
+######################################################################
+######################################################################
+######################################################################
+#
+#BaseName=                        # <name|->
+#BaseNameSuffix=none              # [datetime|none|pid]
+#LogDir=                          # <directory>
+#OutDir=                          # <directory>
+#Import=                          # <file>
+#Include=                         # [<file>|<directory>|<link>]
+#Exclude=                         # [<file>|<directory>|<link>]
+#IncludeFilter=                   # <regexp>
+#ExcludeFilter=                   # <regexp>
+#IncludeFilterMd5=                # <regexp>
+#ExcludeFilterMd5=                # <regexp>
+#IncludeFilterSha1=               # <regexp>
+#ExcludeFilterSha1=               # <regexp>
+#IncludeFilterSha256=             # <regexp>
+#ExcludeFilterSha256=             # <regexp>
+#
+#AnalyzeBlockSize=16384           # [1-1048576]
+#AnalyzeByteCount=0               # [0-18446744073709551615]
+#AnalyzeDeviceFiles=N             # [Y|N]
+#AnalyzeMaxDps=0                  # [0-2097152]
+#AnalyzeRemoteFiles=N             # [Y|N]
+#AnalyzeStartOffset=0             # [0-18446744073709551615]
+#Compress=N                       # [Y|N]
+#EnableRecursion=Y                # [Y|N]
+#ExcludesMustExist=N              # [Y|N]
+#FieldMask=                       # <mask> (e.g., all-magic)
+#FileSizeLimit=0                  # <integer>
+#HashDirectories=N                # [Y|N]
+#HashSymbolicLinks=Y              # [Y|N]
+#IncludesMustExist=N              # [Y|N]
+#MagicFile=                       # <file>
+#NewLine=                         # [LF|CRLF]
+#Priority=                        # [low|below_normal|normal|above_normal|high]
+#RequirePrivilege=N               # [Y|N]
+#RunType=baseline                 # [baseline|linktest|snapshot]
+#
+#URLPutSnapshot=N                 # [Y|N]
+#URLPutURL=                       # <url>
+#URLAuthType=none                 # [basic|none]
+#URLUsername=                     # <username>
+#URLPassword=                     # <password>
+#URLUnlinkOutput=N                # [Y|N]
+#
+#SSLUseCertificate=N              # [Y|N]
+#SSLPublicCertFile=               # <file>
+#SSLPrivateKeyFile=               # <file>
+#SSLPassPhrase=                   # <passphrase>
+#
+#SSLVerifyPeerCert=N              # [Y|N]
+#SSLBundledCAsFile=               # <file>
+#SSLExpectedPeerCN=               # <name>
+#SSLMaxChainLength=1              # [1,10]
+#
+######################################################################
+######################################################################
+######################################################################

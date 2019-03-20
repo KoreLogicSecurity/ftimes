@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-harvest-sunsolve.pl,v 1.16 2007/02/23 00:22:36 mavrik Exp $
+# $Id: hashdig-harvest-sunsolve.pl,v 1.23 2012/01/04 03:12:39 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2007 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2012 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -100,7 +100,6 @@ use Getopt::Std;
   ####################################################################
   #
   # The TmpDir flag, '-T', is optional.
-  # or if that is not defined, fall back to "/tmp".
   #
   ####################################################################
 
@@ -300,7 +299,7 @@ hashdig-harvest(1), hashdig-make(1), hashdig-resolve-sunsolve(1)
 
 =head1 LICENSE
 
-All HashDig documentation and code is distributed under same terms
-and conditions as FTimes.
+All documentation and code are distributed under same terms and
+conditions as FTimes.
 
 =cut

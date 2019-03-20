@@ -1,0 +1,711 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-grabber,v 1.17 2012/01/04 03:12:38 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Parse FTimes output, grab files, and zip them up.
+#
+######################################################################
+
+use strict;
+use Archive::Zip qw(:ERROR_CODES :CONSTANTS);
+use Digest::MD5;
+use File::Basename;
+use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
+use FTimes::EadRoutines;
+use Getopt::Std;
+use IO::File;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('b:c:e:i:f:o:z:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # A maximum number of uncompressed bytes, '-b', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'MaxBytes'} = (exists($hOptions{'b'})) ? $hOptions{'b'} : 0;
+
+  if ($$phProperties{'MaxBytes'} !~ /^\d+/)
+  {
+    print STDERR "$$phProperties{'Program'}: MaxBytes='$$phProperties{'MaxBytes'}' Error='Value does not pass muster.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # A maximum number of files, '-c', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'MaxFiles'} = (exists($hOptions{'c'})) ? $hOptions{'c'} : 0;
+
+  if ($$phProperties{'MaxFiles'} !~ /^\d+/)
+  {
+    print STDERR "$$phProperties{'Program'}: MaxFiles='$$phProperties{'MaxFiles'}' Error='Value does not pass muster.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # An exclude pattern file, '-e' is optional.
+  #
+  ####################################################################
+
+  my (@aExcludePatterns);
+
+  $$phProperties{'ExcludeFile'} = (exists($hOptions{'e'})) ? $hOptions{'e'} : undef;
+
+  if (defined($$phProperties{'ExcludeFile'}))
+  {
+    if (!open(PH, "< $$phProperties{'ExcludeFile'}"))
+    {
+      print STDERR "$$phProperties{'Program'}: ExcludeFile='$$phProperties{'ExcludeFile'}' Error='$!'\n";
+      exit(2);
+    }
+    while (my $sLine = <PH>)
+    {
+      $sLine =~ s/[\r\n]+$//;
+      next if ($sLine =~ /^#/ || $sLine =~ /^\s*$/);
+      push(@aExcludePatterns, $sLine);
+    }
+    close(PH);
+  }
+
+  ####################################################################
+  #
+  # A filename is required, and can be '-' or a regular file.
+  #
+  ####################################################################
+
+  my ($sFileHandle, $sFilename);
+
+  if (!exists($hOptions{'f'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+  else
+  {
+    $sFilename = $hOptions{'f'};
+    if (!defined($sFilename) || length($sFilename) < 1)
+    {
+      Usage($$phProperties{'Program'});
+    }
+    if (-f $sFilename)
+    {
+      if (!open(FH, "< $sFilename"))
+      {
+        print STDERR "$$phProperties{'Program'}: File='$sFilename' Error='$!'\n";
+        exit(2);
+      }
+      $sFileHandle = \*FH;
+    }
+    else
+    {
+      if ($sFilename ne '-')
+      {
+        print STDERR "$$phProperties{'Program'}: File='$sFilename' Error='File must be regular.'\n";
+        exit(2);
+      }
+      $sFileHandle = \*STDIN;
+    }
+  }
+
+  ####################################################################
+  #
+  # An include pattern file, '-i' is optional.
+  #
+  ####################################################################
+
+  my (@aIncludePatterns);
+
+  $$phProperties{'IncludeFile'} = (exists($hOptions{'i'})) ? $hOptions{'i'} : undef;
+
+  if (defined($$phProperties{'IncludeFile'}))
+  {
+    if (!open(PH, "< $$phProperties{'IncludeFile'}"))
+    {
+      print STDERR "$$phProperties{'Program'}: IncludeFile='$$phProperties{'IncludeFile'}' Error='$!'\n";
+      exit(2);
+    }
+    while (my $sLine = <PH>)
+    {
+      $sLine =~ s/[\r\n]+$//;
+      next if ($sLine =~ /^#/ || $sLine =~ /^\s*$/);
+      push(@aIncludePatterns, $sLine);
+    }
+    close(PH);
+  }
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'BeQuiet'} = 0;
+  $$phProperties{'DryRun'} = 0;
+  $$phProperties{'EnableZipErrorHandler'} = 0;
+  $$phProperties{'StopShort'} = 0;
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  {
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('BeQuiet', 'DryRun', 'EnableZipErrorHandler', 'StopShort')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # A ZIP archive name, '-z', is required.
+  #
+  ####################################################################
+
+  $$phProperties{'ZipFile'} = (exists($hOptions{'z'})) ? $hOptions{'z'} : undef;
+
+  if (!defined($$phProperties{'ZipFile'}) || length($$phProperties{'ZipFile'}) < 1)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ##################################################################
+  #
+  # Conditionally disable the Archive::Zip error handler.
+  #
+  ##################################################################
+
+  if (!$$phProperties{'EnableZipErrorHandler'})
+  {
+    Archive::Zip::setErrorHandler(\&ErrorHandler);
+  }
+
+  ##################################################################
+  #
+  # Process the header.
+  #
+  ##################################################################
+
+  $$phProperties{'NameIndex'} = undef;
+
+  if (my $sHeader = <$sFileHandle>)
+  {
+    my (@aHeaderFields);
+    $sHeader =~ s/[\r\n]+$//;
+    @aHeaderFields = split(/\|/, $sHeader);
+    $$phProperties{'HeaderFieldCount'} = scalar(@aHeaderFields);
+    for (my $sIndex = 0; $sIndex < $$phProperties{'HeaderFieldCount'}; $sIndex++)
+    {
+      if ($aHeaderFields[$sIndex] =~ /^name$/i)
+      {
+        $$phProperties{'NameIndex'} = $sIndex;
+      }
+      elsif ($aHeaderFields[$sIndex] =~ /^size$/i)
+      {
+        $$phProperties{'SizeIndex'} = $sIndex;
+      }
+      elsif ($aHeaderFields[$sIndex] =~ /^md5$/i)
+      {
+        $$phProperties{'Md5Index'} = $sIndex;
+      }
+    }
+    if (!defined($$phProperties{'NameIndex'}) || $$phProperties{'NameIndex'} != 0)
+    {
+      print STDERR "$$phProperties{'Program'}: Header='$sHeader' Error='Invalid header or unable to locate the name field.'\n";
+      exit(2);
+    }
+  }
+  else
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Header not defined.'\n";
+    exit(2);
+  }
+
+  ##################################################################
+  #
+  # Process the records. However, don't process the same file more
+  # than once. Note that dig output can contain multiple instances
+  # of the same filename.
+  #
+  ##################################################################
+
+  my (@aFiles, $sSkip, %hUniqueNames);
+
+  $sSkip = 0;
+  $$phProperties{'TotalBytes'} = 0;
+  $$phProperties{'TotalFiles'} = 0;
+  while (my $sRecord = <$sFileHandle>)
+  {
+    my (@aRecordFields, $sAddToZip, $sName, $sSize);
+    $sRecord =~ s/[\r\n]+$//;
+    @aRecordFields = split(/\|/, $sRecord, -1); # Use large chunk size to preserve trailing NULL fields.
+    $$phProperties{'RecordFieldCount'} = scalar(@aRecordFields);
+    if ($$phProperties{'RecordFieldCount'} != $$phProperties{'HeaderFieldCount'})
+    {
+      print STDERR "$$phProperties{'Program'}: Record='$sRecord' Error='Record and header field counts don't match ($$phProperties{'RecordFieldCount'} != $$phProperties{'HeaderFieldCount'}).'\n";
+      next;
+    }
+    if (exists($hUniqueNames{$aRecordFields[$$phProperties{'NameIndex'}]}))
+    {
+      next; # Don't process the same file more than once.
+    }
+    else
+    {
+      $hUniqueNames{$aRecordFields[$$phProperties{'NameIndex'}]}++;
+    }
+    $sName = EadFTimesUrlDecode($aRecordFields[$$phProperties{'NameIndex'}]);
+    $sName =~ s/^"//;
+    $sName =~ s/"$//;
+    if ($sSkip)
+    {
+      print STDERR "skipping - $sName\n" unless ($$phProperties{'BeQuiet'});
+      next;
+    }
+    $sAddToZip = 1;
+    if (scalar(@aIncludePatterns) > 0)
+    {
+      $sAddToZip = 0;
+      foreach my $sInclude (@aIncludePatterns)
+      {
+        if ($sName =~ /$sInclude/)
+        {
+          $sAddToZip = 1;
+          last;
+        }
+      }
+      if (!$sAddToZip)
+      {
+        next;
+      }
+    }
+    if (scalar(@aExcludePatterns) > 0)
+    {
+      foreach my $sExclude (@aExcludePatterns)
+      {
+        if ($sName =~ /$sExclude/)
+        {
+          $sAddToZip = 0;
+          last;
+        }
+      }
+      if (!$sAddToZip)
+      {
+        next;
+      }
+    }
+    if (!-e $sName)
+    {
+      print STDERR "$$phProperties{'Program'}: File='$sName' Warning='File does not exist.'\n";
+      print STDERR "skipping - $sName\n" unless ($$phProperties{'BeQuiet'});
+      next;
+    }
+    if (!-f _)
+    {
+      next; # Silently ignore anything that's not a file.
+    }
+    $sSize = -s _;
+    if (!open(TH, "< $sName"))
+    {
+      print STDERR "$$phProperties{'Program'}: File='$sName' Warning='Unable to open file for read access ($!).'\n";
+      print STDERR "skipping - $sName\n" unless ($$phProperties{'BeQuiet'});
+      next;
+    }
+    close(TH);
+    if ($$phProperties{'MaxBytes'} && $$phProperties{'TotalBytes'} + $sSize > $$phProperties{'MaxBytes'})
+    {
+      my $sDelta = $$phProperties{'TotalBytes'} + $sSize - $$phProperties{'MaxBytes'};
+      my $sBytes = ($sDelta == 1) ? "byte" : "bytes";
+      print STDERR "$$phProperties{'Program'}: File='$sName' Warning='The specified byte limit would be exceeded by $sDelta $sBytes. This and all remaining files will be skipped.'\n";
+      last if ($$phProperties{'StopShort'});
+      print STDERR "skipping - $sName\n" unless ($$phProperties{'BeQuiet'});
+      $sSkip = 1;
+      next;
+    }
+    $$phProperties{'TotalBytes'} += $sSize;
+    if ($$phProperties{'MaxFiles'} && $$phProperties{'TotalFiles'} + 1 > $$phProperties{'MaxFiles'})
+    {
+      print STDERR "$$phProperties{'Program'}: File='$sName' Warning='The specified file limit has been reached. This and all remaining files will be skipped.'\n";
+      last if ($$phProperties{'StopShort'});
+      print STDERR "skipping - $sName\n" unless ($$phProperties{'BeQuiet'});
+      $sSkip = 1;
+      next;
+    }
+    $$phProperties{'TotalFiles'} += 1;
+    print STDERR "adding - $sName\n" unless ($$phProperties{'BeQuiet'});
+    push(@aFiles, $sName);
+  }
+  close($sFileHandle);
+
+  ####################################################################
+  #
+  # If the audit option was set, just report some stats and exit.
+  #
+  ####################################################################
+
+  if ($$phProperties{'DryRun'})
+  {
+    print STDERR "ZipFile='$$phProperties{'ZipFile'}'; " .
+                 "ZipSize='N/A'; " .
+                 "ZipHash='N/A'; " .
+                 "TotalFiles='$$phProperties{'TotalFiles'}'; " .
+                 "TotalBytes='$$phProperties{'TotalBytes'}';\n";
+    exit(0);
+  }
+
+  ####################################################################
+  #
+  # Build the ZIP archive.
+  #
+  ####################################################################
+
+  my ($oZip);
+
+  $oZip = Archive::Zip->new();
+
+  foreach my $sFile (@aFiles)
+  {
+    my $sNewName = $sFile;
+    $sNewName =~ s,\\,/,g; # New names must be in ZIP name format (i.e., Unix).
+    $sNewName =~ s,^([A-Za-z]):,$1,; # Remove the colon that follows drive letters.
+    $sNewName =~ s,^/,,; # Remove the leading slash to prevent absolute paths.
+    my $oMember = $oZip->addFile($sFile, $sNewName);
+    if (!defined($oMember))
+    {
+      print STDERR "$$phProperties{'Program'}: File='$sFile' Error='Unable to add file to ZIP archive ($!).'\n";
+      next;
+    }
+  }
+
+  ####################################################################
+  #
+  # Write out the ZIP archive.
+  #
+  ####################################################################
+
+  my ($sZipSeekable, $vZipHandle);
+
+  if ($$phProperties{'ZipFile'} eq "-")
+  {
+    $vZipHandle = \*STDOUT;
+    $sZipSeekable = 0;
+  }
+  else
+  {
+    $vZipHandle = new IO::File("> $$phProperties{'ZipFile'}");
+    if (!defined($vZipHandle))
+    {
+      print STDERR "$$phProperties{'Program'}: File='$$phProperties{'ZipFile'}' Error='Unable to create ZIP archive ($!).'\n";
+      exit(2);
+    }
+    $sZipSeekable = 1;
+  }
+
+  my $sStatus = $oZip->writeToFileHandle($vZipHandle, $sZipSeekable);
+  if ($sStatus != AZ_OK)
+  {
+    if ($sStatus == AZ_IO_ERROR)
+    {
+      my $oMemberThatFailed = undef;
+      foreach my $oMember ($oZip->members())
+      {
+        if ($oMember->wasWritten())
+        {
+          next;
+        }
+        my $sFile = $oMember->externalFileName();
+        if (!defined($oMemberThatFailed))
+        {
+          print STDERR "$$phProperties{'Program'}: File='$$phProperties{'ZipFile'}' Error='Unable to read \"$sFile\" ($!). Attempting to salvage ZIP archive.'\n";
+          $oMemberThatFailed = $oMember;
+        }
+        $oZip->removeMember($oMember);
+        $$phProperties{'TotalFiles'}--;
+        $$phProperties{'TotalBytes'} -= $oMember->uncompressedSize();
+        print STDERR "dropping - $sFile\n" unless ($$phProperties{'BeQuiet'});
+      }
+      if ($$phProperties{'ZipFile'} eq "-")
+      {
+        $sStatus = $oZip->writeCentralDirectory($vZipHandle);
+      }
+      else
+      {
+        $sStatus = $oZip->writeCentralDirectory($vZipHandle, $oMemberThatFailed->writeLocalHeaderRelativeOffset());
+      }
+      if ($sStatus != AZ_OK)
+      {
+        print STDERR "$$phProperties{'Program'}: File='$$phProperties{'ZipFile'}' Error='Unable to write central directory structure ($!). ZIP archive not salvaged.'\n";
+        exit(2);
+      }
+    }
+    else
+    {
+      print STDERR "$$phProperties{'Program'}: File='$$phProperties{'ZipFile'}' Error='Unable to write ZIP archive ($!).'\n";
+      exit(2);
+    }
+  }
+  if ($$phProperties{'ZipFile'} eq "-")
+  {
+    $$phProperties{'ZipSize'} = "N/A";
+  }
+  else
+  {
+    $vZipHandle->close();
+    $$phProperties{'ZipSize'} = -s $$phProperties{'ZipFile'} || "N/A";
+  }
+
+  ####################################################################
+  #
+  # Compute an MD5
+  #
+  ####################################################################
+
+  if ($$phProperties{'ZipFile'} =~ /^-$/)
+  {
+    $$phProperties{'ZipHash'} = "N/A";
+  }
+  else
+  {
+    if (open(ZH, "< $$phProperties{'ZipFile'}"))
+    {
+      my $oMd5 = Digest::MD5->new();
+      $oMd5->addfile(*ZH);
+      close(ZH);
+      $$phProperties{'ZipHash'} = $oMd5->hexdigest();
+    }
+    else
+    {
+      $$phProperties{'ZipHash'} = "N/A";
+    }
+  }
+
+  ####################################################################
+  #
+  # Report some stats.
+  #
+  ####################################################################
+
+  print STDERR "ZipFile='$$phProperties{'ZipFile'}'; " .
+               "ZipSize='$$phProperties{'ZipSize'}'; " .
+               "ZipHash='$$phProperties{'ZipHash'}'; " .
+               "TotalFiles='$$phProperties{'TotalFiles'}'; " .
+               "TotalBytes='$$phProperties{'TotalBytes'}';\n";
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  1;
+
+
+######################################################################
+#
+# ErrorHandler
+#
+######################################################################
+
+sub ErrorHandler
+{
+  my $phProperties = GetProperties();
+  $$phProperties{'ZipError'} = $_[0];
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-b bytes] [-c count] [-e exclude] [-i include] [-o option[,option[,...]]] -f {file|-} -z {zip|-}\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-grabber - Parse FTimes output, grab files, and zip them up
+
+=head1 SYNOPSIS
+
+B<ftimes-grabber> B<[-b bytes]> B<[-c count]> B<[-e exclude]> B<[-i include]> B<[-o option[,option[,...]]]> B<-f {file|-}> B<-z {zip|-}>
+
+=head1 DESCRIPTION
+
+This utility reads FTimes map or dig data, conditionally filters
+records based on user-specified include/exclude patterns, and creates
+a list of files that are subsequently added to a ZIP archive.
+
+Pattern filtering (includes/excludes) occurs only when a pattern file
+has been specified.  Include filters are applied first, and then,
+exclude filters are applied.  Once pattern filtering is complete, byte
+and file count limits are checked/applied (in that order).
+
+Only files are archived by this utility -- all directories and special
+files (e.g., symbolic links) are ignored.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-b bytes>
+
+Specifies the maximum number of uncompressed bytes to put in the ZIP
+archive.  Once this limit has been reached, all remaining matches, if
+any, will be skipped.
+
+=item B<-c files>
+
+Specifies the maximum number of files to put in the ZIP archive.  Once
+this limit has been reached, all remaining matches, if any, will be
+skipped.
+
+=item B<-e exclude>
+
+Specifies a file containing zero or more regular expressions, one per
+line, that are to be applied to the 'name' field after it has been
+deneutered and dequoted.  Files that match any exclude pattern will
+not be added to the ZIP archive.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.  A value of '-' will cause the
+program to read from stdin.
+
+=item B<-i include>
+
+Specifies a file containing zero or more regular expressions, one per
+line, that are to be applied to the 'name' field after it has been
+deneutered and dequoted.  Files that match any include pattern will be
+added to the ZIP archive unless they are subsequently matched by an
+exclude pattern.  If no include patterns are specified, all files are
+implicitly included.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't list the files being added or skipped.
+
+=item DryRun
+
+Process the FTimes data, but do not create the ZIP archive.  Instead,
+simply report the number of files and uncompressed bytes the archive
+would contain.
+
+=item EnableZipErrorHandler
+
+Enable the error handler that comes with Archive::Zip.  This provides
+additional information that may be useful for debugging purposes.
+
+=item StopShort
+
+Terminate the filtering process as soon as the maximum number of files
+or bytes is reached, and proceed directly to ZIP archive creation.
+
+=back
+
+=item B<-z zip>
+
+Specifies the name of the ZIP archive to create.  A value of '-' will
+cause the program to write to stdout.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

@@ -1,0 +1,4 @@
+=head1 NAME
+
+B<FTimesCat> - Write the contents of a file or stdin to stdout.
+

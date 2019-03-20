@@ -1,0 +1,17 @@
+
+PROJECT_ROOT=../../../../..
+
+PROJECT_LIBDIR=${PROJECT_ROOT}/lib/perl/blib/lib
+
+PROJECT_SRCDIR=@srcdir@
+
+PROJECT_TOPDIR=@top_srcdir@
+
+TARGET_PROGRAM=${FTIMES_XFORMER}
+
+VPATH=@srcdir@
+
+INCLUDES_PREFIX=${PROJECT_ROOT}/Mk
+
+include ${INCLUDES_PREFIX}/common-tests.mk
+

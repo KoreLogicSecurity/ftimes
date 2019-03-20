@@ -1,0 +1,453 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-encoder,v 1.16 2012/01/04 03:12:38 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Encode/Decode strings/records using various algorithms.
+#
+######################################################################
+
+use strict;
+use File::Basename;
+use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
+use FTimes::EadRoutines 1.004;
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  $hProperties{'Newline'} = "\n";
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('f:m:o:t:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # The mode, '-m', is required.
+  #
+  ####################################################################
+
+  $$phProperties{'Mode'} = (exists($hOptions{'m'})) ? $hOptions{'m'} : undef;
+
+  if (!defined($$phProperties{'Mode'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  if ($$phProperties{'Mode'} !~ /^(?:[de]|(?:en|de)c(ode)?|c(?:onvert)?)$/i)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid mode ($$phProperties{'Mode'}). Use one of {e|enc|encode}, {d|dec|decode}, {c|convert}.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # A Filename, '-f', is required. It can be '-' or a regular file.
+  #
+  ####################################################################
+
+  my ($sFileHandle, $sFilename);
+
+  if (!exists($hOptions{'f'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+  else
+  {
+    $sFilename = $hOptions{'f'};
+    if (-f $sFilename)
+    {
+      if (!open(IN, "< $sFilename"))
+      {
+        print STDERR "$$phProperties{'Program'}: Filename='$sFilename' Error='$!'\n";
+        exit(2);
+      }
+      $sFileHandle = \*IN;
+    }
+    else
+    {
+      if ($sFilename ne '-')
+      {
+        print STDERR "$$phProperties{'Program'}: Filename='$sFilename' Error='File not found.'\n";
+        exit(2);
+      }
+      $sFilename = "stdin";
+      $sFileHandle = \*STDIN;
+    }
+  }
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'NoNewline'} = 0;
+  $$phProperties{'OneString'} = 0;
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  {
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('NoNewline', 'OneString')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # The type, '-t', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Type'} = (exists($hOptions{'t'})) ? $hOptions{'t'} : "ftimes-url";
+
+  if (!defined($$phProperties{'Type'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  if ($$phProperties{'Type'} !~ /^(?:base64|ftimes-(?:nss|sss|url)|hex|url)(?::(?:base64|ftimes-(?:nss|sss|url)|hex|url))?$/i)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid type ($$phProperties{'Type'}). Use one of {base64|ftimes-nss|ftimes-sss|ftimes-url|hex|url}.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Conditionally squash the default newline.
+  #
+  ####################################################################
+
+  if ($$phProperties{'NoNewline'} == 1)
+  {
+    $$phProperties{'Newline'} = "";
+  }
+
+  ####################################################################
+  #
+  # Set the encoder/decoder routine.
+  #
+  ####################################################################
+
+  if ($$phProperties{'Mode'} =~ /^(?:d|dec|decode)$/i)
+  {
+    if ($$phProperties{'Type'} =~ /^base64$/i)
+    {
+      $$phProperties{'Routine'} = \&EadBase64Decode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^ftimes-nss$/i)
+    {
+      $$phProperties{'Routine'} = \&EadFTimesNssDecode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^ftimes-sss$/i)
+    {
+      $$phProperties{'Routine'} = \&EadFTimesSssDecode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex$/i)
+    {
+      $$phProperties{'Routine'} = \&EadHexDecode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^url$/i)
+    {
+      $$phProperties{'Routine'} = \&EadUrlDecode;
+    }
+    else
+    {
+      $$phProperties{'Routine'} = \&EadFTimesUrlDecode;
+    }
+  }
+  elsif ($$phProperties{'Mode'} =~ /^(?:c|convert)$/i)
+  {
+    if ($$phProperties{'Type'} =~ /^ftimes-url:hex$/i)
+    {
+      $$phProperties{'Routine'} = \&FTimesUrlToHex;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex:ftimes-url$/i)
+    {
+      $$phProperties{'Routine'} = \&HexToFTimesUrl;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex:url$/i)
+    {
+      $$phProperties{'Routine'} = \&HexToUrl;
+    }
+    elsif ($$phProperties{'Type'} =~ /^url:hex$/i)
+    {
+      $$phProperties{'Routine'} = \&UrlToHex;
+    }
+    else
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Invalid type ($$phProperties{'Type'}). Use one of {ftimes-url:hex|hex:ftimes-url|hex:url|url:hex}.'\n";
+      exit(2);
+    }
+  }
+  else
+  {
+    if ($$phProperties{'Type'} =~ /^base64$/i)
+    {
+      $$phProperties{'Routine'} = \&EadBase64Encode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^ftimes-nss$/i)
+    {
+      $$phProperties{'Routine'} = \&EadFTimesNssEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^ftimes-sss$/i)
+    {
+      $$phProperties{'Routine'} = \&EadFTimesSssEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex$/i)
+    {
+      $$phProperties{'Routine'} = \&EadHexEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^url$/i)
+    {
+      $$phProperties{'Routine'} = \&EadUrlEncode;
+    }
+    else
+    {
+      $$phProperties{'Routine'} = \&EadFTimesUrlEncode;
+    }
+  }
+
+  ####################################################################
+  #
+  # Process the data.
+  #
+  ####################################################################
+
+  if ($$phProperties{'OneString'})
+  {
+    my $sData;
+    my $sOffset = 0;
+    while (my $sNRead = read($sFileHandle, $sData, 32768, $sOffset))
+    {
+      $sOffset += $sNRead;
+    }
+    print $$phProperties{'Routine'}($sData), $$phProperties{'Newline'};
+  }
+  else
+  {
+    while (my $sLine = <$sFileHandle>)
+    {
+      $sLine =~ s/[\r\n]+$//;
+      print $$phProperties{'Routine'}($sLine), $$phProperties{'Newline'};
+    }
+  }
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  close($sFileHandle);
+
+  1;
+
+
+######################################################################
+#
+# HexToFTimesUrl
+#
+######################################################################
+
+sub HexToFTimesUrl
+{
+  return EadFTimesUrlEncode(EadHexDecode($_[0]));
+}
+
+
+######################################################################
+#
+# FTimesUrlToHex
+#
+######################################################################
+
+sub FTimesUrlToHex
+{
+  return EadHexEncode(EadFTimesUrlDecode($_[0]));
+}
+
+
+######################################################################
+#
+# HexToUrl
+#
+######################################################################
+
+sub HexToUrl
+{
+  return EadUrlEncode(EadHexDecode($_[0]));
+}
+
+
+######################################################################
+#
+# UrlToHex
+#
+######################################################################
+
+sub UrlToHex
+{
+  return EadHexEncode(EadUrlDecode($_[0]));
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-o option[,option[,...]]] [-t type] -m mode -f {file|-}\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-encoder - Encode/Decode strings/records using various algorithms
+
+=head1 SYNOPSIS
+
+B<ftimes-encoder> B<[-o option[,option[,...]]]> B<[-t type]> B<-m mode> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility reads lines from a file or stdin and encodes or decodes
+them according to user-specified criteria.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.  A value of '-' will cause the
+program to read from stdin.
+
+=item B<-m mode>
+
+Specifies the mode of operation.  The mode can be one of
+{e|enc|encode}, {d|dec|decode}, or {c|convert}.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item NoNewline
+
+Don't add a newline character to the end of the output.  This option
+is primarily intended for single line decodes where the output is
+expected to be binary and subsequently redirected to a file or piped
+to another utility.  In both of these cases, the extra newline would
+be unwanted since it will pollute the output stream.
+
+=item OneString
+
+Treat the entire input stream as a single string.  This option is
+primarily intended for small- to medium-sized input streams that can
+easily be stored in memeory.
+
+=back
+
+=item B<-t type>
+
+Specifies the type of encoding or decoding to apply.  The type can be
+one of base64, ftimes-nss, ftimes-sss, ftimes-url, hex, or url.  NSS
+is short for Neuter Safe String, and SSS is short for Shell Safe
+String.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1), ftimes-xformer(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

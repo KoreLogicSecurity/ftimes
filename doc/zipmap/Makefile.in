@@ -1,0 +1,25 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${DESTDIR}${PREFIX}/man/man1
+
+HTML_FILE=zipmap.html
+
+MAN_FILE=zipmap.1
+
+MAN_TITLE=FTimes Documentation
+
+POD_FILE=zipmap.pod
+
+SRC_FILE=${SRCDIR}/../../tools/zipmap/zipmap
+
+include ${PROJECT_ROOT}/Mk/common-doc-perl.mk
+

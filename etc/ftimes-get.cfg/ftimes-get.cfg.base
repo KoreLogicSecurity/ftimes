@@ -1,0 +1,53 @@
+######################################################################
+######################################################################
+######################################################################
+#
+# $Id: ftimes-get.cfg.base,v 1.1 2012/05/05 22:49:46 mavrik Exp $
+#
+######################################################################
+######################################################################
+######################################################################
+#
+# This config file contains a condensed list of controls specific to
+# get mode.  A full description for each control can be found in the
+# documentation.  All controls are commented out, and controls that
+# are set have been set to their default value.  To override the
+# default behavior, uncomment the desired control and specify a new
+# value.
+#
+######################################################################
+######################################################################
+######################################################################
+#
+# Synopsis:
+#
+#   ftimes --get file [-l {0-6}]
+#
+######################################################################
+######################################################################
+######################################################################
+#
+#BaseName=                        # <name>
+#Import=                          # <file>
+#GetAndExec=N                     # [Y|N]
+#GetFileName=                     # <file>
+#
+#URLGetRequest=                   # [Dig{Full,Lean}Config|Map{Full,Lean}Config]
+#URLGetURL=                       # <url>
+#URLAuthType=none                 # [basic|none]
+#URLUsername=                     # <username>
+#URLPassword=                     # <password>
+#
+#SSLUseCertificate=N              # [Y|N]
+#SSLPublicCertFile=               # <file>
+#SSLPrivateKeyFile=               # <file>
+#SSLPassPhrase=                   # <passphrase>
+#
+#SSLVerifyPeerCert=N              # [Y|N]
+#SSLBundledCAsFile=               # <file>
+#SSLExpectedPeerCN=               # <name>
+#SSLMaxChainLength=1              # [1,10]
+#
+######################################################################
+######################################################################
+######################################################################

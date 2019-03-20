@@ -1,0 +1,22 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${DESTDIR}${PREFIX}/etc
+
+TARGET=ftimes-map.cfg.sample
+
+TARGET_BASE=ftimes-map.cfg.base
+
+${TARGET}: ${TARGET_BASE}
+	@perl -p -e ';' < ${SRCDIR}/${TARGET_BASE} > $@
+
+include ${PROJECT_ROOT}/Mk/common-etc-conf.mk
+

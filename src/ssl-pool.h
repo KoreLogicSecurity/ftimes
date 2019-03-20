@@ -1,14 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: ssl-pool.h,v 1.6 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: ssl-pool.h,v 1.13 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2002-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2002-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _SSL_POOL_H_INCLUDED
+#define _SSL_POOL_H_INCLUDED
 
 /*
  ***********************************************************************
@@ -47,3 +49,5 @@
 {\
   aucTaps[0] = 0;\
 }
+
+#endif /* !_SSL_POOL_H_INCLUDED */

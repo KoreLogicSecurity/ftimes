@@ -1,0 +1,6 @@
+=head1 SYNOPSIS
+
+B<hashcp> B<{source|-}> B<target>
+
+Note: Command line arguments are position dependent.
+

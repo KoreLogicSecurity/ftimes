@@ -1,0 +1,12 @@
+=head1 DESCRIPTION
+
+B<HashCp> is a utility that hashes a file as it is being copied to new
+name and/or location.  The output produced by this utility is roughly
+equivalent to FTimes output produced with the following FieldMask:
+
+    none+size+md5+sha1
+
+It is not exactly equivalent to FTimes output because the name field
+is not encoded and it may contain a relative path depending on how the
+B<target> file was specified.
+

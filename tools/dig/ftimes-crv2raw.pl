@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-crv2raw.pl,v 1.6 2007/02/23 00:22:36 mavrik Exp $
+# $Id: ftimes-crv2raw.pl,v 1.19 2012/01/04 03:12:28 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2006-2007 The FTimes Project, All Rights Reserved.
+# Copyright 2006-2012 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -18,6 +18,8 @@ use Digest::MD5;
 use Digest::SHA1;
 use File::Basename;
 use File::Path;
+use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
+use FTimes::EadRoutines;
 use Getopt::Std;
 
 ######################################################################
@@ -47,7 +49,7 @@ use Getopt::Std;
   $sErrorLimitRegex = qq(\\d+);
   $sHeaderRegex = qq(name\|tag\|offset\|unit_size\|range_list);
   $sIgnoreRegex = qq(\\d+);
-  $sLineRegex = qq("(.+)"\\|([\\w.-]+)\\|(\\d+|0x[0-9A-Fa-f]+)\\|(\\d+)\\|((?:\\d{1,10}(?:-\\d{1,10})?)(?:,(?:\\d{1,10}(?:-\\d{1,10})?))*));
+  $sLineRegex = qq("(.+)"\\|([\\w.-]+)\\|(\\d+|0x[0-9A-Fa-f]+)\\|(\\d+)\\|((?:(?:\\d+|%LAST)(?:-(?:\\d+|%LAST))?)(?:,(?:(?:\\d+|%LAST)(?:-(?:\\d+|%LAST))?))*));
 
   ####################################################################
   #
@@ -273,15 +275,6 @@ use Getopt::Std;
       next;
     }
 
-    my $sFirstRange = (split(/[-,]/, $sCarveRangeList))[0];
-
-    if (!defined($sFirstRange) || $sCarveOffset != ($sFirstRange * $sCarveUnitSize))
-    {
-      print STDERR "$sProgram: LineNumber='$sLineNumber' Line='$sLine' Error='Offset does not correspond to the lower value of the first range.'\n";
-      CheckErrorCount($sProgram, $sErrorLimit, ++$sErrorCount);
-      next;
-    }
-
     if ($hBlackListed{$sCarveFile})
     {
       print STDERR "$sProgram: LineNumber='$sLineNumber' Line='$sLine' Warning='CarveFile has been blacklisted due to previous errors.'\n";
@@ -289,7 +282,71 @@ use Getopt::Std;
       next;
     }
 
+    ##################################################################
+    #
+    # The carve unit size must be > 0 to prevent a divide-by-zero.
+    #
+    ##################################################################
+
+    if ($sCarveUnitSize == 0)
+    {
+      print STDERR "$sProgram: LineNumber='$sLineNumber' Line='$sLine' Error='The unit_size field can not be zero.'\n";
+      CheckErrorCount($sProgram, $sErrorLimit, ++$sErrorCount);
+      next;
+    }
+
+    ##################################################################
+    #
+    # Compute the EOF offset.
+    #
+    ##################################################################
+
+    my $sCarveFileSize = -s $sCarveFile;
+    if (!defined($sCarveFileSize) || $sCarveFileSize !~ /^\d+$/)
+    {
+      print STDERR "$sProgram: LineNumber='$sLineNumber' Line='$sLine' Error='The size of the carve file could not be determined.'\n";
+      CheckErrorCount($sProgram, $sErrorLimit, ++$sErrorCount);
+      next;
+    }
+    my $sEofOffset = ($sCarveFileSize > 0) ? $sCarveFileSize - 1 : 0;
+
+    ##################################################################
+    #
+    # Compute the last block.
+    #
+    ##################################################################
+
+    my $sLastBlock = int($sEofOffset / $sCarveUnitSize);
+
+    ##################################################################
+    #
+    # Check the offset for the lower value of the first carve range.
+    #
+    ##################################################################
+
     $sCarveOffset = oct($sCarveOffset) if ($sCarveOffset =~ /^0x/);
+
+    my $sLowerValue = (split(/[-,]/, $sCarveRangeList))[0];
+    if (!defined($sLowerValue))
+    {
+      print STDERR "$sProgram: LineNumber='$sLineNumber' Line='$sLine' Error='Lower value of the first range could not be determined.'\n";
+      CheckErrorCount($sProgram, $sErrorLimit, ++$sErrorCount);
+      next;
+    }
+    else
+    {
+      if ($sLowerValue =~ /^%LAST$/)
+      {
+        $sLowerValue = $sLastBlock;
+      }
+      my $sLowerOffset = $sLowerValue * $sCarveUnitSize;
+      if ($sCarveOffset != $sLowerOffset)
+      {
+        print STDERR "$sProgram: LineNumber='$sLineNumber' Line='$sLine' Error='Offset does not correspond to the lower offset ($sLowerOffset) of the first range.'\n";
+        CheckErrorCount($sProgram, $sErrorLimit, ++$sErrorCount);
+        next;
+      }
+    }
 
     ##################################################################
     #
@@ -300,7 +357,7 @@ use Getopt::Std;
     if ($sCarveFile ne $sLastFile)
     {
       close($sRawHandle) if (defined($sRawHandle));
-      my $sRawFile = ($sNoUrlDecode) ? $sCarveFile : UrlDecode($sCarveFile);
+      my $sRawFile = ($sNoUrlDecode) ? $sCarveFile : EadFTimesUrlDecode($sCarveFile);
       if (!open(RAW, "< $sRawFile"))
       {
         print STDERR "$sProgram: LineNumber='$sLineNumber' CarveFile='$sCarveFile' Error='$!'\n";
@@ -309,6 +366,7 @@ use Getopt::Std;
         $sLastFile = '';
         next;
       }
+      binmode(RAW); # Enable binmode for WIN32 platforms.
       $sRawHandle = \*RAW;
       $sLastFile = $sCarveFile;
       $sLastOffset = 0;
@@ -359,6 +417,7 @@ use Getopt::Std;
       close($sRawHandle);
       next;
     }
+    binmode(OUT); # Enable binmode for WIN32 platforms.
 
     ##################################################################
     #
@@ -376,11 +435,18 @@ use Getopt::Std;
     ##################################################################
     #
     # Prepare the carve list, and carve the data from the file. Any
-    # error in this loop must cause the subject to be blacklisted.
+    # error in this loop must cause the subject to be blacklisted. If
+    # the %LAST token is in any of the carve ranges, replace it with
+    # the actual EOF offset.
     #
     ##################################################################
 
     my (@aCarveList, $sError);
+
+    if ($sCarveRangeList =~ /%LAST/)
+    {
+      $sCarveRangeList =~ s/%LAST/$sLastBlock/g;
+    }
 
     if (!MakeCarveList($sCarveRangeList, $sCarveUnitSize, \@aCarveList, \$sError))
     {
@@ -469,7 +535,7 @@ use Getopt::Std;
     {
       my $sMd5 = $oMd5->hexdigest;
       my $sSha1 = $oSha1->hexdigest;
-      print STDOUT "\"$sName\"|$sSize|$sSha1|$sMd5\n";
+      print STDOUT "\"$sName\"|$sSize|$sMd5|$sSha1\n";
     }
 
     ##################################################################
@@ -536,7 +602,7 @@ sub MakeCarveList
   ####################################################################
 
   if (
-       !defined($sCarveUnitSize) ||
+       !defined($sCarveRangeList) ||
        !defined($sCarveUnitSize) ||
        !defined($paCarveList) ||
        !defined($psError)
@@ -546,7 +612,7 @@ sub MakeCarveList
     return undef;
   }
 
-  if ($sCarveUnitSize !~ /^(?:\d{1,10}(?:-\d{1,10})?)(?:,(?:\d{1,10}(?:-\d{1,10})?))*$/)
+  if ($sCarveRangeList !~ /^(?:\d+(?:-\d+)?)(?:,(?:\d+(?:-\d+)?))*$/)
   {
     $$psError = "CarveRangeList ($sCarveRangeList) is not valid. Check the man page for proper syntax.";
     return undef;
@@ -566,7 +632,7 @@ sub MakeCarveList
 
   foreach my $sCarveRange (split(/,/, $sCarveRangeList, -1))
   {
-    if ($sCarveRange !~ /^(\d{1,10})(?:-(\d{1,10}))?$/)
+    if ($sCarveRange !~ /^(\d+)(?:-(\d+))?$/)
     {
       $$psError = "CarveRange ($sCarveRange) is undefined or invalid.";
       return undef;
@@ -655,21 +721,6 @@ sub SeekLoop
 
 ######################################################################
 #
-# UrlDecode
-#
-######################################################################
-
-sub UrlDecode
-{
-  my ($sRawString) = @_;
-  $sRawString =~ s/\+/ /sg;
-  $sRawString =~ s/%([0-9a-fA-F]{2})/pack('C', hex($1))/seg;
-  return $sRawString;
-}
-
-
-######################################################################
-#
 # Usage
 #
 ######################################################################
@@ -746,6 +797,11 @@ list of blocks or ranges that are to be carved.  The required syntax
 is as follows:
 
     lower[[-upper][,lower[-upper]]...]
+
+As a convenience, a value may contain the %LAST token.  Prior to the
+carve operation, this value will be replaced with the actual offset of
+the last block.  Note, however, that the resulting expression must
+still represent a valid range list.
 
 If a lower range value is specified without a corresponding upper
 range value, the lower and upper values are assumed to be equal.  For
@@ -865,7 +921,7 @@ ftimes(1)
 
 =head1 LICENSE
 
-All documentation and code for this utility is distributed under same
-terms and conditions as FTimes.
+All documentation and code are distributed under same terms and
+conditions as FTimes.
 
 =cut

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: url.c,v 1.17 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: url.c,v 1.29 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -22,7 +22,7 @@ int
 URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "URLGetRequest()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acQuery[1024];
   char               *apcEscaped[4];
   int                 i;
@@ -53,12 +53,12 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (psURL->iScheme == HTTP_SCHEME_HTTPS && SSLInitializeCTX(psProperties->psSSLProperties, acLocalError) == NULL)
+  if (psURL->iScheme == HTTP_SCHEME_HTTPS && SslInitializeCTX(psProperties->psSslProperties, acLocalError) == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
-  psURL->psSSLProperties = psProperties->psSSLProperties;
+  psURL->psSslProperties = psProperties->psSslProperties;
 #endif
 
   /*-
@@ -81,13 +81,13 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
       }
       else
       {
-        iError = HTTPSetURLUser(psURL, psProperties->acURLUsername, acLocalError);
+        iError = HttpSetUrlUser(psURL, psProperties->acURLUsername, acLocalError);
         if (iError != ER_OK)
         {
           snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
           return ER;
         }
-        iError = HTTPSetURLPass(psURL, psProperties->acURLPassword, acLocalError);
+        iError = HttpSetUrlPass(psURL, psProperties->acURLPassword, acLocalError);
         if (iError != ER_OK)
         {
           snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -106,29 +106,29 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   iEscaped = 0;
-  apcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(VersionGetVersion(), acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acBaseName, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->acBaseName, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acURLGetRequest, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->acURLGetRequest, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
@@ -141,10 +141,10 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 
   for (i = 0; i < iEscaped; i++)
   {
-    HTTPFreeData(apcEscaped[i]);
+    HttpFreeData(apcEscaped[i]);
   }
 
-  iError = HTTPSetURLQuery(psURL, acQuery, acLocalError);
+  iError = HttpSetUrlQuery(psURL, acQuery, acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -158,7 +158,7 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSetURLMeth(psURL, "GET", acLocalError);
+  iError = HttpSetUrlMeth(psURL, "GET", acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -172,7 +172,7 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSubmitRequest(psURL, HTTP_IGNORE_INPUT, NULL, HTTP_STREAM_OUTPUT, psProperties->pFileOut, &sResponseHeader, acLocalError);
+  iError = HttpSubmitRequest(psURL, HTTP_IGNORE_INPUT, NULL, HTTP_STREAM_OUTPUT, psProperties->pFileOut, &sResponseHeader, acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -207,7 +207,7 @@ int
 URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "URLPingRequest()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acQuery[1024];
   char               *apcEscaped[5];
   int                 i;
@@ -238,12 +238,12 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (psURL->iScheme == HTTP_SCHEME_HTTPS && SSLInitializeCTX(psProperties->psSSLProperties, acLocalError) == NULL)
+  if (psURL->iScheme == HTTP_SCHEME_HTTPS && SslInitializeCTX(psProperties->psSslProperties, acLocalError) == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
-  psURL->psSSLProperties = psProperties->psSSLProperties;
+  psURL->psSslProperties = psProperties->psSslProperties;
 #endif
 
   /*-
@@ -266,13 +266,13 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
       }
       else
       {
-        iError = HTTPSetURLUser(psURL, psProperties->acURLUsername, acLocalError);
+        iError = HttpSetUrlUser(psURL, psProperties->acURLUsername, acLocalError);
         if (iError != ER_OK)
         {
           snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
           return ER;
         }
-        iError = HTTPSetURLPass(psURL, psProperties->acURLPassword, acLocalError);
+        iError = HttpSetUrlPass(psURL, psProperties->acURLPassword, acLocalError);
         if (iError != ER_OK)
         {
           snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -291,39 +291,39 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   iEscaped = 0;
-  apcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(VersionGetVersion(), acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acBaseName, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->acBaseName, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acDataType, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->acDataType, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->psFieldMask->pcMask, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->psFieldMask->pcMask, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
@@ -337,10 +337,10 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 
   for (i = 0; i < iEscaped; i++)
   {
-    HTTPFreeData(apcEscaped[i]);
+    HttpFreeData(apcEscaped[i]);
   }
 
-  iError = HTTPSetURLQuery(psURL, acQuery, acLocalError);
+  iError = HttpSetUrlQuery(psURL, acQuery, acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -354,7 +354,7 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSetURLMeth(psURL, "PING", acLocalError);
+  iError = HttpSetUrlMeth(psURL, "PING", acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -368,7 +368,7 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSubmitRequest(psURL, HTTP_IGNORE_INPUT, NULL, HTTP_IGNORE_OUTPUT, NULL, &sResponseHeader, acLocalError);
+  iError = HttpSubmitRequest(psURL, HTTP_IGNORE_INPUT, NULL, HTTP_IGNORE_OUTPUT, NULL, &sResponseHeader, acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -403,7 +403,7 @@ int
 URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "URLPutRequest()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acQuery[1024];
   char                acOutFileHash[FTIMES_MAX_MD5_LENGTH];
   char               *apcEscaped[8];
@@ -417,6 +417,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
   HTTP_URL           *psURL;
   HTTP_STREAM_LIST    sStreamList[2];
   HTTP_RESPONSE_HDR   sResponseHeader;
+  APP_UI64            ui64Size;
 
   /*-
    *********************************************************************
@@ -458,7 +459,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (MD5HashStream(sStreamList[1].pFile, uacMD5) != ER_OK)
+  if (MD5HashStream(sStreamList[1].pFile, uacMD5, &ui64Size) != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Digest could not be computed.", acRoutine);
     return ER;
@@ -510,12 +511,12 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
  * *********************************************************************
  * *
  *
- * if (psURL->iScheme == HTTP_SCHEME_HTTPS && SSLInitializeCTX(psProperties->psSSLProperties, acLocalError) == NULL)
+ * if (psURL->iScheme == HTTP_SCHEME_HTTPS && SslInitializeCTX(psProperties->psSslProperties, acLocalError) == NULL)
  * {
  *   snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
  *   return ER;
  * }
- * psURL->psSSLProperties = psProperties->psSSLProperties;
+ * psURL->psSslProperties = psProperties->psSslProperties;
  *
  ***********************************************************************
  */
@@ -541,13 +542,13 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
       }
       else
       {
-        iError = HTTPSetURLUser(psURL, psProperties->acURLUsername, acLocalError);
+        iError = HttpSetUrlUser(psURL, psProperties->acURLUsername, acLocalError);
         if (iError != ER_OK)
         {
           snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
           return ER;
         }
-        iError = HTTPSetURLPass(psURL, psProperties->acURLPassword, acLocalError);
+        iError = HttpSetUrlPass(psURL, psProperties->acURLPassword, acLocalError);
         if (iError != ER_OK)
         {
           snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -566,69 +567,69 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   iEscaped = 0;
-  apcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(VersionGetVersion(), acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acBaseName, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->acBaseName, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acDataType, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->acDataType, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->psFieldMask->pcMask, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->psFieldMask->pcMask, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acRunType, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->acRunType, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acRunDateTime, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->acRunDateTime, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acOutFileHash, acLocalError);
+  apcEscaped[iEscaped] = HttpEscape(psProperties->acOutFileHash, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(apcEscaped[i]);
+      HttpFreeData(apcEscaped[i]);
     }
     return ER;
   }
@@ -647,10 +648,10 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 
   for (i = 0; i < iEscaped; i++)
   {
-    HTTPFreeData(apcEscaped[i]);
+    HttpFreeData(apcEscaped[i]);
   }
 
-  iError = HTTPSetURLQuery(psURL, acQuery, acLocalError);
+  iError = HttpSetUrlQuery(psURL, acQuery, acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -664,7 +665,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSetURLMeth(psURL, "PUT", acLocalError);
+  iError = HttpSetUrlMeth(psURL, "PUT", acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -678,7 +679,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSubmitRequest(psURL, HTTP_STREAM_INPUT, sStreamList, HTTP_IGNORE_OUTPUT, NULL, &sResponseHeader, acLocalError);
+  iError = HttpSubmitRequest(psURL, HTTP_STREAM_INPUT, sStreamList, HTTP_IGNORE_OUTPUT, NULL, &sResponseHeader, acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);

@@ -28,11 +28,8 @@ support, run the following command:
 
     ftimes --version
 
-If B<FTimes> has SSL support, the output will have the following format:
-
-    ftimes X.X.X ssl
-
-where X.X.X is a version number.
+If B<FTimes> has SSL support, you will see the string 'ssl' in the
+output.
 
 The next item to tackle is the creation of a suitable config file.
 The following file contains the necessary directives to complete
@@ -64,7 +61,7 @@ Compression was enabled to expedite data transfer.
 The last step is to run B<FTimes> and review the corresponding log
 output to ensure that snapshot was uploaded successfully.
 
-    ftimes --mapfull example1.cfg
+    ftimes --map example1.cfg
 
 =head2 Example 2. Using dig mode to search for strings
 
@@ -110,20 +107,23 @@ search all files in /disk1.
 Observe that strings two and three are URL encoded and that string
 three will be processed in a case insensitive manner.  Read the
 B<DigStringNormal> control description for more details on URL
-encoding.  Also notice that the fourth and fifth strings correspond
-to Perl compatible regular expressions -- these types of dig strings
-are available if you compiled B<FTimes> with PCRE support.  With
-B<DigStringRegExp> patterns, however, you must specify no more than
-one capturing '()' subpattern.  You can use '(?:)' if you require
-additional parentheses for grouping purposes.  If you do not specify
-a capturing subpattern, then the entire match will be captured.  In
-this particular case, only the IP address will be captured. Also note
-the use of '\x20' to represent a single space. This translation
-necessary because dig strings may not contain embedded white space.
+encoding.  Also notice that the fourth and fifth strings correspond to
+Perl compatible regular expressions -- these types of dig strings are
+available if you compiled B<FTimes> with PCRE support.  With
+B<DigStringRegExp> patterns, however, the number of capturing '()'
+subpatterns is limited (see the description of that control for
+details).  You can use '(?:)' if you require additional parentheses
+for grouping purposes.  If you do not specify a capturing subpattern,
+the entire match will be captured and used as the output value.
+Otherwise, the output value is taken from \1 -- (i.e., the first
+capturing subpattern).  In this particular case, only the IP address
+will be captured.  Also note the use of '\x20' to represent a single
+space.  This translation is necessary because dig strings may not
+contain embedded white space.
 
 At this point B<FTimes> may be run as follows:
 
-    ftimes --diglean example2.cfg
+    ftimes --dig example2.cfg
 
 If spontaneity is desired over strict configuration, switch to the
 B<digauto> mode of operation.  In this mode elaborate config files
@@ -143,7 +143,7 @@ input on stdin.
     ftimes --digauto strings.cfg example2.image | some-other-tool
 
 Just remember that dig strings must be URL encoded with no embedded
-white space. That's why the spaces in the first string have been
+white space.  That's why the spaces in the first string have been
 replaced with '+'.  Also, note that first three dig strings are
 tagged.  In other words, each string has been assigned a value that
 gives it a special meaning or identity.  Because the tag for first two
@@ -171,7 +171,7 @@ This comparison is carried out with the following command:
     ftimes --compare none+md5 daily_20001230203000.map daily_20001231203000.map
 
 To compare multiple attributes at the same time, simply specify the
-additional fields in the B<FieldMask>. For example, the following mask
+additional fields in the B<FieldMask>.  For example, the following mask
 would compare MD5, SHA1, and size attributes:
 
     none+md5+sha1+size
@@ -212,7 +212,7 @@ constructed.
     --- example5.cfg ---
     BaseName=client_1
     URLGetURL=https://www.integrity.net:443/cgi-client/nph-ftimes.cgi
-    URLGetRequest=MapFullConfig
+    URLGetRequest=MapConfig
     GetAndExec=N
     URLAuthType=basic
     URLUsername=client_1
@@ -227,24 +227,24 @@ constructed.
     SSLMaxChainLength=2
     --- example5.cfg ---
 
-The following command will attempt to download a mapfull config
-file from the specified Integrity Server.  If successful, the
-contents of the config file will be written to stdout.
+The following command will attempt to download a map config file from
+the specified Integrity Server.  If successful, the contents of the
+config file will be written to stdout.
 
-    ftimes --getmode example5.cfg
+    ftimes --get example5.cfg
 
 If you want to download directly to a file, you can redirect the
 output to a file or add the B<GetFileName> control to your config
 file.  Then, if you wanted to download a config file and take a
 snapshot in one operation, simply enable B<GetAndExec>.  This causes
-B<FTimes> to restart in B<--mapfull> mode.  If B<URLGetRequest> was
-set to DigFullConfig, then B<FTimes> would request a digfull config
-file and subsequently restart in B<--digfull> mode.
+B<FTimes> to restart in B<--map> mode.  If B<URLGetRequest> was set to
+DigConfig, then B<FTimes> would request a dig config file and
+subsequently restart in B<--dig> mode.
 
 Another way to achieve the same effect is to use the original config
 file and construct the following pipeline:
 
-    ftimes --getmode example5.cfg -l 6 | ftimes --mapfull -
+    ftimes --get example5.cfg -l 6 | ftimes --map -
 
 This has the benefit that potentially sensitive configuration
 information is not specifically written to a file on disk.

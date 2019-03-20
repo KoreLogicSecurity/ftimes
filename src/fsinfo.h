@@ -1,14 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.h,v 1.25 2007/03/23 03:09:48 mavrik Exp $
+ * $Id: fsinfo.h,v 1.44 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _FSINFO_H_INCLUDED
+#define _FSINFO_H_INCLUDED
 
 /*-
  ***********************************************************************
@@ -24,14 +26,18 @@ enum eFSTypes
   FSTYPE_UNSUPPORTED = 0,
   FSTYPE_AIX,
   FSTYPE_CDFS,
+  FSTYPE_CIFS,
+  FSTYPE_CRAMFS,
   FSTYPE_DATAPLOW_ZFS,
   FSTYPE_DEVFS,
   FSTYPE_EXT2,
   FSTYPE_FAT,
   FSTYPE_FAT_REMOTE,
   FSTYPE_FFS,
+  FSTYPE_GETDATAFS,
   FSTYPE_HFS,
   FSTYPE_JFS,
+  FSTYPE_MINIX,
   FSTYPE_NA,
   FSTYPE_NFS,
   FSTYPE_NFS3,
@@ -42,15 +48,19 @@ enum eFSTypes
   FSTYPE_NWCOMPAT_REMOTE,
   FSTYPE_NWFS,
   FSTYPE_NWFS_REMOTE,
+  FSTYPE_PTS,
   FSTYPE_RAMFS,
   FSTYPE_REISER,
   FSTYPE_SMB,
   FSTYPE_TMPFS,
   FSTYPE_UDF,
   FSTYPE_UFS,
+  FSTYPE_UFS2,
   FSTYPE_VXFS,
   FSTYPE_VZFS,
-  FSTYPE_XFS
+  FSTYPE_XFS,
+  FSTYPE_YAFFS,
+  FSTYPE_ZFS
 };
 
 
@@ -86,9 +96,18 @@ enum eFSTypes
 #ifndef MNT_AUTOFS
 #define MNT_AUTOFS  19       /* Automount file system          */
 #endif
+#ifndef MNT_VXFS
+#define MNT_VXFS  0x20       /* Veritas file system            */
+#endif
 #endif
 
 #ifdef FTimes_LINUX
+#ifndef CIFS_SUPER_MAGIC
+#define CIFS_SUPER_MAGIC 0xff534d42
+#endif
+#ifndef CRAMFS_SUPER_MAGIC
+#define CRAMFS_SUPER_MAGIC 0x28cd3d45
+#endif
 #ifndef EXT2_OLD_SUPER_MAGIC
 #define EXT2_OLD_SUPER_MAGIC  0xEF51
 #endif
@@ -97,6 +116,12 @@ enum eFSTypes
 #endif
 #ifndef ISOFS_SUPER_MAGIC
 #define ISOFS_SUPER_MAGIC     0x9660
+#endif
+#ifndef JFS_SUPER_MAGIC
+#define JFS_SUPER_MAGIC   0x3153464a /* JFS1 */
+#endif
+#ifndef MINIX_SUPER_MAGIC
+#define MINIX_SUPER_MAGIC     0x138f
 #endif
 #ifndef MSDOS_SUPER_MAGIC
 #define MSDOS_SUPER_MAGIC     0x4d44
@@ -113,8 +138,14 @@ enum eFSTypes
 #ifndef PROC_SUPER_MAGIC
 #define PROC_SUPER_MAGIC      0x9fa0
 #endif
+#ifndef PTS_SUPER_MAGIC
+#define PTS_SUPER_MAGIC       0x1cd1
+#endif
 #ifndef UFS_MAGIC
 #define UFS_MAGIC         0x00011954
+#endif
+#ifndef UFS2_MAGIC
+#define UFS2_MAGIC        0x19540119
 #endif
 #ifndef REISERFS_SUPER_MAGIC
 #define REISERFS_SUPER_MAGIC 0x52654973
@@ -125,6 +156,9 @@ enum eFSTypes
 #ifndef TMPFS_SUPER_MAGIC
 #define TMPFS_SUPER_MAGIC  0x1021994
 #endif
+#ifndef VXFS_SUPER_MAGIC
+#define VXFS_SUPER_MAGIC  0xa501fcf5
+#endif
 #ifndef VZFS_SUPER_MAGIC
 #define VZFS_SUPER_MAGIC  0x565a4653
 #endif
@@ -133,6 +167,12 @@ enum eFSTypes
 #endif
 #ifndef XFS_SUPER_MAGIC
 #define XFS_SUPER_MAGIC   0x58465342
+#endif
+#ifndef UDF_SUPER_MAGIC
+#define UDF_SUPER_MAGIC   0x15013346
+#endif
+#ifndef YAFFS_SUPER_MAGIC
+#define YAFFS_SUPER_MAGIC 0x5941ff53
 #endif
 #endif
 
@@ -155,3 +195,5 @@ int                 GetFileSystemType(char *pcPath, char *pcError);
  ***********************************************************************
  */
 extern char         gaacFSType[][FSINFO_MAX_STRING];
+
+#endif /* !_FSINFO_H_INCLUDED */

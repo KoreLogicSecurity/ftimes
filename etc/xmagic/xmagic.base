@@ -1,0 +1,729 @@
+# XMagic
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# $Id: xmagic.master,v 1.2 2012/05/06 02:00:57 klm Exp $
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- 7z archive (.7z)
+0 string = 7z\xbc\xaf\x27\x1c archive/7z:
+>6 byte x - version="%d.
+>7 byte x - \b%d";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Microsoft Cabinet File (.cab)
+0 string = MSCF\0\0\0\0 archive/cab: type="microsoft";
+>25 byte x - version="%d
+>24 byte x - \b.%d";
+>8 lelong x - size="%u";
+>26 leshort x - folders="%u";
+>28 leshort x - files="%u";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- InstallShield Cabinet File (.cab)
+0 string = ISc( archive/cab: type="installshield";
+>5 byte&0xf0 = 0x60 version="6";
+>5 byte&0xf0 != 0x60 version="unknown";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- shell archive
+0 regexp:64 =~ \x23\x20This\x20is\x20a\x20shell\x20archive archive/shar
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- tar archive (.tar)
+257 string = ustar\x00 archive/tar: type="posix";
+257 string = ustar\x20\x20\x00 archive/tar: type="gnu";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- extended shell archive
+0 regexp:128 =~ \x23\x20This\x20is\x20an\x20extended\x20shell\x20archive archive/xshar
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- ZIP archive (.zip)
+0 string = PK\x03\x04 archive/zip:
+>4 byte/10 x - version="%d.
+>4 byte%10 x - \b%d";
+>30 regexp:27 =~ (\[Content_Types\][.]xml|_rels/[.]rels|FixedDocumentSequence[.]fdseq|Metadata\/|Documents\/|word\/|ppt\/|xl\/|docProps\/)  type="OOXML";
+>30 regexp:9999 =~ (FixedDoc(?:ument))  file_format="xps";
+>30 regexp:9999 =~ (xl\/)       file_format="excel";
+>30 regexp:9999 =~ (word\/)     file_format="word";
+>30 regexp:9999 =~ (ppt\/)      file_format="ppt";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- RAR archive (.rar)
+0 string = Rar!\x1a\x07 archive/rar:
+>44 byte/10 x - version="%d.
+>44 byte%10 x - \b%d";
+>35 byte = 0 os="MSDOS";
+>35 byte = 1 os="OS2";
+>35 byte = 2 os="WIN32";
+>35 byte = 3 os="UNIX";
+>35 byte = 4 os="MACOS";
+>35 byte = 5 os="BEOS";
+>35 byte = 6 os="WINCE";
+>35 byte > 6 os="0x%02x";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- BKF archive (.bkf)
+0 string = TAPE archive/bkf:
+>10 byte = 0 os="%d";
+>10 byte = 1 os="NETWARE";
+>10 byte [] 2,12 os="%d";
+>10 byte = 13 os="NETWARE_SMS";
+>10 byte = 14 os="WINNT";
+>10 byte [] 15,23 os="%d";
+>10 byte = 24 os="MSDOS";
+>10 byte = 25 os="OS2";
+>10 byte = 26 os="WIN95";
+>10 byte = 27 os="MACOS";
+>10 byte = 28 os="UNIX";
+>10 byte [] 29,255 os="%d";
+>11 byte x - os_version="%d";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- AR archive (.a)
+0 string = !<arch> archive/ar
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Java bytecode (.class)
+0 belong = 0xcafebabe object/java
+>6 beshort x - \b: version="%d.
+>4 beshort x - \b%d";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Lua bytecode
+0 string = \x1bLua object/lua
+>4 byte = 0x50 \b: version="5.0";
+>4 byte = 0x51 \b: version="5.1";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Python bytecode
+0 belong = 0x994e0d0a object/python: version="1.5/1.6";
+0 belong = 0x87c60d0a object/python: version="2.0";
+0 belong = 0x2aeb0d0a object/python: version="2.1";
+0 belong = 0x2ded0d0a object/python: version="2.2";
+0 belong = 0x3bf20d0a object/python: version="2.3";
+0 belong = 0x6df20d0a object/python: version="2.4";
+0 belong = 0xb3f20d0a object/python: version="2.5";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- bzip (.bz)
+0	string	=	BZ0	compressed/bzip: file_format="0";
+>3	string	=	1	blocksize="100k";
+>3	string	=	2	blocksize="200k";
+>3	string	=	3	blocksize="300k";
+>3	string	=	4	blocksize="400k";
+>3	string	=	5	blocksize="500k";
+>3	string	=	6	blocksize="600k";
+>3	string	=	7	blocksize="700k";
+>3	string	=	8	blocksize="800k";
+>3	string	=	9	blocksize="900k";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- bzip2 (.bz2)
+0	string	=	BZh	compressed/bzip2: file_format="h";
+>3	string	=	1	blocksize="100k";
+>3	string	=	2	blocksize="200k";
+>3	string	=	3	blocksize="300k";
+>3	string	=	4	blocksize="400k";
+>3	string	=	5	blocksize="500k";
+>3	string	=	6	blocksize="600k";
+>3	string	=	7	blocksize="700k";
+>3	string	=	8	blocksize="800k";
+>3	string	=	9	blocksize="900k";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- compress (.Z)
+0 string = \x1f\x9d compressed/compress:
+>2 byte&0x1f x - code_size="%d bits";
+>2 byte&0x80 = 0 block_compressed="no";
+>2 byte&0x80 > 0 block_compressed="yes";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- gzip (.gz)
+0 string = \x1f\x8b compressed/gzip:
+>2 byte < 8 method="reserved";
+>2 byte	= 8 method="deflated";
+>2 byte > 8 method="unknown";
+>3 byte&0x3f = 0x01 flags="ascii";
+>3 byte&0x3f = 0x02 flags="continuation";
+>3 byte&0x3f = 0x03 flags="ascii,continuation";
+>3 byte&0x3f = 0x04 flags="extra_field";
+>3 byte&0x3f = 0x05 flags="ascii,extra_field";
+>3 byte&0x3f = 0x06 flags="continuation,extra_field";
+>3 byte&0x3f = 0x07 flags="ascii,continuation,extra_field";
+>3 byte&0x3f = 0x08 flags="original_name";
+>3 byte&0x3f = 0x09 flags="ascii,original_name";
+>3 byte&0x3f = 0x0a flags="continuation,original_name";
+>3 byte&0x3f = 0x0b flags="ascii,continuation,original_name";
+>3 byte&0x3f = 0x0c flags="extra_field,original_name";
+>3 byte&0x3f = 0x0d flags="ascii,extra_field,original_name";
+>3 byte&0x3f = 0x0e flags="continuation,extra_field,original_name";
+>3 byte&0x3f = 0x0f flags="ascii,continuation,extra_field,original_name";
+>3 byte&0x3f = 0x10 flags="comment";
+>3 byte&0x3f = 0x11 flags="ascii,comment";
+>3 byte&0x3f = 0x12 flags="continuation,comment";
+>3 byte&0x3f = 0x13 flags="ascii,continuation,comment";
+>3 byte&0x3f = 0x14 flags="extra_field,comment";
+>3 byte&0x3f = 0x15 flags="ascii,extra_field,comment";
+>3 byte&0x3f = 0x16 flags="continuation,extra_field,comment";
+>3 byte&0x3f = 0x17 flags="ascii,continuation,extra_field,comment";
+>3 byte&0x3f = 0x18 flags="original_name,comment";
+>3 byte&0x3f = 0x19 flags="ascii,original_name,comment";
+>3 byte&0x3f = 0x1a flags="continuation,original_name,comment";
+>3 byte&0x3f = 0x1b flags="ascii,continuation,original_name,comment";
+>3 byte&0x3f = 0x1c flags="extra_field,original_name,comment";
+>3 byte&0x3f = 0x1d flags="ascii,extra_field,original_name,comment";
+>3 byte&0x3f = 0x1e flags="continuation,extra_field,original_name,comment";
+>3 byte&0x3f = 0x1f flags="ascii,continuation,extra_field,original_name,comment";
+>3 byte&0x3f = 0x20 flags="encrypted";
+>3 byte&0x3f = 0x21 flags="ascii,encrypted";
+>3 byte&0x3f = 0x22 flags="continuation,encrypted";
+>3 byte&0x3f = 0x23 flags="ascii,continuation,encrypted";
+>3 byte&0x3f = 0x24 flags="extra_field,encrypted";
+>3 byte&0x3f = 0x25 flags="ascii,extra_field,encrypted";
+>3 byte&0x3f = 0x26 flags="continuation,extra_field,encrypted";
+>3 byte&0x3f = 0x27 flags="ascii,continuation,extra_field,encrypted";
+>3 byte&0x3f = 0x28 flags="original_name,encrypted";
+>3 byte&0x3f = 0x29 flags="ascii,original_name,encrypted";
+>3 byte&0x3f = 0x2a flags="continuation,original_name,encrypted";
+>3 byte&0x3f = 0x2b flags="ascii,continuation,original_name,encrypted";
+>3 byte&0x3f = 0x2c flags="extra_field,original_name,encrypted";
+>3 byte&0x3f = 0x2d flags="ascii,extra_field,original_name,encrypted";
+>3 byte&0x3f = 0x2e flags="continuation,extra_field,original_name,encrypted";
+>3 byte&0x3f = 0x2f flags="ascii,continuation,extra_field,original_name,encrypted";
+>3 byte&0x3f = 0x30 flags="comment,encrypted";
+>3 byte&0x3f = 0x31 flags="ascii,comment,encrypted";
+>3 byte&0x3f = 0x32 flags="continuation,comment,encrypted";
+>3 byte&0x3f = 0x33 flags="ascii,continuation,comment,encrypted";
+>3 byte&0x3f = 0x34 flags="extra_field,comment,encrypted";
+>3 byte&0x3f = 0x35 flags="ascii,extra_field,comment,encrypted";
+>3 byte&0x3f = 0x36 flags="continuation,extra_field,comment,encrypted";
+>3 byte&0x3f = 0x37 flags="ascii,continuation,extra_field,comment,encrypted";
+>3 byte&0x3f = 0x38 flags="original_name,comment,encrypted";
+>3 byte&0x3f = 0x39 flags="ascii,original_name,comment,encrypted";
+>3 byte&0x3f = 0x3a flags="continuation,original_name,comment,encrypted";
+>3 byte&0x3f = 0x3b flags="ascii,continuation,original_name,comment,encrypted";
+>3 byte&0x3f = 0x3c flags="extra_field,original_name,comment,encrypted";
+>3 byte&0x3f = 0x3d flags="ascii,extra_field,original_name,comment,encrypted";
+>3 byte&0x3f = 0x3e flags="continuation,extra_field,original_name,comment,encrypted";
+>3 byte&0x3f = 0x3f flags="ascii,continuation,extra_field,original_name,comment,encrypted";
+>9 byte = 0x00 os="MSDOS";
+>9 byte = 0x01 os="AMIGA";
+>9 byte = 0x02 os="VMS";
+>9 byte = 0x03 os="UNIX";
+>9 byte = 0x04 os="0x%02x";
+>9 byte = 0x05 os="ATARI";
+>9 byte = 0x06 os="OS2";
+>9 byte = 0x07 os="MACOS";
+>9 byte = 0x08 os="0x%02x";
+>9 byte = 0x09 os="0x%02x";
+>9 byte = 0x0a os="TOPS20";
+>9 byte = 0x0b os="WIN32";
+>9 byte > 0x0b os="0x%02x";
+>3 byte&0x0c = 0x08
+>>10 string x - original_name="%s";
+>4 ledate > 0 mtime="%s";
+>8 byte = 2 quality="max compression";
+>8 byte = 4 quality="max speed";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- lzop (.lzo)
+0 string = \x89\x4c\x5a\x4f\x00\x0d\x0a\x1a\x0a compressed/lzop:
+>9 beshort < 0x0940
+>>9 byte&0xf0 = 0x00 - version="0
+>>9 beshort&0x0fff x - \b.%03x";
+>>13 byte = 1 method="LZO1X-1";
+>>13 byte = 2 method="LZO1X-1.15";
+>>13 byte = 3 method="LZO1X-999";
+>>13 byte > 3 method="unknown";
+>>14 byte = 0x00 osfs="FAT";
+>>14 byte = 0x01 osfs="AMIGA";
+>>14 byte = 0x02 osfs="VMS";
+>>14 byte = 0x03 osfs="UNIX";
+>>14 byte = 0x04 osfs="VM_CMS";
+>>14 byte = 0x05 osfs="ATARI";
+>>14 byte = 0x06 osfs="OS2";
+>>14 byte = 0x07 osfs="MAC9";
+>>14 byte = 0x08 osfs="Z_SYSTEM";
+>>14 byte = 0x09 osfs="CPM";
+>>14 byte = 0x0a osfs="TOPS20";
+>>14 byte = 0x0b osfs="NTFS";
+>>14 byte = 0x0c osfs="QDOS";
+>>14 byte = 0x0d osfs="ACORN";
+>>14 byte = 0x0e osfs="VFAT";
+>>14 byte = 0x0f osfs="MFS";
+>>14 byte = 0x10 osfs="BEOS";
+>>14 byte = 0x11 osfs="TANDEM";
+>>14 byte > 0x11 osfs="0x%02x";
+>>22 bedate > 0 mtime="%s";
+# Need a working example of the < 0x0940 format to do anything else.
+>9 beshort >= 0x0940
+>>9 byte&0xf0 = 0x00 version="0
+>>9 byte&0xf0 = 0x10 version="1
+>>9 byte&0xf0 = 0x20 version="2
+>>9 beshort&0x0fff x - \b.%03x";
+>>15 byte = 1 method="LZO1X-1";
+>>15 byte = 2 method="LZO1X-1.15";
+>>15 byte = 3 method="LZO1X-999";
+>>15 byte > 3 method="unknown";
+>>17 byte = 0x00 osfs="FAT";
+>>17 byte = 0x01 osfs="AMIGA";
+>>17 byte = 0x02 osfs="VMS";
+>>17 byte = 0x03 osfs="UNIX";
+>>17 byte = 0x04 osfs="VM_CMS";
+>>17 byte = 0x05 osfs="ATARI";
+>>17 byte = 0x06 osfs="OS2";
+>>17 byte = 0x07 osfs="MAC9";
+>>17 byte = 0x08 osfs="Z_SYSTEM";
+>>17 byte = 0x09 osfs="CPM";
+>>17 byte = 0x0a osfs="TOPS20";
+>>17 byte = 0x0b osfs="NTFS";
+>>17 byte = 0x0c osfs="QDOS";
+>>17 byte = 0x0d osfs="ACORN";
+>>17 byte = 0x0e osfs="VFAT";
+>>17 byte = 0x0f osfs="MFS";
+>>17 byte = 0x10 osfs="BEOS";
+>>17 byte = 0x11 osfs="TANDEM";
+>>17 byte > 0x11 osfs="0x%02x";
+>>25 bedate > 0 mtime="%s";
+>>33 pstring x - original_name="%s";
+>>>&(&0.b+1) belong x - checksum="%08x";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- rzip (.rz)
+0 string = RZIP compressed/rzip:
+>4 byte x - version="%d
+>5 byte x - \b.%d";
+>6 belong x - size="%u";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Berkeley DB
+0 long = 0x00061561 database/dbm:
+>8 belong = 4321
+>>4 belong > 2 1.86
+>>4 belong < 3 1.85
+>>4 belong > 0 type="hash"; version="%d"; byte_order="native";
+>8 belong = 1234
+>>4 belong > 2 1.86
+>>4 belong < 3 1.85
+>>4 belong > 0 type="hash"; version="%d"; byte_order="little-endian";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Berkeley DB
+0 belong = 0x00061561 database/dbm:
+>8 belong = 4321
+>>4 belong > 2 1.86
+>>4 belong < 3 1.85
+>>4 belong > 0 type="hash"; version="%d"; byte_order="big-endian";
+>8 belong = 1234
+>>4 belong > 2 1.86
+>>4 belong < 3 1.85
+>>4 belong > 0 type="hash"; version="%d"; byte_order="native";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Berkeley DB 1.85/1.86
+0 long = 0x00053162 database/dbm:
+>4 long > 0 type="btree"; version="%d"; byte_order="native";
+0 belong = 0x00053162 database/dbm:
+>4 belong > 0 type="btree"; version="%d"; byte_order="big-endian";
+0 lelong = 0x00053162 database/dbm:
+>4 lelong > 0 type="btree"; version="%d"; byte_order="little-endian";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Berkeley DB
+12 long = 0x00061561 database/dbm:
+>16 long > 0 type="hash"; version="%d"; byte_order="native";
+12 belong = 0x00061561 database/dbm:
+>16 belong > 0 type="hash"; version="%d"; byte_order="big-endian";
+12 lelong = 0x00061561 database/dbm:
+>16 lelong > 0 type="hash"; version="%d"; byte_order="little-endian";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Berkeley DB
+12 long = 0x00053162 database/dbm:
+>16 long > 0 type="btree"; version="%d"; byte_order="native";
+12 belong = 0x00053162 database/dbm:
+>16 belong > 0 type="btree"; version="%d"; byte_order="big-endian";
+12 lelong = 0x00053162 database/dbm:
+>16 lelong > 0 type="btree"; version="%d"; byte_order="little-endian";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Berkeley DB
+12 long = 0x00042253 database/dbm:
+>16 long > 0 type="queue"; version="%d"; byte_order="native";
+12 belong = 0x00042253 database/dbm:
+>16 belong > 0 type="queue"; version="%d"; byte_order="big-endian";
+12 lelong = 0x00042253 database/dbm:
+>16 lelong > 0 type="queue"; version="%d"; byte_order="little-endian";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Berkeley DB
+12 long = 0x00040988 database/dbm:
+>16 long > 0 type="log"; version="%d"; byte_order="native";
+12 belong = 0x00040988 database/dbm:
+>16 belong > 0 type="log"; version="%d"; byte_order="big-endian";
+12 lelong = 0x00040988 database/dbm:
+>16 lelong > 0 type="log"; version="%d"; byte_order="little-endian";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- GDBM
+0 belong = 0x13579ace database/gdbm: version="1.x"; byte_order="big-endian";
+0 lelong = 0x13579ace database/gdbm: version="1.x"; byte_order="little-endian";
+0 string = GDBM database/gdbm: version="2.x";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- iRiver
+0 string = iRivDB database/iriver:
+>11 string x - version="%s";
+>32 regexp =~ ^iRiver\x20(iHP-\d+)\x20DB\x20File model="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- MS Access Database
+4 string = Standard\x20Jet\x20DB database/msaccess
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- MySQL compressed data
+0 belong&0xffffff00 = 0xfefe0600 database/mysql-data: type="ISAM";
+>3 byte x - version="%d"; compressed="yes";
+0 belong&0xffffff00 = 0xfefe0800 database/mysql-data: type="MyISAM";
+>3 byte x - version="%d"; compressed="yes";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- MySQL index
+0 belong&0xffffff00 = 0xfefe0500 database/mysql-index: type="ISAM";
+>3 byte x - version="%d";
+0 belong&0xffffff00 = 0xfefe0700 database/mysql-index: type="MyISAM";
+>3 byte x - version="%d";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- MySQL table definition
+0 regexp =~ ^\xfe\x01[\x00-\xff]{3}\x00 database/mysql-table-definition:
+>2 byte x - version="%d";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Round Robin Database (.rrd)
+0 regexp =~ ^RRD\x00(\d{4}) database/rrd: version="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- SQLite database
+0 regexp =~ ^[*]{2}\x20This\x20file\x20contains\x20an\x20SQLite(\d+(?:[.]\d+)*) database/sqlite: version="%s";
+0 regexp =~ ^SQLite\x20format\x20(\d+(?:[.]\d+)*) database/sqlite: version="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- X11 Xauthority
+10 regexp =~ \x12MIT-MAGIC-COOKIE-1\x00 database/xauthority
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- dBase III
+0 regexp:44 =~ (\x03|\x83)[\x00-\xff]{11}\x00{20}[\x00-\xff]{11}[0BCDFGILMN@+] database/dbase3:
+> byte = 0x03 memo="no";
+>>4 lelong x - records="%ld";
+> byte = 0x83 memo="yes";
+>>4 lelong x - records="%ld";
+>1 byte [] 0,99 \b
+>>+0 byte x - last_update="19%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+>1 byte [] 100,199 \b
+>>+0 byte-100 x - last_update="20%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+>1 byte [] 200,255 \b
+>>+0 byte-200 x - last_update="21%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- dBase IV
+0 regexp:43 =~ \x04[\x00-\xff]{11}\x00{16}(\x02|\x01|\x00)[\x00-\xff]{14} database/dbaseIV: memo="no";
+0 regexp:43 =~ \x8e[\x00-\xff]{11}\x00{16}(\x02|\x01|\x00)[\x00-\xff]{14} database/dbaseIV: sqltable="yes";
+0 regexp:43 =~ (\x7b|\x8b)[\x00-\xff]{11}\x00{16}(\x02|\x01|\x00)[\x00-\xff]{14} database/dbaseIV: memo="yes";
+>1 byte [] 0,99 \b
+>>+0 byte x - last_update="19%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+>1 byte [] 100,199 \b
+>>+0 byte-100 x - last_update="20%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+>1 byte [] 200,255 \b
+>>+0 byte-200 x - last_update="21%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- dBase V
+0 regexp:43 =~ \x05[\x00-\xff]{11}\x00{16}(\x02|\x01|\x00)[\x00-\xff]{14} database/dbaseV; memo="no";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- foxpro/foxbase
+0 regexp:43 =~ \x02[\x00-\xff]{11}\x00{16}(\x02|\x01|\x00)[\x00-\xff]{14} database/foxbase;
+0 regexp:43 =~ \x30[\x00-\xff]{11}\x00{16}(\x03|\x02|\x01|\x00)[\x00-\xff]{14} database/foxpro: dbc="yes":
+>1 byte [] 0,99 \b
+>>+0 byte x - last_update="20%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+>1 byte [] 100,199 \b
+>>+0 byte-100 x - last_update="21%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+>1 byte [] 200,255 \b
+>>+0 byte-200 x - last_update="22%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+0 regexp:43 =~ (\x31|\xf5)[\x00-\xff]{11}\x00{16}(\x03|\x02|\x01|\x00)[\x00-\xff]{14} database/foxpro:
+>0 regexp:43 =~ \x31[\x00-\xff]{11}\x00{16}(\x02|\x01|\x00)[\x00-\xff]{14} increment="yes":
+>0 regexp:43 =~ \xf5[\x00-\xff]{11}\x00{16}(\x02|\x01|\x00)[\x00-\xff]{14} memo="yes":
+>1 byte [] 0,99 \b
+>>+0 byte x - last_update="19%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+>1 byte [] 100,199 \b
+>>+0 byte-100 x - last_update="20%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+>1 byte [] 200,255 \b
+>>+0 byte-200 x - last_update="21%02d-
+>>>2 byte x - \b%02d-
+>>>>3 byte x - \b%02d";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Windows Registry Files
+0 string = regf database/registry: os="Windows NT/XP";
+0 string = CREG database/registry: os="Windows 95/98/ME";
+0 string = SHCC3 database/registry: os="Windows 3.1";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Forms Data Format
+0 string = %FDF- document/fdf:
+>5 byte x - version="%c
+>7 byte x - \b.%c";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Microsoft OLE
+0 regexp:8 =~ ^\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1$ document/ole
+>0x1c beshort = 0xfeff \b
+>>0x1e beshort = 0x0900 \b
+>>>(0x30.l*512) byte x - \b
+>>>>+0x200 regexp:20 =~ ^(?:\x00\x52\x00{18}|\x52\x00\x6F\x00\x6F\x00\x74\x00\x20\x00\x45\x00\x6E\x00\x74\x00\x72\x00\x79\x00)$ \b
+>>>>>+0x42 byte = 0x05 \b
+>>>>>>+0xe regexp:16 =~ ^\x00\x09\x02\x00{5}\xC0\x00{6}\x46$ \b: type="doc"; version="6";
+>>>>>>+0xe regexp:16 =~ ^\x06\x09\x02\x00{5}\xC0\x00{6}\x46$ \b: type="doc"; version="8";
+>>>>>>+0xe regexp:16 =~ ^\x21\xD0\xB8\x18\xFD\xB4\xD0\x11\xA9\x7E\x00\xA0\xC9\x05\x41\x0D$ \b: type="mix"; version="unknown";
+>>>>>>+0xe regexp:16 =~ ^\x84\x10\x0C\x00{5}\xC0\x00{6}\x46$ \b: type="msi"; version="unknown";
+>>>>>>+0xe regexp:16 =~ ^\x51\x48\x04\x00{5}\xC0\x00{6}\x46$ \b: type="ppt"; version="unknown";
+>>>>>>+0xe regexp:16 =~ ^[\x10\x11]\x8D\x81\x64\x9B\x4F\xCF\x11\x86\xEA\x00\xAA\x00\xB9\x29\xE8$ \b: type="ppt"; version="8";
+>>>>>>+0xe regexp:16 =~ ^\x01\x1A\x02\x00{5}\xC0\x00{6}\x46$ \b: type="vsd"; version="3";
+>>>>>>+0xe regexp:16 =~ ^\x11\x1A\x02\x00{5}\xC0\x00{6}\x46$ \b: type="vsd"; version="4";
+>>>>>>+0xe regexp:16 =~ ^\x12\x1A\x02\x00{5}\xC0\x00{6}\x46$ \b: type="vsd"; version="5";
+>>>>>>+0xe regexp:16 =~ ^\x13\x1A\x02\x00{5}\xC0\x00{6}\x46$ \b: type="vsd"; version="6";
+>>>>>>+0xe regexp:16 =~ ^\x14\x1A\x02\x00{5}\xC0\x00{6}\x46$ \b: type="vsd"; version="11";
+>>>>>>+0xe regexp:16 =~ ^[\x10\x11]\x08\x02\x00{5}\xC0\x00{6}\x46$ \b: type="xls"; version="5";
+>>>>>>+0xe regexp:16 =~ ^[\x20\x21]\x08\x02\x00{5}\xC0\x00{6}\x46$ \b: type="xls"; version="8";
+>>>>>>+0xe regexp:16 =~ ^\x0b\x0d\x02\x00{5}\xC0\x00{6}\x46$ \b: type="msg"; version="unknown";
+>>>>>>+0xe regexp:16 =~ ^\x86\x10\x0C\x00{5}\xC0\x00{6}\x46$ \b: type="msp"; version="unknown";
+>>>>>>+0xe regexp:16 =~ ^\x82\x10\x0C\x00{5}\xC0\x00{6}\x46$ \b: type="mst"; version="unknown"; 
+>>>>>>+0xe string = \x06\x6f\xad\xa2\x66\x57\xd0\x11  type="rep" version="RO-6.5";
+>>>>>>+0xe string = \x20\x86\x5c\xb2\x77\x1b\xcf\x11  type="rep" version="RO-XI";
+# The first three bytes of the previous sibling tests are used to prevent a match here.
+>>>>>>+0xe regexp:3 !~ ^(?:[\x00\x06]\x09\x02|\x21\xD0\xB8|\x84\x10\x0C|\x51\x48\x04|[\x10\x11]\x8D\x81|[\x01\x11\x12\x13\x14]\x1A\x02|[\x10\x11\x20\x21]\x08\x02|\x0b\x0d\x02|\x06\x6f\xad|\x20\x86\x5c|\x86\x10\x0C|\x82\x10\x0C)$ \b: type="unknown"; version="unknown";
+# Uncomment the following to report CLSIDs.
+#>>>>>>+0xe lelong x - clsid="%08X
+#>>>>>>>+0x4 leshort x - \b-%04X
+#>>>>>>>>+0x2 leshort x - \b-%04X
+#>>>>>>>>>+0x2 leshort x - \b-%04X
+#>>>>>>>>>>+0x2 beshort x - \b-%04X
+#>>>>>>>>>>>+0x2 belong x - \b%08X";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Portable Document Format (.pdf)
+0 string = %PDF- document/pdf:
+>5 byte x - version="%c
+>7 byte x - \b.%c";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Rich Text Format (.rtf)
+0 regexp =~ ^{\x5crtf(\d+) document/rtf: version="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Outlook Personal Folder File (.ost, .pab, .pst)
+#0 string = !BDN email/pff:
+0 lelong = 0x4e444221 email/pff:
+>8 leshort = 0x4241 type="pab";
+>8 leshort = 0x4d53 type="pst";
+>8 leshort = 0x4f53 type="ost";
+>8 leshort () 0x0000,0x4241 type="unknown";
+>8 leshort () 0x4241,0x4d53 type="unknown";
+>8 leshort () 0x4d53,0x4f53 type="unknown";
+>8 leshort () 0x4f53,0xffff type="unknown";
+>10 leshort = 0x000e version="0x%x"; index="32-bit";
+>>168 lelong x - size="%u";
+>>461 byte = 0 encryption="none";
+>>461 byte = 1 encryption="compressible";
+>>461 byte = 2 encryption="high";
+>>461 byte > 2 encryption="unknown";
+>10 leshort = 0x0017 version="0x%x"; index="64-bit";
+>>184 lelong x - size="%u";
+>>513 byte = 0 encryption="none";
+>>513 byte = 1 encryption="compressible";
+>>513 byte = 2 encryption="high";
+>>513 byte > 2 encryption="unknown";
+>10 leshort () 0x0000,0x000e version="0x%x"; index="unknown";
+>10 leshort () 0x000e,0x0017 version="0x%x"; index="unknown";
+>10 leshort () 0x0017,0xffff version="0x%x"; index="unknown";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- btoa
+0 regexp =~ ^xbtoa\x20Begin\x0a encoded/btoa:
+0 regexp =~ ^xbtoa5\x20\d+\x20([^\/:]+)\x20Begin\x0a encoded/btoa5: file="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- MIME
+0 regexp =~ ^(?i)Content-Type:\x20(.+) encoded/mime: type="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- ship  
+0 regexp =~ ^[$]\x0aship\x20(.*)\x0a encoded/ship: file="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- uuencode
+0 regexp =~ ^begin\x20([0-7]{3})\x20.*\x0d?\x0aM encoded/uuencode: mode="%s";
+>10 regexp =~ ^(.*)\x0d?\x0aM file="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- uuencode (small payload can conflict with xxencode)
+#0 regexp =~ ^begin\x20([0-7]{3})\x20.*\x0d?\x0a(?:[`!-L].{0,61}\x0d?\x0a)?[`!-L]\x0d?\x0aend encoded/uuencode: mode="%s";
+#>10 regexp =~ ^(.*)\x0d?\x0a(?:[`!-L].{0,61}\x0d?\x0a)?[`!-L]\x0d?\x0aend file="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- xxencode 
+0 regexp =~ ^begin\x20([0-7]{3})\x20.*\x0d?\x0ah encoded/xxencode: mode="%s";
+>10 regexp =~ ^(.*)\x0d?\x0ah file="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- xxencode (small payload can conflict with uuencode)
+#0 regexp =~ ^begin\x20([0-7]{3})\x20.*\x0d?\x0a(?:[+0-9A-Za-g-][+0-9A-Za-z-]{0,61}\x0d?\x0a)?[+0-9A-Za-g-]\x0d?\x0aend encoded/xxencode: mode="%s";
+#>10 regexp =~ ^(.*)\x0d?\x0a(?:[+0-9A-Za-g-][+0-9A-Za-z-]{0,61}\x0d?\x0a)?[+0-9A-Za-g-]\x0d?\x0aend file="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- uuencode or xxencode (catch small payloads)
+0 regexp =~ ^begin\x20([0-7]{3})\x20.*\x0d?\x0a encode/uuencode or encoded/xxencode: mode="%s";
+>10 regexp =~ ^(.*)\x0d?\x0a file="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- GIF image (.gif)
+0 regexp:6 =~ GIF(8[79]a) image/gif: version="%s";
+>6 leshort > 0
+<<6 leshort > 0 size="%hdx
+<<<8 leshort > 0 \b%hd";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- JPEG image (.jpg)
+0 regexp:11 =~ (?i)\xff\xd8\xff[\x00-\xff]{3}JFIF\x00 image/jpeg: standard="JFIF";
+>11 byte x - version="%d
+>>12 byte x - \b.%02d";
+0 regexp:11 =~ (?i)\xff\xd8\xff[\x00-\xff]{3}Exif\x00 image/jpeg: standard="EXIF";
+# Getting to EXIF version requires a lot more work and testing.
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- PNG image (.png)
+0 regexp =~ ^\x89PNG\x0d\x0a\x1a\x0a image/png:
+>16 belong x - size="%ldx
+>20 belong x - \b%ld";
+>24 byte x - type="%d-bit
+>25 byte = 0 grayscale";
+>25 byte = 2 \b/color RGB";
+>25 byte = 3 colormap";
+>25 byte = 4 gray+alpha";
+>25 byte = 6 \b/color RGBA";
+>28 byte = 0 interlaced="no";
+>28 byte = 1 interlaced="yes";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- TIFF image (.tif)
+0 string = MM\x00\x2a image/tiff: byte_order="big-endian";
+0 string = II\x2a\x00 image/tiff: byte_order="little-endian";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- PC bitmaps (OS/2, Windows BMP files)
+0       string  =       BM              image/bmp:
+##
+>14     leshort =       12      format="OS/2 1.x";
+>>18    leshort x -             resolution="%d x
+>>20    leshort x -             %d";            
+##
+>14     leshort =       64      format="OS/2 2.x";
+>>18    leshort x -             resolution="%d x
+>>20    leshort x -             %d";            
+##
+>14     leshort =       40      format="Windows 3.x";
+>>18    leshort x -             resolution="%d x
+>>22    leshort x -             %d x
+>>28    leshort x -             %d";
+##
+>14     leshort =       108     format="Windows 95/NT4";
+>>18    leshort x -             resolution="%d x
+>>22    leshort x -             %d x
+>>28    leshort x -             %d";
+##
+>14     leshort =       124     format="Windows 98/2000 and newer";
+>>18    leshort x -             resolution="%d x
+>>22    leshort x -             %d x
+>>28    leshort x -             %d";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- MySQL Binary Log
+0 regexp =~ ^\xfebin log/mysql-log: type="binary log";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- pod
+0 regexp =~ ^\n?=(?:pod\n|head[12]) markup/pod
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- HTML
+0 regexp =~ (?i)^\s*<(!DOCTYPE[\x20\t]+html|base|body|head|html|title|!--) markup/html
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- SGML
+0 regexp =~ ^<!(?:doctype|subdoc)[\x20\t]+ markup/sgml
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- Red Hat Packages (.rpm)
+0 belong = 0xedabeedb package/rpm:
+>4 byte x - version="%d";
+>>6 beshort = 0 type="binary";
+>>6 beshort = 1 type="source";
+>>8 beshort = 1 platform="i386";
+>>8 beshort = 2 platform="Alpha";
+>>8 beshort = 3 platform="SPARC";
+>>8 beshort = 4 platform="MIPS Big Endian";
+>>8 beshort = 5 platform="PowerPC";
+>>8 beshort = 6 platform="68000";
+>>8 beshort = 7 platform="SGI";
+>>8 beshort = 8 platform="RS6000";
+>>8 beshort = 9 platform="IA64";
+>>8 beshort = 10 platform="SPARC 64-bit";
+>>8 beshort = 11 platform="MIPS Little Endian";
+>>8 beshort = 12 platform="ARM";
+>>8 beshort > 12 platform="unknown";
+>>10 string x - name="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- SysV R4 Package Datastreams
+0 string = \x23\x20PaCkAgE\x20DaTaStReAm package/svr4
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- ae script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/ae) script/ae: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- ash script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/ash) script/ash: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- awk script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/awk) script/awk: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- bash script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/bash) script/bash: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- csh script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/csh) script/csh: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- env script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/env) script/env: path="%s";
+>&0 regexp =~ ^#![\x20\t]*(?:/(?:opt|usr)(?:/local)?)?/bin/env[\x20\t]+(ae|(?:[ackz]|ba|tcl?|wi)?sh|[gn]?awk|lua|perl|php|python|rc|ruby) interpreter="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- gawk script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/gawk) script/gawk: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- ksh script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/ksh) script/ksh: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- lua script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/lua) script/lua: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- nawk script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/nawk) script/nawk: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- perl script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/perl) script/perl: path="%s";
+0 regexp =~ (?:eval[\x20\t]+["'][(]exit[\x20\t]+[$][?][)][\x20\t]+&&[\x20\t]+)?eval[\x20\t]+["']exec[\x20\t]+((?:(?:/(?:opt|usr)(?:/local)?)?/bin/)?perl)[\x20\t]+ script/perl: path="%s"; eval="yes";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- php script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/php) script/php: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- python script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/python) script/python: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- rc script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/rc) script/rc: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- ruby script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/ruby) script/ruby: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- sh script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/sh) script/sh: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- tclsh script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/tclsh) script/tclsh: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- tcsh script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/tcsh) script/tcsh: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- wish script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/wish) script/wish: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- zsh script
+0 regexp =~ ^#![\x20\t]*((?:/(?:opt|usr)(?:/local)?)?/bin/zsh) script/zsh: path="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- btsnoop
+0 string = btsnoop\0 sniffer/btsnoop:
+>8 belong x - version="%d";
+>12 belong = 1001 type="Unencapsulated HCI";
+>12 belong = 1002 type="HCI UART (H4)";
+>12 belong = 1003 type="HCI BCSP";
+>12 belong = 1004 type="HCI Serial (H5)";
+>>12 belong x - type="%d";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- CVS password file
+0 regexp =~ ^\s*/1\s+:pserver:([\w-]+)@[\w.-]+:\d+ scm/cvspass: type="pserver"; user="%s";
+>&0 regexp =~ ^\s*/1\s+:pserver:[\w-]+@([\w.-]+):\d+ host="%s";
+>&0 regexp =~ ^\s*/1\s+:pserver:[\w-]+@[\w.-]+:(\d+) port="%s";
+>&0 regexp =~ ^\s*/1\s+:pserver:[\w-]+@[\w.-]+:\d+([/][\w.-]+(?:[/][\w.-]+)*)\s+A.+(?:\n|$) path="%s";
+>&0 regexp =~ ^\s*/1\s+:pserver:[\w-]+@[\w.-]+:\d+[/][\w.-]+(?:[/][\w.-]+)*\s+A(.+)(?:\n|$) pass="%s";
+#=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
+# XMagic -- RCS (,v)
+0 regexp =~ ^\s*head\s+([0-9]+(?:[.][0-9]+)+); scm/rcs: revision="%s";

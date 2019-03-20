@@ -1,6 +1,6 @@
 =item B<Include>: [directory|file|link]
 
-Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<Include> controls are optional, and there is no predefined limit
 on the number that may be specified.  However, there can be only
@@ -16,6 +16,13 @@ this means that each B<Include> must begin with a drive designator
 ([A-Za-z]:) and be followed by the target path (e.g., 'c:\temp').
 For UNIX file systems, each B<Include> must begin with a forward
 slash (e.g., '/tmp').
+
+If you need to include paths that contain special or non-printable
+characters, you must specify the path in the form of a file URL.
+Special characters are defined (in square brackets) as C<[`'"|%+#]> or
+any non-printable character except for the NULL byte (%00), which is
+not allowed for includes.  For example, the path '/tmp/foo#bar' would
+need to be specified as 'file:///tmp/foo%23bar'.
 
 Note: Symbolic links are not supported in WIN32-based file systems.
 

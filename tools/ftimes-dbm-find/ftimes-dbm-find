@@ -1,0 +1,268 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-dbm-find,v 1.4 2012/01/04 03:12:37 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Find one or more keys in a Berkeley database.
+#
+######################################################################
+
+use strict;
+use DB_File;
+use File::Basename;
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('d:o:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # A database, '-d', is required.
+  #
+  ####################################################################
+
+  my ($sDbFile);
+
+  if (!exists($hOptions{'d'}) || !defined($hOptions{'d'}) || length($hOptions{'d'}) < 1)
+  {
+    Usage($$phProperties{'Program'});
+  }
+  $sDbFile = $hOptions{'d'};
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'BeQuiet'} = 0;
+  $$phProperties{'ReverseArguments'} = 0;
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  {
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('BeQuiet', 'ReverseArguments')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # If there isn't at least one argument left, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) < 1)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Do the necessary prep work.
+  #
+  ####################################################################
+
+  my (%hOnDiskList, $sFile, $sKey);
+
+  if ($$phProperties{'ReverseArguments'})
+  {
+    $sKey = $sDbFile;
+  }
+  else
+  {
+    $sFile = $sDbFile;
+    if (!tie(%hOnDiskList, "DB_File", $sFile, O_RDONLY, 0644, $DB_BTREE))
+    {
+      print STDERR "$$phProperties{'Program'}: File='$sFile' Error='$!'\n";
+      exit(2);
+    }
+  }
+
+  ####################################################################
+  #
+  # Iterate over input list.
+  #
+  ####################################################################
+
+  foreach my $sItem (@ARGV)
+  {
+    if ($$phProperties{'ReverseArguments'})
+    {
+      my $sFile = $sItem;
+      if (tie(%hOnDiskList, "DB_File", $sFile, O_RDONLY, 0644, $DB_BTREE))
+      {
+        if (exists($hOnDiskList{$sKey}))
+        {
+          print join("|", $sKey, $hOnDiskList{$sKey}, $sFile), "\n";
+        }
+        untie(%hOnDiskList);
+      }
+      else
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: File='$sItem' Error='$!'\n";
+        }
+      }
+    }
+    else
+    {
+      my $sKey = $sItem;
+      if (exists($hOnDiskList{$sKey}))
+      {
+        print join("|", $sKey, $hOnDiskList{$sKey}, $sFile), "\n";
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  if ($$phProperties{'ReverseArguments'} == 0)
+  {
+    untie(%hOnDiskList);
+  }
+
+  1;
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-o option[,option[,...]]] -d db key [key ...]\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-dbm-find - Find one or more keys in a Berkeley database
+
+=head1 SYNOPSIS
+
+B<ftimes-dbm-find> B<[-o option[,option[,...]]]> B<-d db> B<key [key ...]>
+
+=head1 DESCRIPTION
+
+This utility searches for a list of keys from a database that has been
+created with ftimes-dbm-make(1).  The output produced by this utility
+has the following format:
+
+    key|value|db
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d db>
+
+Specifies the name of the database to search.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't report errors (i.e., be quiet) while processing files.
+
+=item ReverseArguments
+
+Reverse the meaning of the B<db> and B<key> arguments.  This option
+allows you to search for a single field in one or more databases.
+
+=back
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes-dbm-dump(1), ftimes-dbm-make(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

@@ -1,0 +1,54 @@
+########################################################################
+#
+# $Id: Makefile.in,v 1.1 2009/01/20 04:01:29 mavrik Exp $
+#
+########################################################################
+#
+# Purpose: Makefile for rtimes.
+#
+########################################################################
+
+#.SILENT:
+
+bindir			= @bindir@
+CC			= @CC@
+CFLAGS			= @CFLAGS@
+exec_prefix		= @exec_prefix@
+EXTENSION		= @extension@
+INSTALL			= @INSTALL@
+LIBS			= @LIBS@
+prefix			= @prefix@
+PROGRAM			= rtimes${EXTENSION}
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
+
+INCFLAGS		= -I.
+
+INCS			= md5.h options.h rtimes.h
+
+LIBFLAGS		= ${LIBS}
+
+OBJS			= ${SRCS:.c=.o}
+
+SRCS			= md5.c options.c rtimes.c
+
+all: ${PROGRAM}
+
+test: ${PROGRAM}
+
+install: ${PROGRAM}
+	@umask 022 ; if [ ! -d ${bindir} ] ; then mkdir -p ${bindir} ; fi
+	@${INSTALL} -m 755 ${PROGRAM} ${bindir}
+
+clean:
+	rm -f ${PROGRAM} ${OBJS} ${PROGRAM}.core core
+
+clean-all: clean
+	rm -f Makefile
+
+${PROGRAM}: ${OBJS}
+	${CC} ${OBJS} -o $@ ${CFLAGS} ${INCFLAGS} ${LIBFLAGS}
+
+.c.o:
+	${CC} ${CFLAGS} ${INCFLAGS} -c $<
+

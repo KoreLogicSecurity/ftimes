@@ -1,14 +1,14 @@
 =item B<IncludeFilter>: <regexp>
 
-Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<IncludeFilter> controls are optional, and there is no predefined
 limit on the number that may be specified.  However, there can be only
 one B<IncludeFilter> control/value pair per line.
 
 Each B<IncludeFilter> must be specified as a Perl compatible regular
-expression with the exception that capturing '()' subpatterns and back
-references are not allowed.  You can use '(?:)' if you require
+expression with the caveat that no more than nine capturing '()'
+subpatterns for backreferences are allowed.  Use '(?:)' if you require
 parentheses for grouping purposes.
 
 Any path matched by an B<IncludeFilter> will be mapped.  Any other
@@ -22,7 +22,7 @@ into the binary.
 Warning: Due to their nature, include filters require mandatory
 directory traversal.  This, in turn, will potentially alter directory
 access times.  For example, suppose that you want to process all files
-that end with the string: '.pdf'. The B<IncludeFilter> would be
+that end with the string: '.pdf'.  The B<IncludeFilter> would be
 specified as follows:
 
     IncludeFilter=\.pdf$

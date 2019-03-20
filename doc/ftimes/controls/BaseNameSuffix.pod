@@ -1,6 +1,6 @@
 =item B<BaseNameSuffix>: [datetime|none|pid]
 
-Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<BaseNameSuffix> is optional.  It specifies the type of suffix
 that will be attached to the B<BaseName>.  If B<BaseNameSuffix> is

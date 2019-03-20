@@ -1,6 +1,6 @@
 =item B<URLUnlinkOutput>: [Y|N]
 
-Applies to B<digfull> and B<mapfull>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<URLUnlinkOutput> is optional when B<URLPutSnapshot> is enabled.
 When enabled ('Y' or 'y'), any output files are overwritten and

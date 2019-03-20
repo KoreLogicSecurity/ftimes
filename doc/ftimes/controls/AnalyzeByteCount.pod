@@ -1,0 +1,19 @@
+=item B<AnalyzeByteCount>: [0-18446744073709551615]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeByteCount> is optional.  It instructs the analysis engine to
+stop processing once the specified amount of data (in bytes) has been
+read/analyzed.  The default value for this control is zero, which
+means do not impose a byte count limit.
+
+Note: When this control is set, map mode hash values and XMagic file
+types may be different from those computed during a traditional
+snapshot (i.e., one where all bytes in each file are processed).
+Other than the information recorded in the log file, there is no
+convenient way to distinguish between traditional snapshots and those
+where a byte count limit.  This could lead to unexpected compare mode
+results.
+
+Note: Support for this control was added in version 3.9.0.
+

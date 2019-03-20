@@ -1,0 +1,398 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-sortini,v 1.5 2012/01/04 03:12:38 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2009-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Sort dig output by hostname, name, and offset.
+#
+######################################################################
+
+use strict;
+use File::Basename;
+use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # FTimes fields.
+  #
+  ####################################################################
+
+  my %hFTimesFields =
+  (
+    'footprint'   => 0,
+    'gap'         => 0,
+    'group'       => 0,
+    'hostname'    => 0,
+    'joiner'      => 0,
+    'limit'       => 0,
+    'name'        => 0,
+    'offset'      => 0,
+    'offsets'     => 0,
+    'ordered'     => 0,
+    'proximity'   => 0,
+    'range'       => 0,
+    'string'      => 0,
+    'tag'         => 0,
+    'tags'        => 0,
+    'type'        => 0,
+    'window'      => 0,
+  );
+
+  $$phProperties{'FTimesFields'} = \%hFTimesFields;
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('f:m:rs:T:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # An input file, '-f', is required. It can be '-' or a regular file.
+  #
+  ####################################################################
+
+  my ($sFileHandle);
+
+  if (!exists($hOptions{'f'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+  else
+  {
+    my $sFile = $hOptions{'f'};
+    if ($sFile eq '-')
+    {
+      $sFileHandle = \*STDIN;
+    }
+    else
+    {
+      if (!open(FH, "< $sFile"))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unable to open $sFile ($!).'\n";
+        exit(2);
+      }
+      $sFileHandle = \*FH;
+    }
+  }
+
+  ####################################################################
+  #
+  # The mode, '-m', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Mode'} = (exists($hOptions{'m'})) ? $hOptions{'m'} : "external";
+
+  if (!defined($$phProperties{'Mode'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  if ($$phProperties{'Mode'} !~ /^(?:[ei]|(?:ext|int)(?:ernal)?)$/io)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid mode ($$phProperties{'Mode'}). Use one of {e|ext|external} or {i|int|internal}.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # The reverse flag, '-r', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Reverse'} = (exists($hOptions{'r'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # An alternate sort utility, '-s', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'SortUtility'} = (exists($hOptions{'s'})) ? $hOptions{'s'} : "sort";
+
+  ####################################################################
+  #
+  # An alternate tmp directory, '-T', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'TmpDirectory'} = (exists($hOptions{'T'})) ? $hOptions{'T'} : (defined($ENV{'TMPDIR'})) ? $ENV{'TMPDIR'} : "/tmp";
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ##################################################################
+  #
+  # Process the header, which is used by, but not included in, the
+  # sort operation.
+  #
+  ##################################################################
+
+  my (@aHeaderFields, $sHeader, $sHeaderFieldCount);
+
+  if (!defined($sHeader = <$sFileHandle>))
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Header not defined.'\n";
+    exit(2);
+  }
+  $sHeader =~ s/[\r\n]+$//;
+  @aHeaderFields = split(/\|/, $sHeader);
+  $sHeaderFieldCount = scalar(@aHeaderFields);
+  for (my $sIndex = 0; $sIndex < $sHeaderFieldCount; $sIndex++)
+  {
+    if (!exists($hFTimesFields{$aHeaderFields[$sIndex]}))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Field ($aHeaderFields[$sIndex]) not recognized.'\n";
+      exit(2);
+    }
+    if ($aHeaderFields[$sIndex] =~ /^hostname$/i)
+    {
+      $$phProperties{'HostIndex'} = $sIndex;
+    }
+    elsif ($aHeaderFields[$sIndex] =~ /^name$/i)
+    {
+      $$phProperties{'NameIndex'} = $sIndex;
+    }
+    elsif ($aHeaderFields[$sIndex] =~ /^offset$/i)
+    {
+      $$phProperties{'OffsetIndex'} = $sIndex;
+    }
+  }
+  if
+  (
+    !defined($$phProperties{'NameIndex'}) ||
+    !defined($$phProperties{'OffsetIndex'})
+  )
+  {
+    print STDERR "$$phProperties{'Program'}: Header='$sHeader' Error='Invalid header or unable to locate the required fields.'\n";
+    exit(2);
+  }
+  print "$sHeader\n";
+
+  ####################################################################
+  #
+  # Process the records. Sort lexically by hostname (if present) and
+  # name, and then, sort numerically by offset.
+  #
+  ####################################################################
+
+  if ($$phProperties{'Mode'} =~ /^(e|ext|external)$/io)
+  {
+    my $sCommandLine = "$$phProperties{'SortUtility'} -t '|' -T $$phProperties{'TmpDirectory'}";
+    if ($$phProperties{'Reverse'})
+    {
+      $sCommandLine .= " -r";
+    }
+    my $sPosition = 0;
+    my $sModifier = ($$phProperties{'Reverse'}) ? "r" : "";
+    if (exists($$phProperties{'HostIndex'}))
+    {
+      $sPosition = $$phProperties{'HostIndex'} + 1;
+      $sCommandLine .= " -k " . $sPosition . "," . $sPosition . $sModifier;
+    }
+    $sPosition = $$phProperties{'NameIndex'} + 1;
+    $sCommandLine .= " -k " . $sPosition . "," . $sPosition . $sModifier;
+    $sPosition = $$phProperties{'OffsetIndex'} + 1;
+    $sModifier = ($$phProperties{'Reverse'}) ? "rn" : "n";
+    $sCommandLine .= " -k " . $sPosition . "," . $sPosition . $sModifier;
+    if (!open(SH, "| $sCommandLine"))
+    {
+      print STDERR "$$phProperties{'Program'}: CommandLine='$sCommandLine' Error='$!'\n";
+      exit(2);
+    }
+    while (my $sRecord = <$sFileHandle>)
+    {
+      $sRecord =~ s/[\r\n]+$//;
+      print SH "$sRecord\n";
+    }
+    close(SH);
+  }
+  else
+  {
+    my %hRecords = ();
+    while (my $sRecord = <$sFileHandle>)
+    {
+      $sRecord =~ s/[\r\n]+$//;
+      my @aRecordFields = split(/\|/, $sRecord, -1);
+      my $sHost = (exists($$phProperties{'HostIndex'})) ? $aRecordFields[$$phProperties{'HostIndex'}] : "unknown";
+      my $sName = $aRecordFields[$$phProperties{'NameIndex'}];
+      my $sOffset = $aRecordFields[$$phProperties{'OffsetIndex'}];
+      push(@{$hRecords{$sHost}{$sName}{$sOffset}}, $sRecord);
+    }
+    foreach my $sHost (($$phProperties{'Reverse'}) ? reverse(sort(keys(%hRecords))) : sort(keys(%hRecords)))
+    {
+      foreach my $sName (($$phProperties{'Reverse'}) ? reverse(sort(keys(%{$hRecords{$sHost}}))) : sort(keys(%{$hRecords{$sHost}})))
+      {
+        foreach my $sOffset (($$phProperties{'Reverse'}) ? reverse(sort({ $a <=> $b } keys(%{$hRecords{$sHost}{$sName}}))) : sort({ $a <=> $b } keys(%{$hRecords{$sHost}{$sName}})))
+        {
+          print join("\n", @{$hRecords{$sHost}{$sName}{$sOffset}}), "\n";
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  close($sFileHandle);
+
+  1;
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-r] [-m mode] [-s sort-utility] [-T tmp-dir] -f {file|-}\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-sortini - Sort dig output by hostname, name, and offset
+
+=head1 SYNOPSIS
+
+B<ftimes-sortini> B<[-r]> B<[-m mode]> B<[-s sort-utility]> B<[-T tmp-dir]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility sorts dig output by hostname (when present), name, and
+offset.  The input format can vary so long as it contains at least the
+'name' and 'offset' fields.  The two most common formats are:
+
+    name|type|tag|offset|string
+
+and
+
+    hostname|name|type|tag|offset|string|joiner
+
+The first is produced by ftimes(1) and hipdig(1), and the second is
+produced by ftimes-dig2dbi(1).
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.  A value of '-' will cause the
+program to read from stdin.
+
+=item B<-m mode>
+
+Sets the sort mode, which can be one of {e|ext|external} or
+{i|int|internal}.  The default mode is external.
+
+=item B<-r>
+
+Causes the input to be sorted in reverse order.
+
+=item B<-s sort-utility>
+
+Specifies the name of an alternate sort utility.  Names specified
+without a path should work if they can be found using the PATH
+environment variable.  GNU sort is the expected sort utility, but
+alternate utilities can be used if they support the '-k', '-r', '-T',
+and '-t' options in the same manner as the GNU implementation.
+
+=item B<-T tmp-dir>
+
+Specifies the directory sort(1) should use as its temporary work area.
+The default directory is that assigned to the TMPDIR environment
+variable, or /tmp if TMPDIR is not set.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1), ftimes-dig2dbi(1), hipdig(1)
+
+=head1 HISTORY
+
+This utility was initially written to support ftimes-proximo(1).
+
+This utility first appeared in FTimes 3.9.0.
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

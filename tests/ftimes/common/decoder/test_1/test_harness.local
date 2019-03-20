@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+# $Id: test_harness.local,v 1.5 2010/01/22 02:56:44 mavrik Exp $
 #
 ######################################################################
 
@@ -111,8 +111,23 @@ sub Check_bad_magic
     my ($sSuffix, $sPassFail) = split(/:/, $sDouble, -1);
     my $sSnapshot = $sFile . "_" . $sSuffix;
 
-    $sCommand = "$$phProperties{'TargetProgram'} --decoder $sSnapshot -l 6 2>&1";
+    ##################################################################
+    #
+    # For MinGW on WINX platforms, the redirection (i.e., '2>&1')
+    # causes the following error when UNIX path separators are used:
+    #
+    #   '..' is not recognized as an internal or external command,
+    #   operable program or batch file.
+    #
+    # To prevent this, the path separators must be switched.
+    #
+    ##################################################################
 
+    $sCommand = "$$phProperties{'TargetProgram'} --decode $sSnapshot -l 6 2>&1";
+    if ($$phProperties{'OsClass'} eq "WINDOWS")
+    {
+      $sCommand =~ s,/,\\,g;
+    }
     DebugPrint(3, "Command=$sCommand");
 
     if (!open(PH, "$sCommand |"))
@@ -151,6 +166,7 @@ sub Check_bad_magic
       }
       $aLines[0] =~ s/[\r\n]*$//;
 
+      $sSnapshot =~ s,/,[\\\\/],g;
       my $sTargetOutputRegExp = qq(LOG_CRIT.*File = \\[$sSnapshot\\].*Header magic (?:is not recognized|indicates that this file contains compressed data));
       DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
       if ($aLines[0] !~ /$sTargetOutputRegExp/)
@@ -536,8 +552,23 @@ sub Check_basic_files
     my ($sSuffix, $sPassFail) = split(/:/, $sDouble, -1);
     my $sSnapshot = $sFile . "_" . $sSuffix;
 
-    $sCommand = "$$phProperties{'TargetProgram'} --decoder $sSnapshot -l 6 2>&1";
+    ##################################################################
+    #
+    # For MinGW on WINX platforms, the redirection (i.e., '2>&1')
+    # causes the following error when UNIX path separators are used:
+    #
+    #   '..' is not recognized as an internal or external command,
+    #   operable program or batch file.
+    #
+    # To prevent this, the path separators must be switched.
+    #
+    ##################################################################
 
+    $sCommand = "$$phProperties{'TargetProgram'} --decode $sSnapshot -l 6 2>&1";
+    if ($$phProperties{'OsClass'} eq "WINDOWS")
+    {
+      $sCommand =~ s,/,\\,g;
+    }
     DebugPrint(3, "Command=$sCommand");
 
     if (!open(PH, "$sCommand |"))

@@ -1,0 +1,11 @@
+=head1 HISTORY
+
+This utility was initially written to make the process of copying and
+validating files more efficient.  For example, suppose you need to
+archive some files for long-term storage (e.g., copy them to an
+external drive).  In that case, you may also want to verify the
+integrity of those files before you store the drive away in your
+evidence locker.  This utility allows you to do both.
+
+This utility first appeared in B<FTimes> 3.9.0.
+

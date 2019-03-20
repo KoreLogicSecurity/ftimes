@@ -1,0 +1,9 @@
+=head1 DESCRIPTION
+
+The B<FTimesXpa> utility reads one or more files specified in a list
+or on the command line and creates a cross-platform archive, which is
+written to stdout.  Each specified filename is assumed to be encoded
+(i.e., neutered by FTimes), and it is automatically decoded to obtain
+the real name, which may contain special characters.  For WINX
+platforms, the decoded name is assumed to be a UTF-8 string.
+

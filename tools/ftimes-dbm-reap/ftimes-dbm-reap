@@ -1,0 +1,662 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-dbm-reap,v 1.4 2012/01/04 03:12:38 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Extract unresolved keys from one or more files.
+#
+######################################################################
+
+use strict;
+use File::Basename;
+use Getopt::Std;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('F:o:S:s:T:t:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # The input field separator, '-F', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'FieldSeparator'} = (exists($hOptions{'F'})) ? $hOptions{'F'} : "|";
+
+  if ($$phProperties{'FieldSeparator'} !~ /^(\\t|[ ,:;=|])$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid input field separator ($$phProperties{'FieldSeparator'}).'\n";
+    exit(2);
+  }
+
+  $$phProperties{'FieldSeparator'} =~ s/^\|$/\\|/g; # Escape the pipe separator.
+
+  ####################################################################
+  #
+  # The option list, '-o', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'BeQuiet'}  = 0;
+  $$phProperties{'NoUnique'} = 0;
+
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  {
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('BeQuiet', 'NoUnique')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # The sort command, '-s', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'SortCommand'} = (exists($hOptions{'s'})) ? $hOptions{'s'} : "sort";
+
+  ####################################################################
+  #
+  # The sort directory, '-S', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'SortDirectory'} = (exists($hOptions{'S'})) ? $hOptions{'S'} : (defined($ENV{'TMPDIR'})) ? $ENV{'TMPDIR'} : "/tmp";
+
+  ####################################################################
+  #
+  # A tag, '-T', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'TagPair'} = (exists($hOptions{'T'})) ? $hOptions{'T'} : "VALUE:";
+
+  my ($sTagType, $sTagValue) = split(/:/, $$phProperties{'TagPair'}, -1);
+
+  if ($sTagType =~ /^FIELD$/i)
+  {
+    if ($sTagValue =~ /^\d+$/)
+    {
+      if ($sTagValue == 0)
+      {
+        print STDERR "$$phProperties{'Program'}: FieldName='$sTagValue' Error='Field names given as numbers must be specified as a decimal integer greater than zero.'\n";
+        exit(2);
+      }
+      $$phProperties{'TagFieldIndex'} = $sTagValue - 1;
+    }
+    elsif ($sTagValue =~ /^[\w-]+$/)
+    {
+      $$phProperties{'TagFieldName'} = $sTagValue;
+    }
+    else
+    {
+      print STDERR "$$phProperties{'Program'}: FieldName='$sTagValue' Error='Invalid field name or number.'\n";
+      exit(2);
+    }
+    $$phProperties{'TagValue'} = undef;
+  }
+  elsif ($sTagType =~ /^VALUE$/i)
+  {
+    $$phProperties{'TagFieldIndex'} = undef;
+    $$phProperties{'TagFieldName'} = undef;
+    $$phProperties{'TagValue'} = $sTagValue;
+  }
+  else
+  {
+    print STDERR "$$phProperties{'Program'}: TagType='$sTagType' Error='Invalid tag type.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # A type tuple, '-t', is required.
+  #
+  ####################################################################
+
+  $$phProperties{'TypeTuple'} = (exists($hOptions{'t'})) ? $hOptions{'t'} : undef;
+
+  if (!defined($$phProperties{'TypeTuple'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  my ($sFileType, $sKeyFieldName, $sFieldType) = split(/:/, $$phProperties{'TypeTuple'}, -1);
+
+  if ($sFileType =~ /^GENERIC$/i)
+  {
+    $$phProperties{'ProcessFileRoutine'} = \&ProcessGenericFile;
+  }
+  else
+  {
+    print STDERR "$$phProperties{'Program'}: FileType='$sFileType' Error='Invalid file type.'\n";
+    exit(2);
+  }
+
+  if ($sKeyFieldName =~ /^\d+$/)
+  {
+    if ($sKeyFieldName == 0)
+    {
+      print STDERR "$$phProperties{'Program'}: FieldName='$sKeyFieldName' Error='Field names given as numbers must be specified as a decimal integer greater than zero.'\n";
+      exit(2);
+    }
+    $$phProperties{'KeyFieldIndex'} = $sKeyFieldName - 1;
+  }
+  elsif ($sKeyFieldName =~ /^[\w-]+$/)
+  {
+    $$phProperties{'KeyFieldName'} = $sKeyFieldName;
+  }
+  else
+  {
+    print STDERR "$$phProperties{'Program'}: FieldName='$sKeyFieldName' Error='Invalid field name or number.'\n";
+    exit(2);
+  }
+
+  if ($sFieldType =~ /^EIN$/i)
+  {
+    $$phProperties{'NormalizeKeyRoutine'} = \&NormalizeSsn;
+    $$phProperties{'FieldRegex'} = qq((\\d{2}\\d{7}));
+  }
+  elsif ($sFieldType =~ /^MD5$/i)
+  {
+    $$phProperties{'NormalizeKeyRoutine'} = \&NormalizeHash;
+    $$phProperties{'FieldRegex'} = qq(([0-9A-Fa-f]{32}));
+  }
+  elsif ($sFieldType =~ /^SHA1$/i)
+  {
+    $$phProperties{'NormalizeKeyRoutine'} = \&NormalizeHash;
+    $$phProperties{'FieldRegex'} = qq(([0-9A-Fa-f]{40}));
+  }
+  elsif ($sFieldType =~ /^SHA256$/i)
+  {
+    $$phProperties{'NormalizeKeyRoutine'} = \&NormalizeHash;
+    $$phProperties{'FieldRegex'} = qq(([0-9A-Fa-f]{64}));
+  }
+  elsif ($sFieldType =~ /^SSN$/i)
+  {
+    $$phProperties{'NormalizeKeyRoutine'} = \&NormalizeSsn;
+    $$phProperties{'FieldRegex'} = qq((\\d{3}\\d{2}\\d{4}));
+  }
+  elsif ($sFieldType =~ /^STRING$/i)
+  {
+    $$phProperties{'NormalizeKeyRoutine'} = \&NormalizeString;
+    $$phProperties{'FieldRegex'} = qq((.+));
+  }
+  else
+  {
+    print STDERR "$$phProperties{'Program'}: FieldType='$sFieldType' Error='Invalid or unsupported field type.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # If there isn't at least one argument left, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) < 1)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Open a pipe to the sort utility.
+  #
+  ####################################################################
+
+  my ($sCommand);
+
+  $sCommand = "$$phProperties{'SortCommand'} -T $$phProperties{'SortDirectory'}";
+  $sCommand .= " -u" unless ($$phProperties{'NoUnique'});
+  if (!open(SH, "| $sCommand"))
+  {
+    print STDERR "$$phProperties{'Program'}: Command='$sCommand' Error='$!'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Iterate over input files.
+  #
+  ####################################################################
+
+  foreach my $sInputFile (@ARGV)
+  {
+    &{$$phProperties{'ProcessFileRoutine'}}($sInputFile, $phProperties, \*SH);
+  }
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  close(SH);
+
+  1;
+
+
+######################################################################
+#
+# NormalizeHash
+#
+######################################################################
+
+sub NormalizeHash
+{
+  my ($sValue, $phProperties) = @_;
+
+  return lc($sValue);
+}
+
+
+######################################################################
+#
+# NormalizeSsn
+#
+######################################################################
+
+sub NormalizeSsn
+{
+  my ($sValue, $phProperties) = @_;
+
+  $sValue =~ s/(%00|[ +.-])//g;
+
+  return $sValue;
+}
+
+
+######################################################################
+#
+# NormalizeString
+#
+######################################################################
+
+sub NormalizeString
+{
+  my ($sValue, $phProperties) = @_;
+
+  return $sValue;
+}
+
+
+######################################################################
+#
+# ProcessGenericFile
+#
+######################################################################
+
+sub ProcessGenericFile
+{
+  my ($sFilename, $phProperties, $sSortHandle) = @_;
+
+  ####################################################################
+  #
+  # Open input file.
+  #
+  ####################################################################
+
+  if (!open(FH, "< $sFilename"))
+  {
+    if (!$$phProperties{'BeQuiet'})
+    {
+      print STDERR "$$phProperties{'Program'}: File='$sFilename' Error='$!'\n";
+    }
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Conditionally process the header. If no tag value was specified,
+  # the tag field must be specified as an index or derived from the
+  # header. In all cases, the key must be specified as an index or
+  # derived from the header.
+  #
+  ####################################################################
+
+  my ($sKeyFieldIndex, $sNeedHeader, $sTagFieldIndex, $sTagValue);
+
+  if (defined($$phProperties{'TagValue'}))
+  {
+    if (defined($$phProperties{'KeyFieldIndex'}))
+    {
+      $sKeyFieldIndex = $$phProperties{'KeyFieldIndex'};
+      $sTagFieldIndex = undef;
+      $sNeedHeader = 0;
+    }
+    else
+    {
+      $sKeyFieldIndex = undef;
+      $sTagFieldIndex = undef;
+      $sNeedHeader = 1;
+    }
+    $sTagValue = $$phProperties{'TagValue'};
+  }
+  else
+  {
+    if (defined($$phProperties{'KeyFieldIndex'}) && defined($$phProperties{'TagFieldIndex'}))
+    {
+      $sKeyFieldIndex = $$phProperties{'KeyFieldIndex'};
+      $sTagFieldIndex = $$phProperties{'TagFieldIndex'};
+      $sNeedHeader = 0;
+    }
+    elsif (defined($$phProperties{'KeyFieldIndex'}) && !defined($$phProperties{'TagFieldIndex'}))
+    {
+      $sKeyFieldIndex = $$phProperties{'KeyFieldIndex'};
+      $sTagFieldIndex = undef;
+      $sNeedHeader = 1;
+    }
+    elsif (!defined($$phProperties{'KeyFieldIndex'}) && defined($$phProperties{'TagFieldIndex'}))
+    {
+      $sKeyFieldIndex = undef;
+      $sTagFieldIndex = $$phProperties{'TagFieldIndex'};
+      $sNeedHeader = 1;
+    }
+    else
+    {
+      $sKeyFieldIndex = undef;
+      $sTagFieldIndex = undef;
+      $sNeedHeader = 1;
+    }
+    $sTagValue = undef;
+  }
+
+  if ($sNeedHeader)
+  {
+    ##################################################################
+    #
+    # The header is needed, so read it, and split it into fields.
+    #
+    ##################################################################
+
+    my $sHeader = <FH>;
+    $sHeader =~ s/[\r\n]+$//;
+    if (!defined($sHeader))
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'Program'}: File='$sFilename' Error='Header is not defined.'\n";
+      }
+      return undef;
+    }
+    my @aFields = split(/[$$phProperties{'FieldSeparator'}]/, $sHeader, -1);
+
+    ##################################################################
+    #
+    # The key field index is not yet defined. This means we need to
+    # derive it using the key field name.
+    #
+    ##################################################################
+
+    if (!defined($sKeyFieldIndex))
+    {
+      for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
+      {
+        if ($aFields[$sIndex] =~ /^$$phProperties{'KeyFieldName'}$/o)
+        {
+          $sKeyFieldIndex = $sIndex;
+          last;
+        }
+      }
+      if (!defined($sKeyFieldIndex))
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: File='$sFilename' Error='Key field index is not defined.'\n";
+        }
+        return undef;
+      }
+    }
+
+    ##################################################################
+    #
+    # The tag field index is not yet defined. This means we need to
+    # derive it using the tag field name. This is true unless a tag
+    # value was specified. In that case, fall through.
+    #
+    ##################################################################
+
+    if (!defined($sTagFieldIndex) && !defined($sTagValue))
+    {
+      for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
+      {
+        if ($aFields[$sIndex] =~ /^$$phProperties{'TagFieldName'}$/o)
+        {
+          $sTagFieldIndex = $sIndex;
+          last;
+        }
+      }
+      if (!defined($sTagFieldIndex))
+      {
+        if (!$$phProperties{'BeQuiet'})
+        {
+          print STDERR "$$phProperties{'Program'}: File='$sFilename' Error='Tag field index is not defined.'\n";
+        }
+        return undef;
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # Process any remaining records.
+  #
+  ####################################################################
+
+  while (my $sRecord = <FH>)
+  {
+    $sRecord =~ s/[\r\n]+$//;
+    my @aFields = split(/[$$phProperties{'FieldSeparator'}]/, $sRecord, -1);
+    $aFields[$sKeyFieldIndex] .= "";
+    my $sKey = &{$$phProperties{'NormalizeKeyRoutine'}}($aFields[$sKeyFieldIndex], $phProperties);
+    if ($sKey =~ /^$$phProperties{'FieldRegex'}$/o)
+    {
+      my $sValue = (defined($sTagValue)) ? $sTagValue : (defined($aFields[$sTagFieldIndex])) ? $aFields[$sTagFieldIndex] : "";
+      print $sSortHandle $sKey, "|", $sValue, "\n";
+    }
+    else
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'Program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
+      }
+    }
+  }
+
+  close(FH);
+
+  return 1;
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-F separator] [-o option[,option[,...]]] [-s sort-command] [-S sort-dir] [-T tag-pair] -t type-tuple file [file ...]\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-dbm-reap - Extract unresolved keys from one or more files
+
+=head1 SYNOPSIS
+
+B<ftimes-dbm-reap> B<[-F separator]> B<[-o option[,option[,...]]]> B<[-s sort-command]> B<[-S sort-dir]> B<[-T tag-pair]> B<-t type-tuple> B<file [file ...]>
+
+=head1 DESCRIPTION
+
+This utility extracts and conditionally normalizes field values from
+one or more input files, tags them (see B<-T>) with an initial tag
+value, and writes the results to stdout.  Output is a sorted and
+conditionally uniqued list of value/tag pairs having the following
+format:
+
+    value|tag
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-F separator>
+
+Specifies the input field separator.  Valid separators include the
+following characters: tab '\t', space ' ', comma ',', colon ':',
+semi-colon ';', equal sign '=', and pipe '|'.  The default separator
+is a pipe.  Note that parse errors are likely to occur if the
+specified separator appears in any of the field values.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't report errors (i.e., be quiet) while processing files.
+
+=item NoUnique
+
+Don't unique the sorted output.
+
+=back
+
+=item B<-S sort-dir>
+
+Specifies the directory sort should use as a temporary work area.  The
+default directory is that specified by the TMPDIR environment variable
+or /tmp if TMPDIR is not set.
+
+=item B<-s sort-command>
+
+Specifies the name of an alternate sort utility.  Relative paths are
+affected by your PATH environment variable.  Alternate sort utilities
+must support the B<-o>, B<-T> and B<-u> options.  This program was
+designed to work with GNU sort.
+
+=item B<-T tag-pair>
+
+Specifies the tag pair in the following format:
+
+    <tag-type>:<tag-value>
+
+where <tag-type> represents the type of tag and <tag-value> represents
+a literal value or the column name, or position (starting at one) of
+the field to use as the tag value.  If <tag-type> is VALUE, then
+<tag-value> represents a literal value.  If <tag-type> is FIELD, then
+<tag-value> represents the column name, or position of the field to
+use as the tag value.  The default tag type is VALUE, and the default
+tag value is an empty string.
+
+=item B<-t type-tuple>
+
+Specifies a three-tuple type in the following format:
+
+    <file-type>:<field-name>:<field-type>
+
+where <file-type> represents the type of files that are to be
+processed, <field-name> represents the column name or position
+(starting at one) of the field to process, and <field-type> represents
+the expected format of the field values.  If <field-name> is specified
+as a name (rather than a position), each input file must have a
+header line that contains the named column.
+
+Currently, the following file types are supported: GENERIC.  The value
+for this tuple is not case sensitive.
+
+Currently, the following field types are supported: EIN, MD5, SHA1,
+SHA256, SSN, and STRING.  The value for this tuple is not case
+sensitive.
+
+Note: All files processed in a given invocation must be of the same
+type.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1), hipdig(1), ftimes-dbm-make(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

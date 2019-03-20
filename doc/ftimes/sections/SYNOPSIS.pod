@@ -2,23 +2,21 @@
 
 B<ftimes> B<--cfgtest> B<file> B<mode> B<[-s]>
 
-B<ftimes> B<--compare> B<mask> B<baseline> B<snapshot> B<[-l level]>
+B<ftimes> B<--compare> B<mask> B<baseline> B<snapshot> B<[-l {0-6}]>
 
-B<ftimes> B<--decoder> B<snapshot> B<[-l level]>
+B<ftimes> B<--decode> B<snapshot> B<[-l {0-6}]>
 
-B<ftimes> B<--digauto> B<file> B<[-l level]> B<[list]>
+B<ftimes> B<--dig> B<file> B<[-l {0-6}]> B<[target [...]]>
 
-B<ftimes> B<--digfull> B<file> B<[-l level]> B<[list]>
+B<ftimes> B<--digauto> B<file> B<[-l {0-6}]> B<[target [...]]>
 
-B<ftimes> B<--diglean> B<file> B<[-l level]> B<[list]>
+B<ftimes> B<--get> B<file> B<[-l {0-6}]>
 
-B<ftimes> B<--getmode> B<file> B<[-l level]>
+B<ftimes> B<--mad> B<file> B<[-l {0-6}]> B<[target [...]]>
 
-B<ftimes> B<--mapauto> B<mask> B<[-l level]> B<[list]>
+B<ftimes> B<--map> B<file> B<[-l {0-6}]> B<[target [...]]>
 
-B<ftimes> B<--mapfull> B<file> B<[-l level]> B<[list]>
+B<ftimes> B<--mapauto> B<mask> B<[-l {0-6}]> B<[target [...]]>
 
-B<ftimes> B<--maplean> B<file> B<[-l level]> B<[list]>
-
-B<ftimes> B<--version>
+B<ftimes> B<{-v|--version}>
 

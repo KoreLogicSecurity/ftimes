@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.1 2006/07/15 03:54:10 mavrik Exp $
+# $Id: test_harness.local,v 1.2 2008/09/20 18:20:10 mavrik Exp $
 #
 ######################################################################
 
@@ -63,9 +63,9 @@ sub GetTestNumber
   #       This limits the number of _config_<unit_size>_<offset> files that are generated.
   %$phTestProperties =
   (
-    '1Item_RangeLists' => ["0", "0-0", "1", "1-1", "2", "2-2", "3", "3-3"],
-    '2Item_RangeLists' => ["0-1,2-3", "1-2,4-5", "2-3,0-1", "3-4,1-2"],
-    '3Item_RangeLists' => ["0-1,2-3,4-5", "1-2,4-5,8-9", "2-3,0-1,6-7", "3-4,1-2,9"],
+    '1Item_RangeLists' => ["0", "0-0", "1", "1-1", "2", "2-2", "3", "3-3", "%LAST", "%LAST-%LAST"],
+    '2Item_RangeLists' => ["0-1,2-3", "1-2,4-5", "2-3,0-1", "3-4,1-2", "5,%LAST", "7,2-%LAST", "%LAST,0"],
+    '3Item_RangeLists' => ["0-1,2-3,4-5", "1-2,4-5,8-9", "2-3,0-1,6-7", "3-4,1-2,9", "5,%LAST,0", "7,2-%LAST,0", "%LAST,0,2-4"],
     'UnitSizes' => [1, 512, 1024],
   );
 

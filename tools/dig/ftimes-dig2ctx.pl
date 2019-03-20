@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-dig2ctx.pl,v 1.26 2007/02/23 00:22:36 mavrik Exp $
+# $Id: ftimes-dig2ctx.pl,v 1.38 2012/01/04 03:12:28 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2002-2007 The FTimes Project, All Rights Reserved.
+# Copyright 2002-2012 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -16,6 +16,8 @@
 use strict;
 use File::Basename;
 use File::Path;
+use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
+use FTimes::EadRoutines;
 use Getopt::Std;
 
 ######################################################################
@@ -57,7 +59,7 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('c:d:e:f:hi:Ll:p:Rr:', \%hOptions))
+  if (!getopts('c:d:e:f:hi:Ll:M:m:p:Rr:T:t:v', \%hOptions))
   {
     Usage($sProgram);
   }
@@ -178,6 +180,49 @@ use Getopt::Std;
 
   ####################################################################
   #
+  # A match pattern, '-M', is optional.
+  #
+  ####################################################################
+
+  my (@aPatterns, $sMatchPatterns, $sPattern);
+
+  $sPattern = (exists($hOptions{'M'})) ? $hOptions{'M'} : undef;
+
+  if (defined($sPattern))
+  {
+    $sMatchPatterns = 1;
+    push(@aPatterns, $sPattern);
+  }
+
+  ####################################################################
+  #
+  # A match pattern file, '-m', is optional.
+  #
+  ####################################################################
+
+  my ($sPatternFile);
+
+  $sPatternFile = (exists($hOptions{'m'})) ? $hOptions{'m'} : undef;
+
+  if (defined($sPatternFile))
+  {
+    if (!open(MH, "< $sPatternFile"))
+    {
+      print STDERR "$sProgram: PatternFile='$sPatternFile' Error='$!'\n";
+      exit(2);
+    }
+    while (my $sLine = <MH>)
+    {
+      $sLine =~ s/[\r\n]+$//;
+      next if ($sLine =~ /^#/ || $sLine =~ /^\s*$/);
+      push(@aPatterns, $sLine);
+    }
+    close(MH);
+    $sMatchPatterns = 1;
+  }
+
+  ####################################################################
+  #
   # Preserve RH (right-hand) boundary, '-R', is optional.
   #
   ####################################################################
@@ -191,6 +236,46 @@ use Getopt::Std;
   ####################################################################
 
   my $sRHBoundary = (exists($hOptions{'r'})) ? $hOptions{'r'} : undef;
+
+  ####################################################################
+  #
+  # A drop tee file, '-T', is optional.
+  #
+  ####################################################################
+
+  my ($sDropHandle);
+
+  my $sDropFile = (exists($hOptions{'T'})) ? $hOptions{'T'} : undef;
+
+  if (defined($sDropFile))
+  {
+    if (!open(DH, "> $sDropFile"))
+    {
+      print STDERR "$sProgram: DropFile='$sFilename' Error='$!'\n";
+      exit(2);
+    }
+    $sDropHandle = \*DH;
+  }
+
+  ####################################################################
+  #
+  # A keep tee file, '-t', is optional.
+  #
+  ####################################################################
+
+  my ($sKeepHandle);
+
+  my $sKeepFile = (exists($hOptions{'t'})) ? $hOptions{'t'} : undef;
+
+  if (defined($sKeepFile))
+  {
+    if (!open(KH, "> $sKeepFile"))
+    {
+      print STDERR "$sProgram: KeepFile='$sFilename' Error='$!'\n";
+      exit(2);
+    }
+    $sKeepHandle = \*KH;
+  }
 
   ####################################################################
   #
@@ -211,6 +296,14 @@ use Getopt::Std;
     print STDERR "$sProgram: PrefixLength='$sReqPrefixLength' Error='PrefixLength must not exceed ContextLength.'\n";
     exit(2);
   }
+
+  ####################################################################
+  #
+  # The invert flag, '-v', is optional.
+  #
+  ####################################################################
+
+  my $sInvert = (exists($hOptions{'v'})) ? 1 : 0;
 
   ####################################################################
   #
@@ -245,7 +338,12 @@ use Getopt::Std;
 
   for ($sLineNumber = 1; $sLineNumber <= $sIgnoreNLines; $sLineNumber++)
   {
-    <$sFileHandle>;
+    my $sLine = <$sFileHandle>;
+    $sLine =~ s/[\r\n]+$//;
+    if ($sDropFile)
+    {
+      print $sDropHandle $sLine, "\n";
+    }
   }
 
   ####################################################################
@@ -309,14 +407,14 @@ use Getopt::Std;
       next;
     }
 
-    $sRawFile = URLDecode($sDigFile);
+    $sRawFile = EadFTimesUrlDecode($sDigFile);
     if ($hBlackListed{$sDigFile})
     {
       print STDERR "$sProgram: LineNumber='$sLineNumber' Line='$sLine' Warning='File has been blacklisted due to previous errors.'\n";
       next;
     }
 
-    $sRawLength = length(URLDecode($sDigString));
+    $sRawLength = length(EadFTimesUrlDecode($sDigString));
 
     $sDigOffset = oct($sDigOffset) if ($sDigOffset =~ /^0x/);
 
@@ -398,6 +496,36 @@ use Getopt::Std;
       print STDERR "$sProgram: LineNumber='$sLineNumber' URLFilename='$sDigFile' Offset='$sAdjOffset' Error='Wanted $sAdjContextLength bytes, got $sNRead.'\n";
     }
     $sLastOffset += $sNRead;
+
+    ##################################################################
+    #
+    # Conditionally match patterns, and tee the input to either the
+    # drop or keep output streams.
+    #
+    ##################################################################
+
+    if ($sMatchPatterns)
+    {
+      my $sMatch = 0;
+      foreach my $sPattern (@aPatterns)
+      {
+        if ($sRawData =~ /$sPattern/)
+        {
+          $sMatch = 1;
+          last;
+        }
+      }
+      $sMatch ^= $sInvert;
+      if ($sMatch)
+      {
+        print $sKeepHandle $sLine, "\n" if ($sKeepHandle);
+      }
+      else
+      {
+        print $sDropHandle $sLine, "\n" if ($sDropHandle);
+        next;
+      }
+    }
 
     ##################################################################
     #
@@ -526,7 +654,7 @@ use Getopt::Std;
     }
     else
     {
-      $sEncodedData = URLEncode($sRawLHData . $sRawMHData . $sRawRHData);
+      $sEncodedData = EadFTimesUrlEncode($sRawLHData . $sRawMHData . $sRawRHData);
     }
     print "\"$sDigFile\"|$sDigOffset|$sDigString|$sAdjOffset|$sLHLength|$sMHLength|$sRHLength|$sEncodedData\n";
   }
@@ -559,37 +687,6 @@ sub HexEncode
 
 ######################################################################
 #
-# URLDecode
-#
-######################################################################
-
-sub URLDecode
-{
-  my ($sRawString) = @_;
-  $sRawString =~ s/\+/ /sg;
-  $sRawString =~ s/%([0-9a-fA-F]{2})/pack('C', hex($1))/seg;
-  return $sRawString;
-}
-
-
-######################################################################
-#
-# URLEncode
-#
-######################################################################
-
-sub URLEncode
-{
-  my ($sURLString) = @_;
-
-  $sURLString =~ s/([^!-\$&-*,-{}~ ])/sprintf("%%%02x",unpack('C',$1))/seg;
-  $sURLString =~ s/ /+/sg;
-  return $sURLString;
-}
-
-
-######################################################################
-#
 # Usage
 #
 ######################################################################
@@ -598,7 +695,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-hLR] [-d dir] [-e {file|hex|url}] [-c length] [-p length] [-l regex] [-r regex] [-i count] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-hLRv] [-d dir] [-e {file|hex|url}] [-c length] [-p length] [-l regex] [-r regex] [-i count] [-M pattern] [-m pattern-file] [-T drop-file] [-t keep-file] -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -612,7 +709,7 @@ ftimes-dig2ctx.pl - Extract context around matched dig strings
 
 =head1 SYNOPSIS
 
-B<ftimes-dig2ctx.pl> B<[-hLR]> B<[-d dir]> B<[-e {file|hex|url}]> B<[-c length]> B<[-p length]> B<[-l regex]> B<[-r regex]> B<[-i count]> B<-f {file|-}>
+B<ftimes-dig2ctx.pl> B<[-hLRv]> B<[-d dir]> B<[-e {file|hex|url}]> B<[-c length]> B<[-p length]> B<[-l regex]> B<[-r regex]> B<[-i count]> B<[-M pattern]> B<[-m pattern-file]> B<[-T drop-file]> B<[-t keep-file]> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
@@ -688,6 +785,33 @@ disabled by default.
 Specifies the left-hand boundary. This is a Perl regular expression
 that can be used to limit the amount of context returned.
 
+=item B<-M pattern>
+
+Specifies a pattern that is to be applied to the raw context. The
+output records for any context not matched by the pattern will be
+discarded. Use the B<-v> option to invert the sense of the match.
+
+Note: The B<-T> and B<-t> options may be used to tee the input to
+corresponding drop and keep files -- similar to tee(1). Matched input
+records are copied to the keep file, and unmatched records are copied
+to the drop file. This is useful for building a context filter chain
+where the drop/keep results can be supplied as input to subsequent
+stages.
+
+=item B<-m pattern-file>
+
+Specifies a file containing zero or more patterns, one per line, that
+are to be applied to the raw context. The output records for any
+context not matched by the patterns will be discarded. Use the B<-v>
+option to invert the sense of the match.
+
+Note: The B<-T> and B<-t> options may be used to tee the input to
+corresponding drop and keep files -- similar to tee(1). Matched input
+records are copied to the keep file, and unmatched records are copied
+to the drop file. This is useful for building a context filter chain
+where the drop/keep results can be supplied as input to subsequent
+stages.
+
 =item B<-p length>
 
 Specifies the desired prefix length in bytes.  You may get less
@@ -704,6 +828,21 @@ disabled by default.
 Specifies the right-hand boundary. This is a Perl regular expression
 that can be used to limit the amount of context returned.
 
+=item B<-T>
+
+Specifies the name of a drop tee file that can be used to capture
+negative pattern matches.
+
+=item B<-t>
+
+Specifies the name of a keep tee file that can be used to capture
+positive pattern matches.
+
+=item B<-v>
+
+Invert the sense of pattern matching -- similar to the way that
+egrep(1) works.
+
 =back
 
 =head1 AUTHOR
@@ -716,7 +855,7 @@ ftimes(1), hipdig(1)
 
 =head1 LICENSE
 
-All documentation and code is distributed under same terms and
+All documentation and code are distributed under same terms and
 conditions as FTimes.
 
 =cut

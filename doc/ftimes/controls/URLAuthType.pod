@@ -1,6 +1,6 @@
 =item B<URLAuthType>: [basic|none]
 
-Applies to B<digfull>, B<mapfull>, and B<getmode>.
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
 
 B<URLAuthType> is optional.  It identifies what authentication
 scheme to use when issuing HTTP/HTTPS requests.  The value specified

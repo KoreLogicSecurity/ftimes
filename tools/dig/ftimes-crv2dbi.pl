@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-crv2dbi.pl,v 1.2 2007/02/23 00:22:36 mavrik Exp $
+# $Id: ftimes-crv2dbi.pl,v 1.22 2012/01/04 03:12:28 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2006-2007 The FTimes Project, All Rights Reserved.
+# Copyright 2006-2012 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -18,13 +18,45 @@ use Cwd;
 use File::Basename;
 use Getopt::Std;
 
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  ####################################################################
+  #
+  # Define helper routines.
+  #
+  ####################################################################
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
 ######################################################################
 #
 # Main Routine
 #
 ######################################################################
 
-  my $sProgram = basename(__FILE__);
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
 
   ####################################################################
   #
@@ -32,7 +64,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my $sDBRegex       = qq(^[A-Za-z][A-Za-z0-9_]*\$);
+  my $sDbRegex       = qq(^[A-Za-z][A-Za-z0-9_]*\$);
   my $sHostnameRegex = qq(^[\\w\\.-]{1,64}\$);
   my $sMaxRowsRegex  = qq(^\\d+\$);
   my $sTableRegex    = qq(^[A-Za-z][A-Za-z0-9_]*\$);
@@ -61,71 +93,71 @@ use Getopt::Std;
 
   my %hOptions;
 
-  if (!getopts('d:Ff:h:m:t:', \%hOptions))
+  if (!getopts('D:d:f:h:m:o:t:', \%hOptions))
   {
-    Usage($sProgram);
+    Usage($$phProperties{'Program'});
   }
 
   ####################################################################
   #
-  # A Database, '-d', is optional.
+  # The duplicates setting, '-D', is optional.
   #
   ####################################################################
 
-  my $sDB = (exists $hOptions{'d'}) ? $hOptions{'d'} : "ftimes";
+  $$phProperties{'Duplicates'} = (exists($hOptions{'D'})) ? $hOptions{'D'} : "default";
 
-  if ($sDB !~ /$sDBRegex/)
+  if ($$phProperties{'Duplicates'} !~ /^(default|ignore|replace)$/i)
   {
-    print STDERR "$sProgram: Database='$hOptions{'d'}' Regex='$sDBRegex' Error='Invalid db name.'\n";
+    print STDERR "$$phProperties{'Program'}: Error='Invalid duplicates setting ($$phProperties{'Duplicates'}). Use one of \"default\", \"ignore\", or \"replace\".'\n";
     exit(2);
   }
 
   ####################################################################
   #
-  # The ForceWrite, '-F', flag is optional.
+  # A database, '-d', is optional.
   #
   ####################################################################
 
-  my $sForceWrite = (exists $hOptions{'F'}) ? 1 : 0;
+  $$phProperties{'Database'} = (exists($hOptions{'d'})) ? $hOptions{'d'} : "ftimes";
 
-  ####################################################################
-  #
-  # A Filename, '-f', is required. It can be '-' or a regular file.
-  #
-  ####################################################################
-
-  my ($sFileHandle, $sFilename, $sOutFile, $sSQLFile);
-
-  if (!exists $hOptions{'f'})
+  if ($$phProperties{'Database'} !~ /$sDbRegex/)
   {
-    Usage($sProgram);
+    print STDERR "$$phProperties{'Program'}: Database='$hOptions{'d'}' Regex='$sDbRegex' Error='Invalid db name.'\n";
     exit(2);
+  }
+
+  ####################################################################
+  #
+  # An input file, '-f', is required. It can be '-' or a regular file.
+  #
+  ####################################################################
+
+  my ($sFileHandle);
+
+  if (!exists($hOptions{'f'}))
+  {
+    Usage($$phProperties{'Program'});
   }
   else
   {
-    $sFilename = $hOptions{'f'};
-    if (-f $sFilename)
+    my $sFile = $hOptions{'f'};
+    if ($sFile eq '-')
     {
-      if (!open(IN, "< $sFilename"))
-      {
-        print STDERR "$sProgram: Filename='$sFilename' Error='$!'\n";
-        exit(2);
-      }
-      $sFileHandle = \*IN;
+      $sFile = "stdin";
+      $sFileHandle = \*STDIN;
     }
     else
     {
-      if ($sFilename ne '-')
+      if (!open(FH, "< $sFile"))
       {
-        print STDERR "$sProgram: Filename='$sFilename' Error='File not found.'\n";
+        print STDERR "$$phProperties{'Program'}: Error='Unable to open $sFile ($!).'\n";
         exit(2);
       }
-      $sFilename = "stdin";
-      $sFileHandle = \*STDIN;
+      $sFileHandle = \*FH;
     }
+    $$phProperties{'OutFile'} = (($sFile !~ /^\//) ? cwd() . "/" : "") . $sFile . ".dbi";
+    $$phProperties{'SqlFile'} = (($sFile !~ /^\//) ? cwd() . "/" : "") . $sFile . ".sql";
   }
-  $sOutFile = (($sFilename !~ /^\//) ? cwd() . "/" : "") . $sFilename . ".dbi";
-  $sSQLFile = (($sFilename !~ /^\//) ? cwd() . "/" : "") . $sFilename . ".sql";
 
   ####################################################################
   #
@@ -139,20 +171,18 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($sHostname, $sPrimaryIndex);
+  my ($sPrimaryIndex);
 
-  if (exists $hOptions{'h'})
+  $$phProperties{'Hostname'} = (exists($hOptions{'h'})) ? $hOptions{'h'} : undef;
+
+  if (defined($$phProperties{'Hostname'}))
   {
-    if ($hOptions{'h'} =~ /$sHostnameRegex/)
+    if ($$phProperties{'Hostname'} !~ /$sHostnameRegex/)
     {
-      $sHostname = $hOptions{'h'};
-      $sPrimaryIndex = "index primary_index (hostname, name(255), offset)";
-    }
-    else
-    {
-      print STDERR "$sProgram: Hostname='$sHostname' Regex='$sHostnameRegex' Error='Invalid hostname.'\n";
+      print STDERR "$$phProperties{'Program'}: Hostname='$$phProperties{'Hostname'}' Regex='$sHostnameRegex' Error='Invalid hostname.'\n";
       exit(2);
     }
+    $sPrimaryIndex = "index primary_index (hostname, name(255), offset)";
   }
   else
   {
@@ -161,30 +191,83 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # A MaxRows, '-m', is optional.
+  # A maximum row count, '-m', is optional.
   #
   ####################################################################
 
-  my $sMaxRows = (exists $hOptions{'m'}) ? $hOptions{'m'} : 0;
+  $$phProperties{'MaxRows'} = (exists($hOptions{'m'})) ? $hOptions{'m'} : 0;
 
-  if ($sMaxRows !~ /$sMaxRowsRegex/)
+  if ($$phProperties{'MaxRows'} !~ /$sMaxRowsRegex/)
   {
-    print STDERR "$sProgram: MaxRows='$sMaxRows' Regex='$sMaxRowsRegex' Error='Invalid number.\n";
+    print STDERR "$$phProperties{'Program'}: MaxRows='$$phProperties{'MaxRows'}' Regex='$sMaxRowsRegex' Error='Invalid number.\n";
     exit(2);
   }
 
   ####################################################################
   #
-  # A Table, '-t', is optional.
+  # The option list, '-o', is optional.
   #
   ####################################################################
 
-  my $sTable = (exists $hOptions{'t'}) ? $hOptions{'t'} : "carve";
+  $$phProperties{'ForceWrite'} = 0;
+  $$phProperties{'LocalInFile'} = 0;
+  $$phProperties{'UseMergeTables'} = 0;
 
-  if ($sTable !~ /$sTableRegex/)
+  $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
   {
-    print STDERR "$sProgram: Table='$sTable' Regex='$sTableRegex' Error='Invalid table name.'\n";
+    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    {
+      foreach my $sTargetOption ('ForceWrite', 'LocalInFile', 'UseMergeTables')
+      {
+        if ($sActualOption =~ /^$sTargetOption$/i)
+        {
+          $$phProperties{$sTargetOption} = 1;
+        }
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # A table, '-t', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Table'} = (exists($hOptions{'t'})) ? $hOptions{'t'} : "carve";
+
+  if ($$phProperties{'Table'} !~ /$sTableRegex/)
+  {
+    print STDERR "$$phProperties{'Program'}: Table='$$phProperties{'Table'}' Regex='$sTableRegex' Error='Invalid table name.'\n";
     exit(2);
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ##################################################################
+  #
+  # Update the table name if MERGE tables are in play.
+  #
+  ##################################################################
+
+  if ($$phProperties{'UseMergeTables'})
+  {
+    if (!defined($$phProperties{'Hostname'}))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='MERGE tables have been requested, but no hostname was defined.'\n";
+      exit(2);
+    }
+    $$phProperties{'Table'} = $$phProperties{'Table'} . "_" . $$phProperties{'Hostname'};
   }
 
   ##################################################################
@@ -193,15 +276,15 @@ use Getopt::Std;
   #
   ##################################################################
 
-  if (!$sForceWrite && -f $sSQLFile)
+  if (!$$phProperties{'ForceWrite'} && -f $$phProperties{'SqlFile'})
   {
-    print STDERR "$sProgram: Filename='$sSQLFile' Error='Output file already exists.'\n";
+    print STDERR "$$phProperties{'Program'}: Filename='$$phProperties{'SqlFile'}' Error='Output file already exists.'\n";
     exit(2);
   }
 
-  if (!$sForceWrite && -f $sOutFile)
+  if (!$$phProperties{'ForceWrite'} && -f $$phProperties{'OutFile'})
   {
-    print STDERR "$sProgram: Filename='$sOutFile' Error='Output file already exists.'\n";
+    print STDERR "$$phProperties{'Program'}: Filename='$$phProperties{'OutFile'}' Error='Output file already exists.'\n";
     exit(2);
   }
 
@@ -213,9 +296,9 @@ use Getopt::Std;
 
   my ($sHeader, $sHeaderFieldCount, @aHeaderFields, $sNameIndex);
 
-  if (!defined ($sHeader = <$sFileHandle>))
+  if (!defined($sHeader = <$sFileHandle>))
   {
-    print STDERR "$sProgram: Error='Header not defined.'\n";
+    print STDERR "$$phProperties{'Program'}: Error='Header not defined.'\n";
     exit(2);
   }
   $sHeader =~ s/[\r\n]+$//;
@@ -223,9 +306,9 @@ use Getopt::Std;
   $sHeaderFieldCount = scalar(@aHeaderFields);
   for (my $sIndex = 0; $sIndex < $sHeaderFieldCount; $sIndex++)
   {
-    if (!exists $hTableLayout{$aHeaderFields[$sIndex]})
+    if (!exists($hTableLayout{$aHeaderFields[$sIndex]}))
     {
-      print STDERR "$sProgram: Field='$aHeaderFields[$sIndex]' Error='Field not recognized.'\n";
+      print STDERR "$$phProperties{'Program'}: Field='$aHeaderFields[$sIndex]' Error='Field not recognized.'\n";
       exit(2);
     }
     if ($aHeaderFields[$sIndex] =~ /^name$/i)
@@ -233,12 +316,12 @@ use Getopt::Std;
       $sNameIndex = $sIndex;
     }
   }
-  if (!defined $sNameIndex && $sNameIndex != 0)
+  if (!defined($sNameIndex) && $sNameIndex != 0)
   {
-    print STDERR "$sProgram: Header='$sHeader' Error='Invalid header or unable to locate the name field.'\n";
+    print STDERR "$$phProperties{'Program'}: Header='$sHeader' Error='Invalid header or unable to locate the name field.'\n";
     exit(2);
   }
-  unshift(@aHeaderFields, "hostname") if (defined $sHostname);
+  unshift(@aHeaderFields, "hostname") if (defined($$phProperties{'Hostname'}));
 
   ##################################################################
   #
@@ -248,15 +331,15 @@ use Getopt::Std;
 
   umask(022);
 
-  if (!open(OUT, "> $sOutFile"))
+  if (!open(OUT, "> $$phProperties{'OutFile'}"))
   {
-    print STDERR "$sProgram: Filename='$sOutFile' Error='$!'\n";
+    print STDERR "$$phProperties{'Program'}: Filename='$$phProperties{'OutFile'}' Error='$!'\n";
     exit(2);
   }
 
-  if (!open(SQL, "> $sSQLFile"))
+  if (!open(SQL, "> $$phProperties{'SqlFile'}"))
   {
-    print STDERR "$sProgram: Filename='$sSQLFile' Error='$!'\n";
+    print STDERR "$$phProperties{'Program'}: Filename='$$phProperties{'SqlFile'}' Error='$!'\n";
     exit(2);
   }
 
@@ -283,14 +366,14 @@ use Getopt::Std;
     $sDataFieldCount = scalar(@aDataFields);
     if ($sDataFieldCount != $sHeaderFieldCount)
     {
-      print STDERR "$sProgram: Line='$sLine' HeaderFieldCount='$sHeaderFieldCount' DataFieldCount='$sDataFieldCount' Error='FieldCounts don't match.'\n";
+      print STDERR "$$phProperties{'Program'}: Line='$sLine' HeaderFieldCount='$sHeaderFieldCount' DataFieldCount='$sDataFieldCount' Error='FieldCounts don't match.'\n";
       close($sFileHandle);
       close(OUT);
       exit(2);
     }
-    if (defined $sHostname)
+    if (defined($$phProperties{'Hostname'}))
     {
-      $sLine = join('|', ($sHostname, @aDataFields));
+      $sLine = join('|', ($$phProperties{'Hostname'}, @aDataFields));
     }
     else
     {
@@ -311,14 +394,28 @@ use Getopt::Std;
   #
   ##################################################################
 
-  my (@aColumns, $sCreateOptions, $sDate);
+  my (@aColumns, $sCreateOptions, $sDate, $sLoad);
+
+  if ($$phProperties{'LocalInFile'})
+  {
+    $sLoad = "LOAD DATA LOCAL INFILE '" . $$phProperties{'OutFile'} . "'";
+  }
+  else
+  {
+    $sLoad = "LOAD DATA INFILE '" . $$phProperties{'OutFile'} . "'";
+  }
+
+  if ($$phProperties{'Duplicates'} =~ /^(ignore|replace)$/i)
+  {
+    $sLoad .= " " . uc($1);
+  }
 
   $sDate = localtime(time);
   $sDate =~ s/\s+/ /g;
   print SQL <<EOF;
 ######################################################################
 #
-# Created by $sProgram on $sDate.
+# Created by $$phProperties{'Program'} on $sDate.
 #
 ######################################################################
 
@@ -328,7 +425,7 @@ use Getopt::Std;
 #
 ######################################################################
 
-CREATE DATABASE IF NOT EXISTS $sDB;
+CREATE DATABASE IF NOT EXISTS $$phProperties{'Database'};
 
 ######################################################################
 #
@@ -336,7 +433,7 @@ CREATE DATABASE IF NOT EXISTS $sDB;
 #
 ######################################################################
 
-USE $sDB;
+USE $$phProperties{'Database'};
 
 ######################################################################
 #
@@ -346,22 +443,22 @@ USE $sDB;
 
 EOF
 
-  if (!defined $sHostname)
+  if (!defined($$phProperties{'Hostname'}))
   {
-    print SQL "DROP TABLE IF EXISTS $sTable;\n";
+    print SQL "DROP TABLE IF EXISTS \`$$phProperties{'Table'}\`;\n";
   }
   foreach my $sField (@aHeaderFields)
   {
     push(@aColumns, ($sField . " " . $hTableLayout{$sField}));
   }
   push(@aColumns, $sPrimaryIndex);
-  $sCreateOptions = ($sMaxRows > 0) ? "MAX_ROWS = $sMaxRows" : "";
+  $sCreateOptions = ($$phProperties{'MaxRows'} > 0) ? "MAX_ROWS = $$phProperties{'MaxRows'}" : "";
 
   my $sCreateSpec = join(', ', @aColumns);
   my $sInsertSpec = join(', ', @aHeaderFields);
 
   print SQL <<EOF;
-CREATE TABLE IF NOT EXISTS $sTable ($sCreateSpec) $sCreateOptions;
+CREATE TABLE IF NOT EXISTS \`$$phProperties{'Table'}\` ($sCreateSpec) $sCreateOptions;
 
 ######################################################################
 #
@@ -369,7 +466,7 @@ CREATE TABLE IF NOT EXISTS $sTable ($sCreateSpec) $sCreateOptions;
 #
 ######################################################################
 
-LOAD DATA INFILE '$sOutFile' INTO TABLE $sTable FIELDS TERMINATED BY '|' IGNORE 1 LINES ($sInsertSpec);
+$sLoad INTO TABLE \`$$phProperties{'Table'}\` FIELDS TERMINATED BY '|' IGNORE 1 LINES ($sInsertSpec);
 
 ######################################################################
 #
@@ -393,7 +490,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-F] [-d db] [-h host] [-m max-rows] [-t table] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-D {default|ignore|replace}] [-d db] [-h host] [-m max-rows] [-o option[,option[,...]]] [-t table] -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -407,7 +504,7 @@ ftimes-crv2dbi.pl - Preprocess FTimes carve data for MySQL DB import
 
 =head1 SYNOPSIS
 
-B<ftimes-crv2dbi.pl> B<[-F]> B<[-d db]> B<[-h host]> B<[-m max-rows]> B<[-t table]> B<-f {file|-}>
+B<ftimes-crv2dbi.pl> B<[-D {default|ignore|replace}]> B<[-d db]> B<[-h host]> B<[-m max-rows]> B<[-o option[,option[,...]]]> B<[-t table]> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
@@ -420,14 +517,15 @@ MySQL -- dbi is short for DB Import.
 
 =over 4
 
+=item B<-D {default|ignore|replace}>
+
+Add the IGNORE or REPLACE keyword to the LOAD statement. The default
+value is 'default', which means don't alter the LOAD statement.
+
 =item B<-d db>
 
 Specifies the name of the database to create/use. This value is passed
 directly into the .sql file. The default value is 'ftimes'.
-
-=item B<-F>
-
-Force existing .sql and .dbi files to be truncated on open.
 
 =item B<-f {file|-}>
 
@@ -448,6 +546,31 @@ is not used.
 Limits the number of records that may be inserted into the specified
 database. This value is passed directly into the .sql file as
 MAX_ROWS.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item ForceWrite
+
+Force existing .sql and .dbi files to be truncated on open.
+
+=item LocalInFile
+
+Add the LOCAL keyword to the LOAD statement. When this keyword is
+specified, the .dbi file is read by the local MySQL client and sent to
+the remote MySQL server.
+
+=item UseMergeTables
+
+Append the hostname, if defined, as a suffix on the table name. This
+allows data for each unique host to be loaded into separate tables
+that can be linked together using MySQL MERGE tables.
+
+=back
 
 =item B<-t table>
 
@@ -470,7 +593,7 @@ ftimes-crv2raw(1)
 
 =head1 LICENSE
 
-All documentation and code is distributed under same terms and
+All documentation and code are distributed under same terms and
 conditions as FTimes.
 
 =cut

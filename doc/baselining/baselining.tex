@@ -1,14 +1,14 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% $Id: baselining.tex,v 1.9 2006/09/18 15:31:49 mavrik Exp $
+% $Id: baselining.tex,v 1.11 2010/01/22 02:56:44 mavrik Exp $
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \documentclass[10pt]{article}
 \def\VersionString{Version 1.3}
 \RequirePackage{baselining}
-\ParseCVSRevision $Revision: 1.9 $ ;
-\ParseCVSDate $Date: 2006/09/18 15:31:49 $ ;
+\ParseCVSRevision $Revision: 1.11 $ ;
+\ParseCVSDate $Date: 2010/01/22 02:56:44 $ ;
 %\Draft
 
 \title{\Large\bf System Baselining -- A Forensic Perspective}
@@ -471,8 +471,8 @@ number of system processes running, networked shares should not be
 mounted, normal users should not be able to access the system, and it
 should be possible to re-mount some or all subject file systems with
 read-only access.  Unfortunately, not all systems support
-single-user-mode (e.g., Windows NT/2K/XP), so this technique does not
-apply universally.
+single-user-mode (e.g., WINX), so this technique does not apply
+universally.
 
 One major issue that must be considered with this technique is where
 output will be written.  If possible, output should be written to
@@ -760,17 +760,17 @@ etc.) are simply collected from existing data structures while others
 such as MD5, SHA1, or Magic are calculated or derived based on
 predetermined algorithms or signatures.
 
-The FTimes mapping facility provides three modes of operation:
-mapauto, maplean, and mapfull.  The first mode is designed to support
-ad-hoc but fairly narrow applications.  Consequently, it only allows
-the operator to specify a FieldMask (i.e., what attributes to collect)
-and a list of directories and/or files to map.  Its primary benefit is
-that output is written directly to stdout and stderr.  Thus, it may be
-used in scenarios where writing to the subject's local disk is out of
-the question (e.g., during an investigation).  The latter two modes
-were designed to provide a rich set of controls that may be used to
-customize runtime behavior.  These controls are managed through the
-use of a configuration file.
+The FTimes mapping facility provides two modes of operation: map and
+mapauto.  The auto mode is designed to support ad-hoc but fairly
+narrow applications.  Consequently, it only allows the operator to
+specify a FieldMask (i.e., what attributes to collect) and a list of
+directories and/or files to map.  Its primary benefit is that output
+is written directly to stdout and stderr.  Thus, it may be used in
+scenarios where writing to the subject's local disk is out of the
+question (e.g., during an investigation).  The other mode is the
+primary mode, and it was designed to provide a rich set of controls
+that may be used to customize runtime behavior.  These controls are
+managed through the use of a configuration file.
 
 Table \ref{tbl:attributes} summarizes those attributes that are
 collected or derived from common file systems that FTimes supports.
@@ -1182,8 +1182,8 @@ files within that Volume are uniquely specified.
 \section{FTimes Availability}
 
 FTimes is known to run on the following operating systems: AIX, BSDi,
-FreeBSD, HP-UX, Linux, OpenBSD, NetBSD, Solaris, and Windows NT/2K/XP.
-Source code and other project resources are available at:
+FreeBSD, HP-UX, Linux, OpenBSD, NetBSD, Solaris, and WINX.  Source
+code and other project resources are available at:
 
 \begin{quote}
 

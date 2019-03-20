@@ -1,10 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.8 2007/02/23 00:22:36 mavrik Exp $
-#
-########################################################################
-#
-# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
+# $Id: Makefile.in,v 1.16 2012/02/08 05:50:30 mavrik Exp $
 #
 ########################################################################
 #
@@ -14,7 +10,7 @@
 
 #.SILENT:
 
-prefix			= @prefix@
+PREFIX			= @prefix@
 exec_prefix		= @exec_prefix@
 bindir			= @bindir@
 srcdir			= @srcdir@
@@ -24,20 +20,24 @@ EXTENSION		= @extension@
 
 INSTALL			= @INSTALL@
 
-SCRIPT_FILES		=\
-			ftimes-cmp2dbi.pl\
-			ftimes-map2dbi.pl\
+INSTALL_PREFIX		= ${DESTDIR}${PREFIX}/bin
+
+SCRIPT_FILES		= \
+			ftimes-cmp2dbi.pl \
+			ftimes-map2dbi.pl \
 			ftimes-map2mac.pl
 
 all:
 
 test:
 
-install: ${SCRIPT_FILES}
-	@umask 22; if [ ! -d ${bindir} ]; then mkdir -p ${bindir}; fi
-	@for i in ${SCRIPT_FILES}; do\
-		if [ -f ${srcdir}/$${i} ]; then file=${srcdir}/$${i}; else file=$${i}; fi;\
-		${INSTALL} -m 755 $${file} ${bindir};\
+install-prefix:
+	@umask 22 ; if [ ! -d ${INSTALL_PREFIX} ] ; then mkdir -p ${INSTALL_PREFIX} ; fi
+
+install: ${SCRIPT_FILES} install-prefix
+	@for i in ${SCRIPT_FILES} ; do \
+		if [ -f ${srcdir}/$${i} ] ; then file=${srcdir}/$${i} ; else file=$${i} ; fi ; \
+		${INSTALL} -m 755 $${file} ${INSTALL_PREFIX} ; \
 	done
 
 clean:

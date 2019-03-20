@@ -1,6 +1,6 @@
 =item B<GetFileName>: <file>
 
-Applies to B<getmode>.
+Applies to B<get>.
 
 B<GetFileName> is required if B<GetAndExec> is enabled.  Its value
 is the name of the file in which the downloaded configuration

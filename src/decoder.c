@@ -1,64 +1,15 @@
 /*-
  ***********************************************************************
  *
- * $Id: decoder.c,v 1.15 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: decoder.c,v 1.23 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
-
-/*-
- ***********************************************************************
- *
- * DecoderProcessArguments
- *
- ***********************************************************************
- */
-int
-DecoderProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError)
-{
-  const char          acRoutine[] = "DecoderProcessArguments()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 iError;
-
-  /*-
-   *********************************************************************
-   *
-   * Process arguments.
-   *
-   *********************************************************************
-   */
-  if (iArgumentCount >= 1)
-  {
-    psProperties->psSnapshotContext->pcFile = ppcArgumentVector[0];
-    if (iArgumentCount >= 2)
-    {
-      if (iArgumentCount == 3 && strcmp(ppcArgumentVector[1], "-l") == 0)
-      {
-        iError = SupportSetLogLevel(ppcArgumentVector[2], &psProperties->iLogLevel, acLocalError);
-        if (iError != ER_OK)
-        {
-          snprintf(pcError, MESSAGE_SIZE, "%s: Level = [%s]: %s", acRoutine, ppcArgumentVector[2], acLocalError);
-          return iError;
-        }
-      }
-      else
-      {
-        return ER_Usage;
-      }
-    }
-  }
-  else
-  {
-    return ER_Usage;
-  }
-  return ER_OK;
-}
-
 
 /*-
  ***********************************************************************
@@ -119,7 +70,7 @@ int
 DecoderFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "DecoderFinalize()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acMessage[MESSAGE_SIZE] = { 0 };
   int                 iError = 0;
 
@@ -197,7 +148,7 @@ int
 DecoderWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "DecoderWorkHorse()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
 
   /*-

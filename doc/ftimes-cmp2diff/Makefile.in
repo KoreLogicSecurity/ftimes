@@ -1,0 +1,25 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${DESTDIR}${PREFIX}/man/man1
+
+HTML_FILE=ftimes-cmp2diff.html
+
+MAN_FILE=ftimes-cmp2diff.1
+
+MAN_TITLE=FTimes Documentation
+
+POD_FILE=ftimes-cmp2diff.pod
+
+SRC_FILE=${SRCDIR}/../../tools/ftimes-cmp2diff/ftimes-cmp2diff
+
+include ${PROJECT_ROOT}/Mk/common-doc-perl.mk
+

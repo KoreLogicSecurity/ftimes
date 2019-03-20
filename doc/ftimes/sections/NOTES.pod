@@ -1,7 +1,7 @@
 =head1 NOTES
 
 The name attribute may be partially encoded if it contains any
-special characters.  Special characters are defined as C<[`'"|%+]>
+special characters.  Special characters are defined as C<[`'"|%+#]>
 or any non-printable character.  If a name contains Unicode
 characters, the high byte is always encoded, and the low byte is
 encoded as described above.  To decode an encoded name, first
@@ -56,10 +56,10 @@ additional time to offload the results of the map, which can be
 quite large.  Obviously, both files can still be altered by a
 skilled attacker positioned to take advantage of the situation.
 
-Manage dig and map config files on your Integrity Server, and
-use B<FTimes'> get mode (i.e., B<--getmode>) to automatically retrieve
-them at runtime.  This facilitates centralized management and helps
-to protect potentially sensitive configuration information.
+Manage dig and map config files on your Integrity Server, and use
+B<FTimes'> get mode (i.e., B<--get>) to automatically retrieve them at
+runtime.  This facilitates centralized management and helps to protect
+potentially sensitive configuration information.
 
 Use the B<URLPutSnapshot>, B<URLPutURL>, B<URLUsername>, B<URLPassword>,
 and B<URLAuthType> controls when you want to automatically upload

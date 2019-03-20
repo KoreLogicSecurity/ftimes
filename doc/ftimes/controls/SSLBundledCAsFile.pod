@@ -1,6 +1,6 @@
 =item B<SSLBundledCAsFile>: <file>
 
-Applies to B<digfull>, B<mapfull>, and B<getmode>.
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
 
 B<SSLBundledCAsFile> is required when B<SSLVerifyPeerCert> is
 enabled.  This control specifies the name of a PEM (Privacy Enhanced

@@ -1,14 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.h,v 1.15 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: dig.h,v 1.27 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _DIG_H_INCLUDED
+#define _DIG_H_INCLUDED
 
 /*-
  ***********************************************************************
@@ -30,7 +32,15 @@
 #define PCRE_CAPTURE_INDEX_0H 1 /* This is the high offset of the entire pattern. */
 #define PCRE_CAPTURE_INDEX_1L 2 /* This is the low offset of the first capturing subpattern. */
 #define PCRE_CAPTURE_INDEX_1H 3 /* This is the high offset of the first capturing subpattern. */
-#define PCRE_MAX_CAPTURE_COUNT 1 /* There must be no more than one capturing '()' subpattern. */
+#define PCRE_MAX_CAPTURE_COUNT 9 /* This is the maximum number of capturing '()' subpatterns allowed. */
+/*
+ * The following quote was taken from pcreapi(3) man page.
+ *
+ *   The smallest size for ovector that will allow for n captured
+ *   substrings, in addition to the  offsets of the substring matched
+ *   by the whole pattern, is (n+1)*3.
+ *
+ */
 #define PCRE_OVECTOR_ARRAY_SIZE 30
 #endif
 
@@ -61,7 +71,7 @@ typedef struct _DIG_SEARCH_DATA
   unsigned char      *pucData;
   int                 iLength;
   int                 iType;
-  K_UINT64            ui64Offset;
+  APP_UI64            ui64Offset;
 } DIG_SEARCH_DATA;
 
 typedef struct _DIG_STRING
@@ -105,23 +115,21 @@ typedef struct _DIG_STRING
 int                 DigAddDigString(char *pcString, int iType, char *pcError);
 void                DigAdjustRegExpOffsets(int iTrimSize);
 void                DigClearCounts(void);
-int                 DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError);
+//int                 DigDevelopOutput(FTIMES_PROPERTIES *psProperties, DIG_SEARCH_DATA *psSearchData, char *pcError); /* This is declared in ftimes.h. */
 void                DigFreeDigString(DIG_STRING *psDigString);
-int                 DigGetMatchLimit(void);
 int                 DigGetMaxStringLength(void);
 int                 DigGetSaveLength(void);
 DIG_STRING         *DigGetSearchList(int iType, int iIndex);
 int                 DigGetStringCount(void);
 int                 DigGetStringsMatched(void);
 char               *DigGetStringType(int iType);
-K_UINT64            DigGetTotalMatches(void);
+APP_UI64            DigGetTotalMatches(void);
 DIG_STRING         *DigNewDigString(char *pcString, int iType, char *pcError);
-int                 DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType, K_UINT64 ui64AbsoluteOffset, char *pcFilename, char *pcError);
-void                DigSetHashBlock(MD5_CONTEXT *psMD5Context);
-void                DigSetMatchLimit(int iMatchLimit);
+int                 DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType, APP_UI64 ui64SearchOffset, char *pcFilename, char *pcError);
 void                DigSetMaxStringLength(int iMaxStringLength);
-void                DigSetNewLine(char *pcNewLine);
-void                DigSetOutputStream(FILE *pFile);
+//void                DigSetPropertiesReference(FTIMES_PROPERTIES *psProperties); /* This is declared in ftimes.h. */
 void                DigSetSaveLength(int iSaveLength);
 int                 DigSetSearchList(DIG_STRING *psDigString, char *pcError);
-int                 DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError);
+//int                 DigWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError); /* This is declared in ftimes.h. */
+
+#endif /* !_DIG_H_INCLUDED */

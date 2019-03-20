@@ -1,0 +1,223 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.8 2010/01/22 02:56:44 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "4";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "1_byte_xmagic_byte",
+    2 => "2_byte_xmagic_beshort",
+    3 => "4_byte_xmagic_belong",
+    4 => "abc123_xmagic_string",
+    5 => "ABC123_xmagic_regexp",
+    6 => "1_byte_xmagic_warped_byte",
+    7 => "2_byte_xmagic_warped_beshort",
+    8 => "4_byte_xmagic_warped_belong",
+    9  => "1_byte_xmagic_warped_indirect_B",
+    10 => "2_byte_xmagic_warped_indirect_S",
+    11 => "4_byte_xmagic_warped_indirect_L",
+    12 => "invalid_level_0_offset",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    '1_byte_xmagic_byte'    => "tests xmagic dig offsets for '0x00' through '0x7f' using byte type and default blocksize/carrysize",
+    '2_byte_xmagic_beshort' => "tests xmagic dig offsets for '0x0000' through '0x007f' using beshort type and default blocksize/carrysize",
+    '4_byte_xmagic_belong'  => "tests xmagic dig offsets for '0x00000000' through '0x0000007f' using belong type and default blocksize/carrysize",
+    'abc123_xmagic_string'  => "tests xmagic dig offsets for 'abc123' using string type and default blocksize/carrysize",
+    'ABC123_xmagic_regexp'  => "tests xmagic dig offsets for 'ABC123' using regexp type and default blocksize/carrysize",
+    '1_byte_xmagic_warped_byte'    => "tests xmagic dig offsets for '0x00' through '0x3f' using warped byte type and default blocksize/carrysize",
+    '2_byte_xmagic_warped_beshort' => "tests xmagic dig offsets for '0x0000' through '0x003f' using warped beshort type and default blocksize/carrysize",
+    '4_byte_xmagic_warped_belong'  => "tests xmagic dig offsets for '0x00000000' through '0x0000003f' using warped belong type and default blocksize/carrysize",
+    '1_byte_xmagic_warped_indirect_B' => "tests xmagic dig offsets for '0x00' through '0x0f' using warped indirect offset (B) and default blocksize/carrysize",
+    '2_byte_xmagic_warped_indirect_S' => "tests xmagic dig offsets for '0x00' through '0x0f' using warped indirect offset (S) and default blocksize/carrysize",
+    '4_byte_xmagic_warped_indirect_L' => "tests xmagic dig offsets for '0x00' through '0x0f' using warped indirect offset (L) and default blocksize/carrysize",
+    'invalid_level_0_offset' => "tests xmagic with an invalid level zero offset",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+    'BlockSizes' => ["default:default"],
+  );
+
+
+######################################################################
+#
+# TestGroup_invalid_level_0_offset
+#
+######################################################################
+
+sub Hitch_invalid_level_0_offset
+{
+  1;
+}
+
+
+sub Check_invalid_level_0_offset
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  $$phTestProperties{'File'} = $sFile;
+
+  $$phTestProperties{'Name'} = $sName;
+
+  $$phTestProperties{'DigString'} = "DigStringXMagic=" . dirname($sFile) . "/" . "_config_$sName.xmagic";
+
+  my $sVersion = GetToolVersion($phProperties);
+
+  if (!defined($sVersion))
+  {
+    return "fail";
+  }
+
+  if ($sVersion !~ /xmagic/)
+  {
+    return "skip";
+  }
+
+  my $sConfig = dirname($$phTestProperties{'File'}) . "/" . "_config_" . $$phTestProperties{'Name'};
+
+  if (!CreateConfig($sConfig, $phTestProperties))
+  {
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # For MinGW on WINX platforms, the redirection (i.e., '2>&1')
+  # causes the following error when UNIX path separators are used:
+  #
+  #   '..' is not recognized as an internal or external command,
+  #   operable program or batch file.
+  #
+  # To prevent this, the path separators must be switched.
+  #
+  ####################################################################
+
+  my $sCommand = "$$phProperties{'TargetProgram'} --dig $sConfig -l 6 $$phTestProperties{'File'} 2>&1";
+  if ($$phProperties{'OsClass'} eq "WINDOWS")
+  {
+    $sCommand =~ s,/,\\,g;
+  }
+  DebugPrint(3, $sCommand);
+
+  if (!open(PH, "$sCommand |"))
+  {
+    return "fail";
+  }
+  binmode(PH);
+  my @aLines = <PH>;
+  close(PH);
+
+  DebugPrint(4, "TargetLineCount=1");
+  if (scalar(@aLines) != 1)
+  {
+    DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+    return "fail";
+  }
+  my $sTargetOutputRegExp = qq(LOG_CRIT.+The first test must be a level zero test and use an absolute offset);
+
+  DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+  $aLines[0] =~ s/[\r\n]*$//;
+  if ($aLines[0] !~ /$sTargetOutputRegExp/)
+  {
+    DebugPrint(4, "ActualOutput=$aLines[0]");
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Clean_invalid_level_0_offset
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_invalid_level_0_offset
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  if (!defined(FillFile($sFile, "fill_byte_loop", 256)))
+  {
+    return "fail";
+  }
+
+  $sFile = dirname($sFile) . "/" . "_config_$sName.xmagic";
+  my $sXMagicFile = <<EOF;
+# XMagic
+>&0 byte = 0 byte=%d # Note: This is an invalid level zero test.
+EOF
+  if (!defined(FillFile($sFile, $sXMagicFile, 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+1;

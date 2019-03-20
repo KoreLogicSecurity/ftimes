@@ -1,100 +1,15 @@
 /*-
  ***********************************************************************
  *
- * $Id: mapmode.c,v 1.37 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: mapmode.c,v 1.55 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
-
-/*-
- ***********************************************************************
- *
- * MapModeProcessArguments
- *
- ***********************************************************************
- */
-int
-MapModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError)
-{
-  const char          acRoutine[] = "MapModeProcessArguments()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 iError;
-
-  /*-
-   *********************************************************************
-   *
-   * Process arguments.
-   *
-   *********************************************************************
-   */
-  if (iArgumentCount >= 1)
-  {
-    if (psProperties->iRunMode == FTIMES_MAPAUTO)
-    {
-      psProperties->psFieldMask = MaskParseMask(ppcArgumentVector[0], MASK_RUNMODE_TYPE_MAP, acLocalError);
-      if (psProperties->psFieldMask == NULL)
-      {
-        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-        return ER;
-      }
-    }
-    else
-    {
-      if (strcmp(ppcArgumentVector[0], "-") == 0)
-      {
-        strcpy(psProperties->acConfigFile, "-");
-      }
-      else
-      {
-        iError = SupportExpandPath(ppcArgumentVector[0], psProperties->acConfigFile, FTIMES_MAX_PATH, 1, acLocalError);
-        if (iError != ER_OK)
-        {
-          snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-          return iError;
-        }
-      }
-    }
-
-    if (iArgumentCount >= 2)
-    {
-      if (strcmp(ppcArgumentVector[1], "-l") == 0)
-      {
-        if (iArgumentCount >= 3)
-        {
-          iError = SupportSetLogLevel(ppcArgumentVector[2], &psProperties->iLogLevel, acLocalError);
-          if (iError != ER_OK)
-          {
-            snprintf(pcError, MESSAGE_SIZE, "%s: Level = [%s]: %s", acRoutine, ppcArgumentVector[2], acLocalError);
-            return iError;
-          }
-          if (iArgumentCount >= 4)
-          {
-            psProperties->ppcMapList = &ppcArgumentVector[3];
-          }
-        }
-        else
-        {
-          return ER_Usage;
-        }
-      }
-      else
-      {
-        psProperties->ppcMapList = &ppcArgumentVector[1];
-      }
-    }
-  }
-  else
-  {
-    return ER_Usage;
-  }
-  return ER_OK;
-}
-
 
 /*-
  ***********************************************************************
@@ -107,10 +22,10 @@ int
 MapModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "MapModeInitialize()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acMapItem[FTIMES_MAX_PATH];
-  int                 i;
-  int                 iError;
+  char               *pcMapItem = NULL;
+  int                 iError = 0;
 
   /*-
    *******************************************************************
@@ -131,11 +46,11 @@ MapModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *******************************************************************
    *
-   * Read the config file, if in map{full,lean} mode.
+   * Conditionally read the config file.
    *
    *******************************************************************
    */
-  if (psProperties->iRunMode == FTIMES_MAPFULL || psProperties->iRunMode == FTIMES_MAPLEAN)
+  if (psProperties->iRunMode == FTIMES_MAPMODE)
   {
     iError = PropertiesReadFile(psProperties->acConfigFile, psProperties, acLocalError);
     if (iError != ER_OK)
@@ -146,15 +61,29 @@ MapModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
   }
 
   /*-
+   *********************************************************************
+   *
+   * Set the priority.
+   *
+   *********************************************************************
+   */
+  iError = SupportSetPriority(psProperties, acLocalError);
+  if (iError != ER_OK)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return iError;
+  }
+
+  /*-
    *******************************************************************
    *
    * Add any command line items to the Include list.
    *
    *******************************************************************
    */
-  for (i = 0; psProperties->ppcMapList != NULL && psProperties->ppcMapList[i] != NULL; i++)
+  while ((pcMapItem = OptionsGetNextOperand(psProperties->psOptionsContext)) != NULL)
   {
-    iError = SupportExpandPath(psProperties->ppcMapList[i], acMapItem, FTIMES_MAX_PATH, 0, acLocalError);
+    iError = SupportExpandPath(pcMapItem, acMapItem, FTIMES_MAX_PATH, 0, acLocalError);
     if (iError != ER_OK)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -206,7 +135,7 @@ MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "MapModeCheckDependencies()";
 #ifdef USE_SSL
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
 #endif
 
   if (psProperties->psFieldMask == NULL)
@@ -234,7 +163,14 @@ MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
   }
 #endif
 
-  if (psProperties->iRunMode == FTIMES_MAPFULL)
+  /*-
+   *********************************************************************
+   *
+   * Check mode-specific properties.
+   *
+   *********************************************************************
+   */
+  if (psProperties->iRunMode == FTIMES_MAPMODE)
   {
     if (psProperties->acBaseName[0] == 0)
     {
@@ -242,10 +178,21 @@ MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
       return ER_MissingControl;
     }
 
-    if (psProperties->acOutDirName[0] == 0)
+    if (strcmp(psProperties->acBaseName, "-") == 0)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Missing OutDir.", acRoutine);
-      return ER_MissingControl;
+      if (psProperties->bURLPutSnapshot)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: Uploads are not allowed when the BaseName is \"-\". Either disable URLPutSnapshot or change the BaseName.", acRoutine);
+        return ER;
+      }
+    }
+    else
+    {
+      if (psProperties->acOutDirName[0] == 0)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: Missing OutDir.", acRoutine);
+        return ER_MissingControl;
+      }
     }
 
     if (psProperties->bURLPutSnapshot && psProperties->psPutURL == NULL)
@@ -261,27 +208,62 @@ MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
     }
 
 #ifdef USE_SSL
-    if (SSLCheckDependencies(psProperties->psSSLProperties, acLocalError) != ER_OK)
+    if (SSLCheckDependencies(psProperties->psSslProperties, acLocalError) != ER_OK)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return ER_MissingControl;
     }
 #endif
   }
-  else if (psProperties->iRunMode == FTIMES_MAPLEAN)
+
+#ifdef USE_PCRE
+  /*-
+   *********************************************************************
+   *
+   * Attribute filters are not compatible with certain options.
+   *
+   *********************************************************************
+   */
+  if (psProperties->bHaveAttributeFilters)
   {
-    if (psProperties->acBaseName[0] == 0)
+    if (psProperties->bCompress)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Missing BaseName.", acRoutine);
-      return ER_MissingControl;
+      snprintf(pcError, MESSAGE_SIZE, "%s: Attribute filters are not supported when compression (Compress) is enabled.", acRoutine);
+      return ER_IncompatibleOptions;
     }
 
-    if (psProperties->acOutDirName[0] == 0 && strcmp(psProperties->acBaseName, "-") != 0)
+    if (psProperties->bHashDirectories)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Missing OutDir.", acRoutine);
-      return ER_MissingControl;
+      snprintf(pcError, MESSAGE_SIZE, "%s: Attribute filters are not supported when directory hashing (HashDirectories) is enabled.", acRoutine);
+      return ER_IncompatibleOptions;
     }
   }
+
+  /*-
+   *********************************************************************
+   *
+   * Attribute filters require the corresponding attribute to be set.
+   *
+   *********************************************************************
+   */
+   if ((psProperties->psExcludeFilterMd5List || psProperties->psIncludeFilterMd5List) && !MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+   {
+      snprintf(pcError, MESSAGE_SIZE, "%s: The specified attribute filter(s) require the MD5 attribute to be set. Either add this attribute to the FieldMask or remove/disable all include/exclude MD5 filters." , acRoutine);
+      return ER;
+   }
+
+   if ((psProperties->psExcludeFilterSha1List || psProperties->psIncludeFilterSha1List) && !MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+   {
+      snprintf(pcError, MESSAGE_SIZE, "%s: The specified attribute filter(s) require the SHA1 attribute to be set. Either add this attribute to the FieldMask or remove/disable all include/exclude SHA1 filters." , acRoutine);
+      return ER;
+   }
+
+   if ((psProperties->psExcludeFilterSha256List || psProperties->psIncludeFilterSha256List) && !MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+   {
+      snprintf(pcError, MESSAGE_SIZE, "%s: The specified attribute filter(s) require the SHA256 attribute to be set. Either add this attribute to the FieldMask or remove/disable all include/exclude SHA256 filters." , acRoutine);
+      return ER;
+   }
+#endif
 
   return ER_OK;
 }
@@ -298,7 +280,7 @@ int
 MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "MapModeFinalize()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
 #ifdef USE_XMAGIC
   char                acMessage[MESSAGE_SIZE];
 #endif
@@ -328,7 +310,7 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (psProperties->bURLPutSnapshot && psProperties->iRunMode == FTIMES_MAPFULL)
+  if (psProperties->bURLPutSnapshot && psProperties->iRunMode == FTIMES_MAPMODE)
   {
     iError = URLPingRequest(psProperties, acLocalError);
     if (iError != ER_OK)
@@ -432,7 +414,7 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (psProperties->iRunMode == FTIMES_MAPFULL || (psProperties->iRunMode == FTIMES_MAPLEAN && strcmp(psProperties->acBaseName, "-") != 0))
+  if (psProperties->iRunMode == FTIMES_MAPMODE && strcmp(psProperties->acBaseName, "-") != 0)
   {
     iError = SupportMakeName(psProperties->acLogDirName, psProperties->acBaseName, psProperties->acBaseNameSuffix, ".log", psProperties->acLogFileName, acLocalError);
     if (iError != ER_OK)
@@ -454,7 +436,22 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
       snprintf(pcError, MESSAGE_SIZE, "%s: LogFile = [%s]: %s", acRoutine, psProperties->acLogFileName, strerror(errno));
       return ER_fopen;
     }
+/* FIXME Remove this #ifdef at some point in the future. */
+#ifdef WIN32
+    /*-
+     *****************************************************************
+     *
+     * NOTE: The buffer size was explicitly set to prevent binaries
+     * made with Visual Studio 2005 (no service packs) from crashing
+     * when run in lean mode. This problem may have been fixed in
+     * Service Pack 1.
+     *
+     *****************************************************************
+     */
+    setvbuf(psProperties->pFileLog, NULL, _IOLBF, 1024);
+#else
     setvbuf(psProperties->pFileLog, NULL, _IOLBF, 0);
+#endif
   }
   else
   {
@@ -473,7 +470,7 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  if (psProperties->iRunMode == FTIMES_MAPFULL || (psProperties->iRunMode == FTIMES_MAPLEAN && strcmp(psProperties->acBaseName, "-") != 0))
+  if (psProperties->iRunMode == FTIMES_MAPMODE && strcmp(psProperties->acBaseName, "-") != 0)
   {
     iError = SupportMakeName(psProperties->acOutDirName, psProperties->acBaseName, psProperties->acBaseNameSuffix, ".map", psProperties->acOutFileName, acLocalError);
     if (iError != ER_OK)
@@ -495,7 +492,22 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
       snprintf(pcError, MESSAGE_SIZE, "%s: OutFile = [%s]: %s", acRoutine, psProperties->acOutFileName, strerror(errno));
       return ER_fopen;
     }
+/* FIXME Remove this #ifdef at some point in the future. */
+#ifdef WIN32
+    /*-
+     *****************************************************************
+     *
+     * NOTE: The buffer size was explicitly set to prevent binaries
+     * made with Visual Studio 2005 (no service packs) from crashing
+     * when run in lean mode. This problem may have been fixed in
+     * Service Pack 1.
+     *
+     *****************************************************************
+     */
+    setvbuf(psProperties->pFileOut, NULL, _IOLBF, 1024);
+#else
     setvbuf(psProperties->pFileOut, NULL, _IOLBF, 0);
+#endif
   }
   else
   {
@@ -551,7 +563,7 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 MapModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   FILE_LIST           *psList = NULL;
 
   /*-
@@ -563,9 +575,9 @@ MapModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   for (psList = psProperties->psIncludeList; psList != NULL; psList = psList->psNext)
   {
-    if (SupportMatchExclude(psProperties->psExcludeList, psList->acPath) == NULL)
+    if (SupportMatchExclude(psProperties->psExcludeList, psList->pcRegularPath) == NULL)
     {
-      MapFile(psProperties, psList->acPath, acLocalError);
+      MapFile(psProperties, psList->pcRegularPath, acLocalError);
     }
   }
 
@@ -655,7 +667,7 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
     iIndex = sprintf(&acMessage[iIndex], "AnalysisStages=");
     for (i = 0, iFirst = 0; i < psProperties->iLastAnalysisStage; i++)
     {
-        iIndex += sprintf(&acMessage[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", psProperties->asAnalysisStages[i].acDescription);
+      iIndex += sprintf(&acMessage[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", psProperties->asAnalysisStages[i].acDescription);
     }
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
@@ -683,10 +695,17 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 
-  snprintf(acMessage, MESSAGE_SIZE, "CompleteRecords=%d", MapGetRecordCount());
+  /*-
+   *********************************************************************
+   *
+   * List the number of map records.
+   *
+   *********************************************************************
+   */
+  snprintf(acMessage, MESSAGE_SIZE, "MapRecords=%d", MapGetRecordCount());
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
-  snprintf(acMessage, MESSAGE_SIZE, "IncompleteRecords=%d", MapGetIncompleteRecordCount());
+  snprintf(acMessage, MESSAGE_SIZE, "PartialMapRecords=%d", MapGetIncompleteRecordCount());
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   SupportDisplayRunStatistics(psProperties);
@@ -706,7 +725,7 @@ int
 MapModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "MapModeFinalStage()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError;
 
   /*-
@@ -716,7 +735,7 @@ MapModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (psProperties->bURLPutSnapshot && psProperties->iRunMode == FTIMES_MAPFULL)
+  if (psProperties->bURLPutSnapshot && psProperties->iRunMode == FTIMES_MAPMODE)
   {
     iError = URLPutRequest(psProperties, acLocalError);
     if (iError != ER_OK)

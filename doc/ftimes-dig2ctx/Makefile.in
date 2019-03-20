@@ -9,7 +9,7 @@ VPATH=${SRCDIR}
 
 INSTALL=@INSTALL@
 
-INSTALL_PREFIX=${PREFIX}/man/man1
+INSTALL_PREFIX=${DESTDIR}${PREFIX}/man/man1
 
 HTML_FILE=ftimes-dig2ctx.html
 

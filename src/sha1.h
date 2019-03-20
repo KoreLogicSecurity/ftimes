@@ -1,14 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: sha1.h,v 1.4 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: sha1.h,v 1.13 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2003-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _SHA1_H_INCLUDED
+#define _SHA1_H_INCLUDED
 
 /*-
  ***********************************************************************
@@ -37,7 +39,7 @@
 #define SHA1_F3(X,Y,Z) (((X)&(Y))^((X)&(Z))^((Y)&(Z)))
 #define SHA1_F4(X,Y,Z) ((X)^(Y)^(Z))
 
-#define SHA1_ROTL(x,n) (((x)<<(n))|(((K_UINT32)(x))>>(32-(n))))
+#define SHA1_ROTL(x,n) (((x)<<(n))|(((APP_UI32)(x))>>(32-(n))))
 
 #define SHA1_R1(a,b,c,d,e,W) {(e)+=SHA1_ROTL((a),5)+SHA1_F1((b),(c),(d))+SHA1_K1+W;(b)=SHA1_ROTL((b),30);}
 #define SHA1_R2(a,b,c,d,e,W) {(e)+=SHA1_ROTL((a),5)+SHA1_F2((b),(c),(d))+SHA1_K2+W;(b)=SHA1_ROTL((b),30);}
@@ -53,13 +55,13 @@
  */
 typedef struct _SHA1_CONTEXT
 {
-  K_UINT32            A;
-  K_UINT32            B;
-  K_UINT32            C;
-  K_UINT32            D;
-  K_UINT32            E;
-  K_UINT64            ui64MessageLength;
-  K_UINT32            ui32ResidueLength;
+  APP_UI32            A;
+  APP_UI32            B;
+  APP_UI32            C;
+  APP_UI32            D;
+  APP_UI32            E;
+  APP_UI64            ui64MessageLength;
+  APP_UI32            ui32ResidueLength;
   unsigned char       aucResidue[SHA1_HUNK_SIZE];
 } SHA1_CONTEXT;
 
@@ -72,9 +74,11 @@ typedef struct _SHA1_CONTEXT
  */
 int                   SHA1HashToBase64(unsigned char *pucHash, char *pcBase64Hash);
 int                   SHA1HashToHex(unsigned char *pucHash, char *pcHexHash);
-int                   SHA1HashStream(FILE *pFile, unsigned char *pucSHA1);
+int                   SHA1HashStream(FILE *pFile, unsigned char *pucSHA1, APP_UI64 *pui64Size);
 void                  SHA1HashString(unsigned char *pucData, int iLength, unsigned char *pucSHA1);
 void                  SHA1Alpha(SHA1_CONTEXT *psSHA1);
-void                  SHA1Cycle(SHA1_CONTEXT *psSHA1, unsigned char *pucData, K_UINT32 ui32Length);
+void                  SHA1Cycle(SHA1_CONTEXT *psSHA1, unsigned char *pucData, APP_UI32 ui32Length);
 void                  SHA1Omega(SHA1_CONTEXT *psSHA1, unsigned char *pucSHA1);
 void                  SHA1Grind(SHA1_CONTEXT *psSHA1, unsigned char *pucData);
+
+#endif /* !_SHA1_H_INCLUDED */

@@ -1,6 +1,6 @@
 ######################################################################
 #
-# $Id: common-tests.mk.in,v 1.6 2007/04/14 19:42:08 mavrik Exp $
+# $Id: common-tests.mk.in,v 1.7 2008/01/19 23:00:10 mavrik Exp $
 #
 ######################################################################
 #
@@ -10,9 +10,11 @@
 
 WORKDIR=work
 
-CHECK_DEBUG_LEVEL?=2
+CHECK_DEBUG_LEVEL?=${DEBUG}
 
 CLEAN_DEBUG_LEVEL?=0
+
+DEBUG?=2
 
 SETUP_DEBUG_LEVEL?=0
 

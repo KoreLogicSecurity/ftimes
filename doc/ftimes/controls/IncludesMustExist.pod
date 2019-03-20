@@ -1,6 +1,6 @@
 =item B<IncludesMustExist>: [Y|N]
 
-Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+Applies to B<dig>, B<mad>, and B<map>.
 
 B<IncludesMustExist> is optional.  When enabled ('Y' or 'y'), it
 instructs B<FTimes> to check that every B<Include> exists prior to

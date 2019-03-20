@@ -1,11 +1,11 @@
 =item B<FieldMask>: <mask>
 
-Applies to B<compare>, B<mapauto>, B<mapfull>, and B<maplean>.
+Applies to B<compare>, B<mapauto>, B<mad>, and B<map>.
 
 B<FieldMask> is required in B<compare>.  Its value indicates what
 fields are to be compared for change.
 
-B<FieldMask> is required in B<mapauto>, B<mapfull>, and B<maplean>.
+B<FieldMask> is required in B<mapauto>, B<mad>, and B<map>.
 Its value dictates what attributes get collected or derived during
 a scan.
 
@@ -18,9 +18,9 @@ or
 
     NONE<+|-><field>[<+|-><field>...]
 
-The following fields may be specified on Windows platforms with two
-caveats:  (1) chtime is only available on Windows NT/2K systems and
-(2) altstreams is only available if the target file system is NTFS.
+The following fields may be specified on WINX platforms with two
+caveats:  (1) chtime is only available on Windows NT or higher and (2)
+altstreams is only available if the target file system is NTFS.
 
     volume     - Volume serial number
     findex     - File serial number
@@ -35,6 +35,9 @@ caveats:  (1) chtime is only available on Windows NT/2K systems and
     sha1       - SHA1 digest of the file's data stream
     sha256     - SHA256 digest of the file's data stream
     magic      - File type
+    osid       - Owner SID
+    gsid       - Group SID
+    dacl       - Discretionary access control list
 
 The following fields may be specified on UNIX platforms:
 
@@ -60,8 +63,71 @@ specified:
     hashes     - Compute all supported hash values
     times      - Collect all supported time values
 
-For example, the "hashes field is equivalent to "md5+sha1+sha256".
+For example, the "hashes" field is equivalent to "md5+sha1+sha256".
 Similarly, the "times" field is equivalent to "atime+mtime+ctime" and
-"atime+mtime+ctime+chtime" on UNIX and Windows platforms,
-respectively.
+"atime+mtime+ctime+chtime" on UNIX and WINX platforms, respectively.
+
+The "attributes" field is a collection of flags stored as a bitmap.
+The breakdown for these flags is as follows:
+
+    ------------------------
+    bit  0     - 0x00001 Read Only
+    bit  1     - 0x00002 Hidden
+    bit  2     - 0x00004 System
+    bit  3     - 0x00008 Volume Label (?)
+    bit  4     - 0x00010 Directory
+    bit  5     - 0x00020 Archive
+    bit  6     - 0x00040 Device
+    bit  7     - 0x00080 Normal
+    ------------------------
+    bit  8     - 0x00100 Temporary
+    bit  9     - 0x00200 Sparse
+    bit 10     - 0x00400 Reparse Point
+    bit 11     - 0x00800 Compressed
+    bit 12     - 0x01000 Offline
+    bit 13     - 0x02000 Not Content Indexed
+    bit 14     - 0x04000 Encrypted
+    bit 15     - 0x08000 (?)
+    ------------------------
+    bit 16     - 0x10000 Virtual
+    ------------------------
+
+Additional file attribute details are documented here:
+
+    msdn.microsoft.com/en-us/library/ee332330(VS.85).aspx
+
+The "mode" field is a collection of flags stored as a bitmap.  The
+breakdown for these flags is as follows:
+
+    ------------------------
+    bit  0     - X for other
+    bit  1     - W for other
+    bit  2     - R for other
+    ------------------------
+    bit  3     - X for group
+    bit  4     - W for group
+    bit  5     - R for group
+    ------------------------
+    bit  6     - X for owner
+    bit  7     - W for owner
+    bit  8     - R for owner
+    ------------------------
+    bit  9     - sticky bit
+    bit 10     - set group ID on execution
+    bit 11     - set owner ID on execution
+    ------------------------
+    bits 12-15 - file type
+    ------------------------
+
+To isolate the file type portion of the mode, AND the mode with octal
+0170000.  The breakdown for file types is as follows:
+
+    0010000    - named pipe (fifo)
+    0020000    - character special
+    0040000    - directory
+    0060000    - block special
+    0100000    - regular
+    0120000    - symbolic link
+    0140000    - socket
+    0160000    - whiteout
 

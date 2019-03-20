@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: message.c,v 1.13 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: message.c,v 1.20 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -91,6 +91,7 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
   static int          n = 0;
   int                 i = 0;
   int                 iLength = 0;
+  int                 iNWritten = 0;
 
   /*-
    *********************************************************************
@@ -165,7 +166,7 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
             {
               iLength += snprintf(&aacMessageQueue[i][iLength], 3, "%s", gacNewLine);
             }
-            fwrite(aacMessageQueue[i], iLength, 1, gpFile);
+            iNWritten = fwrite(aacMessageQueue[i], iLength, 1, gpFile);
           }
           aacMessageQueue[i][0] = 0;
         }
@@ -213,7 +214,7 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
             {
               iLength += snprintf(&aacMessageQueue[i][iLength], 3, "%s", gacNewLine);
             }
-            fwrite(aacMessageQueue[i], iLength, 1, gpFile);
+            iNWritten = fwrite(aacMessageQueue[i], iLength, 1, gpFile);
           }
           aacMessageQueue[i][0] = 0;
         }
@@ -241,7 +242,7 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
         {
           iLength += snprintf(&aacMessageQueue[0][iLength], 3, "%s", gacNewLine);
         }
-        fwrite(aacMessageQueue[0], iLength, 1, gpFile);
+        iNWritten = fwrite(aacMessageQueue[0], iLength, 1, gpFile);
       }
       aacMessageQueue[0][0] = 0;
       fprintf(stderr, "%*.*s|%s%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage, gacNewLine);
@@ -265,7 +266,7 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
             {
               iLength += snprintf(&aacMessageQueue[i][iLength], 3, "%s", gacNewLine);
             }
-            fwrite(aacMessageQueue[i], iLength, 1, gpFile);
+            iNWritten = fwrite(aacMessageQueue[i], iLength, 1, gpFile);
           }
           aacMessageQueue[i][0] = 0;
         }

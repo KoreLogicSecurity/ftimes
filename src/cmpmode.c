@@ -1,71 +1,15 @@
 /*-
  ***********************************************************************
  *
- * $Id: cmpmode.c,v 1.18 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: cmpmode.c,v 1.34 2012/01/04 03:12:27 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
-
-/*-
- ***********************************************************************
- *
- * CmpModeProcessArguments
- *
- ***********************************************************************
- */
-int
-CmpModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError)
-{
-  const char          acRoutine[] = "CmpModeProcessArguments()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 iError = 0;
-
-  /*-
-   *********************************************************************
-   *
-   * Process arguments.
-   *
-   *********************************************************************
-   */
-  if (iArgumentCount >= 3)
-  {
-    psProperties->psFieldMask = MaskParseMask(ppcArgumentVector[0], MASK_RUNMODE_TYPE_CMP, acLocalError);
-    if (psProperties->psFieldMask == NULL)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-      return ER;
-    }
-    psProperties->psBaselineContext->pcFile = ppcArgumentVector[1];
-    psProperties->psSnapshotContext->pcFile = ppcArgumentVector[2];
-    if (iArgumentCount >= 4)
-    {
-      if (iArgumentCount == 5 && strcmp(ppcArgumentVector[3], "-l") == 0)
-      {
-        iError = SupportSetLogLevel(ppcArgumentVector[4], &psProperties->iLogLevel, acLocalError);
-        if (iError != ER_OK)
-        {
-          snprintf(pcError, MESSAGE_SIZE, "%s: Level = [%s]: %s", acRoutine, ppcArgumentVector[4], acLocalError);
-          return iError;
-        }
-      }
-      else
-      {
-        return ER_Usage;
-      }
-    }
-  }
-  else
-  {
-    return ER_Usage;
-  }
-  return ER_OK;
-}
-
 
 /*-
  ***********************************************************************
@@ -78,8 +22,9 @@ int
 CmpModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "CmpModeInitialize()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   CMP_PROPERTIES     *psCmpProperties = NULL;
+  int                 iError = 0;
 
   /*-
    *********************************************************************
@@ -109,6 +54,20 @@ CmpModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
   psCmpProperties->psCompareMask = psProperties->psFieldMask;
 
   DecodeBuildFromBase64Table();
+
+  /*-
+   *********************************************************************
+   *
+   * Set the priority.
+   *
+   *********************************************************************
+   */
+  iError = SupportSetPriority(psProperties, acLocalError);
+  if (iError != ER_OK)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return iError;
+  }
 
   return ER_OK;
 }
@@ -159,11 +118,68 @@ int
 CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "CmpModeFinalize()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   char                acMessage[MESSAGE_SIZE] = { 0 };
   char               *pcMask = NULL;
-  CMP_PROPERTIES     *pcCmpProperties = CompareGetPropertiesReference();
+  CMP_PROPERTIES     *psCmpProperties = CompareGetPropertiesReference();
   int                 iError = 0;
+  int                 iLength = 0;
+  struct stat         statEntry = { 0 };
+
+  /*-
+   *********************************************************************
+   *
+   * Determine whether or not a backing file will be required. This is
+   * done for two reasons: 1) there's no need to create a backing file
+   * for small baselines and 2) if the backing file size ends up being
+   * zero, attempts to map it can lead to EINVAL errors on some
+   * platforms.
+   *
+   *********************************************************************
+   */
+  if
+  (
+       psProperties->iMemoryMapEnable
+    && (stat(psProperties->psBaselineContext->pcFile, &statEntry) == ER_OK)
+    && ((statEntry.st_mode & S_IFMT) == S_IFREG)
+    && (statEntry.st_size > FTIMES_MIN_MMAP_SIZE)
+  )
+  {
+    psCmpProperties->iMemoryMapFile = 1;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally initialize the name for a backing file.
+   *
+   *********************************************************************
+   */
+  if (psCmpProperties->iMemoryMapFile)
+  {
+    iLength = strlen(psProperties->acTempDirectory) +
+      strlen(FTIMES_SLASH) +
+      strlen(PROGRAM_NAME) +
+      strlen("_") +
+      strlen("4294967295") +
+      strlen("_") +
+      strlen(psProperties->pcNonce) +
+      strlen(".mmap") +
+      1;
+    psCmpProperties->pcMemoryMapFile = calloc(iLength, 1);
+    if (psCmpProperties->pcMemoryMapFile == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+      return ER;
+    }
+    snprintf(psCmpProperties->pcMemoryMapFile, iLength, "%s%s%s_%ld_%s.mmap",
+      psProperties->acTempDirectory,
+      FTIMES_SLASH,
+      PROGRAM_NAME,
+      (long) psProperties->tvJobEpoch.tv_sec,
+      psProperties->pcNonce
+      );
+  }
 
   /*-
    *********************************************************************
@@ -226,11 +242,19 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  pcCmpProperties->psCompareMask->ulMask &= psProperties->psBaselineContext->ulFieldMask; /* Remove fields not present in the baseline. */
-  pcCmpProperties->psCompareMask->ulMask &= psProperties->psSnapshotContext->ulFieldMask; /* Remove fields not present in the snapshot. */
-  if (pcCmpProperties->psCompareMask->ulMask == 0)
+  if (psCmpProperties->psCompareMask->ulMask)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: The baseline and snapshot have no fields in common. Only (M)issing and (N)ew changes will be detected.", acRoutine);
+    psCmpProperties->psCompareMask->ulMask &= psProperties->psBaselineContext->ulFieldMask; /* Remove fields not present in the baseline. */
+    psCmpProperties->psCompareMask->ulMask &= psProperties->psSnapshotContext->ulFieldMask; /* Remove fields not present in the snapshot. */
+    if (psCmpProperties->psCompareMask->ulMask == 0)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: The baseline and snapshot have no fields in common. Only (M)issing and (N)ew changes will be detected.", acRoutine);
+      ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+    }
+  }
+  else
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: No fields were specified in the compare mask. Only (M)issing and (N)ew changes will be detected.", acRoutine);
     ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
   }
 
@@ -275,7 +299,7 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   free(pcMask);
 
-  pcMask = MaskBuildMask(pcCmpProperties->psCompareMask->ulMask, MASK_RUNMODE_TYPE_CMP, acLocalError);
+  pcMask = MaskBuildMask(psCmpProperties->psCompareMask->ulMask, MASK_RUNMODE_TYPE_CMP, acLocalError);
   if (pcMask == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -315,7 +339,7 @@ int
 CmpModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "CmpModeWorkHorse()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acLocalError[MESSAGE_SIZE] = "";
   int                 iError = 0;
 
   iError = CompareLoadBaselineData(psProperties->psBaselineContext, acLocalError);
@@ -409,6 +433,29 @@ CmpModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 CmpModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  CompareFreeProperties(CompareGetPropertiesReference());
+  CMP_PROPERTIES     *psCmpProperties = CompareGetPropertiesReference();
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally unmap memory and delete the associated file. Since
+   * the program is shutting down and the memory map file is no longer
+   * needed, there's not much point in checking the return values for
+   * these calls.
+   *
+   *********************************************************************
+   */
+  if (psCmpProperties->iMemoryMapFile)
+  {
+#ifdef WINNT
+    UnmapViewOfFile(psCmpProperties->pvMemoryMap);
+#else
+    munmap(psCmpProperties->pvMemoryMap, psCmpProperties->iMemoryMapSize);
+#endif
+    unlink(psCmpProperties->pcMemoryMapFile);
+  }
+
+  CompareFreeProperties(psCmpProperties);
+
   return ER_OK;
 }

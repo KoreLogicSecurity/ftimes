@@ -1,14 +1,16 @@
 /*-
  ***********************************************************************
  *
- * $Id: decode.h,v 1.15 2007/02/23 00:22:35 mavrik Exp $
+ * $Id: decode.h,v 1.25 2012/01/04 03:12:28 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
+#ifndef _DECODE_H_INCLUDED
+#define _DECODE_H_INCLUDED
 
 /*-
  ***********************************************************************
@@ -21,14 +23,14 @@
 #define MESSAGE_SIZE 1024
 #endif
 
-#ifndef NEWLINE_LENGTH 
+#ifndef NEWLINE_LENGTH
 #define NEWLINE_LENGTH 3
 #endif
 
 #define DECODE_CHECKPOINT_LENGTH 2
 #define DECODE_CHECKPOINT_STRING "00"
 #define DECODE_FIELDNAME_SIZE 32
-#define DECODE_FIELD_COUNT 25
+#define DECODE_FIELD_COUNT 28 /* This value must be updated as new fields are added. */
 #ifndef FTIMES_MAX_LINE
 #define DECODE_MAX_LINE 8192
 #else
@@ -79,46 +81,46 @@ typedef struct _DECODE_RECORD
 typedef struct _DECODE_STATE
 {
   char                name[DECODE_MAX_PATH];
-  K_UINT32            dev;
-  K_UINT32           *pdev;
-  K_UINT32            inode;
-  K_UINT32           *pinode;
-  K_UINT32            volume;
-  K_UINT32           *pvolume;
-  K_UINT64            findex;
-  K_UINT64           *pfindex;
-  K_UINT32            mode;
-  K_UINT32           *pmode;
-  K_UINT32            attributes;
-  K_UINT32           *pattributes;
-  K_UINT32            nlink;
-  K_UINT32           *pnlink;
-  K_UINT32            uid;
-  K_UINT32           *puid;
-  K_UINT32            gid;
-  K_UINT32           *pgid;
-  K_UINT32            rdev;
-  K_UINT32           *prdev;
-  K_UINT32            atime;
-  K_UINT32           *patime;
-  K_UINT32            ams;
-  K_UINT32           *pams;
-  K_UINT32            mtime;
-  K_UINT32           *pmtime;
-  K_UINT32            mms;
-  K_UINT32           *pmms;
-  K_UINT32            ctime;
-  K_UINT32           *pctime;
-  K_UINT32            cms;
-  K_UINT32           *pcms;
-  K_UINT32            chtime;
-  K_UINT32           *pchtime;
-  K_UINT32            chms;
-  K_UINT32           *pchms;
-  K_UINT64            size;
-  K_UINT64           *psize;
-  K_UINT32            altstreams;
-  K_UINT32           *paltstreams;
+  APP_UI32            dev;
+  APP_UI32           *pdev;
+  APP_UI32            inode;
+  APP_UI32           *pinode;
+  APP_UI32            volume;
+  APP_UI32           *pvolume;
+  APP_UI64            findex;
+  APP_UI64           *pfindex;
+  APP_UI32            mode;
+  APP_UI32           *pmode;
+  APP_UI32            attributes;
+  APP_UI32           *pattributes;
+  APP_UI32            nlink;
+  APP_UI32           *pnlink;
+  APP_UI32            uid;
+  APP_UI32           *puid;
+  APP_UI32            gid;
+  APP_UI32           *pgid;
+  APP_UI32            rdev;
+  APP_UI32           *prdev;
+  APP_UI32            atime;
+  APP_UI32           *patime;
+  APP_UI32            ams;
+  APP_UI32           *pams;
+  APP_UI32            mtime;
+  APP_UI32           *pmtime;
+  APP_UI32            mms;
+  APP_UI32           *pmms;
+  APP_UI32            ctime;
+  APP_UI32           *pctime;
+  APP_UI32            cms;
+  APP_UI32           *pcms;
+  APP_UI32            chtime;
+  APP_UI32           *pchtime;
+  APP_UI32            chms;
+  APP_UI32           *pchms;
+  APP_UI64            size;
+  APP_UI64           *psize;
+  APP_UI32            altstreams;
+  APP_UI32           *paltstreams;
 } DECODE_STATE;
 
 typedef struct _DECODE_STATS
@@ -144,6 +146,7 @@ typedef struct _SNAPSHOT_CONTEXT
   int                 iFieldCount;
   int                 iLegacyFile;
   int                 iLineNumber;
+  int                 iNamesAreCaseInsensitive;
   int                 iSkipToNext;
   unsigned long       ulFieldMask;
 } SNAPSHOT_CONTEXT;
@@ -155,12 +158,12 @@ typedef struct _SNAPSHOT_CONTEXT
  *
  ***********************************************************************
  */
-int                 Decode32BitHexToDecimal(char *pcData, int iLength, K_UINT32 *pui32ValueNew, K_UINT32 *pui32ValueOld, char *pcError);
-int                 Decode64BitHexToDecimal(char *pcData, int iLength, K_UINT64 *pui64ValueNew, K_UINT64 *pui64ValueOld, char *pcError);
+int                 Decode32BitHexToDecimal(char *pcData, int iLength, APP_UI32 *pui32ValueNew, APP_UI32 *pui32ValueOld, char *pcError);
+int                 Decode64BitHexToDecimal(char *pcData, int iLength, APP_UI64 *pui64ValueNew, APP_UI64 *pui64ValueOld, char *pcError);
 void                DecodeBuildFromBase64Table(void);
 void                DecodeClearRecord(DECODE_RECORD *psRecord, int iFieldCount);
 int                 DecodeFormatOutOfBandTime(char *pcToken, int iLength, char *pcOutput, char *pcError);
-int                 DecodeFormatTime(K_UINT32 *pui32Time, char *pcTime);
+int                 DecodeFormatTime(APP_UI32 *pui32Time, char *pcTime);
 void                DecodeFreeSnapshotContext(SNAPSHOT_CONTEXT *psSnapshot);
 int                 DecodeGetBase64Hash(char *pcData, unsigned char *pucHash, int iLength, char *pcError);
 int                 DecodeGetTableLength(void);
@@ -200,3 +203,5 @@ void                DecodeSetNewLine(char *pcNewLine);
 void                DecodeSetOutputStream(FILE *pFile);
 int                 DecodeWriteHeader(SNAPSHOT_CONTEXT *psSnapshot, char *pcError);
 int                 DecodeWriteRecord(SNAPSHOT_CONTEXT *psSnapshot, char *pcError);
+
+#endif /* !_DECODE_H_INCLUDED */
