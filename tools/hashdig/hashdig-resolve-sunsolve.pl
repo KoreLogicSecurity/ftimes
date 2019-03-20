@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-resolve-sunsolve.pl,v 1.15 2005/06/03 21:20:22 mavrik Exp $
+# $Id: hashdig-resolve-sunsolve.pl,v 1.17 2006/04/07 22:15:12 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2005 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2006 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -202,9 +202,9 @@ use IO::Socket;
   while (my $sRecord = <$sFileHandle>)
   {
     $sRecord =~ s/[\r\n]+$//;
-    if ($sRecord =~ /^[0-9a-fA-F]{32}$/)
+    if ($sRecord =~ /^([0-9a-fA-F]{32})(?:\|[KU])?$/)
     {
-      $sMD5Hashes .= $sRecord . "\n";
+      $sMD5Hashes .= $1 . "\n";
       if (++$sCount % 256 == 0)
       {
         if (scalar(@aKidPids) >= $sKidLimit)
@@ -485,7 +485,7 @@ This utility resolves a list of hashes against Sun's Solaris
 Fingerprint Database. Input is expected to be plain text with one
 hash per line. Each line must match the following regular expression:
 
-    ^[0-9a-fA-F]{32}$
+    ^([0-9a-fA-F]{32})(?:\|[KU])?$
 
 Input that does not match this expression will cause the program
 to generate a warning. When the warning limit (see B<-w> option)

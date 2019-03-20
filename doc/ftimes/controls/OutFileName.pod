@@ -1,7 +1,0 @@
-=item B<OutFileName>: <file>
-
-Applies to B<putmode>.
-
-B<OutFileName> is required.  Its value is the name of the output
-file being posted.  B<OutFileName> must be specified as a full path.
-

@@ -2,7 +2,7 @@
 ######################################################################
 ######################################################################
 #
-# $Id: mapfull.cfg.sample,v 1.7 2005/03/07 03:49:18 mavrik Exp $
+# $Id: mapfull.cfg.sample,v 1.9 2005/11/16 05:04:27 mavrik Exp $
 #
 ######################################################################
 ######################################################################
@@ -44,7 +44,7 @@
 #FieldMask=                       # <mask> (e.g., all-magic)
 #FileSizeLimit=0                  # <integer>
 #HashDirectories=N                # [Y|N]
-#HashSymbolicLinks=N              # [Y|N]
+#HashSymbolicLinks=Y              # [Y|N]
 #IncludesMustExist=N              # [Y|N]
 #MagicFile=                       # <file>
 #NewLine=                         # [LF|CRLF]
@@ -56,7 +56,6 @@
 #URLAuthType=none                 # [basic|none]
 #URLUsername=                     # <username>
 #URLPassword=                     # <password>
-#URLCreateConfig=N                # [Y|N]
 #URLUnlinkOutput=N                # [Y|N]
 #
 #SSLUseCertificate=N              # [Y|N]

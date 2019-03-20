@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-dig2ctx.pl,v 1.21 2005/06/03 16:30:37 mavrik Exp $
+# $Id: ftimes-dig2ctx.pl,v 1.23 2006/04/09 00:28:10 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2002-2005 The FTimes Project, All Rights Reserved.
+# Copyright 2002-2006 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -56,7 +56,7 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('c:d:e:f:hi:l:p:r:', \%hOptions))
+  if (!getopts('c:d:e:f:hi:Ll:p:Rr:', \%hOptions))
   {
     Usage($sProgram);
   }
@@ -161,11 +161,27 @@ use Getopt::Std;
 
   ####################################################################
   #
+  # Preserve LH (left-hand) boundary, '-L', is optional.
+  #
+  ####################################################################
+
+  my $sPreserveLHBoundary = (exists($hOptions{'L'})) ? 1 : 0;
+
+  ####################################################################
+  #
   # A LH (left-hand) boundary, '-l', is optional.
   #
   ####################################################################
 
   my $sLHBoundary = (exists($hOptions{'l'})) ? $hOptions{'l'} : undef;
+
+  ####################################################################
+  #
+  # Preserve RH (right-hand) boundary, '-R', is optional.
+  #
+  ####################################################################
+
+  my $sPreserveRHBoundary = (exists($hOptions{'R'})) ? 1 : 0;
 
   ####################################################################
   #
@@ -417,7 +433,14 @@ use Getopt::Std;
       $sRawLHData = substr($sRawData, 0, $sLHLength);
       if (defined($sLHBoundary))
       {
-        $sRawLHData = (reverse(split(/$sLHBoundary/, $sRawLHData, -1)))[0];
+        if ($sPreserveLHBoundary)
+        {
+          $sRawLHData = join("", (reverse(split(/($sLHBoundary)/, $sRawLHData, -1)))[1,0]);
+        }
+        else
+        {
+          $sRawLHData = (reverse(split(/$sLHBoundary/, $sRawLHData, -1)))[0];
+        }
         $sAdjOffset += ($sLHLength - length($sRawLHData));
       }
     }
@@ -446,7 +469,14 @@ use Getopt::Std;
       $sRawRHData = substr($sRawData, $sLHLength + $sMHLength, $sRHLength);
       if (defined($sRHBoundary))
       {
-        $sRawRHData = (split(/$sRHBoundary/, $sRawRHData))[0];
+        if ($sPreserveRHBoundary)
+        {
+          $sRawRHData = join("", (split(/($sRHBoundary)/, $sRawRHData))[0,1]);
+        }
+        else
+        {
+          $sRawRHData = (split(/$sRHBoundary/, $sRawRHData))[0];
+        }
       }
     }
     $sRawRHData .= '';
@@ -559,7 +589,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-h] [-d dir] [-e {file|hex|url}] [-c length] [-p length] [-l regex] [-r regex] [-i count] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-hLR] [-d dir] [-e {file|hex|url}] [-c length] [-p length] [-l regex] [-r regex] [-i count] -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -573,7 +603,7 @@ ftimes-dig2ctx.pl - Extract context around matched dig strings
 
 =head1 SYNOPSIS
 
-B<ftimes-dig2ctx.pl> B<[-h]> B<[-d dir]> B<[-e {file|hex|url}]> B<[-c length]> B<[-p length]> B<[-l regex]> B<[-r regex]> B<[-i count]> B<-f {file|-}>
+B<ftimes-dig2ctx.pl> B<[-hLR]> B<[-d dir]> B<[-e {file|hex|url}]> B<[-c length]> B<[-p length]> B<[-l regex]> B<[-r regex]> B<[-i count]> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
@@ -639,6 +669,11 @@ Print a header line.
 
 Specifies the number of input lines to ignore.
 
+=item B<-L>
+
+Preserve the contents of the left-hand boundary. This option is
+disabled by default.
+
 =item B<-l regex>
 
 Specifies the left-hand boundary. This is a Perl regular expression
@@ -649,6 +684,11 @@ that can be used to limit the amount of context returned.
 Specifies the desired prefix length in bytes.  You may get less
 than this amount depending on where the match occurrs in the input
 file.
+
+=item B<-R>
+
+Preserve the contents of the right-hand boundary. This option is
+disabled by default.
 
 =item B<-r regex>
 

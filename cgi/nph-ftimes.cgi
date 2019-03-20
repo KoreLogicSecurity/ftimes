@@ -1,11 +1,11 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: nph-ftimes.cgi,v 1.19 2005/05/08 16:29:08 mavrik Exp $
+# $Id: nph-ftimes.cgi,v 1.25 2006/04/07 22:15:09 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+# Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
 #
 ######################################################################
 
@@ -46,7 +46,8 @@ use Fcntl qw(:flock);
   #
   ####################################################################
 
-  $hProperties{'StartTime'} = time;
+  $hProperties{'StartTime'} = time();
+  $hProperties{'Version'} = sprintf("%s %s", __FILE__, ('$Revision: 1.25 $' =~ /^.Revision: ([\d.]+)/));
 
   ####################################################################
   #
@@ -95,7 +96,7 @@ use Fcntl qw(:flock);
   #
   ####################################################################
 
-  $hProperties{'StopTime'} = time;
+  $hProperties{'StopTime'} = time();
 
   if ($hProperties{'EnableLogging'} =~ /^[Yy]$/)
   {
@@ -297,7 +298,7 @@ sub CreateRunTimeEnvironment
     'Request'   => qq(&REQUEST=(Map(?:Full|Lean)Config|Dig(?:Full|Lean)Config)),
     'RunType'   => qq(&RUNTYPE=(baseline|linktest|snapshot)),
     'SOL'       => qq(^),
-    'Version'   => qq(VERSION=(ftimes[\\w ().]{1,64})),
+    'Version'   => qq(VERSION=(ftimes[\\w ().-]{1,64})),
   );
 
   $$phProperties{'GETRegex'} =
@@ -373,7 +374,7 @@ sub CreateRunTimeEnvironment
 
   %hGlobalConfigTemplate = # This is the set of site-wide properties.
   (
-    'BaseDirectory'     => qq(^(?:[A-Za-z]:)?/[\\w-./]+\$),
+    'BaseDirectory'     => qq(^(?:[A-Za-z]:)?/[\\w./-]+\$),
     'CapContentLength'  => qq(^[YyNn]\$),
     'EnableLogging'     => qq(^[YyNn]\$),
     'MaxContentLength'  => qq(^\\d{1,20}\$), # 18446744073709551615
@@ -1060,6 +1061,7 @@ sub ProcessPutRequest
       flock(FH, LOCK_EX);
       if ($sPutFile eq $sRdyFile)
       {
+        print FH "Version=", $$phProperties{'Version'}, $$phProperties{'Newline'};
         foreach my $sKey (sort(keys(%{$$phProperties{'GlobalConfigTemplate'}})))
         {
           print FH $sKey, "=", $$phProperties{$sKey}, $$phProperties{'Newline'};

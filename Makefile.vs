@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.15 2005/05/07 18:50:45 mavrik Exp $
+# $Id: Makefile.vs,v 1.21 2006/04/16 19:02:06 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+# Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
 #
 ########################################################################
 #
@@ -28,7 +28,7 @@ OBJECT_DIR		= build
 PCRE_DIR		= C:\Pcre
 PCRE_LIB_DIR		= $(PCRE_DIR)\lib
 PCRE_INC_DIR		= $(PCRE_DIR)\include
-PCRE_COMPILER_FLAGS	= /D USE_PCRE /I"$(PCRE_INC_DIR)"
+PCRE_COMPILER_FLAGS	= /D USE_PCRE /D PCRE_STATIC /I"$(PCRE_INC_DIR)"
 PCRE_LINKER_FLAGS	= /libpath:"$(PCRE_LIB_DIR)" pcre.lib pcreposix.lib
 !ENDIF
 
@@ -94,9 +94,11 @@ INCLUDES		=\
 			src\ftimes.h\
 			src\http.h\
 			src\ktypes.h\
+			src\mask.h\
 			src\md5.h\
 			src\message.h\
 			src\native.h\
+			src\sha1.h\
 			src\socket.h\
 			src\ssl.h\
 			src\ssl-pool.h\
@@ -120,10 +122,11 @@ OBJECTS			=\
 			"$(OBJECT_DIR)\http.obj"\
 			"$(OBJECT_DIR)\map.obj"\
 			"$(OBJECT_DIR)\mapmode.obj"\
+			"$(OBJECT_DIR)\mask.obj"\
 			"$(OBJECT_DIR)\md5.obj"\
 			"$(OBJECT_DIR)\message.obj"\
 			"$(OBJECT_DIR)\properties.obj"\
-			"$(OBJECT_DIR)\putmode.obj"\
+			"$(OBJECT_DIR)\sha1.obj"\
 			"$(OBJECT_DIR)\socket.obj"\
 !IF "$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y"
 			"$(OBJECT_DIR)\ssl.obj"\
@@ -159,6 +162,9 @@ LINKER_FLAGS		=\
 
 all: "$(EXECUTEABLE)"
 
+test: "$(EXECUTEABLE)"
+	utils\test_windows.bat
+
 install: "$(EXECUTEABLE)"
 	if not exist "$(INSTALL_DIR)" mkdir "$(INSTALL_DIR)"
 	if not exist "$(INSTALL_DIR)\bin" mkdir "$(INSTALL_DIR)\bin"
@@ -183,7 +189,6 @@ install: "$(EXECUTEABLE)"
 !IF "$(USE_CGI)" == "Y" || "$(USE_CGI)" == "y"
 	copy etc\nph-ftimes.cfg.sample "$(INSTALL_DIR)\etc"
 !ENDIF
-	copy etc\put.cfg.sample "$(INSTALL_DIR)\etc"
 !IF ("$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y") && ("$(USE_STATIC_SSL_LIBS)" == "N" || "$(USE_STATIC_SSL_LIBS)" == "n")
 	copy "$(SSL_DLL1)" "$(INSTALL_DIR)\bin"
 	copy "$(SSL_DLL2)" "$(INSTALL_DIR)\bin"
@@ -239,13 +244,15 @@ clean-all: clean
 
 "$(OBJECT_DIR)\mapmode.obj": src\mapmode.c $(INCLUDES) "$(OBJECT_DIR)"
 
+"$(OBJECT_DIR)\mask.obj": src\mask.c $(INCLUDES) "$(OBJECT_DIR)"
+
 "$(OBJECT_DIR)\md5.obj": src\md5.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\message.obj": src\message.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\properties.obj": src\properties.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\putmode.obj": src\putmode.c $(INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\sha1.obj": src\sha1.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\socket.obj": src\socket.c $(INCLUDES) "$(OBJECT_DIR)"
 

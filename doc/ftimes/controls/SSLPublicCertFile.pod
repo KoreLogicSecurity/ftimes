@@ -1,6 +1,6 @@
 =item B<SSLPublicCertFile>: <file>
 
-Applies to B<digfull>, B<mapfull>, B<putmode>, and B<getmode>.
+Applies to B<digfull>, B<mapfull>, and B<getmode>.
 
 B<SSLPublicCertFile> is required when B<SSLUseCertificate> is
 enabled.  This control specifies the name of a PEM (Privacy Enhanced

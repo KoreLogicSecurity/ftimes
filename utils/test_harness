@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness,v 1.5 2005/06/04 19:13:23 mavrik Exp $
+# $Id: test_harness,v 1.8 2006/04/16 14:48:12 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2005-2005 The FTimes Project, All Rights Reserved.
+# Copyright 2005-2006 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -137,18 +137,18 @@ BEGIN
   {
     Usage($$phProperties{'Program'});
   }
-if ($$phProperties{'RunMode'} =~ /^check$/)
-{
-  if ($$phProperties{'OsClass'} =~ /^WINDOWS$/ && $sTargetProgram !~ /\.exe$/)
+  if ($$phProperties{'RunMode'} =~ /^check$/)
   {
-    $sTargetProgram .= ".exe"
+    if ($$phProperties{'OsClass'} =~ /^WINDOWS$/ && $sTargetProgram !~ /\.exe$/)
+    {
+      $sTargetProgram .= ".exe"
+    }
+    if (!-f $sTargetProgram || !-x _)
+    {
+      print STDERR "$$phProperties{'Program'}: Error='The target program ($sTargetProgram) is not a file, does not exist, or is not executable.'\n";
+      exit(2);
+    }
   }
-  if (!-f $sTargetProgram || !-x _)
-  {
-    print STDERR "$$phProperties{'Program'}: Error='The target program ($sTargetProgram) is not a file, does not exist, or is not executable.'\n";
-    exit(2);
-  }
-}
 
   ####################################################################
   #
@@ -423,7 +423,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-d debug-level] [-w work-dir] -m {check|clean|setup} -p target-program\n";
+  print STDERR "Usage: $sProgram [-d debug-level] [-s src-dir] [-w work-dir] -m {check|clean|setup} -p target-program\n";
   print STDERR "\n";
   exit(1);
 }

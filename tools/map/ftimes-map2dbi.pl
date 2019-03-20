@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-map2dbi.pl,v 1.6 2005/06/06 20:43:46 mavrik Exp $
+# $Id: ftimes-map2dbi.pl,v 1.12 2006/04/07 22:15:12 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2002-2005 The FTimes Project, All Rights Reserved.
+# Copyright 2002-2006 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -53,8 +53,9 @@ use Getopt::Std;
     'mtime'         => "datetime null, index mtime_index (mtime)",
     'ctime'         => "datetime null, index ctime_index (ctime)",
     'size'          => "bigint unsigned null, index size_index (size)",
-    'magic'         => "text null, index magic_index (magic)",
+    'sha1'          => "varbinary(40) not null, index sha1_index (sha1)",
     'md5'           => "varbinary(32) not null, index md5_index (md5)",
+    'magic'         => "text null, index magic_index (magic)",
     'namemd5'       => "varbinary(32) not null",
   # UNIX-Specific fields
     'dev'           => "int unsigned null",
@@ -84,18 +85,10 @@ use Getopt::Std;
 
   my %hOptions;
 
-  if (!getopts('Fd:f:h:m:', \%hOptions))
+  if (!getopts('d:Ff:h:m:', \%hOptions))
   {
     Usage($sProgram);
   }
-
-  ####################################################################
-  #
-  # The ForceWrite, '-F', flag is optional.
-  #
-  ####################################################################
-
-  my $sForceWrite = (exists $hOptions{'F'}) ? 1 : 0;
 
   ####################################################################
   #
@@ -110,6 +103,53 @@ use Getopt::Std;
     print STDERR "$sProgram: Database='$hOptions{'d'}' Regex='$sDBRegex' Error='Invalid db name.'\n";
     exit(1);
   }
+
+  ####################################################################
+  #
+  # The ForceWrite, '-F', flag is optional.
+  #
+  ####################################################################
+
+  my $sForceWrite = (exists $hOptions{'F'}) ? 1 : 0;
+
+  ####################################################################
+  #
+  # A Filename, '-f', is required. It can be '-' or a regular file.
+  #
+  ####################################################################
+
+  my ($sFileHandle, $sFilename, $sOutFile, $sSQLFile);
+
+  if (!exists $hOptions{'f'})
+  {
+    Usage($sProgram);
+    exit(1);
+  }
+  else
+  {
+    $sFilename = $hOptions{'f'};
+    if (-f $sFilename)
+    {
+      if (!open(IN, "< $sFilename"))
+      {
+        print STDERR "$sProgram: Filename='$sFilename' Error='$!'\n";
+        exit(1);
+      }
+      $sFileHandle = \*IN;
+    }
+    else
+    {
+      if ($sFilename ne '-')
+      {
+        print STDERR "$sProgram: Filename='$sFilename' Error='File not found.'\n";
+        exit(1);
+      }
+      $sFilename = "snapshot";
+      $sFileHandle = \*STDIN;
+    }
+  }
+  $sOutFile = (($sFilename !~ /^\//) ? cwd() . "/" : "") . $sFilename . ".dbi";
+  $sSQLFile = (($sFilename !~ /^\//) ? cwd() . "/" : "") . $sFilename . ".sql";
 
   ####################################################################
   #
@@ -150,45 +190,6 @@ use Getopt::Std;
     print STDERR "$sProgram: MaxRows='$sMaxRows' Regex='$sMaxRowsRegex' Error='Invalid number.\n";
     exit(1);
   }
-
-  ####################################################################
-  #
-  # A Filename, '-f', is required. It can be '-' or a regular file.
-  #
-  ####################################################################
-
-  my ($sFileHandle, $sFilename, $sOutFile, $sSQLFile);
-
-  if (!exists $hOptions{'f'})
-  {
-    Usage($sProgram);
-    exit(1);
-  }
-  else
-  {
-    $sFilename = $hOptions{'f'};
-    if (-f $sFilename)
-    {
-      if (!open(IN, "< $sFilename"))
-      {
-        print STDERR "$sProgram: Filename='$sFilename' Error='$!'\n";
-        exit(1);
-      }
-      $sFileHandle = \*IN;
-    }
-    else
-    {
-      if ($sFilename ne '-')
-      {
-        print STDERR "$sProgram: Filename='$sFilename' Error='File not found.'\n";
-        exit(1);
-      }
-      $sFilename = "snapshot";
-      $sFileHandle = \*STDIN;
-    }
-  }
-  $sOutFile = (($sFilename !~ /^\//) ? cwd() . "/" : "") . $sFilename . ".dbi";
-  $sSQLFile = (($sFilename !~ /^\//) ? cwd() . "/" : "") . $sFilename . ".sql";
 
   ##################################################################
   #
@@ -302,6 +303,7 @@ use Getopt::Std;
     }
     $sLine =~ s/\\/\\\\/g; # Escape backslashes.
     $sLine =~ s/\|\|/\|\\N\|/g; # Add embedded NULLs.
+    $sLine =~ s/\|\|/\|\\N\|/g; # Add embedded NULLs again to catch adjacent offenders.
     $sLine =~ s/\|$/\|\\N/g; # Add end-of-line NULLs.
     print OUT $sLine . "\n";
   }
@@ -414,24 +416,24 @@ B<ftimes-map2dbi.pl> B<[-F]> B<[-d db]> B<[-h host]> B<[-m max-rows]> B<-f {file
 =head1 DESCRIPTION
 
 This utility takes FTimes map data as input, processes it, and
-produces two output files having the extensions .sql and .dbi. The
-SQL statements in the .sql file may be used to import the .dbi data
-into MySQL -- dbi is short for DB Import. An extra field, namemd5,
-is added to the .dbi file. This field serves as the primary key --
-either alone or in conjunction with the hostname field.
+produces two output files having the extensions .sql and .dbi. The SQL
+statements in the .sql file may be used to import the .dbi data into
+MySQL -- dbi is short for DB Import. An extra field, namemd5, is added
+to the .dbi file. This field serves as the primary key -- either alone
+or in conjunction with the hostname field.
 
 =head1 OPTIONS
 
 =over 4
 
+=item B<-d db>
+
+Specifies the name of the database to create/use. This value is passed
+directly into the .sql file.
+
 =item B<-F>
 
 Force existing .sql and .dbi files to be truncated on open.
-
-=item B<-d db>
-
-Specifies the name of the database to create/use. This value is
-passed directly into the .sql file.
 
 =item B<-f {file|-}>
 
@@ -441,9 +443,9 @@ program to read from stdin.
 =item B<-h host>
 
 Specifies the name of the host to bind to the imported data. If
-specified, an additional field, hostname, is inserted in the .dbi
-file and filled with the appropriate value. By default, the hostname
-field is not used.
+specified, an additional field, hostname, is inserted in the .dbi file
+and filled with the appropriate value. By default, the hostname field
+is not used.
 
 =item B<-m max-rows>
 

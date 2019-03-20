@@ -1,9 +1,0 @@
-=item B<URLCreateConfig>: [Y|N]
-
-Applies to B<digfull> and B<mapfull>.
-
-B<URLCreateConfig> is optional when B<URLPutSnapshot> is enabled.
-When enabled ('Y' or 'y'), it instructs the application to create
-a configuration file suitable for reposting the snapshot at a later
-time.  The default value is 'N'.
-

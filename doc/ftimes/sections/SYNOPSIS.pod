@@ -20,7 +20,5 @@ B<ftimes> B<--mapfull> B<file> B<[-l level]> B<[list]>
 
 B<ftimes> B<--maplean> B<file> B<[-l level]> B<[list]>
 
-B<ftimes> B<--putmode> B<file> B<[-l level]>
-
 B<ftimes> B<--version>
 

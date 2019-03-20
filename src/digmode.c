@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: digmode.c,v 1.24 2005/04/02 18:08:24 mavrik Exp $
+ * $Id: digmode.c,v 1.28 2006/04/07 22:15:11 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -119,8 +119,12 @@ DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->bAnalyzeDeviceFiles = TRUE;
     psProperties->bAnalyzeRemoteFiles = TRUE;
   }
-  psProperties->ulFieldMask = ~0;
-  strcpy(psProperties->acMaskString, "all"); /* Required by nph-ftimes.cgi */
+  psProperties->psFieldMask = MaskParseMask("all", MASK_RUNMODE_TYPE_DIG, acLocalError); /* A mask is required by nph-ftimes.cgi. */
+  if (psProperties->psFieldMask == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return ER;
+  }
 
   /*-
    *******************************************************************
@@ -488,23 +492,6 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
   }
 
   /*-
-   *******************************************************************
-   *
-   * Establish an output config file name, if necessary.
-   *
-   *******************************************************************
-   */
-  if (psProperties->iRunMode == FTIMES_DIGFULL && psProperties->bURLPutSnapshot && psProperties->bURLCreateConfig)
-  {
-    iError = SupportMakeName(psProperties->acOutDirName, psProperties->acBaseName, psProperties->acBaseNameSuffix, ".cfg", psProperties->acCfgFileName, acLocalError);
-    if (iError != ER_OK)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Cfg File: %s", acRoutine, acLocalError);
-      return iError;
-    }
-  }
-
-  /*-
    *********************************************************************
    *
    * Display properties.
@@ -559,7 +546,6 @@ DigModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char                acMessage[MESSAGE_SIZE];
   int                 i;
   int                 iFirst;
@@ -591,39 +577,21 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * Write out an upload config file, if requested. Don't stop on error.
-   *
-   *********************************************************************
-   */
-  if (psProperties->bURLCreateConfig && psProperties->iRunMode == FTIMES_DIGFULL)
-  {
-    FTimesCreateConfigFile(psProperties, acLocalError);
-  }
-
-  /*-
-   *********************************************************************
-   *
    * Print output filenames.
    *
    *********************************************************************
    */
   snprintf(acMessage, MESSAGE_SIZE, "LogFileName=%s", psProperties->acLogFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->acOutFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
-
-  if (psProperties->iRunMode == FTIMES_DIGFULL && psProperties->bURLPutSnapshot && psProperties->bURLCreateConfig)
-  {
-    snprintf(acMessage, MESSAGE_SIZE, "CfgFileName=%s", psProperties->acCfgFileName);
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
-  }
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "OutFileHash=%s", psProperties->acOutFileHash);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "DataType=%s", psProperties->acDataType);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   /*-
    *********************************************************************
@@ -633,19 +601,19 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   snprintf(acMessage, MESSAGE_SIZE, "DirectoriesEncountered=%d", MapGetDirectoryCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "FilesEncountered=%d", MapGetFileCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
 #ifdef UNIX
   snprintf(acMessage, MESSAGE_SIZE, "SpecialsEncountered=%d", MapGetSpecialCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 #endif
 
 #ifdef WINNT
   snprintf(acMessage, MESSAGE_SIZE, "StreamsEncountered=%d", MapGetStreamCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 #endif
 
   iIndex = 0;
@@ -656,30 +624,30 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
     {
         iIndex += sprintf(&acMessage[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", psProperties->asAnalysisStages[i].acDescription);
     }
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
     snprintf(acMessage, MESSAGE_SIZE, "ObjectsAnalyzed=%u", AnalyzeGetFileCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
 #ifdef UNIX
 #ifdef USE_AP_SNPRINTF
     snprintf(acMessage, MESSAGE_SIZE, "BytesAnalyzed=%qu", (unsigned long long) AnalyzeGetByteCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 #else
     snprintf(acMessage, MESSAGE_SIZE, "BytesAnalyzed=%llu", (unsigned long long) AnalyzeGetByteCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 #endif
 #endif
 
 #ifdef WIN32
     snprintf(acMessage, MESSAGE_SIZE, "BytesAnalyzed=%I64u", AnalyzeGetByteCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 #endif
   }
   else
   {
     snprintf(acMessage, MESSAGE_SIZE, "AnalysisStages=None");
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 
   /*-
@@ -690,7 +658,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   snprintf(acMessage, MESSAGE_SIZE, "DigStrings=%d", DigGetStringCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   /*-
    *********************************************************************
@@ -700,7 +668,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   snprintf(acMessage, MESSAGE_SIZE, "DigStringsMatched=%d", DigGetStringsMatched());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   /*-
    *********************************************************************
@@ -719,7 +687,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 #ifdef WIN32
   snprintf(acMessage, MESSAGE_SIZE, "MatchCount=%I64u", DigGetTotalMatches());
 #endif
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   SupportDisplayRunStatistics(psProperties);
 

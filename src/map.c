@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: map.c,v 1.35 2005/04/02 18:08:25 mavrik Exp $
+ * $Id: map.c,v 1.47 2006/04/08 04:50:22 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -116,7 +116,7 @@ MapGetIncompleteRecordCount()
  ***********************************************************************
  */
 int
-MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned char *pucTreeHash, char *pcError)
+MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_DATA *psParentFTData, char *pcError)
 {
   const char          acRoutine[] = "MapTree()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
@@ -128,13 +128,13 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   char               *pcNeuteredPath;
   DIR                *psDir;
   FTIMES_FILE_DATA    sFTFileData;
+  FTIMES_HASH_DATA    sDirFTHashData;
   int                 iError;
   int                 iNewFSType;
   int                 iNameLength;
   int                 iPathLength;
   int                 iParentPathLength;
   struct dirent      *psDirEntry;
-  MD5_CONTEXT         sDirMD5Context;
   struct stat         sStatPDirectory, *psStatPDirectory;
   struct stat         sStatCDirectory, *psStatCDirectory;
 
@@ -161,13 +161,20 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   /*-
    *********************************************************************
    *
-   * If directory hashing is enabled, initialize sDirMD5Context.
+   * If directory hashing is enabled, initialize hash contexts.
    *
    *********************************************************************
    */
-  if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+  if (psProperties->bHashDirectories)
   {
-    MD5Alpha(&sDirMD5Context);
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+    {
+      MD5Alpha(&sDirFTHashData.sMd5Context);
+    }
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+    {
+      SHA1Alpha(&sDirFTHashData.sSha1Context);
+    }
   }
 
   /*-
@@ -266,8 +273,8 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
    *
    * Loop through the list of directory entries. Each time through this
    * loop, clear the contents of sFTFileData -- subsequent logic
-   * relies on the assertion that aucFileMD5 has been initialized to all
-   * zeros.
+   * relies on the assertion that each hash value has been initialized
+   * to all zeros.
    *
    *********************************************************************
    */
@@ -367,14 +374,20 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
        *****************************************************************
        *
        * Update the directory hash. If the file was special or could
-       * not be hashed, UPDATE THE DIRECTORY HASH WITH A HASH OF ALL
-       * ZEROS.
+       * not be hashed, zeros will be folded into the aggregate hash.
        *
        *****************************************************************
        */
-      if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+      if (psProperties->bHashDirectories)
       {
-        MD5Cycle(&sDirMD5Context, sFTFileData.aucFileMD5, MD5_HASH_SIZE);
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+        {
+          MD5Cycle(&sDirFTHashData.sMd5Context, sFTFileData.aucFileMd5, MD5_HASH_SIZE);
+        }
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+        {
+          SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
+        }
       }
 
       /*-
@@ -466,7 +479,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
       {
         giDirectories++;
 #ifdef USE_XMAGIC
-        if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
         {
           snprintf(sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, "directory");
         }
@@ -533,7 +546,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
         }
         if (psProperties->bEnableRecursion)
         {
-          MapTree(psProperties, acNewRawPath, iFSType, sFTFileData.aucFileMD5, acLocalError);
+          MapTree(psProperties, acNewRawPath, iFSType, &sFTFileData, acLocalError);
         }
       }
       else if (S_ISREG(sFTFileData.sStatEntry.st_mode))
@@ -552,7 +565,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
       else if (S_ISLNK(sFTFileData.sStatEntry.st_mode))
       {
         giSpecial++;
-        if (psProperties->bHashSymbolicLinks && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+        if (psProperties->bHashSymbolicLinks)
         {
           iError = readlink(acNewRawPath, acLinkData, FTIMES_MAX_PATH - 1);
           if (iError == ER)
@@ -563,11 +576,18 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
           else
           {
             acLinkData[iError] = 0; /* Readlink does not append a NULL. */
-            MD5HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileMD5);
+            if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+            {
+              MD5HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileMd5);
+            }
+            if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+            {
+              SHA1HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileSha1);
+            }
           }
         }
 #ifdef USE_XMAGIC
-        if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
         {
           iError = XMagicTestSpecial(sFTFileData.pcRawPath, &sFTFileData.sStatEntry, sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
           if (iError != ER_OK)
@@ -582,7 +602,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
       {
         giSpecial++;
 #ifdef USE_XMAGIC
-        if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
         {
           iError = XMagicTestSpecial(sFTFileData.pcRawPath, &sFTFileData.sStatEntry, sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
           if (iError != ER_OK)
@@ -598,14 +618,20 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
        *****************************************************************
        *
        * Update the directory hash. If the file was special or could
-       * not be hashed, UPDATE THE DIRECTORY HASH WITH A HASH OF ALL
-       * ZEROS.
+       * not be hashed, zeros will be folded into the aggregate hash.
        *
        *****************************************************************
        */
-      if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+      if (psProperties->bHashDirectories)
       {
-        MD5Cycle(&sDirMD5Context, sFTFileData.aucFileMD5, MD5_HASH_SIZE);
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+        {
+          MD5Cycle(&sDirFTHashData.sMd5Context, sFTFileData.aucFileMd5, MD5_HASH_SIZE);
+        }
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+        {
+          SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
+        }
       }
 
       /*-
@@ -656,14 +682,21 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   /*-
    *********************************************************************
    *
-   * Complete the directory hash. Store the result in pucTreeHash.
-   * NOTE: pucTreeHash must be initialized to zero by the caller.
+   * Complete the directory hash(es). NOTE: The caller is expected to
+   * initialize each hash to all zeros.
    *
    *********************************************************************
    */
-  if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+  if (psProperties->bHashDirectories)
   {
-    MD5Omega(&sDirMD5Context, pucTreeHash);
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+    {
+      MD5Omega(&sDirFTHashData.sMd5Context, psParentFTData->aucFileMd5);
+    }
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+    {
+      SHA1Omega(&sDirFTHashData.sSha1Context, psParentFTData->aucFileSha1);
+    }
   }
 
   closedir(psDir);
@@ -713,7 +746,7 @@ MapGetFileHandle(char *pcPath)
  ***********************************************************************
  */
 int
-MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned char *pucTreeHash, char *pcError)
+MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_DATA *psParentFTData, char *pcError)
 {
   const char          acRoutine[] = "MapTree()";
   BOOL                bResult;
@@ -728,6 +761,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   char               *pcNeuteredPath;
   char               *pcMessage;
   FTIMES_FILE_DATA    sFTFileData;
+  FTIMES_HASH_DATA    sDirFTHashData;
   HANDLE              hFileCurrent;
   HANDLE              hFileParent;
   HANDLE              hSearch;
@@ -735,7 +769,6 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   int                 iNameLength;
   int                 iParentPathLength;
   int                 iPathLength;
-  MD5_CONTEXT         sDirMD5Context;
   WIN32_FIND_DATA     sFindData;
 
   /*-
@@ -761,13 +794,20 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   /*-
    *********************************************************************
    *
-   * If directory hashing is enabled, initialize sDirMD5Context.
+   * If directory hashing is enabled, initialize hash contexts.
    *
    *********************************************************************
    */
-  if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+  if (psProperties->bHashDirectories)
   {
-    MD5Alpha(&sDirMD5Context);
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+    {
+      MD5Alpha(&sDirFTHashData.sMd5Context);
+    }
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+    {
+      SHA1Alpha(&sDirFTHashData.sSha1Context);
+    }
   }
 
   /*-
@@ -844,8 +884,8 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
    *
    * Loop through the list of directory entries. Each time through this
    * loop, clear the contents of sFTFileData -- subsequent logic
-   * relies on the assertion that aucFileMD5 has been initialized to all
-   * zeros.
+   * relies on the assertion that each hash value has been initialized
+   * to all zeros.
    *
    *********************************************************************
    */
@@ -955,14 +995,20 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
        *****************************************************************
        *
        * Update the directory hash. If the file was special or could
-       * not be hashed, UPDATE THE DIRECTORY HASH WITH A HASH OF ALL
-       * ZEROS.
+       * not be hashed, zeros will be folded into the aggregate hash.
        *
        *****************************************************************
        */
-      if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+      if (psProperties->bHashDirectories)
       {
-        MD5Cycle(&sDirMD5Context, sFTFileData.aucFileMD5, MD5_HASH_SIZE);
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+        {
+          MD5Cycle(&sDirFTHashData.sMd5Context, sFTFileData.aucFileMd5, MD5_HASH_SIZE);
+        }
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+        {
+          SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
+        }
       }
 
       /*-
@@ -1046,11 +1092,13 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
        * because, in testing, the file index for '..' is different than
        * the parent directory. This was found to be true with NTFS and
        * Samba shares which, by-the-way, show up as NTFS_REMOTE. For
-       * now these quirks remain unexplained.
+       * now, these quirks remain unexplained. NWFS_REMOTE was added
+       * here to follow suit with the other file systems -- i.e., it
+       * has not been tested to see if the '..' issue exists.
        *
        *****************************************************************
        */
-      if (iFSType != FSTYPE_NTFS_REMOTE && iFSType != FSTYPE_FAT_REMOTE)
+      if (iFSType != FSTYPE_NTFS_REMOTE && iFSType != FSTYPE_FAT_REMOTE && iFSType != FSTYPE_NWFS_REMOTE)
       {
         if (sFTFileData.iFileFlags >= Have_GetFileInformationByHandle)
         {
@@ -1092,14 +1140,14 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
       {
         giDirectories++;
 #ifdef USE_XMAGIC
-        if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
         {
           snprintf(sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, "directory");
         }
 #endif
         if (psProperties->bEnableRecursion)
         {
-          MapTree(psProperties, acNewRawPath, iFSType, sFTFileData.aucFileMD5, acLocalError);
+          MapTree(psProperties, acNewRawPath, iFSType, &sFTFileData, acLocalError);
         }
       }
       else
@@ -1123,14 +1171,20 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
        *****************************************************************
        *
        * Update the directory hash. If the file was special or could
-       * not be hashed, sixteen zeros will be folded into the aggregate
-       * hash.
+       * not be hashed, zeros will be folded into the aggregate hash.
        *
        *****************************************************************
        */
-      if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+      if (psProperties->bHashDirectories)
       {
-        MD5Cycle(&sDirMD5Context, sFTFileData.aucFileMD5, MD5_HASH_SIZE);
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+        {
+          MD5Cycle(&sDirFTHashData.sMd5Context, sFTFileData.aucFileMd5, MD5_HASH_SIZE);
+        }
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+        {
+          SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
+        }
       }
 
       /*-
@@ -1151,13 +1205,13 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
       /*-
        *****************************************************************
        *
-       * Process any alternate streams. This applies only to NTFS.
+       * Process alternate streams. This applies only to NTFS.
        *
        *****************************************************************
        */
       if (sFTFileData.iStreamCount > 0)
       {
-        MapStream(psProperties, &sFTFileData, &sDirMD5Context, acLocalError);
+        MapStream(psProperties, &sFTFileData, &sDirFTHashData, acLocalError);
       }
 #endif
     }
@@ -1188,14 +1242,21 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   /*-
    *********************************************************************
    *
-   * Complete the directory hash. Store the result in pucTreeHash.
-   * NOTE: pucTreeHash must be initialized to zero by the caller.
+   * Complete the directory hash(es). NOTE: The caller is expected to
+   * initialize each hash to all zeros.
    *
    *********************************************************************
    */
-  if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+  if (psProperties->bHashDirectories)
   {
-    MD5Omega(&sDirMD5Context, pucTreeHash);
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+    {
+      MD5Omega(&sDirFTHashData.sMd5Context, psParentFTData->aucFileMd5);
+    }
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+    {
+      SHA1Omega(&sDirFTHashData.sSha1Context, psParentFTData->aucFileSha1);
+    }
   }
 
   FindClose(hSearch);
@@ -1212,7 +1273,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
  ***********************************************************************
  */
 void
-MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTEXT *psDirHashBlock, char *pcError)
+MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, FTIMES_HASH_DATA *psFTHashData, char *pcError)
 {
   const char          acRoutine[] = "MapStream()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
@@ -1220,15 +1281,16 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTE
   char                acStreamName[FTIMES_MAX_PATH];
   char               *pcNeuteredPath;
   FTIMES_FILE_DATA    sFTFileData;
-  FILE_STREAM_INFORMATION *pFSI;
+  FILE_STREAM_INFORMATION *psFSI;
   int                 i;
+  int                 iDone;
   int                 iError;
   int                 iLength;
   int                 iNameLength;
   int                 iNextEntryOffset;
   unsigned short      usUnicode;
 
-  pFSI = (FILE_STREAM_INFORMATION *) psFTData->pucStreamInfo;
+  psFSI = (FILE_STREAM_INFORMATION *) psFTData->pucStreamInfo;
 
   giStreams += psFTData->iStreamCount;
 
@@ -1237,7 +1299,7 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTE
    *
    * Make a local copy of the file data. If the stream belongs to
    * a directory, clear the attributes field. If this isn't done,
-   * the output routine, will overwrite the MD5 field with "DIRECTORY"
+   * the output routine, will overwrite the hash field with "DIRECTORY"
    * or "D" respectively.
    *
    *********************************************************************
@@ -1260,40 +1322,44 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTE
    *
    *********************************************************************
    */
-  for (iNextEntryOffset = 0; pFSI->NextEntryOffset; iNextEntryOffset = pFSI->NextEntryOffset)
+  for (iDone = iNextEntryOffset = 0; !iDone; iNextEntryOffset = psFSI->NextEntryOffset)
   {
-    pFSI = (FILE_STREAM_INFORMATION *) ((byte *) pFSI + iNextEntryOffset);
+    psFSI = (FILE_STREAM_INFORMATION *) ((byte *) psFSI + iNextEntryOffset);
+    if (psFSI->NextEntryOffset == 0)
+    {
+      iDone = 1; /* Instruct the loop to terminate after this pass. */
+    }
 
     /*-
      *******************************************************************
      *
-     * The string :$DATA isn't part of the the stream's name as stored
-     * on disk in the MFT. For this reason, it is chopped off here. If
-     * is not chopped off, normal filenames (i.e. not the ones prefixed
-     * with '\\?\') can exceed MAX_PATH.
+     * The string ":$DATA" is not part of the the stream's name as it's
+     * stored on disk in the MFT. For this reason, it's removed here. If
+     * this is not done, normal filenames (i.e., those not prefixed with
+     * '\\?\') can exceed MAX_PATH.
      *
      *******************************************************************
      */
-    iLength = pFSI->StreamNameLength / sizeof(WCHAR);
+    iLength = psFSI->StreamNameLength / sizeof(WCHAR);
     if (
-         pFSI->StreamName[iLength - 6] == (WCHAR) ':' &&
-         pFSI->StreamName[iLength - 5] == (WCHAR) '$' &&
-         pFSI->StreamName[iLength - 4] == (WCHAR) 'D' &&
-         pFSI->StreamName[iLength - 3] == (WCHAR) 'A' &&
-         pFSI->StreamName[iLength - 2] == (WCHAR) 'T' &&
-         pFSI->StreamName[iLength - 1] == (WCHAR) 'A'
+         psFSI->StreamName[iLength - 6] == (WCHAR) ':' &&
+         psFSI->StreamName[iLength - 5] == (WCHAR) '$' &&
+         psFSI->StreamName[iLength - 4] == (WCHAR) 'D' &&
+         psFSI->StreamName[iLength - 3] == (WCHAR) 'A' &&
+         psFSI->StreamName[iLength - 2] == (WCHAR) 'T' &&
+         psFSI->StreamName[iLength - 1] == (WCHAR) 'A'
        )
     {
       iLength -= 6;
-      if (pFSI->StreamName[iLength - 1] == (WCHAR) ':')
+      if (psFSI->StreamName[iLength - 1] == (WCHAR) ':')
       {
-        continue;
+        continue; /* No name means that this is the default stream. */
       }
     }
 
     for (i = 0; i < iLength; i++)
     {
-      usUnicode = (unsigned short)pFSI->StreamName[i];
+      usUnicode = (unsigned short)psFSI->StreamName[i];
       if (usUnicode < 0x0020 || usUnicode > 0x007e)
       {
         break;
@@ -1302,7 +1368,7 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTE
     }
     if (i != iLength)
     {
-      char *pcStream = SupportNeuterStringW(pFSI->StreamName, iLength, acLocalError);
+      char *pcStream = SupportNeuterStringW(psFSI->StreamName, iLength, acLocalError);
       snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s], NeuteredWideStream = [%s]: Stream skipped because its name contains Unicode or Unsafe characters.", acRoutine, psFTData->pcNeuteredPath, (pcStream == NULL) ? "" : pcStream);
       MEMORY_FREE(pcStream);
       ErrorHandler(ER_Length, pcError, ERROR_FAILURE);
@@ -1357,8 +1423,8 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTE
      *
      *******************************************************************
      */
-    sFTFileData.dwFileSizeHigh = (DWORD) (pFSI->StreamSize.QuadPart >> 32);
-    sFTFileData.dwFileSizeLow = (DWORD) pFSI->StreamSize.QuadPart;
+    sFTFileData.dwFileSizeHigh = (DWORD) (psFSI->StreamSize.QuadPart >> 32);
+    sFTFileData.dwFileSizeLow = (DWORD) psFSI->StreamSize.QuadPart;
 
     /*-
      *******************************************************************
@@ -1380,15 +1446,24 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTE
     /*-
      *******************************************************************
      *
-     * Update the directory hash. If the file was special or could
-     * not be hashed, sixteen zeros will be folded into the aggregate
-     * hash.
+     * Update the directory hash. If the stream could not be hashed,
+     * zeros will be folded into the aggregate hash. When psFTHashData
+     * is NULL, assume that the caller was MapFile(), and skip all
+     * directory hashing -- individual files, by definition, cannot
+     * have this kind of hash.
      *
      *******************************************************************
      */
-    if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+    if (psProperties->bHashDirectories && psFTHashData != NULL)
     {
-      MD5Cycle(psDirHashBlock, sFTFileData.aucFileMD5, MD5_HASH_SIZE);
+      if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+      {
+        MD5Cycle(&psFTHashData->sMd5Context, sFTFileData.aucFileMd5, MD5_HASH_SIZE);
+      }
+      if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+      {
+        SHA1Cycle(&psFTHashData->sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
+      }
     }
 
     /*-
@@ -1428,15 +1503,15 @@ int
 MapCountNamedStreams(HANDLE hFile, int *piStreamCount, unsigned char **ppucStreamInfo, char *pcError)
 {
   const char          acRoutine[] = "MapCountNamedStreams()";
-  char               *pcMessage;
-  DWORD               dwStatus;
-  FILE_STREAM_INFORMATION *psRealFSI;
-  FILE_STREAM_INFORMATION *psTempFSI;
-  int                 i;
-  int                 iStreamCount;
-  int                 iNextEntryOffset;
+  char               *pcMessage = NULL;
+  DWORD               dwStatus = 0;
+  FILE_STREAM_INFORMATION *psFSI = NULL;
+  FILE_STREAM_INFORMATION *psTempFSI = NULL;
+  int                 i = 0;
+  int                 iDone = 0;
+  int                 iNextEntryOffset = 0;
   IO_STATUS_BLOCK     sIOStatusBlock;
-  unsigned long       ulSize;
+  unsigned long       ulSize = 0;
 
 #ifndef STATUS_SUCCESS
 #define STATUS_SUCCESS 0x00000000
@@ -1467,59 +1542,74 @@ MapCountNamedStreams(HANDLE hFile, int *piStreamCount, unsigned char **ppucStrea
    *
    *********************************************************************
    */
-  i = 0; psRealFSI = psTempFSI = NULL;
+  i = 0; psFSI = psTempFSI = NULL;
   do
   {
     ulSize = FTIMES_STREAM_INFO_SIZE << i;
     if (ulSize > FTIMES_MAX_STREAM_INFO_SIZE)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Requested buffer size would exceed the maximum size limit (%lu bytes).", acRoutine, FTIMES_MAX_STREAM_INFO_SIZE);
-      MEMORY_FREE(psRealFSI);
+      MEMORY_FREE(psFSI);
       return ER;
     }
-    psTempFSI = (FILE_STREAM_INFORMATION *) realloc(psRealFSI, ulSize);
+    psTempFSI = (FILE_STREAM_INFORMATION *) realloc(psFSI, ulSize);
     if (psTempFSI == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): %s", acRoutine, strerror(errno));
-      MEMORY_FREE(psRealFSI);
+      MEMORY_FREE(psFSI);
       return ER;
     }
     memset(psTempFSI, 0, ulSize);
-    psRealFSI = psTempFSI;
-    dwStatus = NtdllNQIF(hFile, &sIOStatusBlock, psRealFSI, ulSize, FileStreamInformation);
+    psFSI = psTempFSI;
+    dwStatus = NtdllNQIF(hFile, &sIOStatusBlock, psFSI, ulSize, FileStreamInformation);
     if (dwStatus != STATUS_SUCCESS && dwStatus != STATUS_BUFFER_OVERFLOW)
     {
       SetLastError(LsaNtStatusToWinError(dwStatus));
       ErrorFormatWin32Error(&pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: NtQueryInformationFile(): %s", acRoutine, pcMessage);
-      MEMORY_FREE(psRealFSI);
+      MEMORY_FREE(psFSI);
       return ER;
     }
     i++;
   } while (dwStatus == STATUS_BUFFER_OVERFLOW);
 
-  *ppucStreamInfo = (unsigned char *) psRealFSI;
+  /*-
+   *********************************************************************
+   *
+   * Record the final FSI pointer.
+   *
+   *********************************************************************
+   */
+  *ppucStreamInfo = (unsigned char *) psFSI;
 
   /*-
    *********************************************************************
    *
-   * Count all but the default stream. This logic works even when
-   * NtQueryInformationFile() returns no data. This is due to the fact
-   * that psRealFSI is large enough to contain at least one struct, and
-   * it was initialized to zeros. In other words, NextEntryOffset will
-   * be zero, and the loop will terminate.
+   * Count all but the default stream. This logic is supposed to work
+   * even if NtQueryInformationFile() returns no data. This is due to
+   * the fact that psFSI should be pointing to a zero-initialized
+   * block of memory that is large enough to contain at least one FSI
+   * struct. In other words, NextEntryOffset will be set to zero, and
+   * the loop will terminate after one pass. Note: At least one pass
+   * through the loop is required to catch directories that have only
+   * one named stream. This is necessary because directories do not
+   * have an unnamed (i.e., default) stream -- see Data attribute in
+   * Table 9-1 of Inside Windows NT Second Edition, page 412.
    *
    *********************************************************************
    */
-  for (iStreamCount = iNextEntryOffset = 0; psRealFSI->NextEntryOffset; iNextEntryOffset = psRealFSI->NextEntryOffset)
+  for (*piStreamCount = iDone = iNextEntryOffset = 0; !iDone; iNextEntryOffset = psFSI->NextEntryOffset)
   {
-    psRealFSI = (FILE_STREAM_INFORMATION *) ((byte *) psRealFSI + iNextEntryOffset);
-    if (psRealFSI->StreamNameLength && wcscmp(psRealFSI->StreamName, DEFAULT_STREAM_NAME_W) != 0)
+    psFSI = (FILE_STREAM_INFORMATION *) ((byte *) psFSI + iNextEntryOffset);
+    if (psFSI->NextEntryOffset == 0)
     {
-      iStreamCount++;
+      iDone = 1; /* Instruct the loop to terminate after this pass. */
+    }
+    if (psFSI->StreamNameLength && wcscmp(psFSI->StreamName, DEFAULT_STREAM_NAME_W) != 0)
+    {
+      (*piStreamCount)++;
     }
   }
-  *piStreamCount = iStreamCount;
 
   return ER_OK;
 }
@@ -1544,7 +1634,8 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    *********************************************************************
    *
    * Initialize the sFTFileData structure. Subsequent logic relies
-   * on the assertion that aucFileMD5 has been initialized to all zeros.
+   * on the assertion that each hash value has been initialized to all
+   * zeros.
    *
    *********************************************************************
    */
@@ -1650,14 +1741,14 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   {
     giDirectories++;
 #ifdef USE_XMAGIC
-    if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
     {
       snprintf(sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, "directory");
     }
 #endif
     if (psProperties->bEnableRecursion)
     {
-      MapTree(psProperties, pcPath, iFSType, sFTFileData.aucFileMD5, acLocalError);
+      MapTree(psProperties, pcPath, iFSType, &sFTFileData, acLocalError);
     }
   }
   else if (S_ISREG(sFTFileData.sStatEntry.st_mode) || ((S_ISBLK(sFTFileData.sStatEntry.st_mode) || S_ISCHR(sFTFileData.sStatEntry.st_mode)) && psProperties->bAnalyzeDeviceFiles))
@@ -1676,7 +1767,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   else if (S_ISLNK(sFTFileData.sStatEntry.st_mode))
   {
     giSpecial++;
-    if (psProperties->bHashSymbolicLinks && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+    if (psProperties->bHashSymbolicLinks)
     {
       iError = readlink(pcPath, acLinkData, FTIMES_MAX_PATH - 1);
       if (iError == ER)
@@ -1687,11 +1778,18 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
       else
       {
         acLinkData[iError] = 0; /* Readlink does not append a NULL. */
-        MD5HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileMD5);
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+        {
+          MD5HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileMd5);
+        }
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+        {
+          SHA1HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileSha1);
+        }
       }
     }
 #ifdef USE_XMAGIC
-    if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
     {
       iError = XMagicTestSpecial(sFTFileData.pcRawPath, &sFTFileData.sStatEntry, sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
       if (iError != ER_OK)
@@ -1706,7 +1804,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   {
     giSpecial++;
 #ifdef USE_XMAGIC
-    if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
     {
       iError = XMagicTestSpecial(sFTFileData.pcRawPath, &sFTFileData.sStatEntry, sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
       if (iError != ER_OK)
@@ -1765,10 +1863,6 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   int                 iFSType;
   int                 iPathLength;
 
-#ifdef WINNT
-  MD5_CONTEXT         sUnusedMD5Context;
-#endif
-
   /*-
    *********************************************************************
    *
@@ -1823,7 +1917,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     MEMORY_FREE(pcNeuteredPath);
     return ER;
   }
-  if ((iFSType == FSTYPE_NTFS_REMOTE || iFSType == FSTYPE_FAT_REMOTE) && !psProperties->bAnalyzeRemoteFiles)
+  if ((iFSType == FSTYPE_NTFS_REMOTE || iFSType == FSTYPE_FAT_REMOTE || iFSType == FSTYPE_NWFS_REMOTE) && !psProperties->bAnalyzeRemoteFiles)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, pcNeuteredPath);
     ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
@@ -1879,14 +1973,14 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   {
     giDirectories++;
 #ifdef USE_XMAGIC
-    if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
     {
       snprintf(sFTFileData.acType, FTIMES_FILETYPE_BUFSIZE, "directory");
     }
 #endif
     if (psProperties->bEnableRecursion)
     {
-      MapTree(psProperties, pcPath, iFSType, sFTFileData.aucFileMD5, acLocalError);
+      MapTree(psProperties, pcPath, iFSType, &sFTFileData, acLocalError);
     }
   }
   else
@@ -1924,17 +2018,15 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   /*-
    *********************************************************************
    *
-   * Process any alternate streams. This applies only to NTFS.
+   * Process alternate streams. This applies only to NTFS. The NULL
+   * argument causes MapStream to skip directory hashing -- even if
+   * the user has enabled HashDirectories.
    *
    *********************************************************************
    */
   if (sFTFileData.iStreamCount > 0)
   {
-    if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
-    {
-      MD5Alpha(&sUnusedMD5Context);
-    }
-    MapStream(psProperties, &sFTFileData, &sUnusedMD5Context, acLocalError);
+    MapStream(psProperties, &sFTFileData, NULL, acLocalError);
   }
 
   /*-
@@ -1992,6 +2084,7 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
    * mtime         FTIMES_TIME_FORMAT_SIZE
    * ctime         FTIMES_TIME_FORMAT_SIZE
    * size          FTIMES_MAX_64BIT_SIZE
+   * sha1          FTIMEX_MAX_SHA1_LENGTH
 #ifdef USE_XMAGIC
    * magic         XMAGIC_DESCRIPTION_BUFSIZE
 #endif
@@ -2005,11 +2098,12 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
                 (7 * FTIMES_MAX_32BIT_SIZE) +
                 (3 * FTIMES_TIME_FORMAT_SIZE) +
                 (1 * FTIMES_MAX_64BIT_SIZE) +
+                (1 * FTIMEX_MAX_SHA1_LENGTH) +
                 (1 * FTIMEX_MAX_MD5_LENGTH) +
 #ifdef USE_XMAGIC
                 (1 * XMAGIC_DESCRIPTION_BUFSIZE) +
 #endif
-                17 
+                17
                 ];
 #endif
 
@@ -2027,6 +2121,7 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
    * chtime|chms   FTIMES_TIME_FORMAT_SIZE
    * size          FTIMES_MAX_64BIT_SIZE
    * altstreams    FTIMES_MAX_32BIT_SIZE
+   * sha1          FTIMEX_MAX_SHA1_LENGTH
 #ifdef USE_XMAGIC
    * magic         XMAGIC_DESCRIPTION_BUFSIZE
 #endif
@@ -2040,6 +2135,7 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
                 (3 * FTIMES_MAX_32BIT_SIZE) +
                 (4 * FTIMES_TIME_FORMAT_SIZE) +
                 (2 * FTIMES_MAX_64BIT_SIZE) +
+                (1 * FTIMEX_MAX_SHA1_LENGTH) +
                 (1 * FTIMEX_MAX_MD5_LENGTH) +
 #ifdef USE_XMAGIC
                 (1 * XMAGIC_DESCRIPTION_BUFSIZE) +
@@ -2071,7 +2167,7 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
   if (iError == ER_NullFields)
   {
     giIncompleteRecords++;
-    snprintf(pcError, MESSAGE_SIZE, "%s: Null Fields: %s", acRoutine, acLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s], NullFields = [%s]", acRoutine, psFTData->pcNeuteredPath, acLocalError);
     ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
   }
   giRecords++;
@@ -2115,12 +2211,13 @@ MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "MapWriteHeader()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char                acHeaderData[FTIMES_MAX_LINE];
-  int                 i;
-  int                 iError;
-  int                 iIndex;
-  unsigned long       ulTempMask;
-  unsigned long       ulFieldMask;
+  char                acHeaderData[FTIMES_MAX_LINE] = { 0 };
+  int                 i = 0;
+  int                 iError = 0;
+  int                 iIndex = 0;
+  int                 iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_MAP);
+  MASK_B2S_TABLE     *psMaskTable = MaskGetTableReference(MASK_RUNMODE_TYPE_MAP);
+  unsigned long       ul = 0;
 
   /*-
    *********************************************************************
@@ -2138,14 +2235,70 @@ MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  ulFieldMask = psProperties->ulFieldMask & ALL_MASK;
-  iIndex = sprintf(acHeaderData, (psProperties->bCompress) ? "zname" : "name");
-  for (i = 0; i < psProperties->iMaskTableLength; i++)
+  if (psProperties->bCompress)
   {
-    ulTempMask = (1 << i);
-    if ((ulFieldMask & ulTempMask) == ulTempMask)
+    iIndex = sprintf(acHeaderData, "z_name");
+    for (i = 0; i < iMaskTableLength; i++)
     {
-      iIndex += sprintf(&acHeaderData[iIndex], "|%s", (char *) psProperties->psMaskTable[i].HeaderName);
+      ul = (1 << i);
+      if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, ul))
+      {
+#ifdef WIN32
+        switch (ul)
+        {
+        case MAP_ATIME:
+          iIndex += sprintf(&acHeaderData[iIndex], "|z_atime|z_ams");
+          break;
+        case MAP_MTIME:
+          iIndex += sprintf(&acHeaderData[iIndex], "|z_mtime|z_mms");
+          break;
+        case MAP_CTIME:
+          iIndex += sprintf(&acHeaderData[iIndex], "|z_ctime|z_cms");
+          break;
+        case MAP_CHTIME:
+          iIndex += sprintf(&acHeaderData[iIndex], "|z_chtime|z_chms");
+          break;
+        default:
+          iIndex += sprintf(&acHeaderData[iIndex], "|z_%s", (char *) psMaskTable[i].acName);
+          break;
+        }
+#else
+        iIndex += sprintf(&acHeaderData[iIndex], "|z_%s", (char *) psMaskTable[i].acName);
+#endif
+      }
+    }
+  }
+  else
+  {
+    iIndex = sprintf(acHeaderData, "name");
+    for (i = 0; i < iMaskTableLength; i++)
+    {
+      ul = (1 << i);
+      if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, ul))
+      {
+#ifdef WIN32
+        switch (ul)
+        {
+        case MAP_ATIME:
+          iIndex += sprintf(&acHeaderData[iIndex], "|atime|ams");
+          break;
+        case MAP_MTIME:
+          iIndex += sprintf(&acHeaderData[iIndex], "|mtime|mms");
+          break;
+        case MAP_CTIME:
+          iIndex += sprintf(&acHeaderData[iIndex], "|ctime|cms");
+          break;
+        case MAP_CHTIME:
+          iIndex += sprintf(&acHeaderData[iIndex], "|chtime|chms");
+          break;
+        default:
+          iIndex += sprintf(&acHeaderData[iIndex], "|%s", (char *) psMaskTable[i].acName);
+          break;
+        }
+#else
+        iIndex += sprintf(&acHeaderData[iIndex], "|%s", (char *) psMaskTable[i].acName);
+#endif
+      }
     }
   }
   iIndex += sprintf(&acHeaderData[iIndex], "%s", psProperties->acNewLine);

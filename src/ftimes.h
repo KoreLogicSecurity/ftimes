@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.42 2005/06/16 18:17:19 mavrik Exp $
+ * $Id: ftimes.h,v 1.55 2006/04/16 20:45:17 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -18,7 +18,7 @@
  ***********************************************************************
  */
 #define PROGRAM_NAME "ftimes"
-#define VERSION "3.5.0"
+#define VERSION "3.6.0"
 
 #define LF            "\n"
 #define CRLF        "\r\n"
@@ -98,6 +98,7 @@ typedef enum _BOOL
 
 #define FTIMES_MAX_HOSTNAME_LENGTH       256
 #define FTIMEX_MAX_MD5_LENGTH (((MD5_HASH_SIZE)*2)+1)
+#define FTIMEX_MAX_SHA1_LENGTH (((SHA1_HASH_SIZE)*2)+1)
 #define FTIMES_MAX_USERNAME_LENGTH        32
 #define FTIMES_MAX_PASSWORD_LENGTH        32
 
@@ -133,6 +134,13 @@ typedef enum _BOOL
 #endif
 
 #define FTIMES_FILETYPE_BUFSIZE         1280 /* XMAGIC_MAX_LEVEL * XMAGIC_DESCRIPTION_BUFSIZE */
+
+typedef struct _FTIMES_HASH_DATA
+{
+  MD5_CONTEXT         sMd5Context;
+  SHA1_CONTEXT        sSha1Context;
+} FTIMES_HASH_DATA;
+
 #ifdef WIN32
 typedef struct _FTIMES_FILE_DATA
 {
@@ -152,7 +160,8 @@ typedef struct _FTIMES_FILE_DATA
   int                 iFSType;
   int                 iFileFlags;
   char                acType[FTIMES_FILETYPE_BUFSIZE];
-  unsigned char       aucFileMD5[MD5_HASH_SIZE];
+  unsigned char       aucFileMd5[MD5_HASH_SIZE];
+  unsigned char       aucFileSha1[SHA1_HASH_SIZE];
   unsigned char      *pucStreamInfo;
 } FTIMES_FILE_DATA;
 #endif
@@ -165,7 +174,8 @@ typedef struct _FTIMES_FILE_DATA
   int                 iFSType;
   int                 iFileFlags;
   char                acType[FTIMES_FILETYPE_BUFSIZE];
-  unsigned char       aucFileMD5[MD5_HASH_SIZE];
+  unsigned char       aucFileMd5[MD5_HASH_SIZE];
+  unsigned char       aucFileSha1[SHA1_HASH_SIZE];
 } FTIMES_FILE_DATA;
 #endif
 
@@ -174,51 +184,6 @@ typedef struct _FILE_LIST
   char                acPath[FTIMES_MAX_PATH];
   struct _FILE_LIST  *psNext;
 } FILE_LIST;
-
-#ifdef WIN32
-#define VOLUME_SET     0x00000001
-#define FINDEX_SET     0x00000002
-#define ATTRIBUTES_SET 0x00000004
-#define ATIME_SET      0x00000008
-#define MTIME_SET      0x00000010
-#define CTIME_SET      0x00000020
-#define CHTIME_SET     0x00000040
-#define SIZE_SET       0x00000080
-#define ALTSTREAMS_SET 0x00000100
-#define RESERVED_SET   0x00000200 /* reserved */
-#define MAGIC_SET      0x00000400
-#define MD5_SET        0x00000800
-
-#define ALL_MASK       0x00000dff /* ALL-reserved */
-#define DEFAULT_MASK   0x000009ff /* ALL-reserved-magic */
-#endif
-
-#ifdef UNIX
-#define DEV_SET        0x00000001
-#define INODE_SET      0x00000002
-#define MODE_SET       0x00000004
-#define NLINK_SET      0x00000008
-#define UID_SET        0x00000010
-#define GID_SET        0x00000020
-#define RDEV_SET       0x00000040
-#define ATIME_SET      0x00000080
-#define MTIME_SET      0x00000100
-#define CTIME_SET      0x00000200
-#define SIZE_SET       0x00000400
-#define RESERVED_SET   0x00000800 /* reserved */
-#define MAGIC_SET      0x00001000
-#define MD5_SET        0x00002000
-
-#define ALL_MASK       0x000037ff /* ALL-reserved */
-#define DEFAULT_MASK   0x000027ff /* ALL-reserved-magic */
-#endif
-
-typedef struct _MASK_TABLE
-{
-  char                MaskName[32];
-  char                HeaderName[32];
-  unsigned long       Mask;
-} MASK_TABLE;
 
 #define FTIMES_CMPDATA "cmp"
 #define FTIMES_DIGDATA "dig"
@@ -235,18 +200,15 @@ typedef struct _MASK_TABLE
 #define FTIMES_MAPAUTO 0x00000080
 #define FTIMES_MAPFULL 0x00000100
 #define FTIMES_MAPLEAN 0x00000200
-#define FTIMES_PUTMODE 0x00000400
-#define FTIMES_VERSION 0x00000800
+#define FTIMES_VERSION 0x00000400
 
 #define MODES_AnalyzeBlockSize  ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_AnalyzeCarrySize  ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
 #define MODES_AnalyzeDeviceFiles ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_AnalyzeRemoteFiles ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
-#define MODES_BaseName          ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
+#define MODES_BaseName          ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_GETMODE))
 #define MODES_BaseNameSuffix    ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_Compress          ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
-#define MODES_DataType          ((FTIMES_PUTMODE))
-#define MODES_DateTime          ((FTIMES_PUTMODE))
 #define MODES_DigString         ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
 #define MODES_DigStringNoCase   ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
 #define MODES_DigStringNormal   ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
@@ -256,43 +218,39 @@ typedef struct _MASK_TABLE
 #define MODES_EnableRecursion   ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_Exclude           ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_ExcludesMustExist ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
-#define MODES_FieldMask         ((FTIMES_CMPMODE) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_PUTMODE))
+#define MODES_FieldMask         ((FTIMES_CMPMODE) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_FileSizeLimit     ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_GetAndExec        ((FTIMES_GETMODE))
 #define MODES_GetFileName       ((FTIMES_GETMODE))
 #define MODES_HashDirectories   ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_HashSymbolicLinks ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
-#define MODES_Import            ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
+#define MODES_Import            ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_GETMODE))
 #define MODES_Include           ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_IncludesMustExist ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_LogDir            ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
-#define MODES_LogFileName       ((FTIMES_PUTMODE))
 #define MODES_MagicFile         ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_MatchLimit        ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
 #define MODES_NewLine           ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_OutDir            ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
-#define MODES_OutFileHash       ((FTIMES_PUTMODE))
-#define MODES_OutFileName       ((FTIMES_PUTMODE))
 #define MODES_RequirePrivilege  ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
-#define MODES_RunType           ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE))
-#define MODES_URLAuthType       ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
-#define MODES_URLCreateConfig   ((FTIMES_DIGFULL) | (FTIMES_MAPFULL))
+#define MODES_RunType           ((FTIMES_DIGFULL) | (FTIMES_MAPFULL))
+#define MODES_URLAuthType       ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
 #define MODES_URLGetRequest     ((FTIMES_GETMODE))
 #define MODES_URLGetURL         ((FTIMES_GETMODE))
-#define MODES_URLPassword       ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
+#define MODES_URLPassword       ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
 #define MODES_URLPutSnapshot    ((FTIMES_DIGFULL) | (FTIMES_MAPFULL))
-#define MODES_URLPutURL         ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE))
+#define MODES_URLPutURL         ((FTIMES_DIGFULL) | (FTIMES_MAPFULL))
 #define MODES_URLUnlinkOutput   ((FTIMES_DIGFULL) | (FTIMES_MAPFULL))
-#define MODES_URLUsername       ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
+#define MODES_URLUsername       ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
 #ifdef USE_SSL
-#define MODES_SSLBundledCAsFile ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
-#define MODES_SSLExpectedPeerCN ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
-#define MODES_SSLMaxChainLength ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
-#define MODES_SSLPassPhrase     ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
-#define MODES_SSLPrivateKeyFile ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
-#define MODES_SSLPublicCertFile ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
-#define MODES_SSLUseCertificate ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
-#define MODES_SSLVerifyPeerCert ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
+#define MODES_SSLBundledCAsFile ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
+#define MODES_SSLExpectedPeerCN ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
+#define MODES_SSLMaxChainLength ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
+#define MODES_SSLPassPhrase     ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
+#define MODES_SSLPrivateKeyFile ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
+#define MODES_SSLPublicCertFile ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
+#define MODES_SSLUseCertificate ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
+#define MODES_SSLVerifyPeerCert ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_GETMODE))
 #endif
 
 #define KEY_AnalyzeBlockSize    "AnalyzeBlockSize"
@@ -302,8 +260,6 @@ typedef struct _MASK_TABLE
 #define KEY_BaseName            "BaseName"
 #define KEY_BaseNameSuffix      "BaseNameSuffix"
 #define KEY_Compress            "Compress"
-#define KEY_DataType            "DataType"
-#define KEY_DateTime            "DateTime"
 #define KEY_DigString           "DigString"
 #define KEY_DigStringNoCase     "DigStringNoCase"
 #define KEY_DigStringNormal     "DigStringNormal"
@@ -323,18 +279,14 @@ typedef struct _MASK_TABLE
 #define KEY_Include             "Include"
 #define KEY_IncludesMustExist   "IncludesMustExist"
 #define KEY_LogDir              "LogDir"
-#define KEY_LogFileName         "LogFileName"
 #define KEY_MagicFile           "MagicFile"
 #define KEY_MapRemoteFiles      "MapRemoteFiles"
 #define KEY_MatchLimit          "MatchLimit"
 #define KEY_NewLine             "NewLine"
 #define KEY_OutDir              "OutDir"
-#define KEY_OutFileHash         "OutFileHash"
-#define KEY_OutFileName         "OutFileName"
 #define KEY_RequirePrivilege    "RequirePrivilege"
 #define KEY_RunType             "RunType"
 #define KEY_URLAuthType         "URLAuthType"
-#define KEY_URLCreateConfig     "URLCreateConfig"
 #define KEY_URLGetRequest       "URLGetRequest"
 #define KEY_URLGetURL           "URLGetURL"
 #define KEY_URLPassword         "URLPassword"
@@ -362,8 +314,6 @@ typedef struct _CONTROLS_FOUND
   BOOL                bBaseNameFound;
   BOOL                bBaseNameSuffixFound;
   BOOL                bCompressFound;
-  BOOL                bDataTypeFound;
-  BOOL                bDateTimeFound;
   BOOL                bEnableRecursionFound;
   BOOL                bExcludesMustExistFound;
   BOOL                bFieldMaskFound;
@@ -374,17 +324,13 @@ typedef struct _CONTROLS_FOUND
   BOOL                bHashSymbolicLinksFound;
   BOOL                bIncludesMustExistFound;
   BOOL                bLogDirFound;
-  BOOL                bLogFileNameFound;
   BOOL                bMagicFileFound;
   BOOL                bMatchLimitFound;
   BOOL                bNewLineFound;
   BOOL                bOutDirFound;
-  BOOL                bOutFileHashFound;
-  BOOL                bOutFileNameFound;
   BOOL                bRequirePrivilegeFound;
   BOOL                bRunTypeFound;
   BOOL                bURLAuthTypeFound;
-  BOOL                bURLCreateConfigFound;
   BOOL                bURLGetRequestFound;
   BOOL                bURLGetURLFound;
   BOOL                bURLPasswordFound;
@@ -435,7 +381,6 @@ typedef struct _FTIMES_PROPERTIES
   BOOL                bHashSymbolicLinks;
   BOOL                bIncludesMustExist;
   BOOL                bRequirePrivilege;
-  BOOL                bURLCreateConfig;
   BOOL                bURLPutSnapshot;
   BOOL                bURLUnlinkOutput;
   char                acBaseName[FTIMES_MAX_PATH];
@@ -449,7 +394,6 @@ typedef struct _FTIMES_PROPERTIES
   char                acLogFileName[FTIMES_MAX_PATH];
   char                acMagicFileName[FTIMES_MAX_PATH];
   char                acMagicHash[FTIMEX_MAX_MD5_LENGTH];
-  char                acMaskString[ALL_FIELDS_MASK_SIZE];
   char                acNewLine[NEWLINE_LENGTH];
   char                acOutDirName[FTIMES_MAX_PATH];
   char                acOutFileName[FTIMES_MAX_PATH];
@@ -465,10 +409,8 @@ typedef struct _FTIMES_PROPERTIES
   char                acURLGetRequest[GET_REQUEST_BUFSIZE];
   char                acURLPassword[FTIMES_MAX_PASSWORD_LENGTH];
   char                acURLUsername[FTIMES_MAX_USERNAME_LENGTH];
-  char               *pcBaselineFile;
   char               *pcProgram;
   char               *pcRunModeArgument;
-  char               *pcSnapshotFile;
   char              **ppcMapList;
   CONTROLS_FOUND      sFound;
   FILE               *pFileLog;
@@ -485,7 +427,6 @@ typedef struct _FTIMES_PROPERTIES
   int                 iLastAnalysisStage;
   int                 iLastRunModeStage;
   int                 iLogLevel;
-  int                 iMaskTableLength;
   int                 iMatchLimit;
   int                 iRunMode;
   int                 iNextRunMode;
@@ -496,13 +437,14 @@ typedef struct _FTIMES_PROPERTIES
   int               (*piDevelopMapOutput)();
   int               (*piRunModeFinalStage)();
   int               (*piRunModeProcessArguments)();
-  MASK_TABLE         *psMaskTable;
+  MASK_USS_MASK      *psFieldMask;
+  SNAPSHOT_CONTEXT   *psSnapshotContext;
+  SNAPSHOT_CONTEXT   *psBaselineContext;
 #ifdef USE_SSL
   SSL_PROPERTIES     *psSSLProperties;
 #endif
   MD5_CONTEXT         sOutFileHashContext;
   time_t              tStartTime;
-  unsigned long       ulFieldMask;
   unsigned long       ulFileSizeLimit;
 } FTIMES_PROPERTIES;
 
@@ -514,7 +456,8 @@ typedef struct _FTIMES_PROPERTIES
  ***********************************************************************
  */
 int                 AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
-int                 AnalyzeDoDigest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
+int                 AnalyzeDoMd5Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
+int                 AnalyzeDoSha1Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
 int                 AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
 void                AnalyzeEnableDigEngine(FTIMES_PROPERTIES *psProperties);
 void                AnalyzeEnableDigestEngine(FTIMES_PROPERTIES *psProperties);
@@ -536,7 +479,8 @@ void                AnalyzeSetCarrySize(int iCarrySize);
  *
  ***********************************************************************
  */
-int                 CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *psMaskTable, int iMaskTableLength, char *pcError);
+int                 CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError);
+int                 CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapshot, char *pcError);
 
 /*-
  ***********************************************************************
@@ -570,11 +514,11 @@ int                 FTimesVersion(FTIMES_PROPERTIES *psProperties, char *pcError
 void                FTimesSetPropertiesReference(FTIMES_PROPERTIES *psProperties);
 FTIMES_PROPERTIES  *FTimesGetPropertiesReference(void);
 FTIMES_PROPERTIES  *FTimesNewProperties(char *pcError);
-int                 FTimesCreateConfigFile(FTIMES_PROPERTIES *psProperties, char *pcError);
 void                FTimesEraseFiles(FTIMES_PROPERTIES *psProperties, char *pcError);
 #ifdef USE_SSL
 int                 SSLCheckDependencies(SSL_PROPERTIES *psProperties, char *pcError);
 #endif
+void                FTimesFreeProperties(FTIMES_PROPERTIES *psProperties);
 
 /*-
  ***********************************************************************
@@ -589,49 +533,42 @@ int                 DecoderProcessArguments(FTIMES_PROPERTIES *psProperties, int
 int                 DigModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError);
 int                 GetModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError);
 int                 MapModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError);
-int                 PutModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError);
 
 int                 CmpModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DecoderInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 GetModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 MapModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 PutModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
 
 int                 CmpModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DecoderCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 GetModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 PutModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
 
 int                 CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DecoderFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 GetModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 PutModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
 
 int                 CmpModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DecoderWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DigModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 GetModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 MapModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 PutModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
 
 int                 CmpModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DecoderFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 GetModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 PutModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
 
 int                 CmpModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DecoderFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 DigModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 GetModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 MapModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 PutModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
 
 /*-
  ***********************************************************************
@@ -647,13 +584,13 @@ int                 MapGetFileCount();
 int                 MapGetRecordCount();
 int                 MapGetSpecialCount();
 int                 MapGetIncompleteRecordCount();
-int                 MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned char *pucTreeHash, char *pcError);
+int                 MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_DATA *psParentFTData, char *pcError);
 int                 MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *pcError);
 #ifdef WINNT
 int                 MapCountNamedStreams(HANDLE hFile, int *piStreamCount, unsigned char **ppucStreamInfo, char *pcError);
 int                 MapGetStreamCount();
-void                MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTEXT *psDirHashBlock, char *pcError);
+void                MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, FTIMES_HASH_DATA *psDirFTHashData, char *pcError);
 #endif
 #ifdef WIN32
 HANDLE              MapGetFileHandle(char *path);
@@ -691,6 +628,7 @@ int                 SupportEraseFile(char *pcName, char *pcError);
 int                 SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, char *pcError);
 int                 SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceExpansion, char *pcError);
 void                SupportFreeData(void *pcData);
+FILE               *SupportGetFileHandle(char *pcFile, char *pcError);
 int                 SupportGetFileType(char *pcPath, char *pcError);
 char               *SupportGetHostname(void);
 char               *SupportGetMyVersion(void);

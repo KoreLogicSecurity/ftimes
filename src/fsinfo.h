@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.h,v 1.14 2005/05/20 13:57:42 mavrik Exp $
+ * $Id: fsinfo.h,v 1.19 2006/04/07 22:15:11 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -29,6 +29,8 @@ enum eFSTypes
   FSTYPE_NFS,
   FSTYPE_NTFS,
   FSTYPE_NTFS_REMOTE,
+  FSTYPE_NWFS,
+  FSTYPE_NWFS_REMOTE,
   FSTYPE_TMPFS,
   FSTYPE_UFS,
   FSTYPE_AIX,
@@ -40,7 +42,10 @@ enum eFSTypes
   FSTYPE_VXFS,
   FSTYPE_SMB,
   FSTYPE_CDFS,
-  FSTYPE_DEVFS
+  FSTYPE_DEVFS,
+  FSTYPE_VZFS,
+  FSTYPE_RAMFS,
+  FSTYPE_XFS
 };
 
 
@@ -111,6 +116,15 @@ enum eFSTypes
 #endif
 #ifndef TMPFS_SUPER_MAGIC
 #define TMPFS_SUPER_MAGIC  0x1021994
+#endif
+#ifndef VZFS_SUPER_MAGIC
+#define VZFS_SUPER_MAGIC  0x565a4653
+#endif
+#ifndef RAMFS_SUPER_MAGIC
+#define RAMFS_SUPER_MAGIC 0x858458f6
+#endif
+#ifndef XFS_SUPER_MAGIC
+#define XFS_SUPER_MAGIC   0x58465342
 #endif
 #endif
 

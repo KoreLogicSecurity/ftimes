@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: support.c,v 1.22 2005/04/02 18:08:26 mavrik Exp $
+ * $Id: support.c,v 1.27 2006/04/16 17:16:41 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -380,26 +380,26 @@ SupportDisplayRunStatistics(FTIMES_PROPERTIES *psProperties)
   stopTime = time(NULL);
 
   snprintf(acMessage, MESSAGE_SIZE, "Warnings=%d", ErrorGetWarnings());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "Failures=%d", ErrorGetFailures());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   if (psProperties->tStartTime == ER || stopTime == ER)
   {
     snprintf(acMessage, MESSAGE_SIZE, "RunEpoch=NA");
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
     snprintf(acMessage, MESSAGE_SIZE, "Duration=NA");
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
   else
   {
     snprintf(acMessage, MESSAGE_SIZE, "RunEpoch=%s %s %s", psProperties->acStartDate, psProperties->acStartTime, psProperties->acStartZone);
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
     snprintf(acMessage, MESSAGE_SIZE, "Duration=%d", (int) (stopTime - psProperties->tStartTime));
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 }
 
@@ -812,6 +812,47 @@ SupportFreeData(void *pcData)
 /*-
  ***********************************************************************
  *
+ * SupportGetFileHandle
+ *
+ ***********************************************************************
+ */
+FILE *
+SupportGetFileHandle(char *pcFile, char *pcError)
+{
+  const char          acRoutine[] = "SupportGetFileHandle()";
+  static int          iStdinTaken = 0;
+  FILE               *pFile = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Open the specified file. If "-" was specified, bind the handle to
+   * stdin, but do not do this more than once per invocation.
+   *
+   *********************************************************************
+   */
+  if (strcmp(pcFile, "-") == 0 && iStdinTaken == 0)
+  {
+    pFile = stdin;
+    iStdinTaken = 1;
+  }
+  else
+  {
+    pFile = fopen(pcFile, "rb");
+    if (pFile == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): %s", acRoutine, strerror(errno));
+      return NULL;
+    }
+  }
+
+  return pFile;
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * SupportGetFileType
  *
  ***********************************************************************
@@ -978,7 +1019,7 @@ SupportGetMyVersion(void)
   iIndex += snprintf(&acMyVersion[iIndex], iLength, " xmagic");
   iLength -= strlen(" xmagic");
 #endif
-  iIndex += snprintf(&acMyVersion[iIndex], iLength, " %d bit", (int) (sizeof(&SupportGetMyVersion) * 8));
+  iIndex += snprintf(&acMyVersion[iIndex], iLength, " %d-bit", (int) (sizeof(&SupportGetMyVersion) * 8));
   return acMyVersion;
 }
 
@@ -1279,13 +1320,21 @@ SupportNeuterString(char *pcData, int iLength, char *pcError)
   /*-
    *********************************************************************
    *
-   * Neuter !isprint and [|"'`%+]. Convert spaces to '+'.
+   * Neuter non-printables and [|"'`%+]. Convert spaces to '+'. Avoid
+   * isprint() here because it has led to unexpected results on Windows
+   * platforms. In the past, isprint() on certain Windows systems has
+   * decided that several characters in the range 0x7f - 0xff are
+   * printable.
    *
    *********************************************************************
    */
   for (i = n = 0; i < iLength; i++)
   {
-    if (isprint((int) pcData[i]))
+    if (pcData[i] > '~' || pcData[i] < ' ')
+    {
+      n += sprintf(&pcNeutered[n], "%%%02x", (unsigned char) pcData[i]);
+    }
+    else
     {
       switch (pcData[i])
       {
@@ -1304,10 +1353,6 @@ SupportNeuterString(char *pcData, int iLength, char *pcError)
         pcNeutered[n++] = pcData[i];
         break;
       }
-    }
-    else
-    {
-      n += sprintf(&pcNeutered[n], "%%%02x", (unsigned char) pcData[i]);
     }
   }
   pcNeutered[n] = 0;

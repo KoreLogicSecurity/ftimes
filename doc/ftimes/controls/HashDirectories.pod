@@ -19,8 +19,10 @@ represent directories and files respectively,
 then, assuming that F1 is mapped before D2, D1 and D2 have the
 following hashes:
 
-  Hash(D2) = MD5(MD5(F2))
-  Hash(D1) = MD5(MD5(F1), Hash(D2))
+  Hash(D2) = H(H(F2))
+  Hash(D1) = H(H(F1), Hash(D2))
+
+where H represents the hash algorithm (e.g., MD5, SHA1, etc.).
 
 If an entry within the directory is a special file (e.g., a device)
 or cannot be opened/hashed, a 16 byte string consisting of all zeros

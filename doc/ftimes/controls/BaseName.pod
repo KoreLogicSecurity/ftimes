@@ -1,7 +1,7 @@
 =item B<BaseName>: <name|->
 
-Applies to B<digfull>, B<diglean>, B<getmode>, B<mapfull>, B<maplean>,
-and B<putmode>.
+Applies to B<digfull>, B<diglean>, B<getmode>, B<mapfull>, and
+B<maplean>.
 
 B<BaseName> is required.  It specifies the name prefix that will
 be attached to the various output files.  It also serves as the

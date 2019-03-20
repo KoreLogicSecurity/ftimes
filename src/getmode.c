@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: getmode.c,v 1.12 2005/04/02 18:08:24 mavrik Exp $
+ * $Id: getmode.c,v 1.14 2006/04/07 22:15:11 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -285,10 +285,10 @@ GetModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   snprintf(acMessage, MESSAGE_SIZE, "LogFileName=%s", psProperties->acLogFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->acOutFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   /*-
    *********************************************************************

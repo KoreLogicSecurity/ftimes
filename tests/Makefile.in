@@ -1,8 +1,3 @@
-######################################################################
-#
-# $Id: Makefile.in,v 1.1 2005/05/24 18:25:40 mavrik Exp $
-#
-######################################################################
 
 PROJECT_ROOT=..
 
@@ -14,7 +9,7 @@ VPATH=@srcdir@
 
 INCLUDES_PREFIX=${PROJECT_ROOT}/Mk
 
-SUBDIRS=common
+SUBDIRS=common @additional_testdirs@
 
 all:
 

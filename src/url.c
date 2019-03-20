@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: url.c,v 1.12 2005/04/02 18:08:26 mavrik Exp $
+ * $Id: url.c,v 1.15 2006/04/07 22:15:11 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -317,7 +317,7 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
     }
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acMaskString, acLocalError);
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->psFieldMask->pcMask, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -432,18 +432,18 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
     sStreamList[i].pFile = fopen(apcFilenames[i], "rb");
     if (sStreamList[i].pFile == NULL)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
       return ER;
     }
     if (fseek(sStreamList[i].pFile, 0, SEEK_END) == ER)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: fseek(): File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
       return ER;
     }
     sStreamList[i].ui32Size = (unsigned) ftell(sStreamList[i].pFile);
     if (sStreamList[i].ui32Size == ER)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: ftell(): File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
       return ER;
     }
     rewind(sStreamList[i].pFile);
@@ -592,7 +592,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
     }
     return ER;
   }
-  apcEscaped[iEscaped] = HTTPEscape(psProperties->acMaskString, acLocalError);
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->psFieldMask->pcMask, acLocalError);
   if (apcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);

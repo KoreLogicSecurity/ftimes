@@ -1,7 +1,6 @@
 =item B<FieldMask>: <mask>
 
-Applies to B<compare>, B<mapauto>, B<mapfull>, B<maplean>, and
-B<putmode>.
+Applies to B<compare>, B<mapauto>, B<mapfull>, and B<maplean>.
 
 B<FieldMask> is required in B<compare>.  Its value indicates what
 fields are to be compared for change.
@@ -9,9 +8,6 @@ fields are to be compared for change.
 B<FieldMask> is required in B<mapauto>, B<mapfull>, and B<maplean>.
 Its value dictates what attributes get collected or derived during
 a scan.
-
-B<FieldMask> is required in B<putmode>.  Its value indicates what
-fields are contained in the data being posted.
 
 There can be no embedded white space in a given mask specification,
 and it must comply with the following case insensitive syntax:
@@ -35,8 +31,9 @@ caveats:  (1) chtime is only available on Windows NT/2K systems and
     chtime     - Change time (undocumented)
     size       - File size in bytes
     altstreams - Number of alternate or named streams
-    magic      - File type
+    sha1       - SHA1 digest of the file's data stream
     md5        - MD5 digest of the file's data stream
+    magic      - File type
 
 The following fields may be specified on UNIX platforms:
 
@@ -51,6 +48,7 @@ The following fields may be specified on UNIX platforms:
     mtime      - Time of last file modification
     ctime      - Time of last file status change
     size       - File size in bytes
-    magic      - File type
+    sha1       - SHA1 digest of the file's data stream
     md5        - MD5 digest of the file's data stream
+    magic      - File type
 

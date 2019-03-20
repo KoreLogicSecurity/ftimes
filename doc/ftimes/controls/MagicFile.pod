@@ -6,9 +6,14 @@ B<MagicFile> is optional.  If the magic field in B<FieldMask> is
 set and B<MagicFile> references a valid XMagic file, B<FTimes>
 attempts to determine the type of each file it maps.  If the magic
 field is not set, this control is ignored.  B<MagicFile> may be
-specified as a relative path.
+specified as a relative path.  Additional information regaring XMagic
+can be found here:
+
+  http://ftimes.sourceforge.net/FTimes/XMagic.shtml
 
 Note: XMagic is not built into B<FTimes> by default.  If your version
 of B<FTimes> does not have this support and the magic field is
 requested, B<FTimes> will produce null fields.
+
+Note: XMagic is automatically disabled if compression is enabled.
 

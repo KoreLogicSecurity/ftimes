@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.c,v 1.18 2005/04/02 18:08:24 mavrik Exp $
+ * $Id: ftimes.c,v 1.29 2006/04/07 22:15:11 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -18,44 +18,6 @@
  *
  ***********************************************************************
  */
-#ifdef UNIX
-static MASK_TABLE gasMaskTable[] =
-{
-  { "dev",         "dev",         DEV_SET        },
-  { "inode",       "inode",       INODE_SET      },
-  { "mode",        "mode",        MODE_SET       },
-  { "nlink",       "nlink",       NLINK_SET      },
-  { "uid",         "uid",         UID_SET        },
-  { "gid",         "gid",         GID_SET        },
-  { "rdev",        "rdev",        RDEV_SET       },
-  { "atime",       "atime",       ATIME_SET      },
-  { "mtime",       "mtime",       MTIME_SET      },
-  { "ctime",       "ctime",       CTIME_SET      },
-  { "size",        "size",        SIZE_SET       },
-  { {0},           {0},           RESERVED_SET   }, /* reserved */
-  { "magic",       "magic",       MAGIC_SET      },
-  { "md5",         "md5",         MD5_SET        },
-};
-#endif
-#ifdef WIN32
-static MASK_TABLE gasMaskTable[] =
-{
-  { "volume",      "volume",      VOLUME_SET     },
-  { "findex",      "findex",      FINDEX_SET     },
-  { "attributes",  "attributes",  ATTRIBUTES_SET },
-  { "atime",       "atime|ams",   ATIME_SET      },
-  { "mtime",       "mtime|mms",   MTIME_SET      },
-  { "ctime",       "ctime|cms",   CTIME_SET      },
-  { "chtime",      "chtime|chms", CHTIME_SET     },
-  { "size",        "size",        SIZE_SET       },
-  { "altstreams",  "altstreams",  ALTSTREAMS_SET },
-  { {0},           {0},           RESERVED_SET   }, /* reserved */
-  { "magic",       "magic",       MAGIC_SET      },
-  { "md5",         "md5",         MD5_SET        }
-};
-#endif
-static const int giMaskTableLength = sizeof(gasMaskTable) / sizeof(gasMaskTable[0]);
-
 static FTIMES_PROPERTIES *gpsProperties;
 
 #ifdef WINNT
@@ -133,6 +95,38 @@ FTimesBootstrap(char *pcError)
   char               *pcMessage;
   int                 iError;
 #endif
+
+  /*-
+   *********************************************************************
+   *
+   * Require certain truths. If these tests produce an error, there is
+   * something wrong with the code.
+   *
+   *********************************************************************
+   */
+  if (DECODE_FIELD_COUNT != MaskGetTableLength(MASK_RUNMODE_TYPE_CMP))
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: DecodeFieldCount/CmpMaskTableSize mismatch!: %d != %d", acRoutine, DECODE_FIELD_COUNT, MaskGetTableLength(MASK_RUNMODE_TYPE_CMP));
+    return ER;
+  }
+
+  if (DECODE_FIELD_COUNT != DecodeGetTableLength())
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: DecodeFieldCount/DecodeTableSize mismatch!: %d != %d", acRoutine, DECODE_FIELD_COUNT, DecodeGetTableLength());
+    return ER;
+  }
+
+  if (FTIMES_MAX_LINE != DECODE_MAX_LINE)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: FTimesMaxLine/DecodeMaxLine mismatch!: %d != %d", acRoutine, FTIMES_MAX_LINE, DECODE_MAX_LINE);
+    return ER;
+  }
+
+  if (FTIMES_MAX_LINE != CMP_MAX_LINE)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: FTimesMaxLine/CmpMaxLine mismatch!: %d != %d", acRoutine, FTIMES_MAX_LINE, CMP_MAX_LINE);
+    return ER;
+  }
 
   /*-
    *********************************************************************
@@ -223,6 +217,28 @@ FTimesBootstrap(char *pcError)
 /*-
  ***********************************************************************
  *
+ * FTimesFreeProperties
+ *
+ ***********************************************************************
+ */
+void
+FTimesFreeProperties(FTIMES_PROPERTIES *psProperties)
+{
+  if (psProperties != NULL)
+  {
+    DecodeFreeSnapshotContext(psProperties->psBaselineContext);
+    DecodeFreeSnapshotContext(psProperties->psSnapshotContext);
+#ifdef USE_SSL
+    SSLFreeProperties(psProperties->psSSLProperties);
+#endif
+    free(psProperties);
+  }
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * FTimesNewProperties
  *
  ***********************************************************************
@@ -231,9 +247,7 @@ FTIMES_PROPERTIES *
 FTimesNewProperties(char *pcError)
 {
   const char          acRoutine[] = "FTimesNewProperties()";
-#ifdef USE_SSL
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-#endif
   FTIMES_PROPERTIES  *psProperties;
 
   /*
@@ -249,16 +263,6 @@ FTimesNewProperties(char *pcError)
     snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
-
-  /*
-   *********************************************************************
-   *
-   * Initialize field masks. Treat these variables as constants.
-   *
-   *********************************************************************
-   */
-  psProperties->psMaskTable = gasMaskTable;
-  psProperties->iMaskTableLength = giMaskTableLength;
 
   /*-
    *********************************************************************
@@ -298,8 +302,7 @@ FTimesNewProperties(char *pcError)
    */
 #ifdef WIN32
   strncpy(psProperties->acNewLine, CRLF, NEWLINE_LENGTH);
-#endif
-#ifdef UNIX
+#else
   strncpy(psProperties->acNewLine, LF, NEWLINE_LENGTH);
 #endif
 
@@ -340,6 +343,36 @@ FTimesNewProperties(char *pcError)
   psProperties->iAnalyzeBlockSize = AnalyzeGetBlockSize();
   psProperties->iAnalyzeCarrySize = AnalyzeGetCarrySize();
 
+  /*-
+   *********************************************************************
+   *
+   * Initialize baseline context.
+   *
+   *********************************************************************
+   */
+  psProperties->psBaselineContext = DecodeNewSnapshotContext(acLocalError);
+  if (psProperties->psBaselineContext == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    FTimesFreeProperties(psProperties);
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Initialize snapshot context.
+   *
+   *********************************************************************
+   */
+  psProperties->psSnapshotContext = DecodeNewSnapshotContext(acLocalError);
+  if (psProperties->psSnapshotContext == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    FTimesFreeProperties(psProperties);
+    return NULL;
+  }
+
 #ifdef USE_SSL
   /*-
    *********************************************************************
@@ -352,7 +385,7 @@ FTimesNewProperties(char *pcError)
   if (psProperties->psSSLProperties == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    free(psProperties);
+    FTimesFreeProperties(psProperties);
     return NULL;
   }
 #endif
@@ -577,34 +610,6 @@ FTimesProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char
 
     psProperties->piRunModeFinalStage = MapModeFinalStage;
   }
-  else if (strcmp(psProperties->pcRunModeArgument, "--putmode") == 0)
-  {
-    psProperties->iRunMode = FTIMES_PUTMODE;
-
-    psProperties->piRunModeProcessArguments = PutModeProcessArguments;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].acDescription, "PutModeInitialize");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_Initialize;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = PutModeInitialize;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].acDescription, "PutModeCheckDependencies");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_CheckDependencies;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = PutModeCheckDependencies;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].acDescription, "PutModeFinalize");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_Finalize;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = PutModeFinalize;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].acDescription, "PutModeWorkHorse");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_WorkHorse;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = PutModeWorkHorse;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].acDescription, "PutModeFinishUp");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_FinishUp;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = PutModeFinishUp;
-
-    psProperties->piRunModeFinalStage = PutModeFinalStage;
-  }
   else if (strcmp(psProperties->pcRunModeArgument, "--version") == 0)
   {
     psProperties->iRunMode = FTIMES_VERSION;
@@ -667,13 +672,13 @@ FTimesStagesLoop(FTIMES_PROPERTIES *psProperties, char *pcError)
    *******************************************************************
    */
   snprintf(acMessage, MESSAGE_SIZE, "Program=%s %s", SupportGetMyVersion(), psProperties->pcRunModeArgument);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "SystemOS=%s", SupportGetSystemOS());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "Hostname=%s", SupportGetHostname());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   /*-
    *******************************************************************
@@ -787,7 +792,6 @@ FTimesUsage(void)
   fprintf(stderr, "       ftimes --mapauto mask [-l level] [list]\n");
   fprintf(stderr, "       ftimes --mapfull file [-l level] [list]\n");
   fprintf(stderr, "       ftimes --maplean file [-l level] [list]\n");
-  fprintf(stderr, "       ftimes --putmode file [-l level]\n");
   fprintf(stderr, "       ftimes --version\n");
   fprintf(stderr, "\n");
   exit(XER_Usage);
@@ -840,83 +844,6 @@ FTimesGetPropertiesReference(void)
 /*-
  ***********************************************************************
  *
- * FTimesCreateConfigFile
- *
- ***********************************************************************
- */
-int
-FTimesCreateConfigFile(FTIMES_PROPERTIES *psProperties, char *pcError)
-{
-  const char          acRoutine[] = "FTimesCreateConfigFile()";
-  FILE               *pFile;
-
-  if ((pFile = fopen(psProperties->acCfgFileName, "wb+")) == NULL)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: CfgFile = [%s]: %s", acRoutine, psProperties->acCfgFileName, strerror(errno));
-    return ER_fopen;
-  }
-
-  fprintf(pFile, "#%s", psProperties->acNewLine);
-  fprintf(pFile, "# This file contains most of the directives necessary to upload%s", psProperties->acNewLine);
-  fprintf(pFile, "# the associated snapshot to a remote server. Before attempting an%s", psProperties->acNewLine);
-  fprintf(pFile, "# upload, review the following information for completeness and%s", psProperties->acNewLine);
-  fprintf(pFile, "# correctness. You are required to supply the server's URL and any%s", psProperties->acNewLine);
-  fprintf(pFile, "# necessary credentials.%s", psProperties->acNewLine);
-  fprintf(pFile, "#%s", psProperties->acNewLine);
-  fprintf(pFile, "%s%s%s%s", KEY_BaseName, FTIMES_SEPARATOR, psProperties->acBaseName, psProperties->acNewLine);
-  fprintf(pFile, "#%s", psProperties->acNewLine);
-  fprintf(pFile, "%s%s%s%s", KEY_LogFileName, FTIMES_SEPARATOR, psProperties->acLogFileName, psProperties->acNewLine);
-  fprintf(pFile, "%s%s%s%s", KEY_OutFileName, FTIMES_SEPARATOR, psProperties->acOutFileName, psProperties->acNewLine);
-  fprintf(pFile, "%s%s%s%s", KEY_OutFileHash, FTIMES_SEPARATOR, psProperties->acOutFileHash, psProperties->acNewLine);
-  fprintf(pFile, "#%s", psProperties->acNewLine);
-  fprintf(pFile, "%s%s%s%s", KEY_DataType, FTIMES_SEPARATOR, psProperties->acDataType, psProperties->acNewLine);
-  fprintf(pFile, "%s%s%s%s", KEY_DateTime, FTIMES_SEPARATOR, psProperties->acDateTime, psProperties->acNewLine);
-  fprintf(pFile, "%s%s%s%s", KEY_FieldMask, FTIMES_SEPARATOR, psProperties->acMaskString, psProperties->acNewLine);
-  fprintf(pFile, "%s%s%s%s", KEY_RunType, FTIMES_SEPARATOR, psProperties->acRunType, psProperties->acNewLine);
-  fprintf(pFile, "#%s", psProperties->acNewLine);
-  fprintf(pFile, "%s%s%s://%s:%s%s%s",
-           KEY_URLPutURL,
-           FTIMES_SEPARATOR,
-#ifdef USE_SSL
-           (psProperties->psPutURL->iScheme == HTTP_SCHEME_HTTPS) ? "https" : "http",
-#else
-           "http",
-#endif
-           psProperties->psPutURL->pcHost,
-           psProperties->psPutURL->pcPort,
-           psProperties->psPutURL->pcPath,
-           psProperties->acNewLine
-         );
-#ifdef USE_SSL
-  fprintf(pFile, "#%s", psProperties->acNewLine);
-  if (psProperties->psPutURL->iScheme == HTTP_SCHEME_HTTPS)
-  {
-    fprintf(pFile, "%s%s%s%s", KEY_SSLUseCertificate, FTIMES_SEPARATOR, (psProperties->psSSLProperties->iUseCertificate) ? "Y" : "N", psProperties->acNewLine);
-    if (psProperties->psSSLProperties->iUseCertificate)
-    {
-      fprintf(pFile, "%s%s%s%s", KEY_SSLPublicCertFile, FTIMES_SEPARATOR, psProperties->psSSLProperties->pcPublicCertFile, psProperties->acNewLine);
-      fprintf(pFile, "%s%s%s%s", KEY_SSLPrivateKeyFile, FTIMES_SEPARATOR, psProperties->psSSLProperties->pcPrivateKeyFile, psProperties->acNewLine);
-    }
-
-    fprintf(pFile, "%s%s%s%s", KEY_SSLVerifyPeerCert, FTIMES_SEPARATOR, (psProperties->psSSLProperties->iVerifyPeerCert) ? "Y" : "N", psProperties->acNewLine);
-    if (psProperties->psSSLProperties->iVerifyPeerCert)
-    {
-      fprintf(pFile, "%s%s%s%s", KEY_SSLBundledCAsFile, FTIMES_SEPARATOR, psProperties->psSSLProperties->pcBundledCAsFile, psProperties->acNewLine);
-      fprintf(pFile, "%s%s%s%s", KEY_SSLExpectedPeerCN, FTIMES_SEPARATOR, psProperties->psSSLProperties->pcExpectedPeerCN, psProperties->acNewLine);
-      fprintf(pFile, "%s%s%d%s", KEY_SSLMaxChainLength, FTIMES_SEPARATOR, psProperties->psSSLProperties->iMaxChainLength, psProperties->acNewLine);
-    }
-  }
-#endif
-  fprintf(pFile, "#%s", psProperties->acNewLine);
-  fclose(pFile);
-
-  return ER_OK;
-}
-
-
-/*-
- ***********************************************************************
- *
  * FTimesEraseFiles
  *
  ***********************************************************************
@@ -939,15 +866,6 @@ FTimesEraseFiles(FTIMES_PROPERTIES *psProperties, char *pcError)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, psProperties->acOutFileName, acLocalError);
     ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-  }
-  if (psProperties->bURLCreateConfig)
-  {
-    iError = SupportEraseFile(psProperties->acCfgFileName, acLocalError);
-    if (iError != ER_OK)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, psProperties->acCfgFileName, acLocalError);
-      ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
-    }
   }
 }
 

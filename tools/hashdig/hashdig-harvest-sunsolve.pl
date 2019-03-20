@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-harvest-sunsolve.pl,v 1.12 2005/05/30 23:35:35 mavrik Exp $
+# $Id: hashdig-harvest-sunsolve.pl,v 1.14 2006/04/07 22:15:12 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2005 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2006 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -147,6 +147,7 @@ use Getopt::Std;
     exit(2);
   }
   @aFiles = sort(grep(/^$sDirectory\/hashdig-sunsolve.\d+$/, map("$sDirectory/$_", readdir(DIR))));
+  closedir(DIR);
 
   ####################################################################
   #

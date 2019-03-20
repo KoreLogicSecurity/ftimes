@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.c,v 1.19 2005/04/14 04:12:01 mavrik Exp $
+ * $Id: dig.c,v 1.23 2006/04/09 20:30:50 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -37,8 +37,6 @@ static char gacDigStringTypes[][DIG_MAX_TYPE_SIZE] =
   { "" } /* Used by DigGetStringType() when an invalid type is specified. */
 };
 static const int giDigStringTypesLength = sizeof(gacDigStringTypes) / sizeof(gacDigStringTypes[0]);
-
-static unsigned char gaucBase16[] = "0123456789abcdef";
 
 /*-
  ***********************************************************************
@@ -193,8 +191,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
   const char          acRoutine[] = "DigDevelopOutput()";
   char                acOffset[FTIMES_MAX_64BIT_SIZE];
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char               *pc;
-  int                 i;
+  char               *pcNeutered;
   int                 iError;
   int                 iIndex;
   int                 iLimit;
@@ -258,25 +255,15 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  acOutput[iIndex++] = '|';
   iLimit = (psSearchData->iLength < DIG_MAX_STRING_SIZE) ? psSearchData->iLength : DIG_MAX_STRING_SIZE;
-  for (i = 0, pc = psSearchData->pucData; i < iLimit; i++, pc++)
+  pcNeutered = SupportNeuterString(psSearchData->pucData, iLimit, acLocalError);
+  if (pcNeutered == NULL)
   {
-    if (*pc == '%' || *pc == '+' || !isprint((int) *pc))
-    {
-      acOutput[iIndex++] = '%';
-      acOutput[iIndex++] = gaucBase16[((*pc >> 4) & 0x0f)];
-      acOutput[iIndex++] = gaucBase16[((*pc >> 0) & 0x0f)];
-    }
-    else if (*pc == ' ')
-    {
-      acOutput[iIndex++] = '+';
-    }
-    else
-    {
-      acOutput[iIndex++] = *pc;
-    }
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return ER;
   }
+  iIndex += sprintf(&acOutput[iIndex], "|%s", pcNeutered);
+  free(pcNeutered);
 
   /*-
    *********************************************************************

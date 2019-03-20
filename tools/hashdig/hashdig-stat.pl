@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-stat.pl,v 1.4 2005/05/27 00:54:48 mavrik Exp $
+# $Id: hashdig-stat.pl,v 1.6 2006/04/07 22:15:12 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2004-2005 The FTimes Project, All Rights Reserved.
+# Copyright 2004-2006 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -49,7 +49,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The FileType flag, '-t', is required.
+  # A FileType argument, '-t', is optional.
   #
   ####################################################################
 
@@ -57,23 +57,22 @@ use Getopt::Std;
 
   $sFileType = (exists($hOptions{'t'})) ? $hOptions{'t'} : undef;
 
-  if (!defined($sFileType))
+  if (defined($sFileType))
   {
-    Usage($sProgram);
-  }
-
-  if ($sFileType =~ /^DB$/i)
-  {
-    $sProcessFile = \&ProcessDBFile;
-  }
-  elsif ($sFileType =~ /^HD$/i)
-  {
-    $sProcessFile = \&ProcessHDFile;
-  }
-  else
-  {
-    print STDERR "$sProgram: FileType='$sFileType' Error='Invalid file type.'\n";
-    exit(2);
+    if ($sFileType =~ /^DB$/i)
+    {
+      $sProcessFile = \&ProcessDBFile;
+    }
+    elsif ($sFileType =~ /^HD$/i)
+    {
+      $sProcessFile = \&ProcessHDFile;
+    }
+    else
+    {
+      print STDERR "$sProgram: FileType='$sFileType' Error='Invalid file type.'\n";
+      exit(2);
+    }
+    $sFileType = uc($sFileType);
   }
 
   ####################################################################
@@ -94,18 +93,42 @@ use Getopt::Std;
   ####################################################################
 
   my ($sKTotal, $sUTotal, $sITotal, $sATotal) = (0, 0, 0, 0);
-  my ($sError);
+  my ($sError, $sRealType);
 
-  printf("%9s %9s %9s %9s %s\n", "KCount", "UCount", "ICount", "ACount", "Filename");
+  printf("%9s %9s %9s %9s %s %s\n", "KCount", "UCount", "ICount", "ACount", "Type", "Filename");
 
   foreach my $sFile (@ARGV)
   {
     my ($sKCount, $sUCount, $sICount, $sACount) = (0, 0, 0, 0);
-    if (!defined(&$sProcessFile($sFile, \$sKCount, \$sUCount, \$sICount, \$sACount, \$sError)))
+    if (defined($sFileType)) # The user wants to process files one way and one way only.
     {
-      print STDERR "$sProgram: File='$sFile' Error='$sError'\n";
+      $sRealType = $sFileType;
+      if (!defined(&$sProcessFile($sFile, \$sKCount, \$sUCount, \$sICount, \$sACount, \$sError)))
+      {
+        print STDERR "$sProgram: File='$sFile' Error='$sError'\n";
+        next;
+      }
     }
-    printf("%9d %9d %9d %9d %s\n", $sKCount, $sUCount, $sICount, $sACount, $sFile);
+    else
+    {
+      $sRealType = "HD";
+      if (!defined(ProcessHDFile($sFile, \$sKCount, \$sUCount, \$sICount, \$sACount, \$sError)))
+      {
+        print STDERR "$sProgram: File='$sFile' Error='$sError'\n";
+        next;
+      }
+      if ($sICount > 0) # Things didn't pass muster, so let's try the DB format.
+      {
+        ($sKCount, $sUCount, $sICount, $sACount) = (0, 0, 0, 0);
+        $sRealType = "DB";
+        if (!defined(ProcessDBFile($sFile, \$sKCount, \$sUCount, \$sICount, \$sACount, \$sError)))
+        {
+          print STDERR "$sProgram: File='$sFile' Error='$sError'\n";
+          next;
+        }
+      }
+    }
+    printf("%9d %9d %9d %9d  %s  %s\n", $sKCount, $sUCount, $sICount, $sACount, $sRealType, $sFile);
     $sKTotal += $sKCount;
     $sUTotal += $sUCount;
     $sITotal += $sICount;
@@ -117,7 +140,7 @@ use Getopt::Std;
     }
   }
 
-  printf("%9d %9d %9d %9d %s\n", $sKTotal, $sUTotal, $sITotal, $sATotal, "totals");
+  printf("%9d %9d %9d %9d  %s  %s\n", $sKTotal, $sUTotal, $sITotal, $sATotal, "  ", "totals");
 
   ####################################################################
   #
@@ -149,6 +172,7 @@ sub ProcessDBFile
   if (!tie(%hDBList, "DB_File", $sFile, O_RDONLY, 0644, $DB_BTREE))
   {
     $$psError = $!;
+    untie(%hDBList);
     return undef;
   }
 
@@ -201,6 +225,7 @@ sub ProcessHDFile
   if (!open(FH, "< $sFile"))
   {
     $$psError = $!;
+    close(FH);
     return undef;
   }
 
@@ -249,7 +274,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram -t {db|hd} file [file ...]\n";
+  print STDERR "Usage: $sProgram [-t {db|hd}] file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -263,20 +288,19 @@ hashdig-stat.pl - Produce statistics on HashDig files
 
 =head1 SYNOPSIS
 
-B<hashdig-stat.pl> B<-t {db|hd}> B<file> B<[file ...]>
+B<hashdig-stat.pl> B<[-t {db|hd}]> B<file> B<[file ...]>
 
 =head1 DESCRIPTION
 
 This utility counts the number of known and unknown hashes in a
-HashDig file (either .db or .hd format) and generates a report.
-Output is written to stdout and has the following fields: KCount,
-UCount, ICount, ACount, and Filename. The K, U, I, and A counts are
-short for known, unknown, indeterminate, and all, respectively.
+HashDig file (either DB or HD format) and generates a report. Output
+is written to stdout and has the following fields: KCount, UCount,
+ICount, ACount, and Filename. The K, U, I, and A counts are short for
+known, unknown, indeterminate, and all, respectively.
 
 A non-zero ICount indicates that there were one or more parse errors
-within a given file. If this happens, make sure the type option
-(B<-t>) is correct for the specified file. Also, you may want to
-check the file's integrity to ensure that it hasn't been corrupted.
+within a given file. If this happens, check the file's integrity to
+ensure that it hasn't become corrupt.
 
 =head1 OPTIONS
 

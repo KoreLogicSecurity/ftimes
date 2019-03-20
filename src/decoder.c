@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: decoder.c,v 1.9 2005/04/02 18:08:24 mavrik Exp $
+ * $Id: decoder.c,v 1.13 2006/04/07 22:15:11 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -34,7 +34,7 @@ DecoderProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
    */
   if (iArgumentCount >= 1)
   {
-    psProperties->pcSnapshotFile = ppcArgumentVector[0];
+    psProperties->psSnapshotContext->pcFile = ppcArgumentVector[0];
     if (iArgumentCount >= 2)
     {
       if (iArgumentCount == 3 && strcmp(ppcArgumentVector[1], "-l") == 0)
@@ -80,6 +80,8 @@ DecoderInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
   psProperties->pFileLog = stderr;
   psProperties->pFileOut = stdout;
 
+  DecodeBuildFromBase64Table();
+
   return ER_OK;
 }
 
@@ -96,7 +98,7 @@ DecoderCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "DecoderCheckDependencies()";
 
-  if (psProperties->pcSnapshotFile == NULL || psProperties->pcSnapshotFile[0] == 0)
+  if (psProperties->psSnapshotContext->pcFile == NULL || psProperties->psSnapshotContext->pcFile[0] == 0)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Missing snapshot file.", acRoutine);
     return ER_MissingControl;
@@ -116,28 +118,56 @@ DecoderCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 DecoderFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
+  const char          acRoutine[] = "DecoderFinalize()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acMessage[MESSAGE_SIZE] = { 0 };
+  int                 iError = 0;
+
   /*-
    *********************************************************************
    *
-   * Establish Log file stream, and update Message Handler.
+   * Finalize the log stream.
    *
    *********************************************************************
    */
   strncpy(psProperties->acLogFileName, "stderr", FTIMES_MAX_PATH);
   psProperties->pFileLog = stderr;
-
-  MessageSetNewLine(psProperties->acNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
 
   /*-
    *******************************************************************
    *
-   * Establish Out file stream.
+   * Finalize the out stream.
    *
    *******************************************************************
    */
   strncpy(psProperties->acOutFileName, "stdout", FTIMES_MAX_PATH);
   psProperties->pFileOut = stdout;
+  DecodeSetOutputStream(psProperties->pFileOut);
+
+  /*-
+   *******************************************************************
+   *
+   * Finalize the newline string.
+   *
+   *******************************************************************
+   */
+  MessageSetNewLine(psProperties->acNewLine);
+  DecodeSetNewLine(psProperties->acNewLine);
+
+  /*-
+   *******************************************************************
+   *
+   * Open the snapshot.
+   *
+   *******************************************************************
+   */
+  iError = DecodeOpenSnapshot(psProperties->psSnapshotContext, acLocalError);
+  if (iError != ER_OK)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return ER;
+  }
 
   /*-
    *********************************************************************
@@ -146,6 +176,9 @@ DecoderFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
+  snprintf(acMessage, MESSAGE_SIZE, "Snapshot=%s", psProperties->psSnapshotContext->pcFile);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+
   PropertiesDisplaySettings(psProperties);
 
   return ER_OK;
@@ -164,14 +197,37 @@ DecoderWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "DecoderWorkHorse()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 iError;
+  int                 iError = 0;
 
-  iError = DecodeFile(psProperties->pcSnapshotFile, psProperties->pFileOut, psProperties->acNewLine, acLocalError);
+  /*-
+   *******************************************************************
+   *
+   * Write out a header.
+   *
+   *******************************************************************
+   */
+  iError = DecodeWriteHeader(psProperties->psSnapshotContext, acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
+
+  /*-
+   *******************************************************************
+   *
+   * Read the snapshot, and process its data.
+   *
+   *******************************************************************
+   */
+  iError = DecodeReadSnapshot(psProperties->psSnapshotContext, acLocalError);
+  if (iError != ER_OK)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    fclose(psProperties->psSnapshotContext->pFile);
+    return iError;
+  }
+  fclose(psProperties->psSnapshotContext->pFile);
 
   return ER_OK;
 }
@@ -197,10 +253,10 @@ DecoderFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   snprintf(acMessage, MESSAGE_SIZE, "LogFileName=%s", psProperties->acLogFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->acOutFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   /*-
    *********************************************************************
@@ -209,11 +265,14 @@ DecoderFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  snprintf(acMessage, MESSAGE_SIZE, "RecordsDecoded=%u", DecodeGetRecordsDecoded());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "RecordsAnalyzed=%lu", psProperties->psSnapshotContext->sDecodeStats.ulAnalyzed);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
-  snprintf(acMessage, MESSAGE_SIZE, "RecordsLost=%u", DecodeGetRecordsLost());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "RecordsDecoded=%lu", psProperties->psSnapshotContext->sDecodeStats.ulDecoded);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+
+  snprintf(acMessage, MESSAGE_SIZE, "RecordsSkipped=%lu", psProperties->psSnapshotContext->sDecodeStats.ulSkipped);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   SupportDisplayRunStatistics(psProperties);
 

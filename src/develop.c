@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: develop.c,v 1.17 2005/05/10 23:43:18 mavrik Exp $
+ * $Id: develop.c,v 1.25 2006/04/07 22:15:11 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -21,7 +21,8 @@
 #define COMPRESS_RECOVERY_RATE 100
 
 static unsigned char  gaucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static unsigned char  gaucZeroHash[MD5_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+static unsigned char  gaucMd5ZeroHash[MD5_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+static unsigned char  gaucSha1ZeroHash[SHA1_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 
 /*-
@@ -89,7 +90,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & DEV_SET) == DEV_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_DEV))
   {
     n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_dev);
   }
@@ -101,7 +102,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & INODE_SET) == INODE_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_INODE))
   {
     n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_ino);
   }
@@ -113,7 +114,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MODE_SET) == MODE_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MODE))
   {
     n += sprintf(&pcOutData[n], "|%o", (unsigned) psFTData->sStatEntry.st_mode);
   }
@@ -125,7 +126,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & NLINK_SET) == NLINK_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_NLINK))
   {
     n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_nlink);
   }
@@ -137,7 +138,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & UID_SET) == UID_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_UID))
   {
     n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_uid);
   }
@@ -149,7 +150,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & GID_SET) == GID_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_GID))
   {
     n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_gid);
   }
@@ -161,7 +162,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & RDEV_SET) == RDEV_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_RDEV))
   {
     n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_rdev);
   }
@@ -173,7 +174,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATIME))
   {
     iError = TimeFormatTime(&psFTData->sStatEntry.st_atime, acTime);
     if (iError == ER_OK)
@@ -195,7 +196,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MTIME))
   {
     iError = TimeFormatTime(&psFTData->sStatEntry.st_mtime, acTime);
     if (iError == ER_OK)
@@ -217,7 +218,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & CTIME_SET) == CTIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_CTIME))
   {
     iError = TimeFormatTime(&psFTData->sStatEntry.st_ctime, acTime);
     if (iError == ER_OK)
@@ -239,7 +240,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & SIZE_SET) == SIZE_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SIZE))
   {
 #ifdef USE_AP_SNPRINTF
     n += snprintf(&pcOutData[n], FTIMES_MAX_64BIT_SIZE, "|%qu", (unsigned long long) psFTData->sStatEntry.st_size);
@@ -251,51 +252,22 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   /*-
    *********************************************************************
    *
-   * File Magic = magic
+   * File SHA1 = sha1
    *
    *********************************************************************
    */
-#ifdef USE_XMAGIC
-  if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
-  {
-    pcOutData[n++] = '|';
-    if (psFTData->acType[0])
-    {
-      n += sprintf(&pcOutData[n], "%s", psFTData->acType);
-    }
-    else
-    {
-      strcat(pcError, "magic,");
-      iStatus = ER_NullFields;
-    }
-  }
-#else
-  if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
-  {
-    pcOutData[n++] = '|';
-  }
-#endif
-
-
-  /*-
-   *********************************************************************
-   *
-   * File MD5 = md5
-   *
-   *********************************************************************
-   */
-  if ((psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
   {
     pcOutData[n++] = '|';
     if (S_ISDIR(psFTData->sStatEntry.st_mode))
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          for (i = 0; i < MD5_HASH_SIZE; i++)
+          for (i = 0; i < SHA1_HASH_SIZE; i++)
           {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMD5[i]);
+            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileSha1[i]);
           }
         }
       }
@@ -306,16 +278,16 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else if (S_ISREG(psFTData->sStatEntry.st_mode))
     {
-      if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
       {
-        for (i = 0; i < MD5_HASH_SIZE; i++)
+        for (i = 0; i < SHA1_HASH_SIZE; i++)
         {
-          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMD5[i]);
+          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileSha1[i]);
         }
       }
       else
       {
-        strcat(pcError, "md5");
+        strcat(pcError, "sha1,");
         iStatus = ER_NullFields;
       }
     }
@@ -323,16 +295,16 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     {
       if (psProperties->bHashSymbolicLinks)
       {
-        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          for (i = 0; i < MD5_HASH_SIZE; i++)
+          for (i = 0; i < SHA1_HASH_SIZE; i++)
           {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMD5[i]);
+            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileSha1[i]);
           }
         }
         else
         {
-          strcat(pcError, "md5");
+          strcat(pcError, "sha1,");
           iStatus = ER_NullFields;
         }
       }
@@ -347,6 +319,111 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
   }
 
+  /*-
+   *********************************************************************
+   *
+   * File MD5 = md5
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  {
+    pcOutData[n++] = '|';
+    if (S_ISDIR(psFTData->sStatEntry.st_mode))
+    {
+      if (psProperties->bHashDirectories)
+      {
+        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+        {
+          for (i = 0; i < MD5_HASH_SIZE; i++)
+          {
+            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMd5[i]);
+          }
+        }
+      }
+      else
+      {
+        n += sprintf(&pcOutData[n], "DIRECTORY");
+      }
+    }
+    else if (S_ISREG(psFTData->sStatEntry.st_mode))
+    {
+      if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+      {
+        for (i = 0; i < MD5_HASH_SIZE; i++)
+        {
+          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMd5[i]);
+        }
+      }
+      else
+      {
+        strcat(pcError, "md5,");
+        iStatus = ER_NullFields;
+      }
+    }
+    else if (S_ISLNK(psFTData->sStatEntry.st_mode))
+    {
+      if (psProperties->bHashSymbolicLinks)
+      {
+        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+        {
+          for (i = 0; i < MD5_HASH_SIZE; i++)
+          {
+            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMd5[i]);
+          }
+        }
+        else
+        {
+          strcat(pcError, "md5,");
+          iStatus = ER_NullFields;
+        }
+      }
+      else
+      {
+        n += sprintf(&pcOutData[n], "SYMLINK");
+      }
+    }
+    else
+    {
+      n += sprintf(&pcOutData[n], "SPECIAL");
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * File Magic = magic
+   *
+   *********************************************************************
+   */
+#ifdef USE_XMAGIC
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
+  {
+    pcOutData[n++] = '|';
+    if (psFTData->acType[0])
+    {
+      n += sprintf(&pcOutData[n], "%s", psFTData->acType);
+    }
+    else
+    {
+      strcat(pcError, "magic");
+      iStatus = ER_NullFields;
+    }
+  }
+#else
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
+  {
+    pcOutData[n++] = '|';
+  }
+#endif
+
+  /*-
+   *********************************************************************
+   *
+   * EOL
+   *
+   *********************************************************************
+   */
   n += sprintf(&pcOutData[n], "%s", psProperties->acNewLine);
 
   /*-
@@ -415,7 +492,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & VOLUME_SET) == VOLUME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_VOLUME))
   {
     pcOutData[n++] = '|';
     if (psFTData->dwVolumeSerialNumber != 0xffffffff)
@@ -441,7 +518,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & FINDEX_SET) == FINDEX_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_FINDEX))
   {
     pcOutData[n++] = '|';
     if (psFTData->dwFileIndexHigh != 0xffffffff && psFTData->dwFileIndexLow != 0xffffffff)
@@ -468,7 +545,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & ATTRIBUTES_SET) == ATTRIBUTES_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATTRIBUTES))
   {
     n += sprintf(&pcOutData[n], "|%u", psFTData->dwFileAttributes);
   }
@@ -480,7 +557,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATIME))
   {
     if (psFTData->sFTATime.dwLowDateTime == 0 && psFTData->sFTATime.dwHighDateTime == 0)
     {
@@ -511,7 +588,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MTIME))
   {
     if (psFTData->sFTMTime.dwLowDateTime == 0 && psFTData->sFTMTime.dwHighDateTime == 0)
     {
@@ -542,7 +619,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & CTIME_SET) == CTIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_CTIME))
   {
     if (psFTData->sFTCTime.dwLowDateTime == 0 && psFTData->sFTCTime.dwHighDateTime == 0)
     {
@@ -584,7 +661,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & CHTIME_SET) == CHTIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_CHTIME))
   {
     if (psFTData->sFTChTime.dwLowDateTime == 0 && psFTData->sFTChTime.dwHighDateTime == 0)
     {
@@ -623,7 +700,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & SIZE_SET) == SIZE_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SIZE))
   {
     ui64FileSize = (((unsigned __int64) psFTData->dwFileSizeHigh) << 32) | psFTData->dwFileSizeLow;
     n += sprintf(&pcOutData[n], "|%I64u", ui64FileSize);
@@ -636,7 +713,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & ALTSTREAMS_SET) == ALTSTREAMS_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ALTSTREAMS))
   {
     pcOutData[n++] = '|';
     if (psFTData->iStreamCount != FTIMES_INVALID_STREAM_COUNT)
@@ -658,50 +735,22 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   /*-
    *********************************************************************
    *
-   * File Magic = magic
+   * File SHA1 = sha1
    *
    *********************************************************************
    */
-#ifdef USE_XMAGIC
-  if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
-  {
-    pcOutData[n++] = '|';
-    if (psFTData->acType[0])
-    {
-      n += sprintf(&pcOutData[n], "%s", psFTData->acType);
-    }
-    else
-    {
-      strcat(pcError, "magic,");
-      iStatus = ER_NullFields;
-    }
-  }
-#else
-  if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
-  {
-    pcOutData[n++] = '|';
-  }
-#endif
-
-  /*-
-   *********************************************************************
-   *
-   * File MD5 = md5
-   *
-   *********************************************************************
-   */
-  if ((psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
   {
     pcOutData[n++] = '|';
     if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          for (i = 0; i < MD5_HASH_SIZE; i++)
+          for (i = 0; i < SHA1_HASH_SIZE; i++)
           {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMD5[i]);
+            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileSha1[i]);
           }
         }
       }
@@ -712,20 +761,100 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-      if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
       {
-        for (i = 0; i < MD5_HASH_SIZE; i++)
+        for (i = 0; i < SHA1_HASH_SIZE; i++)
         {
-          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMD5[i]);
+          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileSha1[i]);
         }
       }
       else
       {
-        strcat(pcError, "md5");
+        strcat(pcError, "sha1,");
         iStatus = ER_NullFields;
       }
     }
   }
+
+  /*-
+   *********************************************************************
+   *
+   * File MD5 = md5
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  {
+    pcOutData[n++] = '|';
+    if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+    {
+      if (psProperties->bHashDirectories)
+      {
+        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+        {
+          for (i = 0; i < MD5_HASH_SIZE; i++)
+          {
+            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMd5[i]);
+          }
+        }
+      }
+      else
+      {
+        n += sprintf(&pcOutData[n], "DIRECTORY");
+      }
+    }
+    else
+    {
+      if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+      {
+        for (i = 0; i < MD5_HASH_SIZE; i++)
+        {
+          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMd5[i]);
+        }
+      }
+      else
+      {
+        strcat(pcError, "md5,");
+        iStatus = ER_NullFields;
+      }
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * File Magic = magic
+   *
+   *********************************************************************
+   */
+#ifdef USE_XMAGIC
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
+  {
+    pcOutData[n++] = '|';
+    if (psFTData->acType[0])
+    {
+      n += sprintf(&pcOutData[n], "%s", psFTData->acType);
+    }
+    else
+    {
+      strcat(pcError, "magic");
+      iStatus = ER_NullFields;
+    }
+  }
+#else
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
+  {
+    pcOutData[n++] = '|';
+  }
+#endif
+
+  /*-
+   *********************************************************************
+   *
+   * EOL
+   *
+   *********************************************************************
+   */
   n += sprintf(&pcOutData[n], "%s", psProperties->acNewLine);
 
   /*-
@@ -819,7 +948,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & DEV_SET) == DEV_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_DEV))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -846,7 +975,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & INODE_SET) == INODE_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_INODE))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -866,7 +995,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MODE_SET) == MODE_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MODE))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -893,7 +1022,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & NLINK_SET) == NLINK_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_NLINK))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -920,7 +1049,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & UID_SET) == UID_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_UID))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -947,7 +1076,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & GID_SET) == GID_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_GID))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -974,7 +1103,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & RDEV_SET) == RDEV_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_RDEV))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -1001,7 +1130,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATIME))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -1025,10 +1154,10 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MTIME))
   {
     pcOutData[n++] = '|';
-    if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && psFTData->sStatEntry.st_mtime == psFTData->sStatEntry.st_atime)
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATIME) && psFTData->sStatEntry.st_mtime == psFTData->sStatEntry.st_atime)
     {
       pcOutData[n++] = 'X';
     }
@@ -1056,14 +1185,14 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & CTIME_SET) == CTIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_CTIME))
   {
     pcOutData[n++] = '|';
-    if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && psFTData->sStatEntry.st_ctime == psFTData->sStatEntry.st_atime)
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATIME) && psFTData->sStatEntry.st_ctime == psFTData->sStatEntry.st_atime)
     {
       pcOutData[n++] = 'X';
     }
-    else if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET && psFTData->sStatEntry.st_ctime == psFTData->sStatEntry.st_mtime)
+    else if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MTIME) && psFTData->sStatEntry.st_ctime == psFTData->sStatEntry.st_mtime)
     {
       pcOutData[n++] = 'Y';
     }
@@ -1091,7 +1220,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & SIZE_SET) == SIZE_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SIZE))
   {
     pcOutData[n++] = '|';
 #ifdef USE_AP_SNPRINTF
@@ -1104,34 +1233,22 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   /*-
    *********************************************************************
    *
-   * File Magic = magic
+   * File SHA1 = sha1
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
-  {
-    pcOutData[n++] = '|';
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * File MD5 = md5
-   *
-   *********************************************************************
-   */
-  if ((psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
   {
     pcOutData[n++] = '|';
     if (S_ISDIR(psFTData->sStatEntry.st_mode))
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+          for (i = 0, ul = 0, ulLeft = 0; i < SHA1_HASH_SIZE; i++)
           {
-            ul = (ul << 8) | psFTData->aucFileMD5[i];
+            ul = (ul << 8) | psFTData->aucFileSha1[i];
             ulLeft += 8;
             while (ulLeft > 6)
             {
@@ -1146,7 +1263,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         }
         else
         {
-          strcat(pcError, "md5");
+          strcat(pcError, "sha1,");
           iStatus = ER_NullFields;
         }
       }
@@ -1157,11 +1274,11 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else if (S_ISREG(psFTData->sStatEntry.st_mode))
     {
-      if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
       {
-        for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+        for (i = 0, ul = 0, ulLeft = 0; i < SHA1_HASH_SIZE; i++)
         {
-          ul = (ul << 8) | psFTData->aucFileMD5[i];
+          ul = (ul << 8) | psFTData->aucFileSha1[i];
           ulLeft += 8;
           while (ulLeft > 6)
           {
@@ -1176,7 +1293,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       }
       else
       {
-        strcat(pcError, "md5");
+        strcat(pcError, "sha1,");
         iStatus = ER_NullFields;
       }
     }
@@ -1184,11 +1301,11 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     {
       if (psProperties->bHashSymbolicLinks)
       {
-        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+          for (i = 0, ul = 0, ulLeft = 0; i < SHA1_HASH_SIZE; i++)
           {
-            ul = (ul << 8) | psFTData->aucFileMD5[i];
+            ul = (ul << 8) | psFTData->aucFileSha1[i];
             ulLeft += 8;
             while (ulLeft > 6)
             {
@@ -1203,7 +1320,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         }
         else
         {
-          strcat(pcError, "md5");
+          strcat(pcError, "sha1,");
           iStatus = ER_NullFields;
         }
       }
@@ -1218,6 +1335,130 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
   }
 
+  /*-
+   *********************************************************************
+   *
+   * File MD5 = md5
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  {
+    pcOutData[n++] = '|';
+    if (S_ISDIR(psFTData->sStatEntry.st_mode))
+    {
+      if (psProperties->bHashDirectories)
+      {
+        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+        {
+          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+          {
+            ul = (ul << 8) | psFTData->aucFileMd5[i];
+            ulLeft += 8;
+            while (ulLeft > 6)
+            {
+              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
+              ulLeft -= 6;
+            }
+          }
+          if (ulLeft != 0)
+          {
+            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
+          }
+        }
+        else
+        {
+          strcat(pcError, "md5,");
+          iStatus = ER_NullFields;
+        }
+      }
+      else
+      {
+        pcOutData[n++] = 'D';
+      }
+    }
+    else if (S_ISREG(psFTData->sStatEntry.st_mode))
+    {
+      if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+      {
+        for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+        {
+          ul = (ul << 8) | psFTData->aucFileMd5[i];
+          ulLeft += 8;
+          while (ulLeft > 6)
+          {
+            pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
+            ulLeft -= 6;
+          }
+        }
+        if (ulLeft != 0)
+        {
+          pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
+        }
+      }
+      else
+      {
+        strcat(pcError, "md5,");
+        iStatus = ER_NullFields;
+      }
+    }
+    else if (S_ISLNK(psFTData->sStatEntry.st_mode))
+    {
+      if (psProperties->bHashSymbolicLinks)
+      {
+        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+        {
+          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+          {
+            ul = (ul << 8) | psFTData->aucFileMd5[i];
+            ulLeft += 8;
+            while (ulLeft > 6)
+            {
+              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
+              ulLeft -= 6;
+            }
+          }
+          if (ulLeft != 0)
+          {
+            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
+          }
+        }
+        else
+        {
+          strcat(pcError, "md5,");
+          iStatus = ER_NullFields;
+        }
+      }
+      else
+      {
+        pcOutData[n++] = 'L';
+      }
+    }
+    else
+    {
+      pcOutData[n++] = 'S';
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * File Magic = magic
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
+  {
+    pcOutData[n++] = '|';
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * EOL
+   *
+   *********************************************************************
+   */
   n += sprintf(&pcOutData[n], "%s", psProperties->acNewLine);
 
   /*-
@@ -1352,7 +1593,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & VOLUME_SET) == VOLUME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_VOLUME))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -1392,7 +1633,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & FINDEX_SET) == FINDEX_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_FINDEX))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -1435,7 +1676,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & ATTRIBUTES_SET) == ATTRIBUTES_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATTRIBUTES))
   {
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
@@ -1462,7 +1703,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATIME))
   {
     pcOutData[n++] = '|';
     if (psFTData->sFTATime.dwLowDateTime == 0 && psFTData->sFTATime.dwHighDateTime == 0)
@@ -1531,7 +1772,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MTIME))
   {
     pcOutData[n++] = '|';
     if (psFTData->sFTMTime.dwLowDateTime == 0 && psFTData->sFTMTime.dwHighDateTime == 0)
@@ -1570,7 +1811,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       {
         ulMTimeSeconds = (unsigned long) ((ui64MTime - UNIX_EPOCH_IN_NT_TIME) / 10000000);
         ulMTimeMilliseconds = (unsigned long) (((ui64MTime - UNIX_EPOCH_IN_NT_TIME) % 10000000) / 10000);
-        if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && ui64MTime == ui64ATime)
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATIME) && ui64MTime == ui64ATime)
         {
           pcOutData[n++] = 'X';
           pcOutData[n++] = '|';
@@ -1603,7 +1844,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & CTIME_SET) == CTIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_CTIME))
   {
     pcOutData[n++] = '|';
     if (psFTData->sFTCTime.dwLowDateTime == 0 && psFTData->sFTCTime.dwHighDateTime == 0)
@@ -1653,13 +1894,13 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       {
         ulCTimeSeconds = (unsigned long) ((ui64CTime - UNIX_EPOCH_IN_NT_TIME) / 10000000);
         ulCTimeMilliseconds = (unsigned long) (((ui64CTime - UNIX_EPOCH_IN_NT_TIME) % 10000000) / 10000);
-        if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && ui64CTime == ui64ATime)
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATIME) && ui64CTime == ui64ATime)
         {
           pcOutData[n++] = 'X';
           pcOutData[n++] = '|';
           pcOutData[n++] = 'X';
         }
-        else if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && ui64CTime == ui64MTime)
+        else if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MTIME) && ui64CTime == ui64MTime)
         {
           pcOutData[n++] = 'Y';
           pcOutData[n++] = '|';
@@ -1692,7 +1933,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & CHTIME_SET) == CHTIME_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_CHTIME))
   {
     pcOutData[n++] = '|';
     if (psFTData->sFTChTime.dwLowDateTime == 0 && psFTData->sFTChTime.dwHighDateTime == 0)
@@ -1739,19 +1980,19 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       {
         ulChTimeSeconds = (unsigned long) ((ui64ChTime - UNIX_EPOCH_IN_NT_TIME) / 10000000);
         ulChTimeMilliseconds = (unsigned long) (((ui64ChTime - UNIX_EPOCH_IN_NT_TIME) % 10000000) / 10000);
-        if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && ui64ChTime == ui64ATime)
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ATIME) && ui64ChTime == ui64ATime)
         {
           pcOutData[n++] = 'X';
           pcOutData[n++] = '|';
           pcOutData[n++] = 'X';
         }
-        else if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && ui64ChTime == ui64MTime)
+        else if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MTIME) && ui64ChTime == ui64MTime)
         {
           pcOutData[n++] = 'Y';
           pcOutData[n++] = '|';
           pcOutData[n++] = 'Y';
         }
-        else if ((psProperties->ulFieldMask & CTIME_SET) == CTIME_SET && ui64ChTime == ui64CTime)
+        else if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_CTIME) && ui64ChTime == ui64CTime)
         {
           pcOutData[n++] = 'Z';
           pcOutData[n++] = '|';
@@ -1784,7 +2025,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & SIZE_SET) == SIZE_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SIZE))
   {
     pcOutData[n++] = '|';
     ui64FileSize = (((unsigned __int64) psFTData->dwFileSizeHigh) << 32) | psFTData->dwFileSizeLow;
@@ -1798,7 +2039,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & ALTSTREAMS_SET) == ALTSTREAMS_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_ALTSTREAMS))
   {
     pcOutData[n++] = '|';
     if (psFTData->iStreamCount != FTIMES_INVALID_STREAM_COUNT)
@@ -1820,34 +2061,22 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   /*-
    *********************************************************************
    *
-   * File Magic = magic
+   * File SHA1 = sha1
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
-  {
-    pcOutData[n++] = '|';
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * File MD5 = md5
-   *
-   *********************************************************************
-   */
-  if ((psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
   {
     pcOutData[n++] = '|';
     if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+          for (i = 0, ul = 0, ulLeft = 0; i < SHA1_HASH_SIZE; i++)
           {
-            ul = (ul << 8) | psFTData->aucFileMD5[i];
+            ul = (ul << 8) | psFTData->aucFileSha1[i];
             ulLeft += 8;
             while (ulLeft > 6)
             {
@@ -1862,7 +2091,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         }
         else
         {
-          strcat(pcError, "md5");
+          strcat(pcError, "sha1,");
           iStatus = ER_NullFields;
         }
       }
@@ -1873,11 +2102,11 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else
     {
-      if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
       {
-        for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+        for (i = 0, ul = 0, ulLeft = 0; i < SHA1_HASH_SIZE; i++)
         {
-          ul = (ul << 8) | psFTData->aucFileMD5[i];
+          ul = (ul << 8) | psFTData->aucFileSha1[i];
           ulLeft += 8;
           while (ulLeft > 6)
           {
@@ -1892,12 +2121,100 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       }
       else
       {
-        strcat(pcError, "md5");
+        strcat(pcError, "sha1,");
         iStatus = ER_NullFields;
       }
     }
   }
 
+  /*-
+   *********************************************************************
+   *
+   * File MD5 = md5
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  {
+    pcOutData[n++] = '|';
+    if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+    {
+      if (psProperties->bHashDirectories)
+      {
+        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+        {
+          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+          {
+            ul = (ul << 8) | psFTData->aucFileMd5[i];
+            ulLeft += 8;
+            while (ulLeft > 6)
+            {
+              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
+              ulLeft -= 6;
+            }
+          }
+          if (ulLeft != 0)
+          {
+            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
+          }
+        }
+        else
+        {
+          strcat(pcError, "md5,");
+          iStatus = ER_NullFields;
+        }
+      }
+      else
+      {
+        pcOutData[n++] = 'D';
+      }
+    }
+    else
+    {
+      if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+      {
+        for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+        {
+          ul = (ul << 8) | psFTData->aucFileMd5[i];
+          ulLeft += 8;
+          while (ulLeft > 6)
+          {
+            pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
+            ulLeft -= 6;
+          }
+        }
+        if (ulLeft != 0)
+        {
+          pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
+        }
+      }
+      else
+      {
+        strcat(pcError, "md5,");
+        iStatus = ER_NullFields;
+      }
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * File Magic = magic
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
+  {
+    pcOutData[n++] = '|';
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * EOL
+   *
+   *********************************************************************
+   */
   n += sprintf(&pcOutData[n], "%s", psProperties->acNewLine);
 
   /*-

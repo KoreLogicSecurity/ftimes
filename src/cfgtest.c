@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: cfgtest.c,v 1.8 2005/04/02 18:08:23 mavrik Exp $
+ * $Id: cfgtest.c,v 1.10 2006/04/07 22:15:10 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -64,13 +64,9 @@ CfgTestProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
     {
       psProperties->iTestRunMode = FTIMES_MAPLEAN;
     }
-    else if (strcasecmp(ppcArgumentVector[1], "putmode") == 0)
-    {
-      psProperties->iTestRunMode = FTIMES_PUTMODE;
-    }
     else
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Mode = [%s]: Mode must be one of {digauto|digfull|diglean|getmode|mapfull|maplean|putmode}.", acRoutine, ppcArgumentVector[1]);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Mode = [%s]: Mode must be one of {digauto|digfull|diglean|getmode|mapfull|maplean}.", acRoutine, ppcArgumentVector[1]);
       return ER_BadValue;
     }
     if (iArgumentCount == 3 && strcmp(ppcArgumentVector[2], "-s") == 0)

@@ -1,0 +1,591 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: tree_builder,v 1.2 2006/04/07 22:15:12 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2003-2006 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Create trees for testing ftimes.
+#
+######################################################################
+
+use strict;
+use Cwd;
+use Digest::MD5 qw(md5_hex);
+use Digest::SHA1 qw(sha1_hex);
+use File::Basename;
+use Getopt::Std;
+
+BEGIN
+{
+  my (%hProperties);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  my $phProperties = GetProperties();
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Set platform-specific variables.
+  #
+  ####################################################################
+
+  if ($^O =~ /MSWin32/i)
+  {
+    $$phProperties{'Newline'} = "\r\n";
+  }
+  else
+  {
+    $$phProperties{'Newline'} = "\n";
+  }
+
+  ####################################################################
+  #
+  # Set generic variables.
+  #
+  ####################################################################
+
+  $$phProperties{'DirnamePrefix'} = "dir_";
+  $$phProperties{'FilenamePrefix'} = "file_";
+  $$phProperties{'LinknamePrefix'} = "link_";
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts("D:d:f:l:no:", \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # The Depth, '-D', flag is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Depth'} = (exists($hOptions{'D'})) ? $hOptions{'D'} : 0;
+
+  if ($$phProperties{'Depth'} !~ /^\d+$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Value ($$phProperties{'Depth'}) must be a valid number.'\n";
+    exit(2);
+  }
+  $$phProperties{'CurrentDepth'} = 0;
+
+  ####################################################################
+  #
+  # The Dirs, '-d', flag is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Dirs'} = (exists($hOptions{'d'})) ? $hOptions{'d'} : 0;
+
+  if ($$phProperties{'Dirs'} !~ /^\d+$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Value ($$phProperties{'Dirs'}) must be a valid number.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # The Files, '-f', flag is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Files'} = (exists($hOptions{'f'})) ? $hOptions{'f'} : 0;
+
+  if ($$phProperties{'Files'} !~ /^\d+$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Value ($$phProperties{'Files'}) must be a valid number.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # The Links, '-l', flag is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Links'} = (exists($hOptions{'l'})) ? $hOptions{'l'} : 0;
+
+  if ($$phProperties{'Links'} !~ /^\d+$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Value ($$phProperties{'Links'}) must be a valid number.'\n";
+    exit(2);
+  }
+
+  if (exists($hOptions{'l'}) && $^O =~ /MSWin32/i)
+  {
+    print STDERR "$$phProperties{'Program'}: Warning='Links are not supported on Windows platforms.'\n";
+  }
+
+  ####################################################################
+  #
+  # The DryRun, '-n', flag is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'DryRun'} = (exists($hOptions{'n'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # The OutDir, '-o', flag is required.
+  #
+  ####################################################################
+
+  $$phProperties{'OutDir'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
+
+  if (!defined($$phProperties{'OutDir'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # If any arguments remain, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Do sanity checks.
+  #
+  ####################################################################
+
+  my ($sError);
+
+  $$phProperties{'WorkingDir'} = MkPath($$phProperties{'OutDir'}, \$sError);
+  if (!defined($$phProperties{'WorkingDir'}))
+  {
+    print STDERR "$$phProperties{'Program'}: Error='$sError'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Do sanity checks.
+  #
+  ####################################################################
+
+  if ($$phProperties{'Depth'} > 0 && $$phProperties{'Dirs'} < 1)
+  {
+    print STDERR "$$phProperties{'Program'}: Warning='Depth values are ignored when the directory count is less than 1.'\n";
+  }
+
+  ####################################################################
+  #
+  # Create output directory unless, of course, this is a dry run.
+  #
+  ####################################################################
+
+  if (!$$phProperties{'DryRun'})
+  {
+    if (-d $$phProperties{'WorkingDir'})
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Directory ($$phProperties{'WorkingDir'}) already exists.'\n";
+      exit(2);
+    }
+    if (!MkDir($$phProperties{'WorkingDir'}, \$sError))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='$sError'\n";
+      exit(2);
+    }
+  }
+
+
+  ####################################################################
+  #
+  # Generate a map and conditionally build the specified tree.
+  #
+  ####################################################################
+
+  PrintRecord("name|sha1|md5");
+
+  if (!MkLayer($phProperties, \$sError))
+  {
+    print STDERR "$$phProperties{'Program'}: Error='$sError'\n";
+    exit(2);
+  }
+  PrintRecord("\"$$phProperties{'WorkingDir'}\"|DIRECTORY|DIRECTORY");
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  1;
+
+
+######################################################################
+#
+# GetRealPath
+#
+######################################################################
+
+sub GetRealPath
+{
+  my ($sNewPath, $psError) = @_;
+
+  my $sOldPath = cwd();
+
+  if (!chdir($sNewPath))
+  {
+    $$psError = "Unable to cd to $sNewPath ($!).";
+    return undef;
+  }
+
+  $sNewPath = cwd();
+
+  if (!chdir($sOldPath))
+  {
+    $$psError = "Unable to return to $sOldPath ($!).";
+    return undef;
+  }
+
+  return $sNewPath;
+}
+
+
+######################################################################
+#
+# MkLayer
+#
+######################################################################
+
+sub MkLayer
+{
+  my ($phProperties, $psError) = @_;
+
+  if (!MkDirs($phProperties, $psError))
+  {
+    return undef;
+  }
+
+  if (!MkFiles($phProperties, $psError))
+  {
+    return undef;
+  }
+
+  if (!MkLinks($phProperties, $psError))
+  {
+    return undef;
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# MkDirs
+#
+######################################################################
+
+sub MkDirs
+{
+  my ($phProperties, $psError) = @_;
+
+  $$phProperties{'CurrentDepth'}++; # Increment depth counter.
+
+  for (my $i = 1; $i <= $$phProperties{'Dirs'}; $i++)
+  {
+    my $sLastDir = $$phProperties{'WorkingDir'};
+    $$phProperties{'WorkingDir'} .= "/" . $$phProperties{'DirnamePrefix'} . $i;
+    if (!$$phProperties{'DryRun'})
+    {
+      if (!MkDir($$phProperties{'WorkingDir'}, $psError))
+      {
+        return undef;
+      }
+    }
+    if ($$phProperties{'CurrentDepth'} <= $$phProperties{'Depth'})
+    {
+      if (!MkLayer($phProperties, $psError))
+      {
+        return undef;
+      }
+    }
+    PrintRecord("\"$$phProperties{'WorkingDir'}\"|DIRECTORY|DIRECTORY");
+    $$phProperties{'WorkingDir'} = $sLastDir;
+  }
+
+  $$phProperties{'CurrentDepth'}--; # Decrement depth counter.
+
+  1;
+}
+
+
+
+######################################################################
+#
+# MkFiles
+#
+######################################################################
+
+sub MkFiles
+{
+  my ($phProperties, $psError) = @_;
+
+  for (my $i = 1; $i <= $$phProperties{'Files'}; $i++)
+  {
+    my $sName = $$phProperties{'FilenamePrefix'} . $i;
+    my $sFile = $$phProperties{'WorkingDir'} . "/" . $sName;
+    my $sSha1 = sha1_hex($sName);
+    my $sMd5 = md5_hex($sName);
+    if (!$$phProperties{'DryRun'})
+    {
+      if (!MkFile($sFile, $sName, $psError))
+      {
+        return undef;
+      }
+    }
+    PrintRecord("\"$sFile\"|$sSha1|$sMd5");
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# MkLinks
+#
+######################################################################
+
+sub MkLinks
+{
+  my ($phProperties, $psError) = @_;
+
+  if ($^O =~ /MSWin32/i)
+  {
+    return 1; # There's nothing to do.
+  }
+
+  for (my $i = 1; $i <= $$phProperties{'Links'}; $i++)
+  {
+    my $sName = $$phProperties{'FilenamePrefix'} . $i;
+    my $sLink = $$phProperties{'WorkingDir'} . "/" . $$phProperties{'LinknamePrefix'} . $i;
+    my $sSha1 = sha1_hex($sName);
+    my $sMd5 = md5_hex($sName);
+    if (!$$phProperties{'DryRun'})
+    {
+      if (!MkLink($sLink, $sName, $psError))
+      {
+        return undef;
+      }
+    }
+    PrintRecord("\"$sLink\"|$sSha1|$sMd5");
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# MkDir
+#
+######################################################################
+
+sub MkDir
+{
+  my ($sDir, $psError) = @_;
+
+  if (!-d $sDir)
+  {
+    if (!mkdir($sDir, 0755))
+    {
+      $$psError = "Unable to create directory ($sDir): $!";
+      return undef;
+    }
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# MkFile
+#
+######################################################################
+
+sub MkFile
+{
+  my ($sFile, $sData, $psError) = @_;
+
+  if (!open(FH, "> $sFile"))
+  {
+    $$psError = "Unable to create file ($sFile): $!";
+    return undef;
+  }
+  binmode(FH);
+  print FH $sData;
+  close(FH);
+
+  1;
+}
+
+
+######################################################################
+#
+# MkLink
+#
+######################################################################
+
+sub MkLink
+{
+  my ($sLink, $sFile, $psError) = @_;
+
+  if (!symlink($sFile, $sLink))
+  {
+    $$psError = "Unable to create link ($sLink): $!";
+    return undef;
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# MkPath
+#
+######################################################################
+
+sub MkPath
+{
+  my ($sPath, $psError) = @_;
+
+  ####################################################################
+  #
+  # Tidy up slashes and backslashes.
+  #
+  ####################################################################
+
+  if ($^O =~ /MSWin32/i)
+  {
+    $sPath =~ s/\\/\//g; # Convert backslashes to slashes.
+  }
+  $sPath =~ s/\/+/\//g; # Remove duplicate slashes.
+
+  if ($sPath !~ /^\/$/)
+  {
+    $sPath =~ s/\/+$//; # Remove trailing slashes.
+  }
+
+  ####################################################################
+  #
+  # If the supplied path is relative, tack it on the current working
+  # directory.
+  #
+  ####################################################################
+
+  if (!(($sPath =~ /^\//) || ($sPath =~ /^[A-Za-z]:/ && $^O =~ /MSWin32/i)))
+  {
+    $sPath = cwd() . "/" . $sPath;
+  }
+
+  ####################################################################
+  #
+  # The parent directory must exist.
+  #
+  ####################################################################
+
+  my ($sParentPath);
+
+  $sParentPath = dirname($sPath);
+  if (!-d $sParentPath)
+  {
+    $$psError = "Parent Directory ($sParentPath) must exist, but it does not.";
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # The real path is obtained by concatenating the real parent path
+  # with the basename.
+  #
+  ####################################################################
+
+  my ($sError);
+
+  $sParentPath = GetRealPath($sParentPath, \$sError);
+  if (!defined($sParentPath))
+  {
+    $$psError = $sError;
+    return undef;
+  }
+
+  return $sParentPath . (($sParentPath =~ /\/$/) ? "" : "/") . basename($sPath);
+}
+
+
+######################################################################
+#
+# PrintRecord
+#
+######################################################################
+
+sub PrintRecord
+{
+  my ($sRecord) = @_;
+
+  my $phProperties = GetProperties();
+
+  if ($^O =~ /MSWin32/i)
+  {
+    $sRecord =~ s/\//\\/g; # Convert slashes to backslashes.
+  }
+  print $sRecord, $$phProperties{'Newline'};
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-n] [-D depth] [-d dir-count] [-f file-count] [-l link-count] -o out-dir\n";
+  print STDERR "\n";
+  exit(1);
+}
+

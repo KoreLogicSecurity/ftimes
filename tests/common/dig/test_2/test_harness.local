@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.2 2005/06/05 14:50:22 mavrik Exp $
+# $Id: test_harness.local,v 1.6 2005/10/08 23:28:34 mavrik Exp $
 #
 ######################################################################
 
@@ -25,421 +25,43 @@ sub GetTestNumber
 #
 ######################################################################
 
-my $phTestNumbers = GetTestNumbers();
+  my $phTestNumbers = GetTestNumbers();
 
-%$phTestNumbers =
-(
-  1 => "abc123_normal",
-  2 => "abc123_nocase",
-  3 => "abc123_regexp",
-);
+  %$phTestNumbers =
+  (
+    1 => "1_byte_nocase",
+    2 => "2_byte_nocase",
+    3 => "abc123_nocase",
+  );
 
 
 ######################################################################
 #
-# TestGroup_abc123_normal
+# This hash holds test descriptions.
 #
 ######################################################################
 
-sub Hitch_abc123_normal
-{
-  my $phTestTargetValues = GetTestTargetValues();
   my $phTestDescriptions = GetTestDescriptions();
 
-  $$phTestTargetValues{'abc123_normal'} = { 0 => "abc123", 1022 => "abc123", 3840 => "abc123", 4090 => "abc123", 4096 => "abc123", 5119 => "abc123", 7937 => "abc123", 8191 => "abc123" };
-  $$phTestDescriptions{'abc123_normal'} = "tests normal dig offsets for 'abc123' using 512/256 blocksize/carrysize";
-}
-
-
-sub Check_abc123_normal
-{
-  my ($phProperties) = @_;
-
-  my ($sFile, $sName) = MakeTestName($phProperties);
-
-  my $phTestTargetValues = GetTestTargetValues();
-
-  my %hMatches;
-
-  my $sMissing = 0;
-
-  foreach my $sBlockSize ("512/256")
-  {
-    if (!CreateConfig("_config", $sBlockSize, "DigStringNormal=abc123"))
-    {
-      return "fail";
-    }
-
-    if (!open(PH, "$$phProperties{'TargetProgram'} --diglean _config -l 6 $sFile |"))
-    {
-      return "fail";
-    }
-    binmode(PH);
-    my @aLines = <PH>;
-    close(PH);
-
-    if (scalar(@aLines) < 2)
-    {
-      return "fail";
-    }
-    shift(@aLines);
-
-    foreach my $sLine (@aLines)
-    {
-      $sLine =~ s/[\r\n]*$//;
-
-      if ($sLine !~ /[\/\\]$sName"\|normal\|(\d+)\|(.+)$/)
-      {
-        return "fail";
-      }
-      my ($sOffset, $sValue) = ($1, $2);
-
-      DebugPrint(3, "$sLine -- $sOffset|$sValue");
-
-      if (!exists($$phTestTargetValues{$sName}{$sOffset}) || $sValue ne $$phTestTargetValues{$sName}{$sOffset})
-      {
-        DebugPrint(2, "---> $sLine -- $sOffset|$sValue");
-        return "fail";
-      }
-      $hMatches{$sOffset}++;
-    }
-
-    foreach my $sOffset (sort({ $a <=> $b } keys(%{$$phTestTargetValues{'abc123_normal'}})))
-    {
-      if (!exists($hMatches{$sOffset}))
-      {
-        DebugPrint(2, "---> expected a match at $sOffset");
-        $sMissing++;
-      }
-    }
-    if ($sMissing > 0)
-    {
-      DebugPrint(2, "---> missing $sMissing");
-      return "fail";
-    }
-  }
-
-  return "pass";
-}
-
-
-sub Clean_abc123_normal
-{
-  my ($phProperties) = @_;
-
-  my ($sFile, $sName) = MakeTestName($phProperties);
-
-  if (-f $sFile && !unlink($sFile))
-  {
-    return "fail";
-  }
-
-  return "pass";
-}
-
-
-sub Setup_abc123_normal
-{
-  my ($phProperties) = @_;
-
-  my ($sFile, $sName) = MakeTestName($phProperties);
-
-  my ($sData) = sprintf("%s", chr(0) x 16384);
-
-  my ($phTestTargetValues) = GetTestTargetValues();
-
-  foreach my $sOffset (sort({ $a <=> $b } keys(%{$$phTestTargetValues{$sName}})))
-  {
-    substr($sData, $sOffset, length($$phTestTargetValues{$sName}{$sOffset})) = $$phTestTargetValues{$sName}{$sOffset};
-  }
-
-  if (!open(FH, "> $sFile"))
-  {
-    return "fail";
-  }
-  binmode(FH);
-  if (!print(FH $sData))
-  {
-    return "fail";
-  }
-  close(FH);
-  return "pass";
-}
+  %$phTestDescriptions =
+  (
+    '1_byte_nocase'    => "tests nocase dig offsets for '%00' through '%ff' using variable blocksize/carrysize",
+    '2_byte_nocase'    => "tests nocase dig offsets for '%00%00' through '%ff%ff' using variable blocksize/carrysize",
+    'abc123_nocase'    => "tests nocase dig offsets for 'abc123' using variable blocksize/carrysize",
+  );
 
 
 ######################################################################
 #
-# TestGroup_abc123_nocase
+# This hash holds various test properties.
 #
 ######################################################################
 
-sub Hitch_abc123_nocase
-{
-  my $phTestTargetValues = GetTestTargetValues();
-  my $phTestDescriptions = GetTestDescriptions();
+  my $phTestProperties = GetTestProperties();
 
-  $$phTestTargetValues{'abc123_nocase'} = { 0 => "abc123", 1022 => "Abc123", 3840 => "aBc123", 4090 => "abC123", 4096 => "ABC123", 5119 => "ABc123", 7937 => "aBC123", 8191 => "AbC123" };
-  $$phTestDescriptions{'abc123_nocase'} = "tests nocase dig offsets for 'abc123' using 512/256 blocksize/carrysize";
-}
-
-
-sub Check_abc123_nocase
-{
-  my ($phProperties) = @_;
-
-  my ($sFile, $sName) = MakeTestName($phProperties);
-
-  my $phTestTargetValues = GetTestTargetValues();
-
-  my %hMatches;
-
-  my $sMissing = 0;
-
-  foreach my $sBlockSize ("512/256")
-  {
-    if (!CreateConfig("_config", $sBlockSize, "DigStringNoCase=abc123"))
-    {
-      return "fail";
-    }
-
-    if (!open(PH, "$$phProperties{'TargetProgram'} --diglean _config -l 6 $sFile |"))
-    {
-      return "fail";
-    }
-    binmode(PH);
-    my @aLines = <PH>;
-    close(PH);
-
-    if (scalar(@aLines) < 2)
-    {
-      return "fail";
-    }
-    shift(@aLines);
-
-    foreach my $sLine (@aLines)
-    {
-      $sLine =~ s/[\r\n]*$//;
-
-      if ($sLine !~ /[\/\\]$sName"\|nocase\|(\d+)\|(.+)$/)
-      {
-        return "fail";
-      }
-      my ($sOffset, $sValue) = ($1, $2);
-
-      DebugPrint(3, "$sLine -- $sOffset|$sValue");
-
-      if (!exists($$phTestTargetValues{$sName}{$sOffset}) || $sValue ne $$phTestTargetValues{$sName}{$sOffset})
-      {
-        DebugPrint(2, "---> $sLine -- $sOffset|$sValue");
-        return "fail";
-      }
-      $hMatches{$sOffset}++;
-    }
-
-    foreach my $sOffset (sort({ $a <=> $b } keys(%{$$phTestTargetValues{'abc123_nocase'}})))
-    {
-      if (!exists($hMatches{$sOffset}))
-      {
-        DebugPrint(2, "---> expected a match at $sOffset");
-        $sMissing++;
-      }
-    }
-    if ($sMissing > 0)
-    {
-      DebugPrint(2, "---> missing $sMissing");
-      return "fail";
-    }
-  }
-
-  return "pass";
-}
-
-
-sub Clean_abc123_nocase
-{
-  my ($phProperties) = @_;
-
-  my ($sFile, $sName) = MakeTestName($phProperties);
-
-  if (-f $sFile && !unlink($sFile))
-  {
-    return "fail";
-  }
-
-  return "pass";
-}
-
-
-sub Setup_abc123_nocase
-{
-  my ($phProperties) = @_;
-
-  my ($sFile, $sName) = MakeTestName($phProperties);
-
-  my ($sData) = sprintf("%s", chr(0) x 16384);
-
-  my ($phTestTargetValues) = GetTestTargetValues();
-
-  foreach my $sOffset (sort({ $a <=> $b } keys(%{$$phTestTargetValues{$sName}})))
-  {
-    substr($sData, $sOffset, length($$phTestTargetValues{$sName}{$sOffset})) = $$phTestTargetValues{$sName}{$sOffset};
-  }
-
-  if (!open(FH, "> $sFile"))
-  {
-    return "fail";
-  }
-  binmode(FH);
-  if (!print(FH $sData))
-  {
-    return "fail";
-  }
-  close(FH);
-  return "pass";
-}
-
-
-######################################################################
-#
-# TestGroup_abc123_regexp
-#
-######################################################################
-
-sub Hitch_abc123_regexp
-{
-  my $phTestTargetValues = GetTestTargetValues();
-  my $phTestDescriptions = GetTestDescriptions();
-
-  $$phTestTargetValues{'abc123_regexp'} = { 0 => "abc123", 1022 => "Abc123", 3840 => "aBc123", 4090 => "abC123", 4096 => "ABC123", 5119 => "ABc123", 7937 => "aBC123", 8191 => "AbC123" };
-  $$phTestDescriptions{'abc123_regexp'} = "tests regexp dig offsets for '(?i)(abc123)' using 512/256 blocksize/carrysize";
-}
-
-
-sub Check_abc123_regexp
-{
-  my ($phProperties) = @_;
-
-  my ($sFile, $sName) = MakeTestName($phProperties);
-
-  my $phTestTargetValues = GetTestTargetValues();
-
-  my %hMatches;
-
-  my $sMissing = 0;
-
-  my $sVersion = GetToolVersion($phProperties);
-
-  if (!defined($sVersion))
-  {
-    return "fail";
-  }
-
-  if ($sVersion !~ /pcre/)
-  {
-    return "skip";
-  }
-
-  foreach my $sBlockSize ("512/256")
-  {
-    if (!CreateConfig("_config", $sBlockSize, "DigStringRegExp=(?i)(abc123)"))
-    {
-      return "fail";
-    }
-
-    if (!open(PH, "$$phProperties{'TargetProgram'} --diglean _config -l 6 $sFile |"))
-    {
-      return "fail";
-    }
-    binmode(PH);
-    my @aLines = <PH>;
-    close(PH);
-
-    if (scalar(@aLines) < 2)
-    {
-      return "fail";
-    }
-    shift(@aLines);
-
-    foreach my $sLine (@aLines)
-    {
-      $sLine =~ s/[\r\n]*$//;
-
-      if ($sLine !~ /[\/\\]$sName"\|regexp\|(\d+)\|(.+)$/)
-      {
-        return "fail";
-      }
-      my ($sOffset, $sValue) = ($1, $2);
-
-      DebugPrint(3, "$sLine -- $sOffset|$sValue");
-
-      if (!exists($$phTestTargetValues{$sName}{$sOffset}) || $sValue ne $$phTestTargetValues{$sName}{$sOffset})
-      {
-        DebugPrint(2, "---> $sLine -- $sOffset|$sValue");
-        return "fail";
-      }
-      $hMatches{$sOffset}++;
-    }
-
-    foreach my $sOffset (sort({ $a <=> $b } keys(%{$$phTestTargetValues{'abc123_regexp'}})))
-    {
-      if (!exists($hMatches{$sOffset}))
-      {
-        DebugPrint(2, "---> expected a match at $sOffset");
-        $sMissing++;
-      }
-    }
-    if ($sMissing > 0)
-    {
-      DebugPrint(2, "---> missing $sMissing");
-      return "fail";
-    }
-  }
-
-  return "pass";
-}
-
-
-sub Clean_abc123_regexp
-{
-  my ($phProperties) = @_;
-
-  my ($sFile, $sName) = MakeTestName($phProperties);
-
-  if (-f $sFile && !unlink($sFile))
-  {
-    return "fail";
-  }
-
-  return "pass";
-}
-
-
-sub Setup_abc123_regexp
-{
-  my ($phProperties) = @_;
-
-  my ($sFile, $sName) = MakeTestName($phProperties);
-
-  my ($sData) = sprintf("%s", chr(0) x 16384);
-
-  my ($phTestTargetValues) = GetTestTargetValues();
-
-  foreach my $sOffset (sort({ $a <=> $b } keys(%{$$phTestTargetValues{$sName}})))
-  {
-    substr($sData, $sOffset, length($$phTestTargetValues{$sName}{$sOffset})) = $$phTestTargetValues{$sName}{$sOffset};
-  }
-
-  if (!open(FH, "> $sFile"))
-  {
-    return "fail";
-  }
-  binmode(FH);
-  if (!print(FH $sData))
-  {
-    return "fail";
-  }
-  close(FH);
-  return "pass";
-}
+  %$phTestProperties =
+  (
+    'BlockSizes' => ["default:default", "512:128", "512:256", "1024:256", "1024:512", "4096:1024", "4096:2048", "8192:2048", "8192:4096"],
+  );
 
 1;

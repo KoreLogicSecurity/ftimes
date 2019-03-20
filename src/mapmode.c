@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: mapmode.c,v 1.23 2005/04/02 18:08:25 mavrik Exp $
+ * $Id: mapmode.c,v 1.32 2006/04/07 22:15:11 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -24,7 +24,6 @@ MapModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
   const char          acRoutine[] = "MapModeProcessArguments()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
-  int                 iLength;
 
   /*-
    *********************************************************************
@@ -37,19 +36,12 @@ MapModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
   {
     if (psProperties->iRunMode == FTIMES_MAPAUTO)
     {
-      iLength = strlen(ppcArgumentVector[0]);
-      if (iLength > ALL_FIELDS_MASK_SIZE - 1)
-      {
-        snprintf(pcError, MESSAGE_SIZE, "%s: Mask = [%s], Length = [%d]: Length exceeds %d bytes.", acRoutine, ppcArgumentVector[0], iLength, ALL_FIELDS_MASK_SIZE - 1);
-        return ER_Length;
-      }
-      iError = CompareParseStringMask(ppcArgumentVector[0], &psProperties->ulFieldMask, psProperties->iRunMode, psProperties->psMaskTable, psProperties->iMaskTableLength, acLocalError);
-      if (iError != ER_OK)
+      psProperties->psFieldMask = MaskParseMask(ppcArgumentVector[0], MASK_RUNMODE_TYPE_MAP, acLocalError);
+      if (psProperties->psFieldMask == NULL)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-        return iError;
+        return ER;
       }
-      strncpy(psProperties->acMaskString, ppcArgumentVector[0], ALL_FIELDS_MASK_SIZE);
     }
     else
     {
@@ -134,6 +126,7 @@ MapModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->bAnalyzeDeviceFiles = TRUE;
     psProperties->bAnalyzeRemoteFiles = TRUE;
   }
+  psProperties->bHashSymbolicLinks = TRUE;
 
   /*-
    *******************************************************************
@@ -216,7 +209,7 @@ MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
   char                acLocalError[MESSAGE_SIZE] = { 0 };
 #endif
 
-  if (psProperties->acMaskString[0] == 0)
+  if (psProperties->psFieldMask == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Missing FieldMask.", acRoutine);
     return ER_MissingControl;
@@ -231,7 +224,7 @@ MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
   {
     if (psProperties->iAnalyzeBlockSize < XMAGIC_READ_BUFSIZE)
     {
@@ -348,14 +341,12 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * Conditionally set up the Digest engine.
+   * Conditionally set up the Digest engine. NOTE: The conditionals are
+   * tested inside the subroutine.
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MD5_SET) == MD5_SET)
-  {
-    AnalyzeEnableDigestEngine(psProperties);
-  }
+  AnalyzeEnableDigestEngine(psProperties);
 
 #ifdef USE_XMAGIC
   /*-
@@ -365,7 +356,7 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
   {
     iError = AnalyzeEnableXMagicEngine(psProperties, acLocalError);
     if (iError != ER_OK)
@@ -514,60 +505,36 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * Write out a header record.
-   *
-   *********************************************************************
-   */
-  iError = MapWriteHeader(psProperties, acLocalError);
-  if (iError != ER_OK)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Map Header: %s", acRoutine, acLocalError);
-    return iError;
-  }
-
-  /*-
-   *******************************************************************
-   *
-   * Establish an output config file name, if necessary.
-   *
-   *******************************************************************
-   */
-  if (psProperties->iRunMode == FTIMES_MAPFULL && psProperties->bURLPutSnapshot && psProperties->bURLCreateConfig)
-  {
-    iError = SupportMakeName(psProperties->acOutDirName, psProperties->acBaseName, psProperties->acBaseNameSuffix, ".cfg", psProperties->acCfgFileName, acLocalError);
-    if (iError != ER_OK)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Cfg File: %s", acRoutine, acLocalError);
-      return iError;
-    }
-  }
-
-  /*-
-   *********************************************************************
-   *
    * Display properties.
    *
    *********************************************************************
    */
   PropertiesDisplaySettings(psProperties);
 
+#ifdef USE_XMAGIC
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
+  {
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_MagicFile, psProperties->acMagicFileName);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+
+    snprintf(acMessage, MESSAGE_SIZE, "MagicHash=%s", psProperties->acMagicHash);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+  }
+#endif
+
   /*-
    *********************************************************************
    *
-   * Print input filenames.
+   * Write out a header.
    *
    *********************************************************************
    */
-#ifdef USE_XMAGIC
-  if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+  iError = MapWriteHeader(psProperties, acLocalError);
+  if (iError != ER_OK)
   {
-    snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_MagicFile, psProperties->acMagicFileName);
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
-
-    snprintf(acMessage, MESSAGE_SIZE, "MagicHash=%s", psProperties->acMagicHash);
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return iError;
   }
-#endif
 
   return ER_OK;
 }
@@ -615,7 +582,6 @@ MapModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char                acMessage[MESSAGE_SIZE];
   int                 i;
   int                 iFirst;
@@ -647,39 +613,21 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * Write out an upload config file, if requested. Don't stop on error.
-   *
-   *********************************************************************
-   */
-  if (psProperties->bURLCreateConfig && psProperties->iRunMode == FTIMES_MAPFULL)
-  {
-    FTimesCreateConfigFile(psProperties, acLocalError);
-  }
-
-  /*-
-   *********************************************************************
-   *
    * Print output filenames.
    *
    *********************************************************************
    */
   snprintf(acMessage, MESSAGE_SIZE, "LogFileName=%s", psProperties->acLogFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->acOutFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
-
-  if (psProperties->iRunMode == FTIMES_MAPFULL && psProperties->bURLPutSnapshot && psProperties->bURLCreateConfig)
-  {
-    snprintf(acMessage, MESSAGE_SIZE, "CfgFileName=%s", psProperties->acCfgFileName);
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
-  }
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "OutFileHash=%s", psProperties->acOutFileHash);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "DataType=%s", psProperties->acDataType);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   /*-
    *********************************************************************
@@ -689,19 +637,19 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   snprintf(acMessage, MESSAGE_SIZE, "DirectoriesEncountered=%d", MapGetDirectoryCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "FilesEncountered=%d", MapGetFileCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
 #ifdef UNIX
   snprintf(acMessage, MESSAGE_SIZE, "SpecialsEncountered=%d", MapGetSpecialCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 #endif
 
 #ifdef WINNT
   snprintf(acMessage, MESSAGE_SIZE, "StreamsEncountered=%d", MapGetStreamCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 #endif
 
   iIndex = 0;
@@ -712,37 +660,37 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
     {
         iIndex += sprintf(&acMessage[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", psProperties->asAnalysisStages[i].acDescription);
     }
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
     snprintf(acMessage, MESSAGE_SIZE, "ObjectsAnalyzed=%u", AnalyzeGetFileCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
 #ifdef UNIX
 #ifdef USE_AP_SNPRINTF
     snprintf(acMessage, MESSAGE_SIZE, "BytesAnalyzed=%qu", (unsigned long long) AnalyzeGetByteCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 #else
     snprintf(acMessage, MESSAGE_SIZE, "BytesAnalyzed=%llu", (unsigned long long) AnalyzeGetByteCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 #endif
 #endif
 
 #ifdef WIN32
     snprintf(acMessage, MESSAGE_SIZE, "BytesAnalyzed=%I64u", AnalyzeGetByteCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 #endif
   }
   else
   {
     snprintf(acMessage, MESSAGE_SIZE, "AnalysisStages=None");
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 
   snprintf(acMessage, MESSAGE_SIZE, "CompleteRecords=%d", MapGetRecordCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   snprintf(acMessage, MESSAGE_SIZE, "IncompleteRecords=%d", MapGetIncompleteRecordCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
 
   SupportDisplayRunStatistics(psProperties);
 

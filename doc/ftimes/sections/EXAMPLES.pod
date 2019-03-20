@@ -48,7 +48,6 @@ this task.
     URLAuthType=basic
     URLUsername=client_1
     URLPassword=password
-    URLCreateConfig=Y
     Compress=Y
     --- example1.cfg ---
 
@@ -60,10 +59,7 @@ Also, note that B<OutDir> has been set to the current directory
 writeable and (2) there is enough disk space to hold all generated
 output.
 
-Compression was enabled to expedite data transfer, and B<URLCreateConfig>
-was enabled to create an upload config file.  This would come in
-handy if, for example, the upload fails.  Otherwise, it is not
-necessary.
+Compression was enabled to expedite data transfer.
 
 The last step is to run B<FTimes> and review the corresponding log
 output to ensure that snapshot was uploaded successfully.
@@ -156,7 +152,7 @@ Given that the following files are valid, uncompressed snapshots:
     Baseline = daily_20001230203000.map
     Snapshot = daily_20001231203000.map
 
-Compare MD5 digests to determine changed, missing, and new files.
+Compare MD5 digests to determine (C)hanged, (M)issing, and (N)ew files.
 
 The only critical observation needed here is that daily_20001230203000.map
 is considered to be the baseline.  In other words, a baseline is
@@ -167,74 +163,16 @@ This comparison is carried out with the following command:
 
     ftimes --compare none+md5 daily_20001230203000.map daily_20001231203000.map
 
-=head2 Example 4. Using put mode to upload a snapshot
+To compare multiple attributes at the same time, simply specify the
+additional fields in the B<FieldMask>. For example, the following mask
+would compare MD5, SHA1, and size attributes:
 
-This example demonstrates how to manually upload a snapshot to an
-Integrity Server.  While this is definitely not the easiest
-way to transfer data, it may be necessary at some point.
+    none+md5+sha1+size
 
-Suppose that you have a snapshot that was previously created using
-the following command line:
+To compare all attributes at the same time, use a B<FieldMask> of
+'all'.
 
-    ftimes --maplean maplean.cfg
-
-where maplean.cfg contained the following directives:
-
-    --- maplean.cfg ---
-    BaseName=client_1
-    BaseNameSuffix=datetime
-    HashDirectories=Y
-    FieldMask=all-magic
-    Include=/etc
-    OutDir=/maps
-    --- maplean.cfg ---
-
-Now, suppose that you wish to upload the associated snapshot files
-(see below) to an account on an Integrity Server.
-
-    /maps/client_1_20001230203000.log
-    /maps/client_1_20001230203000.map
-
-The first thing that needs to be done is to obtain the necessary
-upload information.  Assume that an Integrity Server has already
-been configured to receive snapshots.  Also, assume that the
-following information has been provided:
-
-    URL = https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
-    Authentication Type = Basic
-    Username/ClientID = client_1
-    Password = password
-    AllowedFieldMask = ALL-magic
-    Server Validates Client Certificates = N
-
-The next thing to do is to create a config file.  Except for
-B<RunType>, B<URLPutURL>, B<URLAuthType>, B<URLUsername>, and
-B<URLPassword>, the controls in the following config file may be
-obtained or derived by reviewing the log file.  Here RunType has
-been arbitrarily set to snapshot -- it could have also been set to
-linktest or baseline depending on your needs.
-
-    --- example4.cfg ---
-    BaseName=client_1
-    LogFileName=/maps/client_1_20001230203000.log
-    OutFileName=/maps/client_1_20001230203000.map
-    OutFileHash=6958d1337f4f11312a402d0c8f9c050b
-    DataType=map
-    FieldMask=all-magic
-    DateTime=20001230203000
-    RunType=snapshot
-    URLPutURL=https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
-    URLAuthType=basic
-    URLUsername=client_1
-    URLPassword=password
-    --- example4.cfg ---
-
-The last step is to run B<FTimes> and review the corresponding log
-output to ensure that snapshot was uploaded successfully.
-
-    ftimes --putmode example4.cfg
-
-=head2 Example 5. Using get mode to download a config file
+=head2 Example 4. Using get mode to download a config file
 
 This example demonstrates how to download a config file from an
 Integrity Server.

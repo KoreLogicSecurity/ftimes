@@ -28,7 +28,7 @@
 
 1.1 Revision
 
-  $Id: README,v 1.12 2005/06/02 14:01:11 mavrik Exp $
+  $Id: README,v 1.14 2005/10/02 18:01:35 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -142,7 +142,7 @@
     perldoc hashdig-make.pl
 
   As additional NSRL data sets are released, any new hashes can be
-  merged into the existing database (i.e. nsrl.db) by rerunning the
+  merged into the existing database (i.e., nsrl.db) by rerunning the
   harvest and make utilities as follows:
 
     hashdig-harvest.pl -c k -t nsrl1 -o nsrl.hd.new NSRLFile.txt.new
@@ -200,7 +200,7 @@
 
   Each time you sling new hashes against Sun's online database, you
   should take time to merge any resolved hashes into your existing
-  reference database (i.e. sunsolve.db).  Assuming the newly resolved
+  reference database (i.e., sunsolve.db).  Assuming the newly resolved
   hashes are in sunsolve.hd.new, this can be done as follows:
 
     hashdig-make.pl -d sunsolve.db sunsolve.hd.new
@@ -220,7 +220,7 @@
     hashdig-make.pl -F -i -d hk.db hk.hd
 
   As additional hash sets are released, any new hashes can be merged
-  into the existing database (i.e. hk.db) by rerunning the harvest
+  into the existing database (i.e., hk.db) by rerunning the harvest
   and make utilities as follows:
 
     hashdig-harvest.pl -c k -t hk -o hk.hd.new ${HKS}/*.hsh.new
@@ -247,7 +247,7 @@
     hashdig-make.pl -F -i -d kg.db kg.hd
 
   As additional hash sets are released, any new hashes can be merged
-  into the existing database (i.e. kg.db) by rerunning the harvest
+  into the existing database (i.e., kg.db) by rerunning the harvest
   and make utilities as follows:
 
     hashdig-harvest.pl -c k -t kg -o kg.hd.new ${KGS}/*.txt.new
@@ -376,7 +376,7 @@
   As a followup step, the practitioner may decide that it's necessary
   or desirable to sort or filter the output in different ways.  One
   approach for narrowing the list of unknowns is to filter the data
-  according to directory type (i.e. bin, dev, etc, lib, and man).
+  according to directory type (i.e., bin, dev, etc, lib, and man).
 
     hashdig-filter.pl *.bound.u
 
@@ -404,17 +404,17 @@
 
     ftimes --mapauto all-magic /sbin /usr/bin /usr/sbin
 
-  Here's the minimum FTimes format (i.e. FieldMask=none+md5):
+  Here's the minimum FTimes format (i.e., FieldMask=none+md5):
 
     name|md5
 
-  Here's the typical UNIX format (i.e. FieldMask=all-magic):
+  Here's the typical UNIX format (i.e., FieldMask=all-magic):
 
-    name|dev|inode|mode|nlink|uid|gid|rdev|atime|mtime|ctime|size|md5
+    name|dev|inode|mode|nlink|uid|gid|rdev|atime|mtime|ctime|size|sha1|md5
 
-  Here's the typical WIN32 format (i.e. FieldMask=all-magic):
+  Here's the typical WIN32 format (i.e., FieldMask=all-magic):
 
-    name|volume|findex|attributes|atime|ams|mtime|mms|ctime|cms|chtime|chms|size|altstreams|md5
+    name|volume|findex|attributes|atime|ams|mtime|mms|ctime|cms|chtime|chms|size|altstreams|sha1|md5
 
   Note that filenames in FTimes output are and URL encoded.  Therefore,
   it may be necessary to insert a URL decoding stage at the appropriate

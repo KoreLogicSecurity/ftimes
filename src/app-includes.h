@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: app-includes.h,v 1.13 2005/04/02 18:08:23 mavrik Exp $
+ * $Id: app-includes.h,v 1.16 2006/04/07 22:15:10 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -26,8 +26,10 @@
 #endif
 
 #include "error.h"
+#include "mask.h"
 #include "md5.h"
 #include "message.h"
+#include "sha1.h"
 
 #include "compare.h"
 #include "decode.h"

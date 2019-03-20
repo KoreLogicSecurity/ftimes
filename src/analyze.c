@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.23 2005/04/29 15:20:16 mavrik Exp $
+ * $Id: analyze.c,v 1.27 2006/04/07 22:15:10 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -238,7 +238,14 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
 #endif
   if (psProperties->ulFileSizeLimit != 0 && ui64FileSize > (K_UINT64) psProperties->ulFileSizeLimit)
   {
-    memset(psFTData->aucFileMD5, 0xff, MD5_HASH_SIZE);
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+    {
+      memset(psFTData->aucFileMd5, 0xff, MD5_HASH_SIZE);
+    }
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+    {
+      memset(psFTData->aucFileSha1, 0xff, SHA1_HASH_SIZE);
+    }
     return ER_OK;
   }
 
@@ -425,21 +432,30 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
 void
 AnalyzeEnableDigestEngine(FTIMES_PROPERTIES *psProperties)
 {
-  strcpy(psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].acDescription, "Digest");
-  psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoDigest;
-  psProperties->asAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoDigest;
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  {
+    strcpy(psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].acDescription, "Md5Digest");
+    psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoDigest;
+    psProperties->asAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoMd5Digest;
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+  {
+    strcpy(psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].acDescription, "Sha1Digest");
+    psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoDigest;
+    psProperties->asAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoSha1Digest;
+  }
 }
 
 
 /*-
  ***********************************************************************
  *
- * AnalyzeDoDigest
+ * AnalyzeDoMd5Digest
  *
  ***********************************************************************
  */
 int
-AnalyzeDoDigest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+AnalyzeDoMd5Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
   static MD5_CONTEXT sFileMD5Context;
 
@@ -452,7 +468,35 @@ AnalyzeDoDigest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int 
 
   if ((iBlockTag & ANALYZE_FINAL_BLOCK) == ANALYZE_FINAL_BLOCK)
   {
-    MD5Omega(&sFileMD5Context, psFTData->aucFileMD5);
+    MD5Omega(&sFileMD5Context, psFTData->aucFileMd5);
+  }
+
+  return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeDoSha1Digest
+ *
+ ***********************************************************************
+ */
+int
+AnalyzeDoSha1Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+{
+  static SHA1_CONTEXT sFileSha1Context;
+
+  if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
+  {
+    SHA1Alpha(&sFileSha1Context);
+  }
+
+  SHA1Cycle(&sFileSha1Context, pucBuffer, iBufferLength);
+
+  if ((iBlockTag & ANALYZE_FINAL_BLOCK) == ANALYZE_FINAL_BLOCK)
+  {
+    SHA1Omega(&sFileSha1Context, psFTData->aucFileSha1);
   }
 
   return ER_OK;

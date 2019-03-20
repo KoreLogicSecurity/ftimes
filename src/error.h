@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: error.h,v 1.9 2005/04/02 18:08:24 mavrik Exp $
+ * $Id: error.h,v 1.12 2006/04/07 22:15:11 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -38,12 +38,14 @@
 enum InternalErrors
 {
   ER_BadHandle = 256,
+  ER_BadMagicOperator,
   ER_BadMagicType,
   ER_BadValue,
   ER_DoDig,
   ER_DoDigest,
   ER_DoXMagic,
   ER_CreateFile,
+  ER_Failure,
   ER_FileSystem,
   ER_FindFirstFile,
   ER_GetFileAttrs,

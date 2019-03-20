@@ -1,6 +1,6 @@
 =item B<RunType>: [baseline|linktest|snapshot]
 
-Applies to B<digfull>, B<mapfull>, and B<putmode>.
+Applies to B<digfull> and B<mapfull>.
 
 B<RunType> is optional.  This control sets a corresponding flag in
 the log file that classifies output data as baseline, snapshot, or

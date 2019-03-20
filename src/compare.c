@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.c,v 1.15 2005/04/02 18:08:24 mavrik Exp $
+ * $Id: compare.c,v 1.33 2006/04/07 22:15:10 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -18,33 +18,6 @@
  *
  ***********************************************************************
  */
-ALL_FIELDS_TABLE gsAllFieldsTable[ALL_FIELDS_TABLE_LENGTH] =
-{
-  { "name",       0 },
-  { "dev",        1 },
-  { "inode",      1 },
-  { "volume",     1 },
-  { "findex",     1 },
-  { "mode",       1 },
-  { "attributes", 1 },
-  { "nlink",      1 },
-  { "uid",        1 },
-  { "gid",        1 },
-  { "rdev",       1 },
-  { "atime",      2 },
-  { "ams",        0 },
-  { "mtime",      2 },
-  { "mms",        0 },
-  { "ctime",      2 },
-  { "cms",        0 },
-  { "chtime",     2 },
-  { "chms",       0 },
-  { "size",       1 },
-  { "altstreams", 1 },
-  { "magic",      1 },
-  { "md5",        1 }
-};
-static const int giAllFieldsTableLength = sizeof(gsAllFieldsTable) / sizeof(gsAllFieldsTable[0]);
 static CMP_PROPERTIES *gpsCmpProperties;
 
 /*-
@@ -55,17 +28,19 @@ static CMP_PROPERTIES *gpsCmpProperties;
  ***********************************************************************
  */
 int
-CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields[][CMP_MAX_LINE], char *pcError)
+CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char **ppcDecodeFields, char *pcError)
 {
   const char          acRoutine[] = "CompareDecodeLine()";
-  char                acTempLine[CMP_MAX_LINE];
-  char               *pcHead;
-  char               *pcTail;
-  int                 i;
-  int                 iDone;
-  int                 iFound;
-  int                 iField;
-  int                 iLength;
+  char                acTempLine[CMP_MAX_LINE] = { 0 };
+  char               *pcHead = NULL;
+  char               *pcTail = NULL;
+  int                 i = 0;
+  int                 iDone = 0;
+  int                 iFound = 0;
+  int                 iField = 0;
+  int                 iLength = 0;
+  int                 iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_CMP);
+  unsigned long       ul = 0;
 
   /*-
    *********************************************************************
@@ -74,9 +49,9 @@ CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields
    *
    *********************************************************************
    */
-  for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
+  for (i = 0; i < iMaskTableLength; i++)
   {
-    aacDecodeFields[i][0] = 0;
+    ppcDecodeFields[i][0] = 0;
   }
 
   /*-
@@ -92,7 +67,7 @@ CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields
     snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", acRoutine, iLength, CMP_MAX_LINE - 1);
     return ER;
   }
-  strncpy(acTempLine, pcLine, CMP_MAX_LINE);
+  snprintf(acTempLine, CMP_MAX_LINE, "%s", pcLine);
 
   /*-
    *********************************************************************
@@ -115,9 +90,10 @@ CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields
     {
       *pcTail = 0;
     }
-    for (i = 0, iFound = -1; i < ALL_FIELDS_TABLE_LENGTH; i++)
+    for (i = 0, iFound = -1; i < iMaskTableLength; i++)
     {
-      if ((ulFieldsMask & (1 << i)) == (unsigned long) 1 << i)
+      ul = 1 << i;
+      if (MASK_BIT_IS_SET(ulFieldsMask, ul))
       {
         iFound++;
       }
@@ -126,9 +102,9 @@ CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields
         break;
       }
     }
-    if (i != ALL_FIELDS_TABLE_LENGTH)
+    if (i != iMaskTableLength)
     {
-      strcpy(aacDecodeFields[i], pcHead);
+      snprintf(ppcDecodeFields[i], CMP_MAX_LINE, "%s", pcHead);
     }
   }
 
@@ -144,94 +120,53 @@ CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields
  ***********************************************************************
  */
 int
-CompareEnumerateChanges(char *pcFilename, char *pcError)
+CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
 {
   const char          acRoutine[] = "CompareEnumerateChanges()";
-  char                aacBaselineFields[ALL_FIELDS_TABLE_LENGTH][CMP_MAX_LINE];
-  char                aacSnapshotFields[ALL_FIELDS_TABLE_LENGTH][CMP_MAX_LINE];
-  char                acLine[CMP_MAX_LINE];
   char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char              **ppcBaselineFields = NULL;
+  char              **ppcSnapshotFields = NULL;
   CMP_DATA            sCompareData;
-  int                 iLastIndex;
-  int                 iTempIndex;
+  CMP_PROPERTIES     *psProperties = CompareGetPropertiesReference();
+  int                 iLastIndex = 0;
+  int                 iTempIndex = 0;
+  int                 i = 0;
+  int                 iError = 0;
+  int                 iFound = 0;
+  int                 iKeysIndex = 0;
+  int                 iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_CMP);
 #ifdef USE_SNAPSHOT_COLLISION_DETECTION
-  int                *piNodeIndex;
+  int                 iNodeCount = 0;
+  int                 iNodeIndex = 0;
+  int                *piNodeIndex = NULL;
 #endif
-  CMP_PROPERTIES     *psProperties;
-  FILE               *pFile;
-  int                 i;
-  int                 iError;
-  int                 iFound;
-  int                 iKeysIndex;
-  int                 iNodeCount;
-  int                 iNodeIndex;
-  int                 iLineLength = 0;
-  int                 iLineNumber = 0;
-  int                 iToLower;
-  unsigned char       aucHash[MD5_HASH_SIZE];
-
-  psProperties = CompareGetPropertiesReference();
+  unsigned long       ul = 0;
 
   /*-
    *********************************************************************
    *
-   * Open the snapshot file.
+   * Allocate enough memory to hold one complete baseline record broken
+   * down into individual fields and stored in an array.
    *
    *********************************************************************
    */
-  if (strcmp(pcFilename, "-") == 0)
+/* FIXME Move this code to a subroutine. Add logic to free this memory when it's no longer required. */
+  ppcBaselineFields = (char **) malloc(iMaskTableLength * sizeof(char **));
+  if (ppcBaselineFields == NULL)
   {
-    pFile = stdin;
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
+    return ER;
   }
-  else
+
+  for (i = 0; i < iMaskTableLength; i++)
   {
-    pFile = fopen(pcFilename, "rb");
-    if (pFile == NULL)
+    ppcBaselineFields[i] = (char *) malloc(CMP_MAX_LINE);
+    if (ppcBaselineFields[i] == NULL)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
       return ER;
     }
   }
-
-  /*-
-   *********************************************************************
-   *
-   * Read and parse the header.
-   *
-   *********************************************************************
-   */
-  iLineNumber++;
-  iError = CompareReadHeader(pFile, acLocalError);
-  if (iError != ER_OK)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
-    fclose(pFile);
-    return ER;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Adjust the compare mask to look at the fields we actually have.
-   *
-   *********************************************************************
-   */
-  psProperties->ulCompareMask &= psProperties->ulFieldsMask;
-  if (psProperties->ulCompareMask == 0)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: None of the specified fields exist in the snapshot data.", acRoutine, pcFilename, iLineNumber);
-    fclose(pFile);
-    return ER;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Set the ToLower conversion flag.
-   *
-   *********************************************************************
-   */
-  iToLower = (psProperties->piCompareRoutine == strcasecmp) ? 1 : 0;
 
   /*-
    *********************************************************************
@@ -240,29 +175,38 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
    *
    *********************************************************************
    */
-  iNodeCount = iNodeIndex = 0;
-  for (acLine[0] = 0, iLineNumber++; fgets(acLine, CMP_MAX_LINE, pFile) != NULL; acLine[0] = 0, iLineNumber++)
+
+  /*-
+   *********************************************************************
+   *
+   * Read and process baseline data. If the read returns NULL, it
+   * could mean an error has occured or EOF was reached. If a record
+   * fails to parse (compressed files only), set a flag so that the
+   * next read will automatically skip all records up to the next
+   * checkpoint.
+   *
+   *********************************************************************
+   */
+  while (DecodeReadLine(psSnapshot, acLocalError) != NULL)
   {
-    /*-
-     *******************************************************************
-     *
-     * Preprocess the line.
-     *
-     *******************************************************************
-     */
-    iError = ComparePreprocessLine(pFile, iToLower, acLine, &iLineLength, aucHash, acLocalError);
+    psSnapshot->sDecodeStats.ulAnalyzed++;
+    iError = DecodeParseRecord(psSnapshot, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
-      fclose(pFile);
-      return ER;
+      if (psSnapshot->iCompressed)
+      {
+        psSnapshot->iSkipToNext = TRUE;
+      }
+      psSnapshot->sDecodeStats.ulSkipped++;
+      continue;
     }
+    psSnapshot->sDecodeStats.ulDecoded++;
 
 #ifdef USE_SNAPSHOT_COLLISION_DETECTION
     /*-
      *******************************************************************
      *
-     * Check memory size, and allocate more, if necessary.
+     * Check node count, and allocate more, if necessary.
      *
      *******************************************************************
      */
@@ -272,8 +216,7 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
       psProperties->psSnapshotNodes = (CMP_NODE *) realloc(psProperties->psSnapshotNodes, (iNodeCount * sizeof(CMP_NODE)));
       if (psProperties->psSnapshotNodes == NULL)
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
-        fclose(pFile);
+        snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): File = [%s], Line = [%d]: %s", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber, strerror(errno));
         return ER;
       }
     }
@@ -285,17 +228,18 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
      *
      *******************************************************************
      */
-    piNodeIndex = CompareGetNodeIndexReference(aucHash, psProperties->aiSnapshotKeys, psProperties->psSnapshotNodes);
+    piNodeIndex = CompareGetNodeIndexReference(psSnapshot->psCurrRecord->aucHash, psProperties->aiSnapshotKeys, psProperties->psSnapshotNodes);
     if (piNodeIndex == NULL)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: Hash collision. Check for duplicate filenames.", acRoutine, pcFilename, iLineNumber);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: Hash collision. Check for duplicate filenames.", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber);
       ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
     }
     else
     {
       *piNodeIndex = iNodeIndex;
       psProperties->psSnapshotNodes[*piNodeIndex].iNextIndex = -1;
-      memcpy(psProperties->psSnapshotNodes[*piNodeIndex].aucHash, aucHash, CMP_HASHB_SIZE);
+      memcpy(psProperties->psSnapshotNodes[*piNodeIndex].aucHash, psSnapshot->psCurrRecord->aucHash, MD5_HASH_SIZE);
+      /* NOTE: pcData is not initialized here because it's not being used in this section of code. */
       iNodeIndex++;
     }
 #endif
@@ -309,33 +253,35 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
      */
     psProperties->ulAnalyzed++;
     iFound = 0;
-    CompareDecodeLine(acLine, psProperties->ulFieldsMask, aacSnapshotFields, acLocalError);
+    ppcSnapshotFields = psSnapshot->psCurrRecord->ppcFields;
     sCompareData.cCategory = 0;
     sCompareData.pcRecord = NULL;
-    iKeysIndex = CMP_GET_NODE_INDEX(aucHash);
+    iKeysIndex = CMP_GET_NODE_INDEX(psSnapshot->psCurrRecord->aucHash);
+
     iLastIndex = iTempIndex = psProperties->aiBaselineKeys[iKeysIndex];
     while (iTempIndex != -1)
     {
-      if (memcmp(psProperties->psBaselineNodes[iTempIndex].aucHash, aucHash, CMP_HASHB_SIZE) == 0)
+      if (memcmp(psProperties->psBaselineNodes[iTempIndex].aucHash, psSnapshot->psCurrRecord->aucHash, MD5_HASH_SIZE) == 0)
       {
         iFound = psProperties->psBaselineNodes[iTempIndex].iFound = 1;
-        CompareDecodeLine(psProperties->psBaselineNodes[iTempIndex].pcData, psProperties->ulFieldsMask, aacBaselineFields, acLocalError);
+        CompareDecodeLine(psProperties->psBaselineNodes[iTempIndex].pcData, psBaseline->ulFieldMask, ppcBaselineFields, acLocalError);
         sCompareData.ulChangedMask = 0;
         sCompareData.ulUnknownMask = 0;
-        for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
+        for (i = 0; i < iMaskTableLength; i++)
         {
-          if ((psProperties->ulCompareMask & 1 << i) == (unsigned long) 1 << i)
+          ul = 1 << i;
+          if (MASK_BIT_IS_SET(psProperties->psCompareMask->ulMask, ul))
           {
-            if (aacBaselineFields[i][0] != 0 && aacSnapshotFields[i][0] != 0)
+            if (ppcBaselineFields[i][0] != 0 && ppcSnapshotFields[i][0] != 0)
             {
-              if (strcmp(aacBaselineFields[i], aacSnapshotFields[i]) != 0)
+              if (strcmp(ppcBaselineFields[i], ppcSnapshotFields[i]) != 0)
               {
-                sCompareData.ulChangedMask |= 1 << i;
+                sCompareData.ulChangedMask |= ul;
               }
             }
             else
             {
-              sCompareData.ulUnknownMask |= 1 << i;
+              sCompareData.ulUnknownMask |= ul;
             }
           }
         }
@@ -354,7 +300,7 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
           sCompareData.cCategory = 'X';
           psProperties->ulCrossed++;
         }
-        sCompareData.pcRecord = aacBaselineFields[0];
+        sCompareData.pcRecord = ppcBaselineFields[0];
         break;
       }
       iLastIndex = iTempIndex;
@@ -363,7 +309,7 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
     if (iFound == 0 || iLastIndex == -1)
     {
       sCompareData.cCategory = 'N';
-      sCompareData.pcRecord = aacSnapshotFields[0];
+      sCompareData.pcRecord = ppcSnapshotFields[0];
       psProperties->ulNew++;
     }
     else if (sCompareData.cCategory == 0)
@@ -373,18 +319,16 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
     iError = CompareWriteRecord(psProperties, &sCompareData, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
-      fclose(pFile);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber, acLocalError);
       return ER;
     }
   }
-  if (ferror(pFile))
+  if (ferror(psSnapshot->pFile))
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: fgets(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
-    fclose(pFile);
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber, acLocalError);
+    psSnapshot->sDecodeStats.ulSkipped++;
     return ER;
   }
-  fclose(pFile);
 
   /*-
    *********************************************************************
@@ -405,7 +349,7 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
         iError = CompareWriteRecord(psProperties, &sCompareData, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, psSnapshot->pcFile, psSnapshot->iLineNumber, acLocalError);
           return ER;
         }
         psProperties->ulMissing++;
@@ -414,6 +358,34 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
     }
   }
   return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * CompareFreeNodeData
+ *
+ ***********************************************************************
+ */
+void
+CompareFreeNodeData(int *piKeys, CMP_NODE *psNodes)
+{
+  int                 iKeysIndex = 0;
+  int                 iNodeIndex = 0;
+
+  for (iKeysIndex = 0; iKeysIndex < CMP_MODULUS; iKeysIndex++)
+  {
+    iNodeIndex = piKeys[iKeysIndex];
+    while (iNodeIndex != -1)
+    {
+      if (psNodes[iNodeIndex].pcData)
+      {
+        free(psNodes[iNodeIndex].pcData);
+      }
+      iNodeIndex = psNodes[iNodeIndex].iNextIndex;
+    }
+  }
 }
 
 
@@ -429,17 +401,16 @@ CompareFreeProperties(CMP_PROPERTIES *psProperties)
 {
   if (psProperties != NULL)
   {
-    if (psProperties->pcPackedData != NULL)
-    {
-      free(psProperties->pcPackedData);
-    }
     if (psProperties->psBaselineNodes != NULL)
     {
+      CompareFreeNodeData(psProperties->aiBaselineKeys, psProperties->psBaselineNodes);
       free(psProperties->psBaselineNodes);
     }
 #ifdef USE_SNAPSHOT_COLLISION_DETECTION
     if (psProperties->psSnapshotNodes != NULL)
     {
+      /* NOTE: Snapshots don't use node data. Therefore, CompareFreeNodeData() is not required. */
+      /* CompareFreeNodeData(psProperties->aiSnapshotKeys, psProperties->psSnapshotNodes); */
       free(psProperties->psSnapshotNodes);
     }
 #endif
@@ -514,9 +485,9 @@ CompareGetNewCount(void)
 int *
 CompareGetNodeIndexReference(unsigned char *pucHash, int *piKeys, CMP_NODE *psNodes)
 {
-  int                 iKeysIndex;
-  int                 iLastIndex;
-  int                 iTempIndex;
+  int                 iKeysIndex = 0;
+  int                 iLastIndex = 0;
+  int                 iTempIndex = 0;
 
   iKeysIndex = CMP_GET_NODE_INDEX(pucHash);
 
@@ -528,7 +499,7 @@ CompareGetNodeIndexReference(unsigned char *pucHash, int *piKeys, CMP_NODE *psNo
   {
     while (iTempIndex != -1)
     {
-      if (memcmp(psNodes[iTempIndex].aucHash, pucHash, CMP_HASHB_SIZE) == 0)
+      if (memcmp(psNodes[iTempIndex].aucHash, pucHash, MD5_HASH_SIZE) == 0)
       {
         return NULL;
       }
@@ -590,127 +561,72 @@ CompareGetUnknownCount(void)
  ***********************************************************************
  */
 int
-CompareLoadBaselineData(char *pcFilename, char *pcError)
+CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError)
 {
   const char          acRoutine[] = "CompareLoadBaselineData()";
-  char                acLine[CMP_MAX_LINE];
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char               *pcPackedData;
-  CMP_PROPERTIES     *psProperties;
-  FILE               *pFile;
-  int                 iError;
-  int                 iFirst;
-  int                 iLineLength = 0;
-  int                 iLineNumber = 0;
-  int                 iNodeCount;
-  int                 iNodeIndex;
-  int                 iToLower;
-  int                *piNodeIndex;
-  struct stat         sStatEntry;
-  unsigned char       aucHash[MD5_HASH_SIZE];
-
-  psProperties = CompareGetPropertiesReference();
+  char               *pcData = NULL;
+  CMP_PROPERTIES     *psProperties = CompareGetPropertiesReference();
+  int                 i = 0;
+  int                 n = 0;
+  int                 iError = 0;
+  int                 iNodeCount = 0;
+  int                 iNodeIndex = 0;
+  int                *piNodeIndex = NULL;
 
   /*-
    *********************************************************************
    *
-   * Open the baseline.
+   * Read and process baseline data. If the read returns NULL, it
+   * could mean an error has occured or EOF was reached. If a record
+   * fails to parse (compressed files only), set a flag so that the
+   * next read will automatically skip all records up to the next
+   * checkpoint.
    *
    *********************************************************************
    */
-  pFile = fopen(pcFilename, "rb");
-  if (pFile == NULL)
+  while (DecodeReadLine(psBaseline, acLocalError) != NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
-    return ER;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Allocate memory to hold the data.
-   *
-   *********************************************************************
-   */
-  iError = fstat(fileno(pFile), &sStatEntry);
-  if (iError == -1)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: fstat(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
-    fclose(pFile);
-    return ER;
-  }
-  pcPackedData = malloc(sStatEntry.st_size);
-  if (pcPackedData == NULL)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
-    fclose(pFile);
-    return ER;
-  }
-  psProperties->pcPackedData = pcPackedData;
-
-  /*-
-   *********************************************************************
-   *
-   * Read and parse the header.
-   *
-   *********************************************************************
-   */
-  iLineNumber++;
-  iError = CompareReadHeader(pFile, acLocalError);
-  if (iError != ER_OK)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
-    fclose(pFile);
-    return ER;
-  }
-
-  iFirst = 1;
-  iNodeCount = iNodeIndex = iToLower = 0;
-  for (acLine[0] = 0, iLineNumber++; fgets(acLine, CMP_MAX_LINE, pFile) != NULL; acLine[0] = 0, iLineNumber++)
-  {
-    /*-
-     *******************************************************************
-     *
-     * Determine the compare function based on the OsType. This affects
-     * name digest calculations and comparisions. This test expects
-     * WIN32 files to begin with a drive letter followed by a colon.
-     *
-     *******************************************************************
-     */
-    if (iFirst)
-    {
-      if (isupper(toupper((int) acLine[1])) && acLine[2] == ':')
-      {
-        psProperties->piCompareRoutine = strcasecmp; /* WIN32 */
-        iToLower = 1;
-      }
-      else
-      {
-        psProperties->piCompareRoutine = strcmp; /* UNIX */
-        iToLower = 0;
-      }
-      iFirst = 0;
-    }
-
-    /*-
-     *******************************************************************
-     *
-     * Preprocess the line.
-     *
-     *******************************************************************
-     */
-    iError = ComparePreprocessLine(pFile, iToLower, acLine, &iLineLength, aucHash, acLocalError);
+    psBaseline->sDecodeStats.ulAnalyzed++;
+    iError = DecodeParseRecord(psBaseline, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
-      fclose(pFile);
+      if (psBaseline->iCompressed)
+      {
+        psBaseline->iSkipToNext = TRUE;
+      }
+      psBaseline->sDecodeStats.ulSkipped++;
+      continue;
+    }
+    psBaseline->sDecodeStats.ulDecoded++;
+
+    /*-
+     *******************************************************************
+     *
+     * Allocate a block of memory to hold this record. Then, join the
+     * fields to form a single record.
+     *
+     *******************************************************************
+     */
+    for (i = n = 0; i < psBaseline->iFieldCount; i++)
+    {
+      n += strlen(psBaseline->psCurrRecord->ppcFields[psBaseline->aiIndex2Map[i]]);
+    }
+    pcData = malloc(n + i + 1); /* The value for i represents the number of delimiters needed. */
+    if (pcData == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): File = [%s], Line = [%d]: %s", acRoutine, psBaseline->pcFile, psBaseline->iLineNumber, strerror(errno));
       return ER;
+    }
+    for (i = n = 0; i < psBaseline->iFieldCount; i++)
+    {
+      n += sprintf(&pcData[n], "%s%s", (i > 0) ? DECODE_SEPARATOR_S : "", psBaseline->psCurrRecord->ppcFields[psBaseline->aiIndex2Map[i]]);
     }
 
     /*-
      *******************************************************************
      *
-     * Check memory size, and allocate more, if necessary.
+     * Check node count, and allocate more, if necessary.
      *
      *******************************************************************
      */
@@ -720,8 +636,7 @@ CompareLoadBaselineData(char *pcFilename, char *pcError)
       psProperties->psBaselineNodes = (CMP_NODE *) realloc(psProperties->psBaselineNodes, (iNodeCount * sizeof(CMP_NODE)));
       if (psProperties->psBaselineNodes == NULL)
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
-        fclose(pFile);
+        snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): File = [%s], Line = [%d]: %s", acRoutine, psBaseline->pcFile, psBaseline->iLineNumber, strerror(errno));
         return ER;
       }
     }
@@ -729,34 +644,32 @@ CompareLoadBaselineData(char *pcFilename, char *pcError)
     /*-
      *******************************************************************
      *
-     * Insert a new node. Drop collisions and warn the user.
+     * Insert a new node. Drop collisions, and warn the user.
      *
      *******************************************************************
      */
-    piNodeIndex = CompareGetNodeIndexReference(aucHash, psProperties->aiBaselineKeys, psProperties->psBaselineNodes);
+    piNodeIndex = CompareGetNodeIndexReference(psBaseline->psCurrRecord->aucHash, psProperties->aiBaselineKeys, psProperties->psBaselineNodes);
     if (piNodeIndex == NULL)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: Hash collision. Check for duplicate filenames.", acRoutine, pcFilename, iLineNumber);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: Hash collision. Check for duplicate filenames.", acRoutine, psBaseline->pcFile, psBaseline->iLineNumber);
       ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
     }
     else
     {
       *piNodeIndex = iNodeIndex;
       psProperties->psBaselineNodes[*piNodeIndex].iNextIndex = -1;
-      memcpy(psProperties->psBaselineNodes[*piNodeIndex].aucHash, aucHash, CMP_HASHB_SIZE);
-      psProperties->psBaselineNodes[*piNodeIndex].pcData = pcPackedData;
-      strcpy(psProperties->psBaselineNodes[*piNodeIndex].pcData, acLine);
-      pcPackedData += iLineLength + 1;
+      memcpy(psProperties->psBaselineNodes[*piNodeIndex].aucHash, psBaseline->psCurrRecord->aucHash, MD5_HASH_SIZE);
+/* FIXME See TODO list. */
+      psProperties->psBaselineNodes[*piNodeIndex].pcData = pcData;
       iNodeIndex++;
     }
   }
-  if (ferror(pFile))
+  if (ferror(psBaseline->pFile))
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: fgets(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
-    fclose(pFile);
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, psBaseline->pcFile, psBaseline->iLineNumber, acLocalError);
+    psBaseline->sDecodeStats.ulSkipped++;
     return ER;
   }
-  fclose(pFile);
 
   return ER_OK;
 }
@@ -773,8 +686,8 @@ CMP_PROPERTIES *
 CompareNewProperties(char *pcError)
 {
   const char          acRoutine[] = "CompareNewProperties()";
-  CMP_PROPERTIES     *psProperties;
-  int                 i;
+  CMP_PROPERTIES     *psProperties = NULL;
+  int                 i = 0;
 
   /*
    *********************************************************************
@@ -793,7 +706,7 @@ CompareNewProperties(char *pcError)
   /*
    *********************************************************************
    *
-   * Initialize non-zero variables.
+   * Initialize BaselineKeys and SnapshotKeys variables.
    *
    *********************************************************************
    */
@@ -805,391 +718,20 @@ CompareNewProperties(char *pcError)
 #endif
   }
 
+  /*-
+   *********************************************************************
+   *
+   * Initialize NewLine variable.
+   *
+   *********************************************************************
+   */
 #ifdef WIN32
-  psProperties->piCompareRoutine = strcasecmp;
   strncpy(psProperties->acNewLine, CRLF, NEWLINE_LENGTH);
-#endif
-#ifdef UNIX
-  psProperties->piCompareRoutine = strcmp;
+#else
   strncpy(psProperties->acNewLine, LF, NEWLINE_LENGTH);
 #endif
 
   return psProperties;
-}
-
-
-/*-
- ***********************************************************************
- *
- * CompareParseStringMask
- *
- ***********************************************************************
- */
-int
-CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *psMaskTable, int iMaskTableLength, char *pcError)
-{
-  const char          acRoutine[] = "CompareParseStringMask()";
-  char                acTempLine[ALL_FIELDS_MASK_SIZE];
-  char                cLastAction;
-  char                cNextAction;
-  char               *pcToken;
-  int                 i;
-  int                 j;
-  int                 iDone;
-  int                 iLength;
-  int                 iOffset;
-
-  iLength = strlen(pcMask);
-  if (iLength > ALL_FIELDS_MASK_SIZE - 1)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Argument exceeds [%d] bytes.", acRoutine, iLength, ALL_FIELDS_MASK_SIZE - 1);
-    return ER;
-  }
-
-  if (strncasecmp(pcMask, "ALL", 3) == 0)
-  {
-    *ulMask = ~0;
-    iLength = 3;
-  }
-  else if (strncasecmp(pcMask, "NONE", 4) == 0)
-  {
-    *ulMask = 0;
-    iLength = 4;
-  }
-  else
-  {
-    *ulMask = 0;
-    snprintf(pcError, MESSAGE_SIZE, "%s: Prefix = [%s] != [ALL|NONE]: Invalid prefix.", acRoutine, pcMask);
-    return ER;
-  }
-
-  switch (pcMask[iLength])
-  {
-  case '+':
-  case '-':
-    cLastAction = '?';
-    cNextAction = pcMask[iLength++];
-    break;
-  case 0:
-    *ulMask &= (iRunMode == FTIMES_CMPMODE) ? ~0 : ALL_MASK;
-    return ER_OK;
-    break;
-  default:
-    snprintf(pcError, MESSAGE_SIZE, "%s: Operator = [%c] != [+|-]: Invalid operator.", acRoutine, pcMask[iLength]);
-    return ER;
-    break;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Copy the remainder of the input to a scratch pad.
-   *
-   *********************************************************************
-   */
-  strncpy(acTempLine, &pcMask[iLength], ALL_FIELDS_MASK_SIZE);
-
-  /*-
-   *********************************************************************
-   *
-   * Remove EOL characters.
-   *
-   *********************************************************************
-   */
-  SupportChopEOLs(acTempLine, 0, NULL);
-
-  /*-
-   *********************************************************************
-   *
-   * Scan through the string looking for tokens delimited by '+', '-',
-   * or 0.
-   *
-   *********************************************************************
-   */
-  for (pcToken = acTempLine, iOffset = 0, iDone = 0; !iDone;)
-  {
-    if (acTempLine[iOffset] == '+' || acTempLine[iOffset] == '-' || acTempLine[iOffset] == 0)
-    {
-      if (acTempLine[iOffset] == 0)
-      {
-        iDone = 1;
-      }
-
-      /*-
-       *****************************************************************
-       *
-       * Update the action values.
-       *
-       *****************************************************************
-       */
-      cLastAction = cNextAction;
-      cNextAction = acTempLine[iOffset];
-
-      /*-
-       *****************************************************************
-       *
-       * Terminate the token.
-       *
-       *****************************************************************
-       */
-      acTempLine[iOffset] = 0;
-
-      /*-
-       *****************************************************************
-       *
-       * Scan the table looking for this token. Add or subtract the
-       * expanded token value (i.e. the xtime tokens count for more
-       * than one mask bit each) from the mask depending on whether
-       * '+' or '-' was given.
-       *
-       *****************************************************************
-       */
-      if (iRunMode == FTIMES_CMPMODE)
-      {
-        for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
-        {
-          if (strcasecmp(pcToken, gsAllFieldsTable[i].acName) == 0)
-          {
-            if (gsAllFieldsTable[i].iBitsToSet == 0)
-            {
-              snprintf(pcError, MESSAGE_SIZE, "%s: Token = [%c%s]: Illegal value.", acRoutine, cLastAction, pcToken);
-              return ER;
-            }
-            for (j = 0; j < gsAllFieldsTable[i].iBitsToSet; j++)
-            {
-              PUTBIT(*ulMask, ((cLastAction == '+') ? 1 : 0), (i + j));
-            }
-            break;
-          }
-        }
-        if (i == ALL_FIELDS_TABLE_LENGTH)
-        {
-          snprintf(pcError, MESSAGE_SIZE, "%s: Token = [%c%s]: Invalid value.", acRoutine, cLastAction, pcToken);
-          return ER;
-        }
-      }
-      else
-      {
-        for (i = 0; i < iMaskTableLength; i++)
-        {
-          if (psMaskTable[i].MaskName[0] && strcasecmp(pcToken, psMaskTable[i].MaskName) == 0)
-          {
-            PUTBIT(*ulMask, ((cLastAction == '+') ? 1 : 0), i);
-            break;
-          }
-        }
-        if (i == iMaskTableLength)
-        {
-          snprintf(pcError, MESSAGE_SIZE, "%s: Token = [%c%s]: Invalid value.", acRoutine, cLastAction, pcToken);
-          return ER;
-        }
-      }
-      if (!iDone)
-      {
-        iOffset++;
-        pcToken = &acTempLine[iOffset];
-      }
-    }
-    else
-    {
-      iOffset++;
-    }
-  }
-
-  *ulMask &= (iRunMode == FTIMES_CMPMODE) ? ~0 : ALL_MASK;
-
-  return ER_OK;
-}
-
-
-/*-
- ***********************************************************************
- *
- * ComparePreprocessLine
- *
- ***********************************************************************
- */
-int
-ComparePreprocessLine(FILE *pFile, int iToLower, char *pcLine, int *piLength, unsigned char *pucHash, char *pcError)
-{
-  const char          acRoutine[] = "ComparePreprocessLine()";
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char                acName[CMP_MAX_LINE];
-  int                 i;
-  int                 iLength;
-
-  /*-
-   *********************************************************************
-   *
-   * Remove EOL characters.
-   *
-   *********************************************************************
-   */
-  if (SupportChopEOLs(pcLine, feof(pFile) ? 0 : 1, acLocalError) == ER)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    return ER;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Calculate line length.
-   *
-   *********************************************************************
-   */
-  *piLength = strlen(pcLine);
-
-  /*-
-   *********************************************************************
-   *
-   * Extract the name, and calculate its hash.
-   *
-   *********************************************************************
-   */
-  for (iLength = 0; iLength < *piLength && pcLine[iLength] != CMP_SEPARATOR_C; iLength++)
-  {
-    acName[iLength] = pcLine[iLength];
-  }
-  acName[iLength] = 0;
-  if (iToLower)
-  {
-    for (i = 0; i < iLength; i++)
-    {
-      if (acName[i] >= 'A' && acName[i] <= 'Z')
-      {
-        acName[i] += 0x20;
-      }
-    }
-  }
-  MD5HashString((unsigned char *) acName, iLength, pucHash);
-
-  return ER_OK;
-}
-
-
-/*-
- ***********************************************************************
- *
- * CompareReadHeader
- *
- ***********************************************************************
- */
-int
-CompareReadHeader(FILE *pFile, char *pcError)
-{
-  const char          acRoutine[] = "CompareReadHeader()";
-  char                acHeader[CMP_MAX_LINE];
-  char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char               *pcHead;
-  char               *pcTail;
-  CMP_PROPERTIES     *psProperties;
-  int                 i;
-  int                 iDone;
-  int                 iFields;
-
-  psProperties = CompareGetPropertiesReference();
-
-  /*-
-   *********************************************************************
-   *
-   * Read header line.
-   *
-   *********************************************************************
-   */
-  fgets(acHeader, CMP_MAX_LINE, pFile);
-  if (ferror(pFile))
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: fgets(): %s", acRoutine, strerror(errno));
-    return ER;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Remove EOL characters.
-   *
-   *********************************************************************
-   */
-  if (SupportChopEOLs(acHeader, feof(pFile) ? 0 : 1, acLocalError) == ER)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    return ER;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Check that there's at least a name field.
-   *
-   *********************************************************************
-   */
-  if (strncmp(acHeader, "name", 4) != 0)
-  {
-    if (strncmp(acHeader, "zname", 5) == 0)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Header magic indicates that this file contains compressed data.", acRoutine);
-    }
-    else
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Header magic is not recognized.", acRoutine);
-    }
-    return ER;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Parse header, and construct a field mask.
-   *
-   *********************************************************************
-   */
-  for (pcHead = pcTail = acHeader, iDone = iFields = 0; !iDone; pcHead = ++pcTail, iFields++)
-  {
-    while (*pcTail != CMP_SEPARATOR_C && *pcTail != 0)
-    {
-      pcTail++;
-    }
-    if (*pcTail == 0)
-    {
-      iDone = 1;
-    }
-    else
-    {
-      *pcTail = 0;
-    }
-    for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
-    {
-      if (strcasecmp(pcHead, gsAllFieldsTable[i].acName) == 0)
-      {
-        PUTBIT(psProperties->ulFieldsMask, 1, i);
-        break;
-      }
-    }
-    if (i == ALL_FIELDS_TABLE_LENGTH)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Token = [%s]: Unknown field.", acRoutine, (*pcHead == 0) ? "" : pcHead);
-      return ER;
-    }
-  }
-
-  psProperties->iFields = iFields;
-
-  return ER_OK;
-}
-
-
-/*-
- ***********************************************************************
- *
- * CompareSetMask
- *
- ***********************************************************************
- */
-void
-CompareSetMask(unsigned long ulMask)
-{
-  gpsCmpProperties->ulCompareMask = ulMask;
 }
 
 
@@ -1203,7 +745,7 @@ CompareSetMask(unsigned long ulMask)
 void
 CompareSetNewLine(char *pcNewLine)
 {
-  strcpy(gpsCmpProperties->acNewLine, (strcmp(pcNewLine, CRLF) == 0) ? CRLF : LF);
+  strncpy(gpsCmpProperties->acNewLine, (strcmp(pcNewLine, CRLF) == 0) ? CRLF : LF, NEWLINE_LENGTH);
 }
 
 
@@ -1246,10 +788,10 @@ int
 CompareWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
 {
   const char          acRoutine[] = "CompareWriteHeader()";
-  char                acHeader[FTIMES_MAX_LINE];
+  char                acHeader[FTIMES_MAX_LINE] = { 0 };
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 iError;
-  int                 iIndex;
+  int                 iError = 0;
+  int                 iIndex = 0;
 
   iIndex = sprintf(acHeader, "category|name|changed|unknown%s", pcNewLine);
 
@@ -1275,27 +817,43 @@ int
 CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError)
 {
   const char          acRoutine[] = "CompareWriteRecord()";
+  static char        *pcOutput = NULL;
+  static int          iMaskTableLength = 0;
+  static MASK_B2S_TABLE *pasMaskTable = NULL;
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char               *pc;
-  int                 i;
-  int                 iError;
-  int                 iFirst;
-  int                 iIndex;
-  unsigned long       ul;
+  char               *pc = NULL;
+  int                 i = 0;
+  int                 iError = 0;
+  int                 iFirst = 0;
+  int                 iIndex = 0;
+  unsigned long       ul = 0;
 
   /*-
    *********************************************************************
    *
+   * Allocate enough memory to hold one complete record, but only do
+   * this operation once.
+   *
    * category      1
    * name          CMP_MAX_LINE
-   * changed       ALL_FIELDS_MASK_SIZE
-   * unknown       ALL_FIELDS_MASK_SIZE
+   * changed       (iMaskTableLength * (MASK_NAME_SIZE))
+   * unknown       (iMaskTableLength * (MASK_NAME_SIZE))
    * |'s           3
    * newline       2
    *
    *********************************************************************
    */
-  char acOutput[CMP_MAX_LINE + (2 * ALL_FIELDS_MASK_SIZE) + 6];
+  if (pcOutput == NULL)
+  {
+    iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_CMP);
+    pasMaskTable = MaskGetTableReference(MASK_RUNMODE_TYPE_CMP);
+    pcOutput = malloc(CMP_MAX_LINE + (2 * (iMaskTableLength * (MASK_NAME_SIZE))) + 6);
+    if (pcOutput == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
+      return ER;
+    }
+  }
 
   /*-
    *********************************************************************
@@ -1311,7 +869,7 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
   case 'N': /* new */
   case 'U': /* unknown */
   case 'X': /* both changed and unknown */
-    acOutput[0] = psData->cCategory;
+    pcOutput[0] = psData->cCategory;
     break;
   default:
     snprintf(pcError, MESSAGE_SIZE, "%s: Category = [%c] != [C|M|N|U|X]: That shouldn't happen.", acRoutine, psData->cCategory);
@@ -1333,10 +891,10 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
     snprintf(pcError, MESSAGE_SIZE, "%s: Name = [%s]: Name is not quoted. That shouldn't happen.", acRoutine, psData->pcRecord);
     return ER;
   }
-  acOutput[iIndex++] = CMP_SEPARATOR_C;
+  pcOutput[iIndex++] = CMP_SEPARATOR_C;
   for (i = 0; i <= pc - psData->pcRecord; i++)
   {
-    acOutput[iIndex++] = psData->pcRecord[i];
+    pcOutput[iIndex++] = psData->pcRecord[i];
   }
 
   /*-
@@ -1348,29 +906,29 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
    */
   if (psData->cCategory == 'C' || psData->cCategory == 'U' || psData->cCategory == 'X')
   {
-    acOutput[iIndex++] = CMP_SEPARATOR_C;
-    for (i = 0, iFirst = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
+    pcOutput[iIndex++] = CMP_SEPARATOR_C;
+    for (i = 0, iFirst = 0; i < iMaskTableLength; i++)
     {
       ul = 1 << i;
-      if ((psData->ulChangedMask & ul) == ul)
+      if (MASK_BIT_IS_SET(psData->ulChangedMask, ul))
       {
-        iIndex += sprintf(&acOutput[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", gsAllFieldsTable[i].acName);
+        iIndex += sprintf(&pcOutput[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", pasMaskTable[i].acName);
       }
     }
-    acOutput[iIndex++] = CMP_SEPARATOR_C;
-    for (i = 0, iFirst = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
+    pcOutput[iIndex++] = CMP_SEPARATOR_C;
+    for (i = 0, iFirst = 0; i < iMaskTableLength; i++)
     {
       ul = 1 << i;
-      if ((psData->ulUnknownMask & ul) == ul)
+      if (MASK_BIT_IS_SET(psData->ulUnknownMask, ul))
       {
-        iIndex += sprintf(&acOutput[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", gsAllFieldsTable[i].acName);
+        iIndex += sprintf(&pcOutput[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", pasMaskTable[i].acName);
       }
     }
   }
   else
   {
-    acOutput[iIndex++] = CMP_SEPARATOR_C;
-    acOutput[iIndex++] = CMP_SEPARATOR_C;
+    pcOutput[iIndex++] = CMP_SEPARATOR_C;
+    pcOutput[iIndex++] = CMP_SEPARATOR_C;
   }
 
   /*-
@@ -1380,7 +938,7 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
    *
    *********************************************************************
    */
-  iIndex += sprintf(&acOutput[iIndex], "%s", psProperties->acNewLine);
+  iIndex += sprintf(&pcOutput[iIndex], "%s", psProperties->acNewLine);
 
   /*-
    *********************************************************************
@@ -1389,7 +947,7 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
    *
    *********************************************************************
    */
-  iError = SupportWriteData(psProperties->pFileOut, acOutput, iIndex, acLocalError);
+  iError = SupportWriteData(psProperties->pFileOut, pcOutput, iIndex, acLocalError);
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);

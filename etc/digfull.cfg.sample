@@ -2,7 +2,7 @@
 ######################################################################
 ######################################################################
 #
-# $Id: digfull.cfg.sample,v 1.8 2005/03/07 03:49:18 mavrik Exp $
+# $Id: digfull.cfg.sample,v 1.9 2005/11/16 05:04:27 mavrik Exp $
 #
 ######################################################################
 ######################################################################
@@ -57,7 +57,6 @@
 #URLAuthType=none                 # [basic|none]
 #URLUsername=                     # <username>
 #URLPassword=                     # <password>
-#URLCreateConfig=N                # [Y|N]
 #URLUnlinkOutput=N                # [Y|N]
 #
 #SSLUseCertificate=N              # [Y|N]

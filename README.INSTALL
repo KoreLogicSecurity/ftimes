@@ -10,11 +10,11 @@
   Web server to handle FTimes requests, and perform basic client-server
   functionality tests.
 
-  FTimes is available at: http://ftimes.sourceforge.net
+  FTimes is available at: http://ftimes.sourceforge.net/FTimes/
 
 1.1 Revision
 
-  $Id: README.INSTALL,v 1.10 2005/05/12 15:37:23 mavrik Exp $
+  $Id: README.INSTALL,v 1.14 2006/04/16 20:42:39 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -180,8 +180,11 @@
 
     $ ./configure --without-pcre && make
 
-  FTimes also supports file typing via XMagic.  If this capability
-  is desired, pass the --enable-xmagic flag to configure.
+  FTimes also supports file typing via XMagic.  If this capability is
+  desired, pass the --enable-xmagic flag to configure.
+
+  Note: As of version 3.6.0, you must enable PCRE support if you wish
+  to include XMagic support.
 
   The default FTimes installation directory is /usr/local/ftimes.
   If you want to install in a different location, set the --prefix
@@ -209,6 +212,11 @@
   any intermediate files are removed.  In certain situations, build
   problems could arise if this is not done.
 
+  Executing the built-in tests (i.e., the test target) can take a
+  considerable amount of time -- especially on older/slower systems.
+  Also, these tests may fail if you don't have the necessary Perl
+  modules installed.
+
 2.5 Windows NT/2K Build Instructions
 
   FTimes has compiled successfully on Windows NT/2K using Microsoft's
@@ -224,10 +232,9 @@
     > set LIB
     > set INCLUDE
 
-  If neither of those variables is defined or you are in doubt, run
-  VCVARS32.BAT.  Usually, this script is kept in Visual Studio's
-  bin directory.  Once you have located the script, simply execute
-  it.
+  If neither variable is defined or you are in doubt, run
+  VCVARS32.BAT.  Usually, this script is kept in Visual Studio's bin
+  directory.  Once you have located the script, simply execute it.
 
   Because PCRE and SSL support is enabled by default, you need to
   make sure that the PCRE_DIR and SSL_DIR macros in Makefile.vs
@@ -261,6 +268,9 @@
   FTimes also supports file typing via XMagic.  To enable this
   capability, set the USE_XMAGIC macro to 'Y'.
 
+  Note: As of version 3.6.0, you must enable PCRE support if you wish
+  to include XMagic support.
+
   The various macros described in this section may be combined in
   any given build.  For example, to build a debug release without
   SSL support, invoke nmake as follows:
@@ -268,17 +278,20 @@
     > nmake -f Makefile.vs BUILD_TYPE=DEBUG USE_SSL=N
 
   When the software has been built to your satisfaction, it can be
-  installed with the following command:
+  tested and installed with the following commands:
 
+    > nmake -f Makefile.vs test
     > nmake -f Makefile.vs install
 
+  Note: Testing require ActivePerl.
+
   FTimes' default installation directory is C:\FTimes.  If you
-  want to install in a different location, adjust the FTIMES_DIR
+  want to install in a different location, adjust the INSTALL_DIR
   macro as appropriate -- either in the makefile or on the command
   line.  For example, to install FTimes in the 'Program Files'
   directory, invoke nmake as follows:
 
-    > nmake -f Makefile.vs install FTIMES_DIR="C:\Program Files\FTimes"
+    > nmake -f Makefile.vs install INSTALL_DIR="C:\Program Files\FTimes"
 
 2.5.1 Windows NT/2K Build Gotchas
 
@@ -298,6 +311,11 @@
   You may have trouble linking against static OpenSSL libraries.
   If that happens check to see if the OpenSSL Makefile (ms\nt.mak)
   is using /MT -- by default it uses /MD (as of openssl-0.9.7f).
+
+  Executing the built-in tests (i.e., the test target) can take a
+  considerable amount of time -- especially on older/slower systems.
+  Also, these tests may fail if you don't have ActivePerl and the
+  necessary Perl modules installed.
 
 3 Web Server Configuration
 
@@ -486,7 +504,7 @@
   line should look like this:
 
     --- snippet ---
-    #!/usr/bin/perl
+    #!/usr/bin/perl -w
     --- snippet ---
 
   Locate nph-ftimes.cfg.sample in the FTimes distribution tree.  It
@@ -497,7 +515,7 @@
     # chmod 644 ${ETC_DIR}/nph-ftimes.cfg
     # chown 0:0 ${ETC_DIR}/nph-ftimes.cfg
 
-  Next, you need to create the following tree structure:
+  Next, you need to create the following basic tree structure:
 
   ftimes
     |
@@ -529,7 +547,7 @@
     # chown www:0 /var/ftimes/logfiles/nph-ftimes.log
     # chmod 644 /var/ftimes/logfiles/nph-ftimes.log
 
-  The final configuration objective to establish an access control
+  The final configuration objective is to establish an access control
   mechanism.
 
 3.2.4 Access Control Setup
@@ -618,7 +636,6 @@
     URLUsername=client_1
     URLPassword=<password>
     URLAuthType=basic
-    URLCreateConfig=Y
     Include=/tmp # or c:\temp
     FieldMask=ALL-magic
     --- mapfull.cfg ---
@@ -629,7 +646,7 @@
   config file as get.cfg.  Refer to section 2 for more information
   on how to install FTimes.
 
-  Goto /tmp or some other suitable location, and create get.cfg.
+  Go to /tmp or some other suitable location, and create get.cfg.
   Make sure you replace <password> with its real value.  Also, don't
   forget to modify URLGetURL as appropriate.
 

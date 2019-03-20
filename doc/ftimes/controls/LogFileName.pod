@@ -1,7 +1,0 @@
-=item B<LogFileName>: <file>
-
-Applies to B<putmode>.
-
-B<LogFileName> is required.  Its value is the name of the log file
-to be posted.  B<LogFileName> must be specified as a full path.
-

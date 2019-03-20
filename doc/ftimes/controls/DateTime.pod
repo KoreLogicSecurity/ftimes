@@ -1,8 +1,0 @@
-=item B<DateTime>: <YYYYMMDDHHMMSS>
-
-Applies to B<putmode>.
-
-B<DateTime> is required.  Its represents the DATETIME parameter in
-PUT requests, and specifies the date/time of the snapshot being
-posted.
-

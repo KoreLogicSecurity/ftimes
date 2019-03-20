@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.18 2005/05/20 13:57:42 mavrik Exp $
+ * $Id: fsinfo.c,v 1.23 2006/04/07 22:15:11 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -28,6 +28,8 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "NFS",
   "NTFS",
   "NTFS_Remote",
+  "NWFS",
+  "NWFS_Remote",
   "TMPFS",
   "UFS",
   "AIX",
@@ -39,7 +41,10 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "VXFS",
   "SMB",
   "CDFS",
-  "DEVFS"
+  "DEVFS",
+  "VZFS",
+  "RAMFS",
+  "XFS"
 };
 
 
@@ -145,6 +150,15 @@ GetFileSystemType(char *pcPath, char *pcError)
       break;
     case TMPFS_SUPER_MAGIC:
       return FSTYPE_TMPFS;
+      break;
+    case VZFS_SUPER_MAGIC:
+      return FSTYPE_VZFS;
+      break;
+    case RAMFS_SUPER_MAGIC:
+      return FSTYPE_RAMFS;
+      break;
+    case XFS_SUPER_MAGIC:
+      return FSTYPE_XFS;
       break;
     default:
       snprintf(pcError, MESSAGE_SIZE, "%s: FileSystem = [0x%lx]: Unsupported file system.", acRoutine, (long) sStatFS.f_type);
@@ -348,6 +362,14 @@ GetFileSystemType(char *pcPath, char *pcError)
     else if (strstr(acFSName, "CDFS") != NULL)
     {
       return FSTYPE_CDFS;
+    }
+    else if (strstr(acFSName, "NWFS") != NULL && uiDriveType == DRIVE_REMOTE)
+    {
+      return FSTYPE_NWFS_REMOTE;
+    }
+    else if (strstr(acFSName, "NWFS") != NULL && uiDriveType != DRIVE_REMOTE)
+    {
+      return FSTYPE_NWFS;
     }
     else
     {

@@ -6,11 +6,11 @@
   about specified directories and files in a manner conducive to
   intrusion analysis.  FTimes is available at:
 
-    http://ftimes.sourceforge.net
+    http://ftimes.sourceforge.net/FTimes/
 
 1.1 Revision
 
-  $Id: README,v 1.6 2004/04/24 04:47:23 mavrik Exp $
+  $Id: README,v 1.7 2006/04/16 20:42:39 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -23,7 +23,7 @@
 2 Documentation
 
   General documentation is located in the doc directory.  This is
-  where the man page lives -- i.e. ftimes.html.  The file README.INSTALL
+  where the man page lives -- i.e., ftimes.html.  The file README.INSTALL
   explains how to build FTimes, configure an Apache Web server to
   handle FTimes requests, and perform basic client-server functionality
   tests.

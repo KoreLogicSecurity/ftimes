@@ -22,7 +22,7 @@ Note: Symbolic links are not supported in WIN32-based file systems.
 Note: Take care when including file systems that reside on remote
 shares because B<FTimes> may attempt to map them.  To prevent this
 from happening, you can either exclude the remote file system or
-disable B<MapRemoteFiles>.
+disable B<AnalyzeRemoteFiles>.
 
 Note: Directory hashing only applies to directories.  This means
 that each file B<Include> is treated as an isolated object apart

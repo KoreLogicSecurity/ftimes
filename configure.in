@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: configure.in,v 1.32 2005/05/24 18:25:40 mavrik Exp $
+# $Id: configure.in,v 1.41 2006/04/16 04:16:36 mavrik Exp $
 #
 ########################################################################
 
@@ -27,6 +27,11 @@ AC_SUBST(logdir)
 AC_SUBST(mandir)
 AC_SUBST(rundir)
 
+additional_testdirs=
+ap_srcs=
+ap_incs=
+extension=
+
 AC_CANONICAL_SYSTEM
 case "$target_os" in
 *aix*)
@@ -35,22 +40,14 @@ case "$target_os" in
   AC_DEFINE(USE_AP_SNPRINTF, 1, [Define to 1 if snprintf() support is enabled.])
   ap_srcs=ap_snprintf.c
   ap_incs=ap_snprintf.h
-  extension=
-  AC_SUBST(ap_srcs)
-  AC_SUBST(ap_incs)
-  AC_SUBST(extension)
   ;;
 *bsd*)
   OS_CFLAGS="-DUNIX"
   AC_DEFINE(FTimes_BSD, 1, [Define to 1 if the target OS is BSD.])
-  extension=
-  AC_SUBST(extension)
   ;;
 *darwin*)
   OS_CFLAGS="-DUNIX"
   AC_DEFINE(FTimes_MACOS, 1, [Define to 1 if the target OS is MacOS.])
-  extension=
-  AC_SUBST(extension)
   ;;
 *hpux*)
   OS_CFLAGS="-DUNIX"
@@ -58,23 +55,17 @@ case "$target_os" in
   AC_DEFINE(USE_AP_SNPRINTF, 1, [Define to 1 if snprintf() support is enabled.])
   ap_srcs=ap_snprintf.c
   ap_incs=ap_snprintf.h
-  extension=
-  AC_SUBST(ap_srcs)
-  AC_SUBST(ap_incs)
-  AC_SUBST(extension)
   ;;
 *linux*)
   OS_CFLAGS="-DUNIX"
   AC_DEFINE(FTimes_LINUX, 1, [Define to 1 if the target OS is Linux.])
-  extension=
-  AC_SUBST(extension)
   ;;
 *mingw32*)
   OS_CFLAGS="-DWINNT -DWIN32 -DMINGW32"
   LIBS="-lwsock32"
   AC_DEFINE(FTimes_MINGW32, 1, [Define to 1 if the target OS is MinGW32.])
+  additional_testdirs=common_windows_ads
   extension=.exe
-  AC_SUBST(extension)
   ;;
 *solaris*)
   OS_CFLAGS="-DUNIX"
@@ -82,10 +73,6 @@ case "$target_os" in
   AC_DEFINE(USE_AP_SNPRINTF, 1, [Define to 1 if snprintf() support is enabled.])
   ap_srcs=ap_snprintf.c
   ap_incs=ap_snprintf.h
-  extension=
-  AC_SUBST(ap_srcs)
-  AC_SUBST(ap_incs)
-  AC_SUBST(extension)
   ;;
 *)
   echo
@@ -94,6 +81,11 @@ case "$target_os" in
   exit
   ;;
 esac
+
+AC_SUBST(additional_testdirs)
+AC_SUBST(ap_srcs)
+AC_SUBST(ap_incs)
+AC_SUBST(extension)
 
 case $host_cpu in
 alpha*)
@@ -377,14 +369,27 @@ dnl ####################################################################
 AC_MSG_CHECKING([whether to include XMagic support])
 AC_ARG_ENABLE(xmagic,
   [  --enable-xmagic         Enable XMagic support (disabled by default)],
-  [ AC_MSG_RESULT(yes)
+  [ enable_xmagic=1 ],
+  [ enable_xmagic=0 ]
+)
+if test $enable_xmagic -eq 1; then
+  if test $use_pcre -eq 1; then
+    AC_MSG_RESULT(yes)
     AC_DEFINE(USE_XMAGIC, 1, [Define to 1 if XMagic support is enabled.])
     xmagic_srcs=xmagic.c
     xmagic_incs=xmagic.h
     AC_SUBST(xmagic_srcs)
-    AC_SUBST(xmagic_incs) ],
-  [ AC_MSG_RESULT(no) ]
-)
+    AC_SUBST(xmagic_incs)
+  else
+    AC_MSG_RESULT(missing or incomplete)
+    echo
+    echo "XMagic requires PCRE support, which has been explicitly disabled."
+    echo
+    exit 1
+  fi
+else
+  AC_MSG_RESULT(no)
+fi
 
 dnl ####################################################################
 dnl #
@@ -397,6 +402,20 @@ AC_ARG_ENABLE(md5-pre-msmc,
   [  --enable-md5-pre-msmc   Enable pre-mem{set,cpy} MD5 logic (disabled by default)],
   [ AC_MSG_RESULT(yes)
     AC_DEFINE(MD5_PRE_MEMSET_MEMCPY, 1, [Define to 1 if pre-mem{set,cpy} MD5 logic is enabled.])],
+  [ AC_MSG_RESULT(no) ]
+)
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to compile using pre-mem{set,cpy} SHA1 logic.
+dnl #
+dnl ####################################################################
+
+AC_MSG_CHECKING([whether to compile using pre-mem{set,cpy} SHA1 logic])
+AC_ARG_ENABLE(sha1-pre-msmc,
+  [  --enable-sha1-pre-msmc  Enable pre-mem{set,cpy} SHA1 logic (disabled by default)],
+  [ AC_MSG_RESULT(yes)
+    AC_DEFINE(SHA1_PRE_MEMSET_MEMCPY, 1, [Define to 1 if pre-mem{set,cpy} SHA1 logic is enabled.])],
   [ AC_MSG_RESULT(no) ]
 )
 
@@ -575,12 +594,24 @@ AC_CONFIG_FILES(
     src/Makefile
     tests/Makefile
     tests/common/Makefile
+    tests/common/compare/Makefile
+    tests/common/compare/test_1/Makefile
+    tests/common/compare/test_2/Makefile
+    tests/common/compare/test_3/Makefile
+    tests/common/decoder/Makefile
+    tests/common/decoder/test_1/Makefile
     tests/common/dig/Makefile
     tests/common/dig/test_1/Makefile
     tests/common/dig/test_2/Makefile
+    tests/common/dig/test_3/Makefile
     tests/common/map/Makefile
     tests/common/map/test_1/Makefile
     tests/common/map/test_2/Makefile
+    tests/common/map/test_3/Makefile
+    tests/common/map/test_4/Makefile
+    tests/common_windows_ads/Makefile
+    tests/common_windows_ads/map/Makefile
+    tests/common_windows_ads/map/test_1/Makefile
     $tool_makefiles
   ]
 )
