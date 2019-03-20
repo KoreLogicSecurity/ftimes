@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.7 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: analyze.c,v 1.9 2003/02/24 19:39:26 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -105,7 +104,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
   int                 iError;
   int                 iNRead;
   unsigned char       ucBuffer[3 * ANALYZE_READ_BUFSIZE];
-#ifdef FTimes_WINNT
+#ifdef WINNT
   BOOL                bResult;
   char               *pcMessage;
   HANDLE              hFile;
@@ -115,7 +114,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
 
   memset(ucBuffer, 0, 3 * ANALYZE_READ_BUFSIZE);
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   hFile = CreateFile
           (
             psFTData->pcRawPath,
@@ -169,7 +168,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
      *
      *******************************************************************
      */
-#ifdef FTimes_WINNT
+#ifdef WINNT
     bResult = ReadFile(hFile, &ucBuffer[ANALYZE_READ_BUFSIZE], ANALYZE_READ_BUFSIZE, &iNRead, NULL);
 #else
     iNRead = fread(&ucBuffer[ANALYZE_READ_BUFSIZE], 1, ANALYZE_READ_BUFSIZE, pFile);
@@ -191,7 +190,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
      *
      *******************************************************************
      */
-#ifdef FTimes_WINNT
+#ifdef WINNT
     if (!bResult)
     {
       ErrorFormatWin32Error(&pcMessage);
@@ -215,7 +214,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
      *
      *******************************************************************
      */
-#ifdef FTimes_WINNT
+#ifdef WINNT
     if (iNRead == 0)
     {
       iBufferType |= ANALYZE_FINAL_BUFFER;
@@ -257,7 +256,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
       iBufferType ^= ANALYZE_FIRST_BUFFER;
     }
   }
-#ifdef FTimes_WINNT
+#ifdef WINNT
   CloseHandle(hFile);
 #else
   fclose(pFile);

@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: socket.h,v 1.2 2002/08/21 20:27:38 mavrik Exp $
+ * $Id: socket.h,v 1.3 2003/02/23 17:40:09 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2001-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 /* #include "ssl.h" */
 
 /*-

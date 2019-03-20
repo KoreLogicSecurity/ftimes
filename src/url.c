@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: url.c,v 1.3 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: url.c,v 1.5 2003/02/24 19:04:08 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -110,20 +109,10 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   iEscaped = 0;
-  pcEscaped[iEscaped] = HTTPEscape(PROGRAM_NAME, cLocalError);
+  pcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), cLocalError);
   if (pcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-    return ER;
-  }
-  pcEscaped[iEscaped] = HTTPEscape(VERSION, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
-  {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-    for (i = 0; i < iEscaped; i++)
-    {
-      HTTPFreeData(pcEscaped[i]);
-    }
     return ER;
   }
   pcEscaped[iEscaped] = HTTPEscape(psProperties->cBaseName, cLocalError);
@@ -147,11 +136,10 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
     return ER;
   }
 
-  sprintf(cQuery, "VERSION=%s+%s&CLIENTID=%s&REQUEST=%s",
+  sprintf(cQuery, "VERSION=%s&CLIENTID=%s&REQUEST=%s",
            pcEscaped[0],
            pcEscaped[1],
-           pcEscaped[2],
-           pcEscaped[3]
+           pcEscaped[2]
          );
 
   for (i = 0; i < iEscaped; i++)
@@ -308,20 +296,10 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   iEscaped = 0;
-  pcEscaped[iEscaped] = HTTPEscape(PROGRAM_NAME, cLocalError);
+  pcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), cLocalError);
   if (pcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-    return ER;
-  }
-  pcEscaped[iEscaped] = HTTPEscape(VERSION, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
-  {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-    for (i = 0; i < iEscaped; i++)
-    {
-      HTTPFreeData(pcEscaped[i]);
-    }
     return ER;
   }
   pcEscaped[iEscaped] = HTTPEscape(psProperties->cBaseName, cLocalError);
@@ -355,12 +333,11 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
     return ER;
   }
 
-  sprintf(cQuery, "VERSION=%s+%s&CLIENTID=%s&DATATYPE=%s&FIELDMASK=%s",
+  sprintf(cQuery, "VERSION=%s&CLIENTID=%s&DATATYPE=%s&FIELDMASK=%s",
            pcEscaped[0],
            pcEscaped[1],
            pcEscaped[2],
-           pcEscaped[3],
-           pcEscaped[4]
+           pcEscaped[3]
          );
 
   for (i = 0; i < iEscaped; i++)
@@ -596,20 +573,10 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   iEscaped = 0;
-  pcEscaped[iEscaped] = HTTPEscape(PROGRAM_NAME, cLocalError);
+  pcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), cLocalError);
   if (pcEscaped[iEscaped++] == NULL)
   {
     snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-    return ER;
-  }
-  pcEscaped[iEscaped] = HTTPEscape(VERSION, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
-  {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-    for (i = 0; i < iEscaped; i++)
-    {
-      HTTPFreeData(pcEscaped[i]);
-    }
     return ER;
   }
   pcEscaped[iEscaped] = HTTPEscape(psProperties->cBaseName, cLocalError);
@@ -673,17 +640,16 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
     return ER;
   }
 
-  sprintf(cQuery, "VERSION=%s+%s&CLIENTID=%s&DATATYPE=%s&FIELDMASK=%s&RUNTYPE=%s&DATETIME=%s&LOGLENGTH=%lu&OUTLENGTH=%lu&MD5=%s",
+  sprintf(cQuery, "VERSION=%s&CLIENTID=%s&DATATYPE=%s&FIELDMASK=%s&RUNTYPE=%s&DATETIME=%s&LOGLENGTH=%lu&OUTLENGTH=%lu&MD5=%s",
            pcEscaped[0],
            pcEscaped[1],
            pcEscaped[2],
            pcEscaped[3],
            pcEscaped[4],
            pcEscaped[5],
-           pcEscaped[6],
            sStreamList[0].ui32Size,
            sStreamList[1].ui32Size,
-           pcEscaped[7]
+           pcEscaped[6]
          );
 
   for (i = 0; i < iEscaped; i++)

@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.5 2002/11/26 14:39:38 mavrik Exp $
+# $Id: Makefile.in,v 1.7 2003/02/24 22:07:16 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
 # All Rights Reserved.
 #
 ########################################################################
@@ -28,8 +28,8 @@ DST_FILES		= ${cgidir}/nph-ftimes.cgi
 all:
 
 install: ${DST_FILES}
-	umask 22; if [ ! -d ${cgidir} ]; then mkdir -p ${cgidir}; fi
-	for i in ${SRC_FILES}; do\
+	@umask 22; if [ ! -d ${cgidir} ]; then mkdir -p ${cgidir}; fi
+	@for i in ${SRC_FILES}; do\
 		if [ -f ${srcdir}/$$i ]; then file=${srcdir}/$$i; else file=$$i; fi;\
 		${INSTALL} -m 755 $$file ${cgidir};\
 	done

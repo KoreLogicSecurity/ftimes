@@ -1,11 +1,11 @@
 #!/usr/bin/perl
 ######################################################################
 #
-# $Id: nph-ftimes.cgi,v 1.6 2002/04/09 16:04:28 mavrik Exp $
+# $Id: nph-ftimes.cgi,v 1.7 2003/02/23 17:40:07 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
 # All Rights Reserved.
 #
 ######################################################################

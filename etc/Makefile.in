@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.4 2002/11/26 14:30:20 mavrik Exp $
+# $Id: Makefile.in,v 1.7 2003/03/14 23:18:18 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
 # All Rights Reserved.
 #
 ########################################################################
@@ -23,21 +23,21 @@ VPATH			= ${srcdir}
 
 INSTALL			= @INSTALL@
 SRC_FILES		=\
-			dig.cfg\
-			get.cfg\
-			map.cfg\
-			put.cfg
+			dig.cfg.sample\
+			get.cfg.sample\
+			map.cfg.sample\
+			put.cfg.sample
 DST_FILES		=\
-			${etcdir}/dig.cfg\
-			${etcdir}/get.cfg\
-			${etcdir}/map.cfg\
-			${etcdir}/put.cfg
+			${etcdir}/dig.cfg.sample\
+			${etcdir}/get.cfg.sample\
+			${etcdir}/map.cfg.sample\
+			${etcdir}/put.cfg.sample
 
 all: ${SRC_FILES}
 
 install: ${DST_FILES}
-	umask 22; if [ ! -d ${etcdir} ]; then mkdir -p ${etcdir}; fi
-	for i in ${SRC_FILES}; do\
+	@umask 22; if [ ! -d ${etcdir} ]; then mkdir -p ${etcdir}; fi
+	@for i in ${SRC_FILES}; do\
 		if test -f ${srcdir}/$$i; then file=${srcdir}/$$i; else file=$$i; fi;\
 		${INSTALL} -m 644 $$file ${etcdir};\
 	done

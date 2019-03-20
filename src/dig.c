@@ -1,22 +1,21 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: dig.c,v 1.1.1.1 2002/01/18 03:16:44 mavrik Exp $
+ * $Id: dig.c,v 1.4 2003/02/24 19:35:32 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 static char           gcNewLine[NEWLINE_LENGTH] = CRLF;
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
 static char           gcNewLine[NEWLINE_LENGTH] = LF;
 #endif
 static DIG_SEARCH_LIST *gppsSearchList[256];
@@ -210,7 +209,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-#ifdef FTimes_UNIX
+#ifdef UNIX
 #ifdef USE_AP_SNPRINTF
   iIndex += snprintf(&cOutput[iIndex], 22, "|%qu", (K_UINT64) psSearchData->ui64Offset);
   snprintf(cOffset, 22, "%qu", (K_UINT64) psSearchData->ui64Offset);
@@ -219,7 +218,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
   sprintf(cOffset, "%qu", (K_UINT64) psSearchData->ui64Offset);
 #endif
 #endif
-#ifdef FTimes_WIN32
+#ifdef WIN32
   iIndex += sprintf(&cOutput[iIndex], "|%I64u", (K_UINT64) psSearchData->ui64Offset);
   sprintf(cOffset, "%I64u", (K_UINT64) psSearchData->ui64Offset);
 #endif

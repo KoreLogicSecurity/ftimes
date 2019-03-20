@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: decode.c,v 1.3 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: decode.c,v 1.5 2003/02/24 19:35:27 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 static unsigned char  Base64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -700,7 +699,7 @@ DecodeFormatOutOfBandTime(char *pcToken, int iLength, char *pcOutput, char *pcEr
 }
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *

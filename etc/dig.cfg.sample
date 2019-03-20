@@ -2,14 +2,14 @@
 ######################################################################
 ######################################################################
 #
-# $Id: get.cfg,v 1.1.1.1 2002/01/18 03:16:36 mavrik Exp $
+# $Id: dig.cfg.sample,v 1.1 2003/03/14 23:18:18 mavrik Exp $
 #
 ######################################################################
 ######################################################################
 ######################################################################
 #
 # This config file contains a condensed list of controls specific
-# to get mode.  A full description for each control can be found
+# to dig mode.  A full description for each control can be found
 # in the FTimes' documentation.
 #
 ######################################################################
@@ -18,22 +18,33 @@
 #
 # Synopsis:
 #
-#   ftimes --getmode file [-l level]
+#   ftimes --digfull file [-l level] [list]
 #
 ######################################################################
 ######################################################################
 ######################################################################
-#
+# 
 #BaseName=                        # <name>
+#OutDir=                          # <directory>
+#LogDir=                          # <directory>
+#Include=                         # [<file>|<directory>|<link>]
+#Exclude=                         # [<file>|<directory>|<link>]
 #
-#GetAndExec=Y                     # [Y|N]
-#GetFileName=remote.cfg           # <file>
+#DigString=                       # <string>
 #
-#URLGetRequest=MapConfig          # [DigConfig|MapConfig]
-#URLGetURL=                       # <url>
+#MapRemoteFiles=                  # [Y|N]
+#MatchLimit=1                     # <integer>
+#NewLine=LF                       # [LF|CRLF] 
+#RequirePrivilege=Y               # [Y|N]
+#RunType=snapshot                 # [baseline|linktest|snapshot]
+#
+#URLPutSnapshot=Y                 # [Y|N]
+#URLPutURL=                       # <url>
 #URLAuthType=basic                # [basic|none]
 #URLUsername=                     # <username>
 #URLPassword=                     # <password>
+#URLCreateConfig=Y                # [Y|N]
+#URLUnlinkOutput=Y                # [Y|N]
 #
 #SSLUseCertificate=Y              # [Y|N]
 #SSLPublicCertFile=               # <file>

@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: ftimes.c,v 1.3 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: ftimes.c,v 1.8 2003/02/24 19:39:27 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -20,7 +19,7 @@
  *
  ***********************************************************************
  */
-#ifdef FTimes_UNIX
+#ifdef UNIX
 static MASK_TABLE gMaskTable[] =
 {
   { "dev",         "dev",         DEV_SET        },
@@ -39,7 +38,7 @@ static MASK_TABLE gMaskTable[] =
   { "md5",         "md5",         MD5_SET        },
 };
 #endif
-#ifdef FTimes_WIN32
+#ifdef WIN32
 static MASK_TABLE gMaskTable[] =
 {
   { "volume",      "volume",      VOLUME_SET     },
@@ -60,7 +59,7 @@ static const int giMaskTableLength = sizeof(gMaskTable) / sizeof(gMaskTable[0]);
 
 static FTIMES_PROPERTIES *gpsProperties;
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
 HINSTANCE             NtdllHandle;
 NQIF                  NtdllNQIF;
 #endif
@@ -131,7 +130,7 @@ FTimesBootstrap(char *pcError)
   const char          cRoutine[] = "FTimesBootstrap()";
   char                cLocalError[ERRBUF_SIZE];
   FTIMES_PROPERTIES  *psProperties;
-#ifdef FTimes_WINNT
+#ifdef WINNT
   char               *pcMessage;
   int                 iError;
 #endif
@@ -147,7 +146,7 @@ FTimesBootstrap(char *pcError)
    */
   MessageSetOutputStream(stderr);
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   /*-
    *********************************************************************
    *
@@ -301,10 +300,10 @@ FTimesNewProperties(char *pcError)
    *
    *********************************************************************
    */
-#ifdef FTimes_WIN32
+#ifdef WIN32
   strncpy(psProperties->cNewLine, CRLF, NEWLINE_LENGTH);
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
   strncpy(psProperties->cNewLine, LF, NEWLINE_LENGTH);
 #endif
 
@@ -673,7 +672,7 @@ FTimesStagesLoop(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  snprintf(cMessage, MESSAGE_SIZE, "Program=%s %s %s", PROGRAM_NAME, VERSION, psProperties->pcRunModeArgument);
+  snprintf(cMessage, MESSAGE_SIZE, "Program=%s %s", SupportGetMyVersion(), psProperties->pcRunModeArgument);
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, cMessage);
 
   snprintf(cMessage, MESSAGE_SIZE, "SystemOS=%s", SupportGetSystemOS());
@@ -755,7 +754,7 @@ FTimesFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
     }
   }
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   /*-
    *********************************************************************
    *
@@ -809,8 +808,8 @@ FTimesUsage(void)
 int
 FTimesVersion(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  fprintf(stdout, "%s %s\n", PROGRAM_NAME, VERSION);
-  return ER_OK;;
+  fprintf(stdout, "%s\n", SupportGetMyVersion());
+  return ER_OK;
 }
 
 

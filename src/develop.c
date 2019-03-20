@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: develop.c,v 1.4 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: develop.c,v 1.8 2003/02/24 19:42:18 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -49,7 +48,7 @@ DevelopNoOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCou
 }
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 /*-
  ***********************************************************************
  *
@@ -368,7 +367,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -431,7 +430,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-#ifdef FTimes_WIN98
+#ifdef WIN98
       if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
       {
@@ -458,7 +457,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-#ifdef FTimes_WIN98
+#ifdef WIN98
       if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
       {
@@ -553,7 +552,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   {
     if (psFTData->ftCreationTime.dwLowDateTime == 0 && psFTData->ftCreationTime.dwHighDateTime == 0)
     {
-#ifndef FTimes_WIN98
+#ifndef WIN98
 
       /*-
        *****************************************************************
@@ -595,7 +594,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   {
     if (psFTData->ftChangeTime.dwLowDateTime == 0 && psFTData->ftChangeTime.dwHighDateTime == 0)
     {
-#ifndef FTimes_WIN98
+#ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
         strcat(pcError, "chtime,");
@@ -652,7 +651,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-#ifndef FTimes_WIN98
+#ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
         strcat(pcError, "altstreams,");
@@ -749,7 +748,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
 #endif
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 /*-
  ***********************************************************************
  *
@@ -1258,7 +1257,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -1386,7 +1385,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       }
       else
       {
-#ifdef FTimes_WIN98
+#ifdef WIN98
         if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
         {
@@ -1429,7 +1428,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       }
       else
       {
-#ifdef FTimes_WIN98
+#ifdef WIN98
         if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
         {
@@ -1621,7 +1620,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     if (psFTData->ftCreationTime.dwLowDateTime == 0 && psFTData->ftCreationTime.dwHighDateTime == 0)
     {
       pcOutData[n++] = '|';
-#ifndef FTimes_WIN98
+#ifndef WIN98
 
       /*-
        *****************************************************************
@@ -1710,7 +1709,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     if (psFTData->ftChangeTime.dwLowDateTime == 0 && psFTData->ftChangeTime.dwHighDateTime == 0)
     {
       pcOutData[n++] = '|';
-#ifndef FTimes_WIN98
+#ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
         strcat(pcError, "chtime,");
@@ -1819,7 +1818,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else
     {
-#ifndef FTimes_WIN98
+#ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
         strcat(pcError, "altstreams,");

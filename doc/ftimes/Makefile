@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile,v 1.2 2002/05/20 18:54:37 mavrik Exp $
+# $Id: Makefile,v 1.4 2003/02/24 19:04:18 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
 # All Rights Reserved.
 #
 ########################################################################
@@ -17,7 +17,7 @@
 
 POD_NAME		= FTimes
 POD_FILE		= ftimes.pod
-VERSION_FILE		= ../../src/app-includes.h
+VERSION_FILE		= ../../src/ftimes.h
 SRC_FILES		=\
 			sections/NAME.pod\
 			sections/SYNOPSIS.pod\
@@ -53,7 +53,7 @@ ${POD_FILE}: ${SRC_FILES}
 	umask 22; cat ${SRC_FILES} > ${POD_FILE}
 
 .pod.1:
-	version=`grep VERSION ${VERSION_FILE} | sed '1d' | awk '{print $$3}' | sed 's/"//g'`;\
+	version=`grep "#define VERSION" ${VERSION_FILE} | awk '{print $$3}' | sed 's/"//g'`;\
 	umask 22; pod2man --center="${POD_NAME} Documentation" --release="${POD_NAME} $${version}" $< > ../$@
 
 .pod.html:

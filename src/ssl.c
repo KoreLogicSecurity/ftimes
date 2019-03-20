@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: ssl.c,v 1.4 2003/01/13 13:26:18 mavrik Exp $
+ * $Id: ssl.c,v 1.5 2003/02/23 17:40:09 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2001-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-

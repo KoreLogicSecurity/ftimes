@@ -1,16 +1,15 @@
 /*-
  ***********************************************************************
  *
- * $Id: http.c,v 1.5 2003/01/13 13:26:18 mavrik Exp $
+ * $Id: http.c,v 1.6 2003/02/23 17:40:08 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2001-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 static unsigned char ucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

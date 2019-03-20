@@ -1,22 +1,21 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: map.c,v 1.10 2003/01/14 23:28:21 mavrik Exp $
+ * $Id: map.c,v 1.15 2003/02/24 19:42:18 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 static int giDirectories;
 static int giFiles;
 static int giSpecial;
-#ifdef FTimes_WINNT
+#ifdef WINNT
 static int giStreams;
 #endif
 
@@ -65,7 +64,7 @@ MapGetSpecialCount()
 }
 
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
 /*-
  ***********************************************************************
  *
@@ -109,7 +108,7 @@ MapGetIncompleteRecordCount()
 }
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 /*-
  ***********************************************************************
  *
@@ -667,7 +666,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -858,7 +857,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
     sFTFileData.iStreamCount = -1; /* Develop routines check for this value. */
     sFTFileData.iFSType = iFSType;
 
-#ifdef FTimes_WIN98
+#ifdef WIN98
 
     /*-
      *******************************************************************
@@ -1137,7 +1136,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
         ErrorHandler(iError, pcError, ERROR_CRITICAL);
       }
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
       /*-
        *****************************************************************
        *
@@ -1186,7 +1185,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
 }
 
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
 /*-
  ***********************************************************************
  *
@@ -1537,7 +1536,7 @@ MapCountNamedStreams(HANDLE hFile, int *piStreamCount, unsigned char **ppucStrea
 #endif /* WIN32 */
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 int
 MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
 {
@@ -1759,7 +1758,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -1778,7 +1777,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   int                 iFSType;
   int                 iPathLength;
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   struct hash_block   unusedHashBlock;
 #endif
 
@@ -1932,7 +1931,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     ErrorHandler(iError, pcError, ERROR_CRITICAL);
   }
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   /*-
    *********************************************************************
    *
@@ -1983,7 +1982,7 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
   int                 iError;
   int                 iWriteCount;
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
   /*-
    *********************************************************************
    *
@@ -2009,7 +2008,7 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
   static char         cOutput[((4 * FTIMES_MAX_PATH) + 2) + MD5_HASH_STRING_LENGTH + (3 * FTIMES_TIME_FORMAT_SIZE) + 103];
 #endif
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
   /*-
    *********************************************************************
    *
@@ -2162,7 +2161,7 @@ MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
 }
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 /*-
  ***********************************************************************
  *
@@ -2199,7 +2198,7 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -2217,11 +2216,11 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
   HANDLE              hFile;
   WIN32_FILE_ATTRIBUTE_DATA fileAttributeData;
 
-#ifdef FTimes_WIN98
+#ifdef WIN98
   DWORD               dwFileAttributes;
 #endif
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   DWORD               dwStatus;
   FILE_BASIC_INFORMATION fileBasicInfo;
   IO_STATUS_BLOCK     ioStatusBlock;
@@ -2232,7 +2231,7 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
 
   psFTData->iFileFlags = Have_Nothing;
 
-#ifdef FTimes_WIN98
+#ifdef WIN98
   /*-
    *********************************************************************
    *
@@ -2320,7 +2319,7 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
       pcError[0] = 0;
     }
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
     memset(&fileBasicInfo, 0, sizeof(FILE_BASIC_INFORMATION));
     dwStatus = NtdllNQIF(hFile, &ioStatusBlock, &fileBasicInfo, sizeof(FILE_BASIC_INFORMATION), FileBasicInformation);
     if (dwStatus == 0)

@@ -1,19 +1,18 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: support.c,v 1.5 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: support.c,v 1.10 2003/02/24 19:39:29 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 static int (*CompareFunction)  () = strcasecmp;
 static int (*NCompareFunction) () = strncasecmp;
 #else
@@ -163,7 +162,7 @@ SupportAddToList(char *pcPath, FILE_LIST **ppList, char *pcError)
 }
 
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
 /*-
  ***********************************************************************
  *
@@ -610,7 +609,7 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
    */
   if (!iForceExpansion)
   {
-#ifdef FTimes_WIN32
+#ifdef WIN32
     if (
          (iLength == 2 && isalpha((int) pcPath[0]) && pcPath[1] == ':') ||
          (iLength >= 3 && isalpha((int) pcPath[0]) && pcPath[1] == ':' && pcPath[2] == FTIMES_SLASHCHAR)
@@ -620,7 +619,7 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
       return ER_OK;
     }
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
     if (pcPath[0] == FTIMES_SLASHCHAR)
     {
       strncpy(pcFullPath, pcPath, iFullPathSize);
@@ -780,7 +779,7 @@ SupportGetFileType(char *pcPath)
 {
   struct stat         statEntry;
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
   if (lstat(pcPath, &statEntry) == ER)
   {
     return FTIMES_FILETYPE_ERROR;
@@ -825,7 +824,7 @@ SupportGetFileType(char *pcPath)
   }
 #endif
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
   char                cWorkingPath[4];
 
   if ((isalpha((int) pcPath[0]) && pcPath[1] == ':' && pcPath[2] == 0))
@@ -882,7 +881,7 @@ SupportGetHostname(void)
 {
 #define MAX_HOSTNAME_LENGTH 256
   static char         cHostname[MAX_HOSTNAME_LENGTH] = "NA";
-#ifdef FTimes_UNIX
+#ifdef UNIX
   struct utsname      utsName;
 
   memset(&utsName, 0, sizeof(struct utsname));
@@ -891,7 +890,7 @@ SupportGetHostname(void)
     snprintf(cHostname, MAX_HOSTNAME_LENGTH, "%s", (utsName.nodename[0]) ? utsName.nodename : "NA");
   }
 #endif
-#ifdef FTimes_WIN32
+#ifdef WIN32
   char                cTempname[MAX_HOSTNAME_LENGTH];
   DWORD               dwTempNameLength = sizeof(cTempname);
 
@@ -907,6 +906,32 @@ SupportGetHostname(void)
 /*-
  ***********************************************************************
  *
+ * SupportGetMyVersion
+ *
+ ***********************************************************************
+ */
+char *
+SupportGetMyVersion(void)
+{
+#define MAX_VERSION_LENGTH 256
+  static char         acMyVersion[MAX_VERSION_LENGTH] = "NA";
+
+#ifdef USE_SSL
+  snprintf(acMyVersion, MAX_VERSION_LENGTH, "%s %s ssl %d bit",
+#else
+  snprintf(acMyVersion, MAX_VERSION_LENGTH, "%s %s %d bit",
+#endif
+    PROGRAM_NAME,
+    VERSION,
+    (int) (sizeof(&SupportGetMyVersion) * 8)
+    );
+  return acMyVersion;
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * SupportGetSystemOS
  *
  ***********************************************************************
@@ -916,7 +941,7 @@ SupportGetSystemOS(void)
 {
 #define MAX_SYSTEMOS_LENGTH 256
   static char         cSystemOS[MAX_SYSTEMOS_LENGTH] = "NA";
-#ifdef FTimes_UNIX
+#ifdef UNIX
   struct utsname      utsName;
 
   memset(&utsName, 0, sizeof(struct utsname));
@@ -929,7 +954,7 @@ SupportGetSystemOS(void)
 #endif
   }
 #endif
-#ifdef FTimes_WIN32
+#ifdef WIN32
   char                cOS[16];
   char                cPlatform[16];
   OSVERSIONINFO       osvi;
@@ -1005,7 +1030,7 @@ SupportIncludeEverything(BOOL allowremote, char *pcError)
   char                cLocalError[ERRBUF_SIZE];
   FILE_LIST           *pHead;
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
   char                cDriveList[26 * 4 + 2];
   char               *pcDrive;
   int                 iLength;
@@ -1051,7 +1076,7 @@ SupportIncludeEverything(BOOL allowremote, char *pcError)
     snprintf(pcError, ERRBUF_SIZE, "%s: No supported drives found.", cRoutine);
   }
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
 
   cLocalError[0] = 0;
 
@@ -1234,7 +1259,7 @@ SupportNeuterString(char *pcData, int iLength, char *pcError)
 }
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -1387,7 +1412,7 @@ SupportRequirePrivilege(char *pcError)
 {
   const char          cRoutine[] = "SupportRequirePrivilege()";
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
 
   char                cLocalError[ERRBUF_SIZE];
 
@@ -1398,7 +1423,7 @@ SupportRequirePrivilege(char *pcError)
   }
 #endif
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
   if (getuid() != 0)
   {
     snprintf(pcError, ERRBUF_SIZE, "%s: Need root privilege to continue.", cRoutine);
@@ -1448,7 +1473,7 @@ SupportSetLogLevel(char *pcLevel, int *piLevel, char *pcError)
 }
 
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
 /*-
  ***********************************************************************
  *

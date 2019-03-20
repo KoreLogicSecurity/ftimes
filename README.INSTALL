@@ -14,7 +14,7 @@
 
 1.1 Revision
 
-  $Id: INSTALL,v 1.9 2003/01/14 04:52:27 mavrik Exp $
+  $Id: README.INSTALL,v 1.2 2003/03/17 19:31:07 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -183,6 +183,11 @@
 
     ./configure --prefix=/usr/local/my_ftimes
     make
+
+  To see a listing of all available configure options execute the
+  following command:
+
+    ./configure --help
 
   When the software has been built to your satisfaction, it can be
   installed with the following command:

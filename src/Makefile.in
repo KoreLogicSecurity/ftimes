@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.5 2003/01/16 21:08:09 mavrik Exp $
+# $Id: Makefile.in,v 1.8 2003/02/24 22:07:16 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
 # All Rights Reserved.
 #
 ########################################################################
@@ -90,7 +90,7 @@ FTIMES_EXECUTEABLE	= ftimes
 
 DEFS			= @DEFS@
 LIBS			= @LIBS@
-CFLAGS			= @CFLAGS@ -DUNIX
+CFLAGS			= @CFLAGS@
 CC			= @CC@
 
 BIN_FILES		= ${FTIMES_EXECUTEABLE}
@@ -98,8 +98,8 @@ BIN_FILES		= ${FTIMES_EXECUTEABLE}
 all: ${FTIMES_EXECUTEABLE}
 
 install: ${BIN_FILES}
-	umask 22; if [ ! -d ${bindir} ]; then mkdir -p ${bindir}; fi
-	for i in ${BIN_FILES}; do\
+	@umask 22; if [ ! -d ${bindir} ]; then mkdir -p ${bindir}; fi
+	@for i in ${BIN_FILES}; do\
 		${INSTALL} -m 755 $$i ${bindir};\
 	done
 

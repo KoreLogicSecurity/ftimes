@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.c,v 1.4 2003/01/16 21:36:32 mavrik Exp $
+ * $Id: compare.c,v 1.7 2003/02/24 19:35:23 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
@@ -810,11 +810,11 @@ CompareNewProperties(char *pcError)
 #endif
   }
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
   psProperties->piCompareRoutine = strcasecmp;
   strncpy(psProperties->acNewLine, CRLF, NEWLINE_LENGTH);
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
   psProperties->piCompareRoutine = strcmp;
   strncpy(psProperties->acNewLine, LF, NEWLINE_LENGTH);
 #endif

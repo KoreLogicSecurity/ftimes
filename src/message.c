@@ -1,22 +1,21 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: message.c,v 1.2 2002/01/22 13:53:07 mavrik Exp $
+ * $Id: message.c,v 1.5 2003/02/24 19:36:00 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 static char           gcNewLine[NEWLINE_LENGTH] = CRLF;
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
 static char           gcNewLine[NEWLINE_LENGTH] = LF;
 #endif
 static FILE          *gpFile;

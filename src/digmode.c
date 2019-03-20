@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: digmode.c,v 1.4 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: digmode.c,v 1.7 2003/02/24 19:39:27 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -583,7 +582,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
 #endif
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   snprintf(cMessage, MESSAGE_SIZE, "StreamsEncountered=%d", MapGetStreamCount());
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
 #endif
@@ -611,7 +610,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 #endif
 #endif
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
     snprintf(cMessage, MESSAGE_SIZE, "BytesAnalyzed=%I64u", AnalyzeGetByteCount());
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
 #endif
@@ -671,7 +670,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   sprintf(cMessage, "TotalMatches=%qu", DigGetTotalMatches());
 #endif
 #endif
-#ifdef FTimes_WIN32
+#ifdef WIN32
   snprintf(cMessage, MESSAGE_SIZE, "MatchCount=%I64u", DigGetTotalMatches());
 #endif
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);

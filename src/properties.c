@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: properties.c,v 1.5 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: properties.c,v 1.8 2003/02/24 19:36:00 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -245,14 +244,14 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
   char               *pc;
   char               *pcControl;
   char               *pcE;
-#ifdef FTimes_WIN32
+#ifdef WIN32
   char               *pcMessage;
 #endif
   int                 i;
   int                 iError;
   int                 iRunMode;
   int                 iValue;
-#ifdef FTimes_UNIX
+#ifdef UNIX
   struct stat         sStatEntry;
 #endif
   unsigned int        iLength;
@@ -507,14 +506,14 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
      *
      *******************************************************************
      */
-#ifdef FTimes_WIN32
+#ifdef WIN32
     if (!(isalpha((int) pc[0]) && pc[1] == ':'))
     {
       snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Value = [%s], A full path is required.", cRoutine, pcControl, pc);
       return ER;
     }
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
     if (pc[0] != FTIMES_SLASHCHAR)
     {
       snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Value = [%s], A full path is required.", cRoutine, pcControl, pc);
@@ -545,7 +544,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
      *
      *******************************************************************
      */
-#ifdef FTimes_WIN32
+#ifdef WIN32
     if (!(isalpha((int) pc[0]) && pc[1] == ':'))
     {
       snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Value = [%s], A full path is required.", cRoutine, pcControl, pc);
@@ -561,7 +560,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       }
     }
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
     if (pc[0] != FTIMES_SLASHCHAR)
     {
       snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Value = [%s], A full path is required.", cRoutine, pcControl, pc);

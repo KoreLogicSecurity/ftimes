@@ -1,11 +1,11 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.7 2003/01/16 19:47:18 mavrik Exp $
+ * $Id: ftimes.h,v 1.13 2003/03/17 19:38:05 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
@@ -19,12 +19,13 @@
  ***********************************************************************
  */
 #define PROGRAM_NAME "ftimes"
+#define VERSION "3.2.1"
 
 #define LF            "\n"
 #define CRLF        "\r\n"
 #define NEWLINE_LENGTH  3
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 #define UNIX_EPOCH_IN_NT_TIME 0x019db1ded53e8000
 #define UNIX_LIMIT_IN_NT_TIME 0x01e9fcf4ebcfe180
 #define DEFAULT_STREAM_NAME_W L"::$DATA"
@@ -34,7 +35,7 @@
 #define FTIMES_FULL_STREAM_COUNT      2
 #endif
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 #ifdef FALSE
 #undef FALSE
 #endif
@@ -56,24 +57,24 @@ typedef enum _BOOL
 #define FTIMES_RUNDATE_FORMAT      "%Y/%m/%d"
 #define FTIMES_RUNZONE_FORMAT            "%Z"
 #define FTIMES_ZONE_SIZE                  64
-#ifdef FTimes_UNIX
+#ifdef UNIX
 #define FTIMES_TIME_FORMAT_SIZE           20
 #define FTIMES_TIME_FORMAT "%Y-%m-%d %H:%M:%S"
 #endif
-#ifdef FTimes_WIN32
+#ifdef WIN32
 #define FTIMES_TIME_FORMAT_SIZE           24
 #define FTIMES_TIME_FORMAT "%04d-%02d-%02d %02d:%02d:%02d|%d"
 #define FTIMES_OOB_TIME_FORMAT_SIZE       19
 #define FTIMES_OOB_TIME_FORMAT "%04d%02d%02d%02d%02d%02d|%x"
 #endif
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 #define FTIMES_ROOT_PATH                 "c:"
 #define FTIMES_SLASH                     "\\"
 #define FTIMES_SLASHCHAR                 '\\'
 #define FTIMES_MAX_PATH                  260
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
 #define FTIMES_ROOT_PATH                  "/"
 #define FTIMES_SLASH                      "/"
 #define FTIMES_SLASHCHAR                  '/'
@@ -107,7 +108,7 @@ typedef enum _BOOL
 #define FTIMES_TEST_NORMAL                 0
 #define FTIMES_TEST_STRICT                 1
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 #define Have_Nothing                       0
 #define Have_GetFileAttributes             1
 #define Have_GetFileAttributesEx           2
@@ -116,13 +117,13 @@ typedef enum _BOOL
 #define Have_NTQueryInformationFile        5
 #define Have_MapCountNamedStreams          6
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
 #define Have_Nothing                       0
 #define Have_lstat                         1
 #endif
 
 #define FTIMES_FILETYPE_BUFSIZE         1280 /* XMAGIC_MAX_LEVEL * XMAGIC_DESCRIPTION_BUFSIZE */
-#ifdef FTimes_WIN32
+#ifdef WIN32
 typedef struct _FTIMES_FILE_DATA
 {
   char               *pcRawPath;
@@ -145,7 +146,7 @@ typedef struct _FTIMES_FILE_DATA
   unsigned char      *pucStreamInfo;
 } FTIMES_FILE_DATA;
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
 typedef struct _FTIMES_FILE_DATA
 {
   char               *pcRawPath;
@@ -166,7 +167,7 @@ typedef struct _FILE_LIST
 } FILE_LIST;
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 #define VOLUME_SET     0x00000001
 #define FINDEX_SET     0x00000002
 #define ATTRIBUTES_SET 0x00000004
@@ -184,7 +185,7 @@ typedef struct _FILE_LIST
 #define DEFAULT_MASK   0x000009ff /* ALL-reserved-magic */
 #endif
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 #define DEV_SET        0x00000001
 #define INODE_SET      0x00000002
 #define MODE_SET       0x00000004
@@ -589,12 +590,12 @@ int                 MapGetIncompleteRecordCount();
 int                 MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned char *pucTreeHash, char *pcError);
 int                 MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *pcError);
-#ifdef FTimes_WINNT
+#ifdef WINNT
 int                 MapCountNamedStreams(HANDLE hFile, int *piStreamCount, unsigned char **ppucStreamInfo, char *pcError);
 int                 MapGetStreamCount();
 void                MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, struct hash_block *pDirHashBlock, char *pcError);
 #endif
-#ifdef FTimes_WIN32
+#ifdef WIN32
 HANDLE              MapGetFileHandle(char *path);
 #endif
 
@@ -619,7 +620,7 @@ int                 PropertiesTestFile(FTIMES_PROPERTIES *psProperties, char *pc
  */
 FILE_LIST          *SupportAddListItem(char *pcPath, FILE_LIST *pHead, char *pcError);
 int                 SupportAddToList(char *pcPath, FILE_LIST **ppList, char *pcError);
-#ifdef FTimes_WIN32
+#ifdef WIN32
 BOOL                SupportAdjustPrivileges(LPCTSTR lpcPrivilege);
 #endif
 int                 SupportChopEOLs(char *pcLine, int iStrict, char *pcError);
@@ -631,19 +632,20 @@ int                 SupportExpandPath(char *pcPath, char *pcFullPath, int iFullP
 void                SupportFreeData(void *pcData);
 int                 SupportGetFileType(char *pcPath);
 char               *SupportGetHostname(void);
+char               *SupportGetMyVersion(void);
 char               *SupportGetSystemOS(void);
 FILE_LIST          *SupportIncludeEverything(BOOL allowremote, char *pcError);
 int                 SupportMakeName(char *pcPath, char *pcBaseName, char *pcDateTime, char *pcExtension, char *pcFilename, char *pcError);
 FILE_LIST          *SupportMatchExclude(FILE_LIST *pHead, char *pcPath);
 FILE_LIST          *SupportMatchSubTree(FILE_LIST *pHead, FILE_LIST *pTarget);
 char               *SupportNeuterString(char *pcData, int iLength, char *pcError);
-#ifdef FTimes_WIN32
+#ifdef WIN32
 char               *SupportNeuterStringW(unsigned short *pusData, int iLength, char *pcError);
 #endif
 FILE_LIST          *SupportPruneList(FILE_LIST *pList, BOOL bMapRemoteFiles);
 int                 SupportRequirePrivilege(char *pcError);
 int                 SupportSetLogLevel(char *pcLevel, int *piLevel, char *pcError);
-#ifdef FTimes_WIN32
+#ifdef WIN32
 int                 SupportSetPrivileges(char *pcError);
 #endif
 int                 SupportWriteData(FILE *pFile, char *pcData, int iLength, char *pcError);
@@ -656,11 +658,11 @@ int                 SupportWriteData(FILE *pFile, char *pcData, int iLength, cha
  ***********************************************************************
  */
 time_t              TimeGetTime(char *datebuf, char *timebuf, char *zonebuf, char *datetimebuf);
-#ifdef FTimes_WIN32
+#ifdef WIN32
 int                 TimeFormatTime(FILETIME *time, char *timestr);
 int                 TimeFormatOutOfBandTime(FILETIME *time, char *timestr);
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
 int                 TimeFormatTime(time_t *time, char *timestr);
 #endif
 
@@ -700,6 +702,6 @@ int                 URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError
  *
  ***********************************************************************
  */
-#ifdef FTimes_WINNT
+#ifdef WINNT
 extern NQIF         NtdllNQIF;
 #endif

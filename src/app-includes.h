@@ -1,24 +1,20 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: app-includes.h,v 1.7 2003/01/14 23:19:16 mavrik Exp $
+ * $Id: app-includes.h,v 1.10 2003/02/24 19:35:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "ktypes.h"
 
 #ifdef USE_SSL
 #include "ssl.h"
 #include "ssl-pool.h"
-#define VERSION "3.2.0 ssl"
-#else
-#define VERSION "3.2.0"
 #endif
 
 #ifdef USE_AP_SNPRINTF
@@ -42,7 +38,7 @@
 
 #include "ftimes.h"
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 #define execlp _execlp
 #define fstat _fstat
 #define getcwd _getcwd

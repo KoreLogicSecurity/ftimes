@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.6 2003/01/10 21:37:01 mavrik Exp $
+ * $Id: fsinfo.c,v 1.9 2003/02/24 19:35:43 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -41,7 +40,7 @@ char                FSType[][FSINFO_MAX_STRING] =
 };
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 #ifdef FTimes_AIX
 /*-
  ***********************************************************************
@@ -236,10 +235,10 @@ GetFileSystemType(char *pcPath, char *pcError)
   }
 }
 #endif /* FTimes_SOLARIS || FTimes_BSD || FTimes_MACOS */
-#endif /* FTimes_UNIX */
+#endif /* UNIX */
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -325,4 +324,4 @@ GetFileSystemType(char *pcPath, char *pcError)
     }
   }
 }
-#endif /* FTimes_WIN32 */
+#endif /* WIN32 */

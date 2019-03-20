@@ -1,26 +1,25 @@
- 
+
 1 Version
 
-  $Id: README,v 1.1.1.1 2002/01/18 03:16:26 mavrik Exp $
- 
+  $Id: README,v 1.2 2003/02/23 18:11:20 mavrik Exp $
+
 2 Overview
- 
-  In general, you don't need to build the documentation because it
-  will be provided in the distribution.  However, in the event that
-  you do, you should know that the original version of Html.pm was
-  modified by the developer.  If you care about this and wish to
-  build the documentation the way it was intended, follow the
-  instructions in section 3.
+
+  In general, building the project's documentation is not necessary
+  because it comes prebuilt with the distribution.  However, in the
+  event that you do need to build it, you may be required to modify
+  Html.pm.  The instructions on how to do this are given in the
+  next section.
 
 3 Patching Html.pm
 
-  Before patching Html.pm, you should figure out where Html.pm
-  lives on your system and check to see that its MD5 matches the
+  Before patching Html.pm, find out where Html.pm is located on
+  your system.  Then, check to see that its MD5 hash matches the
   one provided here:
 
-    MD5 = 5f16c14462cfba6cdc1735236ecd5ea6
+  MD5 (Html.pm) = 5f16c14462cfba6cdc1735236ecd5ea6
 
-  If you want to patch Html.pm by hand, do the following:
+  To patch Html.pm by hand, do the following:
 
     - Remove the LINK tag code.  Search for LINK.
 
@@ -34,49 +33,108 @@
 
     - Balance paragraph tags in pod2html() (i.e. add </P>).
 
-  If you want to patch Html.pm with patch, do the following:
+    - Add 2 to the heading value.  Search for "my $level".
 
-    - Create a file named Html.pm.patch that contains the patch
-      provided at the end of this document.  Be sure to copy the
-      patch exactly as it contains a mixture of spaces and tabs.
+  To patch Html.pm with patch, do the following:
+
+    - Create a patch file named Html.pm.diff that contains the diff
+      output provided at the bottom of this document.  The following
+      command will conveniently create the patch file for you.
+
+      sed -e '1,/^--- Html.pm.diff ---$/d; /^--- Html.pm.diff ---$/,$d' README > Html.pm.diff
+
+      The patch file should have the following MD5 hash:
+
+      MD5 (Html.pm.diff) = 1161fcbd5bfe370e377b43d50d4bb7ab
 
     - Run the following command:
 
-      patch < Html.pm.patch
+      patch < Html.pm.diff
 
---- patch ---
-Index: /usr/libdata/perl/5.00503/Pod/Html.pm
-334a335,337
-> #
-> # 2000-12-28 klm, Eliminated the LINK tag.
-> #
-339d341
-< <LINK REV="made" HREF="mailto:$Config{perladmin}">
-354a357,361
-> #
-> # 2000-12-28 klm, Don't put the index in if --noindex has been set.
-> #
-> if ($doindex)
-> {
-361a369
-> }
-405c413,416
-< 	    print HTML "<P>\n$text";
----
-> #
-> # 2001-12-10 klm, Added closing paragraph tag.
-> #
-> 	    print HTML "<P>\n$text</P>\n";
-865c876,878
-<     print HTML "<P>\n" unless $listlevel;
----
-> #
-> # 2001-12-10 klm, Removed paragraph tag.
-> #
-1102a1116,1118
-> #
-> # 2001-11-27 klm, Added https to the list.
-> #
-1104a1121
->                 https
---- patch ---
+      You probably will be required to input the actual location
+      of the file being patched.
+
+--- Html.pm.diff ---
+--- /usr/libdata/perl/5.00503/Pod/Html.pm	Mon Jan 27 09:50:20 2003
++++ /usr/libdata/perl/5.00503/Pod/Html.pm.new	Tue Feb 11 20:57:54 2003
+@@ -332,11 +332,13 @@
+ 	$title = ($podfile eq "-" ? 'No Title' : $1);
+ 	warn "using $title" if $verbose;
+     }
++#
++# 2000-12-28 klm, Eliminated the LINK tag.
++#
+     print HTML <<END_OF_HEAD;
+ <HTML>
+ <HEAD>
+ <TITLE>$title</TITLE>
+-<LINK REV="made" HREF="mailto:$Config{perladmin}">
+ </HEAD>
+ 
+ <BODY>
+@@ -352,6 +354,11 @@
+     # put an index at the top of the file.  note, if $doindex is 0 we
+     # still generate an index, but surround it with an html comment.
+     # that way some other program can extract it if desired.
++#
++# 2000-12-28 klm, Don't put the index in if --noindex has been set.
++#
++if ($doindex)
++{
+     $index =~ s/--+/-/g;
+     print HTML "<!-- INDEX BEGIN -->\n";
+     print HTML "<!--\n" unless $doindex;
+@@ -359,6 +366,7 @@
+     print HTML "-->\n" unless $doindex;
+     print HTML "<!-- INDEX END -->\n\n";
+     print HTML "<HR>\n" if $doindex;
++}
+ 
+     # now convert this file
+     warn "Converting input file\n" if $verbose;
+@@ -402,7 +410,10 @@
+ 	    next if @begin_stack && $begin_stack[-1] ne 'html';
+ 	    my $text = $_;
+ 	    process_text(\$text, 1);
+-	    print HTML "<P>\n$text";
++#
++# 2001-12-10 klm, Added closing paragraph tag.
++#
++	    print HTML "<P>\n$text</P>\n";
+ 	}
+     }
+ 
+@@ -857,12 +868,17 @@
+ 
+     # figure out the level of the =head
+     $tag =~ /head([1-6])/;
+-    my $level = $1;
++#
++# 2001-01-15 klm, Added 2 to the heading value.
++#
++    my $level = $1 + 2;
+ 
+     # can't have a heading full of spaces and speechmarks and so on
+     $firstword = $heading; $firstword =~ s/\s*(\w+)\s.*/$1/;
+ 
+-    print HTML "<P>\n" unless $listlevel;
++#
++# 2001-12-10 klm, Removed paragraph tag.
++#
+     print HTML "<HR>\n" unless $listlevel || $top;
+     print HTML "<H$level>"; # unless $listlevel;
+     #print HTML "<H$level>" unless $listlevel;
+@@ -1100,8 +1116,12 @@
+ 		  }xeg;
+ 	$rest =~ s/(<A HREF=)([^>:]*:)?([^>:]*)\.pod:([^>:]*:)?/$1$3.html/g;
+ 
++#
++# 2001-11-27 klm, Added https to the list.
++#
+   my $urls = '(' . join ('|', qw{
+                 http
++                https
+                 telnet
+ 		mailto
+ 		news
+--- Html.pm.diff ---

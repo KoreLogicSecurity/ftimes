@@ -10,7 +10,7 @@
 
 1.1 Revision
 
-  $Id: README,v 1.4 2002/09/11 00:41:34 mavrik Exp $
+  $Id: README,v 1.5 2003/02/23 17:10:30 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -23,10 +23,10 @@
 2 Documentation
 
   General documentation is located in the doc directory.  This is
-  where the man page lives -- i.e. ftimes.html.  The INSTALL file,
-  located in the project's root directory, explains how to build
-  FTimes, configure an Apache Web server to handle FTimes requests,
-  and perform basic client-server functionality tests.
+  where the man page lives -- i.e. ftimes.html.  The file README.INSTALL
+  explains how to build FTimes, configure an Apache Web server to
+  handle FTimes requests, and perform basic client-server functionality
+  tests.
 
   The paper, "System Baselining -- A Forensic Perspective", defines
   baselining terminology, explains the mechanics of baselining,
@@ -42,5 +42,5 @@
 3 License
 
   The terms and conditions under which this software is released
-  are set forth in the project's LICENSE file.
+  are set forth in README.LICENSE.
 
