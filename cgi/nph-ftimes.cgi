@@ -1,11 +1,11 @@
 #!/usr/bin/perl
 ######################################################################
 #
-# $Id: nph-ftimes.cgi,v 1.6 2002/04/09 16:04:28 mavrik Exp $
+# $Id: nph-ftimes.cgi,v 1.8 2003/08/13 01:53:22 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
 # All Rights Reserved.
 #
 ######################################################################
@@ -76,17 +76,6 @@ use strict;
 
   #####################################################################
   #
-  # The dig and map variables specify the name of config files that
-  # will be served when clients issue GET requests. These files are
-  # expected to exist in $baseDirectory/profiles/$clientId/cfgfiles.
-  #
-  #####################################################################
-
-  my $digFile         = "dig.cfg";
-  my $mapFile         = "map.cfg";
-
-  #####################################################################
-  #
   # The require user variable forces the program to abort unless the
   # REMOTE_USER environment variable has been set. Apache sets this
   # REMOTE_USER when authentication is enabled.
@@ -137,7 +126,7 @@ use strict;
 
   my $reVersion       = "VERSION=(.+)";
   my $reClientId      = "&CLIENTID=([A-Z]\\d{3}_[A-Z]{4}_\\d{4}_\\d{1})";
-  my $reRequest       = "&REQUEST=(MapConfig|DigConfig)";
+  my $reRequest       = "&REQUEST=(Map(?:Full|Lean)Config|Dig(?:Full|Lean)Config)";
   my $reDataType      = "&DATATYPE=(dig|map)";
   my $reFieldMask     = "&FIELDMASK=([a-zA-Z+-]+)";
   my $reRunType       = "&RUNTYPE=(baseline|linktest|snapshot)";
@@ -335,7 +324,8 @@ use strict;
         ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
       }
 
-      my $getFile = $profiles . "/" . $clientId . "/" . "cfgfiles" . "/" . (($cgiRequest =~ /MapConfig/i) ? $mapFile : $digFile);
+      $cgiRequest =~ /^(MapFull|MapLean|DigFull|DigLean)Config$/;
+      my $getFile = $profiles . "/" . $clientId . "/" . "cfgfiles" . "/" . lc($1) . ".cfg";
 
       if (-e $getFile)
       {

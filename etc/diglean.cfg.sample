@@ -2,15 +2,15 @@
 ######################################################################
 ######################################################################
 #
-# $Id: put.cfg,v 1.1.1.1 2002/01/18 03:16:37 mavrik Exp $
+# $Id: diglean.cfg.sample,v 1.1 2003/08/13 01:53:23 mavrik Exp $
 #
 ######################################################################
 ######################################################################
 ######################################################################
 #
 # This config file contains a condensed list of controls specific
-# to put mode.  A full description for each control can be found
-# in the FTimes' documentation.
+# to diglean mode.  A full description for each control can be found
+# in the FTimes documentation.
 #
 ######################################################################
 ######################################################################
@@ -18,39 +18,24 @@
 #
 # Synopsis:
 #
-#   ftimes --putmode file [-l level]
+#   ftimes --diglean file [-l level] [list]
 #
 ######################################################################
 ######################################################################
 ######################################################################
-# 
-#BaseName=                        # <name>
 #
-#LogFileName=                     # <file>
-#OutFileName=                     # <file>
-#OutFileHash=                     # <MD5>
+#BaseName=                        # <name|->
+#OutDir=                          # <directory>
+#LogDir=                          # <directory>
+#Include=                         # [<file>|<directory>|<link>]
+#Exclude=                         # [<file>|<directory>|<link>]
 #
-#DataType=                        # [dig|map]
-#DateTime=                        # <YYYYMMDDHHMMSS>
-#FieldMask=                       # <mask>
-#RunType=                         # [baseline|linktest|snapshot]
+#DigString=                       # <string>
 #
-#URLPutURL=                       # <url>
-#URLAuthType=                     # [basic|none]
-#URLUsername=                     # <username>
-#URLPassword=                     # <password>
-#URLCreateConfig=                 # [Y|N]
-#URLUnlinkOutput=                 # [Y|N]
-#
-#SSLUseCertificate=Y              # [Y|N]
-#SSLPublicCertFile=               # <file>
-#SSLPrivateKeyFile=               # <file>
-#SSLPassPhrase=                   # <passphrase>
-#
-#SSLVerifyPeerCert=Y              # [Y|N]
-#SSLBundledCAsFile=               # <file>
-#SSLExpectedPeerCN=               # <name>
-#SSLMaxChainLength=1              # [1,9]
+#MapRemoteFiles=                  # [Y|N]
+#MatchLimit=1                     # <integer>
+#NewLine=LF                       # [LF|CRLF]
+#RequirePrivilege=Y               # [Y|N]
 #
 #Import=                          # <file>
 #

@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: develop.c,v 1.4 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: develop.c,v 1.10 2003/08/13 21:39:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -23,7 +22,7 @@
 #define COMPRESS_RECOVERY_RATE 100
 
 static unsigned char  ucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static unsigned char  ucZeroHash[MD5_HASH_LENGTH] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+static unsigned char  ucZeroHash[MD5_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 
 /*-
@@ -49,7 +48,7 @@ DevelopNoOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCou
 }
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 /*-
  ***********************************************************************
  *
@@ -303,9 +302,9 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)
+        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0; i < MD5_HASH_LENGTH; i++)
+          for (i = 0; i < MD5_HASH_SIZE; i++)
           {
             n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
           }
@@ -318,9 +317,9 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else if (S_ISREG(psFTData->statEntry.st_mode))
     {
-      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)
+      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
       {
-        for (i = 0; i < MD5_HASH_LENGTH; i++)
+        for (i = 0; i < MD5_HASH_SIZE; i++)
         {
           n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
         }
@@ -333,17 +332,24 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else if (S_ISLNK(psFTData->statEntry.st_mode))
     {
-      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)
+      if (psProperties->bHashSymbolicLinks)
       {
-        for (i = 0; i < MD5_HASH_LENGTH; i++)
+        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
         {
-          n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
+          for (i = 0; i < MD5_HASH_SIZE; i++)
+          {
+            n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
+          }
+        }
+        else
+        {
+          strcat(pcError, "md5");
+          iStatus = ER_NullFields;
         }
       }
       else
       {
-        strcat(pcError, "md5");
-        iStatus = ER_NullFields;
+        n += sprintf(&pcOutData[n], "SYMLINK");
       }
     }
     else
@@ -368,7 +374,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -431,7 +437,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-#ifdef FTimes_WIN98
+#ifdef WIN98
       if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
       {
@@ -458,7 +464,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-#ifdef FTimes_WIN98
+#ifdef WIN98
       if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
       {
@@ -553,7 +559,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   {
     if (psFTData->ftCreationTime.dwLowDateTime == 0 && psFTData->ftCreationTime.dwHighDateTime == 0)
     {
-#ifndef FTimes_WIN98
+#ifndef WIN98
 
       /*-
        *****************************************************************
@@ -595,7 +601,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   {
     if (psFTData->ftChangeTime.dwLowDateTime == 0 && psFTData->ftChangeTime.dwHighDateTime == 0)
     {
-#ifndef FTimes_WIN98
+#ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
         strcat(pcError, "chtime,");
@@ -652,7 +658,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-#ifndef FTimes_WIN98
+#ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
         strcat(pcError, "altstreams,");
@@ -704,9 +710,9 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)
+        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0; i < MD5_HASH_LENGTH; i++)
+          for (i = 0; i < MD5_HASH_SIZE; i++)
           {
             n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
           }
@@ -719,9 +725,9 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)
+      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
       {
-        for (i = 0; i < MD5_HASH_LENGTH; i++)
+        for (i = 0; i < MD5_HASH_SIZE; i++)
         {
           n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
         }
@@ -749,7 +755,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
 #endif
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 /*-
  ***********************************************************************
  *
@@ -1144,9 +1150,9 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)
+        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_LENGTH; i++)
+          for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
           {
             x = (x << 8) | psFTData->ucFileMD5[i];
             ulLeft += 8;
@@ -1174,9 +1180,9 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else if (S_ISREG(psFTData->statEntry.st_mode))
     {
-      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)
+      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
       {
-        for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_LENGTH; i++)
+        for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
         {
           x = (x << 8) | psFTData->ucFileMD5[i];
           ulLeft += 8;
@@ -1199,27 +1205,34 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else if (S_ISLNK(psFTData->statEntry.st_mode))
     {
-      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)
+      if (psProperties->bHashSymbolicLinks)
       {
-        for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_LENGTH; i++)
+        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
         {
-          x = (x << 8) | psFTData->ucFileMD5[i];
-          ulLeft += 8;
-          while (ulLeft > 6)
+          for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
           {
-            pcOutData[n++] = ucBase64[(x >> (ulLeft - 6)) & 0x3f];
-            ulLeft -= 6;
+            x = (x << 8) | psFTData->ucFileMD5[i];
+            ulLeft += 8;
+            while (ulLeft > 6)
+            {
+              pcOutData[n++] = ucBase64[(x >> (ulLeft - 6)) & 0x3f];
+              ulLeft -= 6;
+            }
+          }
+          if (ulLeft != 0)
+          {
+            pcOutData[n++] = ucBase64[(x << (6 - ulLeft)) & 0x3f];
           }
         }
-        if (ulLeft != 0)
+        else
         {
-          pcOutData[n++] = ucBase64[(x << (6 - ulLeft)) & 0x3f];
+          strcat(pcError, "md5");
+          iStatus = ER_NullFields;
         }
       }
       else
       {
-        strcat(pcError, "md5");
-        iStatus = ER_NullFields;
+        pcOutData[n++] = 'L';
       }
     }
     else
@@ -1258,7 +1271,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -1386,7 +1399,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       }
       else
       {
-#ifdef FTimes_WIN98
+#ifdef WIN98
         if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
         {
@@ -1429,7 +1442,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       }
       else
       {
-#ifdef FTimes_WIN98
+#ifdef WIN98
         if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
         {
@@ -1621,7 +1634,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     if (psFTData->ftCreationTime.dwLowDateTime == 0 && psFTData->ftCreationTime.dwHighDateTime == 0)
     {
       pcOutData[n++] = '|';
-#ifndef FTimes_WIN98
+#ifndef WIN98
 
       /*-
        *****************************************************************
@@ -1710,7 +1723,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     if (psFTData->ftChangeTime.dwLowDateTime == 0 && psFTData->ftChangeTime.dwHighDateTime == 0)
     {
       pcOutData[n++] = '|';
-#ifndef FTimes_WIN98
+#ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
         strcat(pcError, "chtime,");
@@ -1819,7 +1832,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else
     {
-#ifndef FTimes_WIN98
+#ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
         strcat(pcError, "altstreams,");
@@ -1855,9 +1868,9 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)
+        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_LENGTH; i++)
+          for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
           {
             x = (x << 8) | psFTData->ucFileMD5[i];
             ulLeft += 8;
@@ -1885,9 +1898,9 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else
     {
-      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)
+      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
       {
-        for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_LENGTH; i++)
+        for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
         {
           x = (x << 8) | psFTData->ucFileMD5[i];
           ulLeft += 8;

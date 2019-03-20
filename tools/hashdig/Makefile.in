@@ -1,0 +1,51 @@
+########################################################################
+#
+# $Id: Makefile.in,v 1.3 2003/03/24 21:03:30 mavrik Exp $
+#
+########################################################################
+#
+# Copyright 2003-2003 The FTimes Project, All Rights Reserved.
+#
+########################################################################
+#
+# Purpose: Makefile for the project's hashdig directory.
+#
+########################################################################
+
+#.SILENT:
+
+prefix			= @prefix@
+exec_prefix		= @exec_prefix@
+bindir			= @bindir@
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
+
+EXTENSION		= @extension@
+
+INSTALL			= @INSTALL@
+
+SCRIPT_FILES		=\
+			hashdig-bash.pl\
+			hashdig-bind.pl\
+			hashdig-dump.pl\
+			hashdig-filter.pl\
+			hashdig-harvest.pl\
+			hashdig-harvest-sunsolve.pl\
+			hashdig-make.pl\
+			hashdig-resolve-sunsolve.pl\
+			hashdig-weed.pl
+
+all:
+
+install: ${SCRIPT_FILES}
+	@umask 22; if [ ! -d ${bindir} ]; then mkdir -p ${bindir}; fi
+	@for i in ${SCRIPT_FILES}; do\
+		if [ -f ${srcdir}/$${i} ]; then file=${srcdir}/$${i}; else file=$${i}; fi;\
+		${INSTALL} -m 755 $${file} ${bindir};\
+	done
+
+clean:
+
+clean-all: clean
+	rm -f Makefile
+

@@ -1,23 +1,22 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: sys-includes.h,v 1.2 2002/09/09 02:27:27 mavrik Exp $
+ * $Id: sys-includes.h,v 1.6 2003/02/24 19:39:29 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 #include <windows.h>
 #include <winsock.h>
 #include <stdlib.h>
@@ -26,12 +25,12 @@
 #include <process.h>
 #include <fcntl.h>
 #include <io.h>
-#ifdef FTimes_WINNT
+#ifdef WINNT
 #include "native.h"
 #endif
 #endif
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 #include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>

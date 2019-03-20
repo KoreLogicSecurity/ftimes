@@ -1,6 +1,6 @@
 =item B<Include>: [directory|file|link]
 
-Applies to B<digfull> and B<mapfull>.
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
 
 B<Include> controls are optional.  There can be as many includes
 as you like, but each entry must be on a separate line.  If no

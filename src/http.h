@@ -1,16 +1,15 @@
 /*-
  ***********************************************************************
  *
- * $Id: http.h,v 1.3 2002/12/05 22:58:20 mavrik Exp $
+ * $Id: http.h,v 1.5 2003/08/13 16:06:31 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2001-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 /* #include "socket.h" */
 
 /*-
@@ -145,7 +144,7 @@ int                   HTTPParsePathQuery(char *pcPathQuery, HTTP_URL *psURL, cha
 int                   HTTPParseStatusLine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcError);
 HTTP_URL             *HTTPParseURL(char *pcURL, char *pcError);
 int                   HTTPParseUserPass(char *pcUserPass, HTTP_URL *psURL, char *pcError);
-int                   HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, char **ppcData, K_UINT32 ui32ContentLength, char *pcError);
+int                   HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, void **ppvData, K_UINT32 ui32ContentLength, char *pcError);
 int                   HTTPReadDataIntoStream(SOCKET_CONTEXT *psSocketCTX, FILE *pFile, K_UINT32 ui32ContentLength, char *pcError);
 int                   HTTPReadHeader(SOCKET_CONTEXT *psSocketCTX, char *pcResponseHeader, int iMaxResponseLength, char *pcError);
 int                   HTTPSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError);

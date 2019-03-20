@@ -2,14 +2,14 @@
 ######################################################################
 ######################################################################
 #
-# $Id: map.cfg,v 1.1.1.1 2002/01/18 03:16:36 mavrik Exp $
+# $Id: put.cfg.sample,v 1.2 2003/08/13 01:53:23 mavrik Exp $
 #
 ######################################################################
 ######################################################################
 ######################################################################
 #
 # This config file contains a condensed list of controls specific
-# to map mode.  A full description for each control can be found
+# to put mode.  A full description for each control can be found
 # in the FTimes' documentation.
 #
 ######################################################################
@@ -18,34 +18,29 @@
 #
 # Synopsis:
 #
-#   ftimes --mapfull file [-l level] [list]
+#   ftimes --putmode file [-l level]
 #
 ######################################################################
 ######################################################################
 ######################################################################
-# 
+#
 #BaseName=                        # <name>
-#OutDir=                          # <directory>
-#LogDir=                          # <directory>
-#Include=                         # [<file>|<directory>|<link>]
-#Exclude=                         # [<file>|<directory>|<link>]
 #
-#Compress=Y                       # [Y|N]
-#FieldMask=ALL-magic              # <mask>
-#HashDirectories=Y                # [Y|N]
-#MagicFile=                       # <file>
-#MapRemoteFiles=Y                 # [Y|N]
-#NewLine=LF                       # [LF|CRLF] 
-#RequirePrivilege=Y               # [Y|N]
-#RunType=snapshot                 # [baseline|linktest|snapshot]
+#LogFileName=                     # <file>
+#OutFileName=                     # <file>
+#OutFileHash=                     # <MD5>
 #
-#URLPutSnapshot=Y                 # [Y|N]
+#DataType=                        # [dig|map]
+#DateTime=                        # <YYYYMMDDHHMMSS>
+#FieldMask=                       # <mask>
+#RunType=                         # [baseline|linktest|snapshot]
+#
 #URLPutURL=                       # <url>
-#URLAuthType=basic                # [basic|none]
+#URLAuthType=                     # [basic|none]
 #URLUsername=                     # <username>
 #URLPassword=                     # <password>
-#URLCreateConfig=Y                # [Y|N]
-#URLUnlinkOutput=Y                # [Y|N]
+#URLCreateConfig=                 # [Y|N]
+#URLUnlinkOutput=                 # [Y|N]
 #
 #SSLUseCertificate=Y              # [Y|N]
 #SSLPublicCertFile=               # <file>

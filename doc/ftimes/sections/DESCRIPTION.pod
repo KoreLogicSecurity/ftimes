@@ -75,6 +75,10 @@ digfull - search for strings in files using a specified configuration
 
 =item *
 
+diglean - same as digfull except that the range of controls is limited and output can be written directly to std{err,out}
+
+=item *
+
 getmode - download a config file from an Integrity Server
 
 =item *
@@ -84,6 +88,10 @@ mapauto - collect directory and file attributes using a default configuration
 =item *
 
 mapfull - collect directory and file attributes using a specified configuration
+
+=item *
+
+maplean - same as mapfull except that the range of controls is limited and output can be written directly to std{err,out}
 
 =item *
 
@@ -101,53 +109,54 @@ few.  The following table summarizes what controls apply to each
 mode of operation.  An 'X' indicates that the given control applies
 to the selected mode.
 
-                            =======   MODES   =======
-                            c  c  d  d  g  m  m  p  v
-                            f  o  i  i  e  a  a  u  e
-                            g  m  g  g  t  p  p  t  r
-                            t  p  a  f  m  a  f  m  s
-                            e  a  u  u  o  u  u  o  i
-                            s  r  t  l  d  t  l  d  o
-                            t  e  o  l  e  o  l  e  n
+                      ==========   MODES   ==========
+                      c  c  d  d  d  g  m  m  m  p  v
+                      f  o  i  i  i  e  a  a  a  u  e
+                      g  m  g  g  g  t  p  p  p  t  r
+                      t  p  a  f  l  m  a  f  l  m  s
+                      e  a  u  u  e  o  u  u  e  o  i
+                      s  r  t  l  a  d  t  l  a  d  o
+                      t  e  o  l  n  e  o  l  n  e  n
    ======   CONTROL   ===============================
-   BaseName                 .  .  .  X  X  .  X  X  .
-   Compress                 .  .  .  .  .  .  X  .  .
-   DataType                 .  .  .  .  .  .  .  X  .
-   DateTime                 .  .  .  .  .  .  .  X  .
-   DigString                .  .  X  X  .  .  .  .  .
-   Exclude                  .  .  .  X  .  .  X  .  .
-   FieldMask                .  X  .  .  .  X  X  X  .
-   GetAndExec               .  .  .  .  X  .  .  .  .
-   GetFileName              .  .  .  .  X  .  .  .  .
-   HashDirectories          .  .  .  .  .  .  X  .  .
-   Import                   .  .  .  X  X  .  X  X  .
-   Include                  .  .  .  X  .  .  X  .  .
-   LogDir                   .  .  .  X  .  .  X  .  .
-   LogFileName              .  .  .  .  .  .  .  X  .
-   MagicFile                .  .  .  .  .  .  X  .  .
-   MapRemoteFiles           .  .  .  X  .  .  X  .  .
-   MatchLimit               .  .  .  X  .  .  .  .  .
-   NewLine                  .  .  .  X  .  .  X  .  .
-   OutDir                   .  .  .  X  .  .  X  .  .
-   OutFileHash              .  .  .  .  .  .  .  X  .
-   OutFileName              .  .  .  .  .  .  .  X  .
-   RequirePrivilege         .  .  .  X  .  .  X  .  .
-   RunType                  .  .  .  X  .  .  X  X  .
-   SSLBundledCAsFile        .  .  .  X  X  .  X  X  .
-   SSLExpectedPeerCN        .  .  .  X  X  .  X  X  .
-   SSLMaxChainLength        .  .  .  X  X  .  X  X  .
-   SSLPassPhrase            .  .  .  X  X  .  X  X  .
-   SSLPrivateKeyFile        .  .  .  X  X  .  X  X  .
-   SSLPublicCertFile        .  .  .  X  X  .  X  X  .
-   SSLUseCertificate        .  .  .  X  X  .  X  X  .
-   SSLVerifyPeerCert        .  .  .  X  X  .  X  X  .
-   URLAuthType              .  .  .  X  X  .  X  X  .
-   URLCreateConfig          .  .  .  X  .  .  X  .  .
-   URLGetRequest            .  .  .  .  X  .  .  .  .
-   URLGetURL                .  .  .  .  X  .  .  .  .
-   URLPassword              .  .  .  X  X  .  X  X  .
-   URLPutSnapshot           .  .  .  X  .  .  X  .  .
-   URLPutURL                .  .  .  X  .  .  X  X  .
-   URLUnlinkOutput          .  .  .  X  .  .  X  .  .
-   URLUsername              .  .  .  X  X  .  X  X  .
+   BaseName           .  .  .  X  X  X  .  X  X  X  .
+   Compress           .  .  .  .  .  .  .  X  X  .  .
+   DataType           .  .  .  .  .  .  .  .  .  X  .
+   DateTime           .  .  .  .  .  .  .  .  .  X  .
+   DigString          .  .  X  X  X  .  .  .  .  .  .
+   Exclude            .  .  .  X  X  .  .  X  X  .  .
+   FieldMask          .  X  .  .  .  .  X  X  X  X  .
+   GetAndExec         .  .  .  .  .  X  .  .  .  .  .
+   GetFileName        .  .  .  .  .  X  .  .  .  .  .
+   HashDirectories    .  .  .  .  .  .  .  X  X  .  .
+   HashSymbolicLinks  .  .  .  .  .  .  .  X  X  .  .
+   Import             .  .  .  X  X  X  .  X  X  X  .
+   Include            .  .  .  X  X  .  .  X  X  .  .
+   LogDir             .  .  .  X  X  .  .  X  X  .  .
+   LogFileName        .  .  .  .  .  .  .  .  .  X  .
+   MagicFile          .  .  .  .  .  .  .  X  X  .  .
+   MapRemoteFiles     .  .  .  X  X  .  .  X  X  .  .
+   MatchLimit         .  .  .  X  X  .  .  .  .  .  .
+   NewLine            .  .  .  X  X  .  .  X  X  .  .
+   OutDir             .  .  .  X  X  .  .  X  X  .  .
+   OutFileHash        .  .  .  .  .  .  .  .  .  X  .
+   OutFileName        .  .  .  .  .  .  .  .  .  X  .
+   RequirePrivilege   .  .  .  X  X  .  .  X  X  .  .
+   RunType            .  .  .  X  .  .  .  X  .  X  .
+   SSLBundledCAsFile  .  .  .  X  .  X  .  X  .  X  .
+   SSLExpectedPeerCN  .  .  .  X  .  X  .  X  .  X  .
+   SSLMaxChainLength  .  .  .  X  .  X  .  X  .  X  .
+   SSLPassPhrase      .  .  .  X  .  X  .  X  .  X  .
+   SSLPrivateKeyFile  .  .  .  X  .  X  .  X  .  X  .
+   SSLPublicCertFile  .  .  .  X  .  X  .  X  .  X  .
+   SSLUseCertificate  .  .  .  X  .  X  .  X  .  X  .
+   SSLVerifyPeerCert  .  .  .  X  .  X  .  X  .  X  .
+   URLAuthType        .  .  .  X  .  X  .  X  .  X  .
+   URLCreateConfig    .  .  .  X  .  .  .  X  .  .  .
+   URLGetRequest      .  .  .  .  .  X  .  .  .  .  .
+   URLGetURL          .  .  .  .  .  X  .  .  .  .  .
+   URLPassword        .  .  .  X  .  X  .  X  .  X  .
+   URLPutSnapshot     .  .  .  X  .  .  .  X  .  .  .
+   URLPutURL          .  .  .  X  .  .  .  X  .  X  .
+   URLUnlinkOutput    .  .  .  X  .  .  .  X  .  .  .
+   URLUsername        .  .  .  X  .  X  .  X  .  X  .
 

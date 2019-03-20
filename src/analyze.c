@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.7 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: analyze.c,v 1.10 2003/08/13 21:39:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -105,7 +104,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
   int                 iError;
   int                 iNRead;
   unsigned char       ucBuffer[3 * ANALYZE_READ_BUFSIZE];
-#ifdef FTimes_WINNT
+#ifdef WINNT
   BOOL                bResult;
   char               *pcMessage;
   HANDLE              hFile;
@@ -115,7 +114,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
 
   memset(ucBuffer, 0, 3 * ANALYZE_READ_BUFSIZE);
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   hFile = CreateFile
           (
             psFTData->pcRawPath,
@@ -169,7 +168,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
      *
      *******************************************************************
      */
-#ifdef FTimes_WINNT
+#ifdef WINNT
     bResult = ReadFile(hFile, &ucBuffer[ANALYZE_READ_BUFSIZE], ANALYZE_READ_BUFSIZE, &iNRead, NULL);
 #else
     iNRead = fread(&ucBuffer[ANALYZE_READ_BUFSIZE], 1, ANALYZE_READ_BUFSIZE, pFile);
@@ -191,7 +190,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
      *
      *******************************************************************
      */
-#ifdef FTimes_WINNT
+#ifdef WINNT
     if (!bResult)
     {
       ErrorFormatWin32Error(&pcMessage);
@@ -215,7 +214,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
      *
      *******************************************************************
      */
-#ifdef FTimes_WINNT
+#ifdef WINNT
     if (iNRead == 0)
     {
       iBufferType |= ANALYZE_FINAL_BUFFER;
@@ -257,7 +256,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
       iBufferType ^= ANALYZE_FIRST_BUFFER;
     }
   }
-#ifdef FTimes_WINNT
+#ifdef WINNT
   CloseHandle(hFile);
 #else
   fclose(pFile);
@@ -293,18 +292,18 @@ AnalyzeEnableDigestEngine(FTIMES_PROPERTIES *psProperties)
 int
 AnalyzeDoDigest(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
-  static struct hash_block sFileHashBlock;
+  static MD5_CONTEXT sFileMD5Context;
 
   if ((iBufferType & ANALYZE_FIRST_BUFFER) == ANALYZE_FIRST_BUFFER)
   {
-    md5_begin(&sFileHashBlock);
+    MD5Alpha(&sFileMD5Context);
   }
 
-  md5_middle(&sFileHashBlock, pucBuffer, iBufferLength);
+  MD5Cycle(&sFileMD5Context, pucBuffer, iBufferLength);
 
   if ((iBufferType & ANALYZE_FINAL_BUFFER) == ANALYZE_FINAL_BUFFER)
   {
-    md5_end(&sFileHashBlock, psFTData->ucFileMD5);
+    MD5Omega(&sFileMD5Context, psFTData->ucFileMD5);
   }
 
   return ER_OK;
@@ -485,7 +484,7 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          cRoutine[] = "AnalyzeEnableXMagicEngine()";
   char                cLocalError[ERRBUF_SIZE];
-  unsigned char       ucMD5[MD5_HASH_LENGTH];
+  unsigned char       ucMD5[MD5_HASH_SIZE];
   int                 i,
                       iError,
                       iIndex;
@@ -539,13 +538,13 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
       iError = XMagicLoadMagic(psProperties->cMagicFileName, cLocalError);
       if (iError == ER_OK)
       {
-        if ((pFile = fopen(psProperties->cMagicFileName, "rb")) != NULL && md5_file(pFile, ucMD5) == ER_OK)
+        if ((pFile = fopen(psProperties->cMagicFileName, "rb")) != NULL && MD5HashStream(pFile, ucMD5) == ER_OK)
         {
-          for (iIndex = 0; iIndex < MD5_HASH_LENGTH; iIndex++)
+          for (iIndex = 0; iIndex < MD5_HASH_SIZE; iIndex++)
           {
             sprintf(&psProperties->cMagicHash[iIndex * 2], "%02x", ucMD5[iIndex]);
           }
-          psProperties->cMagicHash[MD5_HASH_STRING_LENGTH - 1] = 0;
+          psProperties->cMagicHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
           fclose(pFile);
         }
         else

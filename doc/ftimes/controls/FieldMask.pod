@@ -1,12 +1,13 @@
 =item B<FieldMask>: <mask>
 
-Applies to B<compare>, B<mapauto>, B<mapfull> and B<putmode>.
+Applies to B<compare>, B<mapauto>, B<mapfull>, B<maplean>, and B<putmode>.
 
 B<FieldMask> is required in B<compare>.  Its value indicates what
 fields are to be compared for change.
 
-B<FieldMask> is required in B<mapfull> and B<mapauto>.  Its value
-dictates what attributes get collected or derived during a scan.
+B<FieldMask> is required in B<mapauto>, B<mapfull>, and B<maplean>.
+Its value dictates what attributes get collected or derived during
+a scan.
 
 B<FieldMask> is required in B<putmode>.  Its value indicates what
 fields are contained in the data being posted.

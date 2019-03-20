@@ -156,21 +156,20 @@ way to transfer data, it may be necessary at some point.
 Suppose that you have a snapshot that was previously created using
 the following command line:
 
-    ftimes --mapfull map.cfg
+    ftimes --maplean maplean.cfg
 
-where map.cfg contained the following directives:
+where maplean.cfg contained the following directives:
 
-    --- map.cfg ---
+    --- maplean.cfg ---
     BaseName=S001_TEST_0001_0
     HashDirectories=Y
     FieldMask=all-magic
-    RunType=snapshot
     Include=/etc
     OutDir=/maps
-    --- map.cfg ---
+    --- maplean.cfg ---
 
 Now, suppose that you wish to upload the associated snapshot files
-(see below) to an existing account on an Integrity Server.
+(see below) to an account on an Integrity Server.
 
     /maps/S001_TEST_0001_0_20001230203000.log
     /maps/S001_TEST_0001_0_20001230203000.map
@@ -188,9 +187,11 @@ following information has been provided:
     Server Validates Client Certificates = N
 
 The next thing to do is to create a config file.  Except for
-B<URLPutURL>, B<URLAuthType>, B<URLUsername>, and B<URLPassword>,
-the controls in the following config file may be obtained or derived
-by reviewing the log file.
+B<RunType>, B<URLPutURL>, B<URLAuthType>, B<URLUsername>, and
+B<URLPassword>, the controls in the following config file may be
+obtained or derived by reviewing the log file.  Here RunType has
+been arbitrarily set to snapshot -- it could have also been set to
+linktest or baseline depending on your needs.
 
     --- example4.cfg ---
     BaseName=S001_TEST_0001_0
@@ -245,7 +246,7 @@ constructed.
     --- example5.cfg ---
     BaseName=S001_TEST_0001_0
     URLGetURL=https://www.integrity.net:443/cgi-client/nph-ftimes.cgi
-    URLGetRequest=MapConfig
+    URLGetRequest=MapFullConfig
     GetAndExec=N
     URLAuthType=basic
     URLUsername=S001_TEST_0001_0
@@ -260,20 +261,19 @@ constructed.
     SSLMaxChainLength=2
     --- example5.cfg ---
 
-The following command will attempt to download a map config file
-from the specified Integrity Server.  If successful, the contents
-of the config file will be written to stdout.
+The following command will attempt to download a mapfull config
+file from the specified Integrity Server.  If successful, the
+contents of the config file will be written to stdout.
 
     ftimes --getmode example5.cfg
 
-If you want to download directly to a file, you can, of course,
-redirect the output.  Another approach would be to add the
-B<OutFileName> control to your config file.  Then, if you wanted
-to download a config file and take a snapshot in one operation,
-simply enable B<GetAndExec>.  This causes B<FTimes> to restart
-in map mode (i.e. B<mapfull>).  If B<URLGetRequest> was set to
-DigConfig, then B<FTimes> would request a dig config file and
-subsequently restart in dig mode (i.e. B<digfull>).
+If you want to download directly to a file, you can redirect the
+output to a file or add the B<GetFileName> control to your config
+file.  Then, if you wanted to download a config file and take a
+snapshot in one operation, simply enable B<GetAndExec>.  This causes
+B<FTimes> to restart in B<--mapfull> mode.  If B<URLGetRequest> was
+set to DigFullConfig, then B<FTimes> would request a digfull config
+file and subsequently restart in B<--digfull> mode.
 
 Another way to achieve the same effect is to use the original config
 file and construct the following pipeline:

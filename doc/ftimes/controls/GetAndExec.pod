@@ -5,9 +5,9 @@ Applies to B<getmode>.
 B<GetAndExec> is optional.  When enabled, (i.e. 'Y') it causes
 B<FTimes> to start a new snapshot once the download is complete.
 This is accomplished through an exec() call.  B<GetAndExec> depends
-on B<OutFileName>.
+on B<GetFileName>.
 
-Note: Take care when specifying B<OutFileName>.  If you choose a
+Note: Take care when specifying B<GetFileName>.  If you choose a
 location that is writeable by other processes, B<FTimes> may not
 read the config file you intended it to.  That is to say, some
 other process may have modified or replaced the origianl file.

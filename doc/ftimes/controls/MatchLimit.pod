@@ -1,6 +1,6 @@
 =item B<MatchLimit>: <integer>
 
-Applies to B<digfull>.
+Applies to B<digfull> and B<diglean>.
 
 B<MatchLimit> is optional.  It instructs the search engine to stop
 searching for a particular pattern within a file once the specified

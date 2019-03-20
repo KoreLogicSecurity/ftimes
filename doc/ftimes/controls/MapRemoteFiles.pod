@@ -1,6 +1,6 @@
 =item B<MapRemoteFiles>: [Y|N]
 
-Applies to B<digfull> and B<mapfull>.
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
 
 B<MapRemoteFiles> is optional.  When enabled, (i.e. 'Y') it instructs
 B<FTimes> to ignore the fact that a given B<Include> does not reside

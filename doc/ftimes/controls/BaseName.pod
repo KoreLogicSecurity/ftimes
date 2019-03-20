@@ -1,6 +1,6 @@
 =item B<BaseName>: <name>
 
-Applies to B<digfull>, B<getmode>, B<mapfull>, and B<putmode>.
+Applies to B<digfull>, B<diglean>, B<getmode>, B<mapfull>, B<maplean>, and B<putmode>.
 
 B<BaseName> is required.  It provides prefix that will be attached
 to various output files.  It also serves as the CLIENTID parameter

@@ -1,6 +1,6 @@
 =item B<Import>: <file>
 
-Applies to B<digfull>, B<mapfull>, B<putmode>, and B<getmode>.
+Applies to B<digfull>, B<diglean>, B<mapfull>, B<maplean>, B<putmode>, and B<getmode>.
 
 B<Import> is optional.  When specified, the directives contained
 in the file referenced by this control are included in the current

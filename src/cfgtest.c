@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: cfgtest.c,v 1.1.1.1 2002/01/18 03:17:20 mavrik Exp $
+ * $Id: cfgtest.c,v 1.3 2003/08/13 01:53:23 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -53,6 +52,10 @@ CfgTestProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
     {
       psProperties->iTestRunMode = FTIMES_DIGFULL;
     }
+    else if (strcasecmp(ppcArgumentVector[1], "diglean") == 0)
+    {
+      psProperties->iTestRunMode = FTIMES_DIGLEAN;
+    }
     else if (strcasecmp(ppcArgumentVector[1], "getmode") == 0)
     {
       psProperties->iTestRunMode = FTIMES_GETMODE;
@@ -60,6 +63,10 @@ CfgTestProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
     else if (strcasecmp(ppcArgumentVector[1], "mapfull") == 0)
     {
       psProperties->iTestRunMode = FTIMES_MAPFULL;
+    }
+    else if (strcasecmp(ppcArgumentVector[1], "maplean") == 0)
+    {
+      psProperties->iTestRunMode = FTIMES_MAPLEAN;
     }
     else if (strcasecmp(ppcArgumentVector[1], "putmode") == 0)
     {

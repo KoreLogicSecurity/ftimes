@@ -2,15 +2,15 @@
 ######################################################################
 ######################################################################
 #
-# $Id: get.cfg,v 1.1.1.1 2002/01/18 03:16:36 mavrik Exp $
+# $Id: mapfull.cfg.sample,v 1.2 2003/08/13 18:25:47 mavrik Exp $
 #
 ######################################################################
 ######################################################################
 ######################################################################
 #
 # This config file contains a condensed list of controls specific
-# to get mode.  A full description for each control can be found
-# in the FTimes' documentation.
+# to mapfull mode.  A full description for each control can be found
+# in the FTimes documentation.
 #
 ######################################################################
 ######################################################################
@@ -18,22 +18,35 @@
 #
 # Synopsis:
 #
-#   ftimes --getmode file [-l level]
+#   ftimes --mapfull file [-l level] [list]
 #
 ######################################################################
 ######################################################################
 ######################################################################
 #
 #BaseName=                        # <name>
+#OutDir=                          # <directory>
+#LogDir=                          # <directory>
+#Include=                         # [<file>|<directory>|<link>]
+#Exclude=                         # [<file>|<directory>|<link>]
 #
-#GetAndExec=Y                     # [Y|N]
-#GetFileName=remote.cfg           # <file>
+#Compress=Y                       # [Y|N]
+#FieldMask=ALL-magic              # <mask>
+#HashDirectories=Y                # [Y|N]
+#HashSymbolicLinks=Y              # [Y|N]
+#MagicFile=                       # <file>
+#MapRemoteFiles=Y                 # [Y|N]
+#NewLine=LF                       # [LF|CRLF]
+#RequirePrivilege=Y               # [Y|N]
+#RunType=snapshot                 # [baseline|linktest|snapshot]
 #
-#URLGetRequest=MapConfig          # [DigConfig|MapConfig]
-#URLGetURL=                       # <url>
+#URLPutSnapshot=Y                 # [Y|N]
+#URLPutURL=                       # <url>
 #URLAuthType=basic                # [basic|none]
 #URLUsername=                     # <username>
 #URLPassword=                     # <password>
+#URLCreateConfig=Y                # [Y|N]
+#URLUnlinkOutput=Y                # [Y|N]
 #
 #SSLUseCertificate=Y              # [Y|N]
 #SSLPublicCertFile=               # <file>

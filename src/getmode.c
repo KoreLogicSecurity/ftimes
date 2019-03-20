@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: getmode.c,v 1.3 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: getmode.c,v 1.5 2003/08/13 01:53:23 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -337,8 +336,14 @@ GetModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
     case FTIMES_MAPFULL:
       strcpy(cMode, "--mapfull");
       break;
+    case FTIMES_MAPLEAN:
+      strcpy(cMode, "--maplean");
+      break;
     case FTIMES_DIGFULL:
       strcpy(cMode, "--digfull");
+      break;
+    case FTIMES_DIGLEAN:
+      strcpy(cMode, "--diglean");
       break;
     default:
       snprintf(pcError, ERRBUF_SIZE, "%s: Invalid RunMode. That shouldn't happen.", cRoutine);

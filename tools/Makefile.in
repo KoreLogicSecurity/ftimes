@@ -1,0 +1,44 @@
+########################################################################
+#
+# $Id: Makefile.in,v 1.2 2003/03/12 20:16:43 mavrik Exp $
+#
+########################################################################
+#
+# Copyright 2003-2003 The FTimes Project, All Rights Reserved.
+#
+########################################################################
+#
+# Purpose: Makefile for the project's tools directory.
+#
+########################################################################
+
+#.SILENT:
+
+prefix			= @prefix@
+exec_prefix		= @exec_prefix@
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
+
+INSTALL			= @INSTALL@
+
+SUBDIRS			= @tool_subdirs@
+
+all install clean:
+	@cwd=`pwd`; for i in ${SUBDIRS} "-end-"; do\
+		if test $${i} != "-end-"; then\
+			subdir=`basename $${cwd}`/$${i};\
+			echo '===>' $${subdir};\
+			cd $${cwd}/$${i} && make $@;\
+		fi;\
+	done
+
+clean-all:
+	@cwd=`pwd`; for i in ${SUBDIRS} "-end-"; do\
+		if test $${i} != "-end-"; then\
+			subdir=`basename $${cwd}`/$${i};\
+			echo '===>' $${subdir};\
+			cd $${cwd}/$${i} && make $@;\
+		fi;\
+	done
+	rm -f Makefile
+

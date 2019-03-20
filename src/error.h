@@ -1,11 +1,11 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: error.h,v 1.3 2002/01/29 16:55:38 mavrik Exp $
+ * $Id: error.h,v 1.5 2003/02/24 19:35:37 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
@@ -104,6 +104,6 @@ int                 ErrorGetWarnings(void);
 int                 ErrorGetFailures(void);
 int                 ErrorGetWipeouts(void);
 void                ErrorHandler(int iError, char *pcError, int iSeverity);
-#ifdef FTimes_WIN32
+#ifdef WIN32
 void                ErrorFormatWin32Error(char **ppcMessage);
 #endif

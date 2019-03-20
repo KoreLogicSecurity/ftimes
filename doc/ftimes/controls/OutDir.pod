@@ -1,6 +1,6 @@
 =item B<OutDir>: <directory>
 
-Applies to B<digfull> and B<mapfull>.
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
 
 B<OutDir> is required.  It tells B<FTimes> where to write output
 data.  If not specified, the program will abort.  B<OutDir> may be

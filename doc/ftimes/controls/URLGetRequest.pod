@@ -1,11 +1,11 @@
-=item B<URLGetRequest>: [DigConfig|MapConfig]
+=item B<URLGetRequest>: [Dig{Full,Lean}Config|Map{Full,Lean}Config]
 
 Applies to B<getmode>.
 
 B<URLGetRequest> is required.  This control specifies what kind of
 config file the client is requesting when it issues a GET request.
 It also determines the next runmode when B<GetAndExec> is enabled.
-Thus, a value of DigConfig will cause B<FTimes> to restart in
-B<digfull>, and a value of MapConfig will cause B<FTimes> to
-restart in B<mapfull>.
+Thus, values of Dig{Full,Lean}Config will cause B<FTimes> to restart
+in B<digfull> or B<diglean> mode, and values of Map{Full,Lean}Config
+will cause B<FTimes> to restart in B<mapfull> or B<maplean> mode.
 

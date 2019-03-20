@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: configure.in,v 1.6 2002/09/20 17:46:02 mavrik Exp $
+# $Id: configure.in,v 1.15 2003/06/26 14:08:13 mavrik Exp $
 #
 ########################################################################
 
@@ -11,7 +11,8 @@ dnl #
 dnl ####################################################################
 
 AC_INIT(src/ftimes.c)
-AC_CONFIG_HEADER(src/config.h)
+AC_PREREQ(2.53)
+AC_CONFIG_HEADERS(src/config.h)
 AC_PREFIX_DEFAULT(/usr/local/integrity)
 cgidir='${exec_prefix}/cgi'
 docdir='${exec_prefix}/doc'
@@ -29,9 +30,9 @@ AC_SUBST(rundir)
 AC_CANONICAL_SYSTEM
 case "$target_os" in
 *aix*)
-        AC_DEFINE(FTimes_UNIX)
-        AC_DEFINE(FTimes_AIX)
-        AC_DEFINE(USE_AP_SNPRINTF)
+	OS_CFLAGS="-DUNIX"
+        AC_DEFINE(FTimes_AIX, 1, Define to 1 if the target OS is AIX.)
+        AC_DEFINE(USE_AP_SNPRINTF, 1, Define to 1 if snprintf() support is enabled.)
         ap_srcs=ap_snprintf.c
         ap_incs=ap_snprintf.h
         extension=
@@ -40,27 +41,27 @@ case "$target_os" in
         AC_SUBST(extension)
         ;;
 *bsd*)
-        AC_DEFINE(FTimes_UNIX)
-        AC_DEFINE(FTimes_BSD)
+	OS_CFLAGS="-DUNIX"
+        AC_DEFINE(FTimes_BSD, 1, Define to 1 if the target OS is BSD.)
         extension=
         AC_SUBST(extension)
         ;;
 *darwin*)
-        AC_DEFINE(FTimes_UNIX)
-        AC_DEFINE(FTimes_MACOS)
+	OS_CFLAGS="-DUNIX"
+        AC_DEFINE(FTimes_MACOS, 1, Define to 1 if the target OS is MacOS.)
         extension=
         AC_SUBST(extension)
         ;;
 *linux*)
-        AC_DEFINE(FTimes_UNIX)
-        AC_DEFINE(FTimes_LINUX)
+	OS_CFLAGS="-DUNIX"
+        AC_DEFINE(FTimes_LINUX, 1, Define to 1 if the target OS is Linux.)
         extension=
         AC_SUBST(extension)
         ;;
 *solaris*)
-        AC_DEFINE(FTimes_UNIX)
-        AC_DEFINE(FTimes_SOLARIS)
-        AC_DEFINE(USE_AP_SNPRINTF)
+	OS_CFLAGS="-DUNIX"
+        AC_DEFINE(FTimes_SOLARIS, 1, Define to 1 if the target OS is Solaris.)
+        AC_DEFINE(USE_AP_SNPRINTF, 1, Define to 1 if snprintf() support is enabled.)
         ap_srcs=ap_snprintf.c
         ap_incs=ap_snprintf.h
         extension=
@@ -78,16 +79,19 @@ esac
 
 case $host_cpu in
 alpha*)
-        AC_DEFINE(K_CPU_ALPHA)
+        AC_DEFINE(K_CPU_ALPHA, 1, Define to 1 if the host cpu is alpha.)
+	;;
+ia64*)
+        AC_DEFINE(K_CPU_IA64, 1, Define to 1 if the host cpu is ia64.)
 	;;
 i?86*)
-        AC_DEFINE(K_CPU_I386)
+        AC_DEFINE(K_CPU_I386, 1, Define to 1 if the host cpu is iX86.)
 	;;
 powerpc*)
-        AC_DEFINE(K_CPU_POWERPC)
+        AC_DEFINE(K_CPU_POWERPC, 1, Define to 1 if the host cpu is powerpc.)
 	;;
 sparc*)
-        AC_DEFINE(K_CPU_SPARC)
+        AC_DEFINE(K_CPU_SPARC, 1, Define to 1 if the host cpu is sparc.)
 	;;
 *)
         echo
@@ -99,12 +103,24 @@ esac
 
 dnl ####################################################################
 dnl #
+dnl # Initialize CFLAGS before AC_PROG_CC does.
+dnl #
+dnl ####################################################################
+
+if test -n "$CFLAGS" ; then
+  CFLAGS="$CFLAGS -O2 -Wall $OS_CFLAGS"
+else
+  CFLAGS="-O2 -Wall $OS_CFLAGS"
+fi
+
+dnl ####################################################################
+dnl #
 dnl # Check for programs.
 dnl #
 dnl ####################################################################
 
+AC_PROG_AWK
 AC_PROG_CC
-if test "$GCC" = "yes"; then CFLAGS="$CFLAGS -Wall"; fi
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
@@ -125,7 +141,16 @@ dnl ####################################################################
 
 AC_HEADER_DIRENT
 AC_HEADER_STDC
-AC_CHECK_HEADERS(fcntl.h limits.h sys/time.h unistd.h unistd.h sys/select.h)
+AC_HEADER_MAJOR
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h netinet/in.h stdlib.h string.h strings.h sys/param.h sys/socket.h sys/statfs.h sys/statvfs.h sys/time.h sys/vfs.h unistd.h])
+
+AC_CHECK_HEADERS(sys/mount.h,,,
+  [
+    #if HAVE_SYS_TYPES_H
+    #include <sys/types.h>
+    #endif
+  ]
+)
 
 dnl ####################################################################
 dnl #
@@ -135,9 +160,7 @@ dnl ####################################################################
 
 AC_C_CONST
 AC_TYPE_SIZE_T
-AC_STRUCT_ST_RDEV
-AC_HEADER_TIME
-AC_TYPE_UID_T
+AC_CHECK_MEMBERS([struct stat.st_rdev])
 
 dnl ####################################################################
 dnl #
@@ -145,9 +168,12 @@ dnl # Check for library functions.
 dnl #
 dnl ####################################################################
 
+AC_FUNC_LSTAT
+AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
+AC_FUNC_STAT
 AC_FUNC_STRFTIME
-AC_CHECK_FUNCS(gettimeofday socket strerror strstr uname snprintf vsnprintf)
+AC_CHECK_FUNCS([getcwd gethostbyname memset modf socket strcasecmp strchr strerror strncasecmp strstr strtoul uname])
 
 dnl ####################################################################
 dnl #
@@ -199,7 +225,7 @@ AC_ARG_WITH(ssl,
   ]
 )
 if test $use_ssl -ne 0; then
-  AC_DEFINE(USE_SSL)
+  AC_DEFINE(USE_SSL, 1, Define to 1 if OpenSSL support is enabled.)
   if test -z "$ssldir"; then
     AC_MSG_RESULT(missing)
     echo
@@ -231,7 +257,7 @@ AC_MSG_CHECKING(whether to include XMagic support)
 AC_ARG_ENABLE(xmagic,
   [  --enable-xmagic         Enable XMagic support ],
   [ AC_MSG_RESULT(yes)
-    AC_DEFINE(USE_XMAGIC)
+    AC_DEFINE(USE_XMAGIC, 1, Define to 1 if XMagic support is enabled.)
     xmagic_srcs=xmagic.c
     xmagic_incs=xmagic.h
     AC_SUBST(xmagic_srcs)
@@ -249,9 +275,171 @@ AC_MSG_CHECKING(whether to enable block/character device includes)
 AC_ARG_ENABLE(devices,
   [  --enable-devices        Enable block/character device includes ],
   [ AC_MSG_RESULT(yes)
-    AC_DEFINE(ENABLE_BLK_CHR_DEVICE_INCLUDES) ],
+    AC_DEFINE(ENABLE_BLK_CHR_DEVICE_INCLUDES, 1, Define to 1 if block/character device includes are enabled.) ],
   [ AC_MSG_RESULT(no) ]
 )
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to install server-side components.
+dnl #
+dnl ####################################################################
+
+server_subdirs=
+server_makefiles=
+
+AC_MSG_CHECKING([whether to install server-side components])
+AC_ARG_WITH(server-side,
+  [  --with-server-side      Install server-side components
+  --without-server-side   Do not install server-side components (same as --with-server-side=no)],
+  [
+    case `echo $withval | tr "A-Z" "a-z"` in
+    no)
+      install_server=0
+      ;;
+    *)
+      install_server=1
+      ;;
+    esac
+  ],
+  [
+    install_server=0
+  ]
+)
+if test $install_server -ne 0; then
+  AC_MSG_RESULT(yes)
+  server_subdirs="cgi"
+  server_makefiles="cgi/Makefile"
+else
+  AC_MSG_RESULT(no)
+fi
+
+AC_SUBST(server_subdirs)
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to install various tools.
+dnl #
+dnl ####################################################################
+
+tool_subdirs=
+tool_makefiles="tools/Makefile"
+
+AC_MSG_CHECKING([whether to install all utilities])
+AC_ARG_WITH(all-tools,
+  [  --with-all-tools        Install all utilities
+  --without-all-tools     Do not install all utilities (same as --with-all-tools=no)],
+  [
+    case `echo $withval | tr "A-Z" "a-z"` in
+    no)
+      install_all=0
+      ;;
+    *)
+      install_all=1
+      ;;
+    esac
+  ],
+  [
+    install_all=0
+  ]
+)
+if test $install_all -ne 0; then
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
+fi
+
+AC_MSG_CHECKING([whether to install dig utilities])
+AC_ARG_WITH(dig-tools,
+  [  --with-dig-tools        Install dig utilities
+  --without-dig-tools     Do not install dig utilities (same as --with-dig-tools=no)],
+  [
+    case `echo $withval | tr "A-Z" "a-z"` in
+    no)
+      install_dig=0
+      ;;
+    *)
+      install_dig=1
+      ;;
+    esac
+  ],
+  [
+    if test $install_all -eq 0; then
+      install_dig=0
+    else
+      install_dig=1
+    fi
+  ]
+)
+if test $install_dig -ne 0; then
+  AC_MSG_RESULT(yes)
+  tool_subdirs="$tool_subdirs dig"
+  tool_makefiles="$tool_makefiles tools/dig/Makefile"
+else
+  AC_MSG_RESULT(no)
+fi
+
+AC_MSG_CHECKING([whether to install hashdig utilities])
+AC_ARG_WITH(hashdig-tools,
+  [  --with-hashdig-tools    Install hashdig utilities
+  --without-hashdig-tools Do not install hashdig utilities (same as --with-hashdig-tools=no)],
+  [
+    case `echo $withval | tr "A-Z" "a-z"` in
+    no)
+      install_hashdig=0
+      ;;
+    *)
+      install_hashdig=1
+      ;;
+    esac
+  ],
+  [
+    if test $install_all -eq 0; then
+      install_hashdig=0
+    else
+      install_hashdig=1
+    fi
+  ]
+)
+if test $install_hashdig -ne 0; then
+  AC_MSG_RESULT(yes)
+  tool_subdirs="$tool_subdirs hashdig"
+  tool_makefiles="$tool_makefiles tools/hashdig/Makefile"
+else
+  AC_MSG_RESULT(no)
+fi
+
+AC_MSG_CHECKING([whether to install map utilities])
+AC_ARG_WITH(map-tools,
+  [  --with-map-tools        Install map utilities
+  --without-map-tools     Do not install map utilities (same as --with-map-tools=no)],
+  [
+    case `echo $withval | tr "A-Z" "a-z"` in
+    no)
+      install_map=0
+      ;;
+    *)
+      install_map=1
+      ;;
+    esac
+  ],
+  [
+    if test $install_all -eq 0; then
+      install_map=0
+    else
+      install_map=1
+    fi
+  ]
+)
+if test $install_map -ne 0; then
+  AC_MSG_RESULT(yes)
+  tool_subdirs="$tool_subdirs map"
+  tool_makefiles="$tool_makefiles tools/map/Makefile"
+else
+  AC_MSG_RESULT(no)
+fi
+
+AC_SUBST(tool_subdirs)
 
 dnl ####################################################################
 dnl #
@@ -259,4 +447,14 @@ dnl # Create Makefiles.
 dnl #
 dnl ####################################################################
 
-AC_OUTPUT(Makefile cgi/Makefile doc/Makefile etc/Makefile src/Makefile)
+AC_CONFIG_FILES(
+  [
+    Makefile
+    $server_makefiles
+    doc/Makefile
+    etc/Makefile
+    src/Makefile
+    $tool_makefiles
+  ]
+)
+AC_OUTPUT

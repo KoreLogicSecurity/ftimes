@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: ftimes.c,v 1.3 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: ftimes.c,v 1.9 2003/08/13 01:53:23 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -20,7 +19,7 @@
  *
  ***********************************************************************
  */
-#ifdef FTimes_UNIX
+#ifdef UNIX
 static MASK_TABLE gMaskTable[] =
 {
   { "dev",         "dev",         DEV_SET        },
@@ -39,7 +38,7 @@ static MASK_TABLE gMaskTable[] =
   { "md5",         "md5",         MD5_SET        },
 };
 #endif
-#ifdef FTimes_WIN32
+#ifdef WIN32
 static MASK_TABLE gMaskTable[] =
 {
   { "volume",      "volume",      VOLUME_SET     },
@@ -60,7 +59,7 @@ static const int giMaskTableLength = sizeof(gMaskTable) / sizeof(gMaskTable[0]);
 
 static FTIMES_PROPERTIES *gpsProperties;
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
 HINSTANCE             NtdllHandle;
 NQIF                  NtdllNQIF;
 #endif
@@ -131,7 +130,7 @@ FTimesBootstrap(char *pcError)
   const char          cRoutine[] = "FTimesBootstrap()";
   char                cLocalError[ERRBUF_SIZE];
   FTIMES_PROPERTIES  *psProperties;
-#ifdef FTimes_WINNT
+#ifdef WINNT
   char               *pcMessage;
   int                 iError;
 #endif
@@ -147,7 +146,7 @@ FTimesBootstrap(char *pcError)
    */
   MessageSetOutputStream(stderr);
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   /*-
    *********************************************************************
    *
@@ -301,10 +300,10 @@ FTimesNewProperties(char *pcError)
    *
    *********************************************************************
    */
-#ifdef FTimes_WIN32
+#ifdef WIN32
   strncpy(psProperties->cNewLine, CRLF, NEWLINE_LENGTH);
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
   strncpy(psProperties->cNewLine, LF, NEWLINE_LENGTH);
 #endif
 
@@ -439,38 +438,25 @@ FTimesProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char
 
     psProperties->piRunModeFinalStage = DecoderFinalStage;
   }
-  else if (strcmp(psProperties->pcRunModeArgument, "--digauto") == 0)
+  else if (strncmp(psProperties->pcRunModeArgument, "--dig", 5) == 0)
   {
-    psProperties->iRunMode = FTIMES_DIGAUTO;
-    strcpy(psProperties->cDataType, FTIMES_DIGDATA);
+    if (strcmp(psProperties->pcRunModeArgument, "--digauto") == 0)
+    {
+      psProperties->iRunMode = FTIMES_DIGAUTO;
+    }
+    else if (strcmp(psProperties->pcRunModeArgument, "--digfull") == 0)
+    {
+      psProperties->iRunMode = FTIMES_DIGFULL;
+    }
+    else if (strcmp(psProperties->pcRunModeArgument, "--diglean") == 0)
+    {
+      psProperties->iRunMode = FTIMES_DIGLEAN;
+    }
+    else
+    {
+      FTimesUsage();
+    }
 
-    psProperties->piRunModeProcessArguments = DigModeProcessArguments;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].cDescription, "DigModeInitialize");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_Initialize;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = DigModeInitialize;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].cDescription, "DigModeCheckDependencies");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_CheckDependencies;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = DigModeCheckDependencies;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].cDescription, "DigModeFinalize");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_Finalize;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = DigModeFinalize;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].cDescription, "DigModeWorkHorse");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_WorkHorse;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = DigModeWorkHorse;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].cDescription, "DigModeFinishUp");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_FinishUp;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = DigModeFinishUp;
-
-    psProperties->piRunModeFinalStage = DigModeFinalStage;
-  }
-  else if (strcmp(psProperties->pcRunModeArgument, "--digfull") == 0)
-  {
-    psProperties->iRunMode = FTIMES_DIGFULL;
     strcpy(psProperties->cDataType, FTIMES_DIGDATA);
 
     psProperties->piRunModeProcessArguments = DigModeProcessArguments;
@@ -524,38 +510,25 @@ FTimesProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char
 
     psProperties->piRunModeFinalStage = GetModeFinalStage;
   }
-  else if (strcmp(psProperties->pcRunModeArgument, "--mapauto") == 0)
+  else if (strncmp(psProperties->pcRunModeArgument, "--map", 5) == 0)
   {
-    psProperties->iRunMode = FTIMES_MAPAUTO;
-    strcpy(psProperties->cDataType, FTIMES_MAPDATA);
+    if (strcmp(psProperties->pcRunModeArgument, "--mapauto") == 0)
+    {
+      psProperties->iRunMode = FTIMES_MAPAUTO;
+    }
+    else if (strcmp(psProperties->pcRunModeArgument, "--mapfull") == 0)
+    {
+      psProperties->iRunMode = FTIMES_MAPFULL;
+    }
+    else if (strcmp(psProperties->pcRunModeArgument, "--maplean") == 0)
+    {
+      psProperties->iRunMode = FTIMES_MAPLEAN;
+    }
+    else
+    {
+      FTimesUsage();
+    }
 
-    psProperties->piRunModeProcessArguments = MapModeProcessArguments;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].cDescription, "MapModeInitialize");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_Initialize;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = MapModeInitialize;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].cDescription, "MapModeCheckDependencies");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_CheckDependencies;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = MapModeCheckDependencies;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].cDescription, "MapModeFinalize");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_Finalize;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = MapModeFinalize;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].cDescription, "MapModeWorkHorse");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_WorkHorse;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = MapModeWorkHorse;
-
-    strcpy(psProperties->sRunModeStages[psProperties->iLastRunModeStage].cDescription, "MapModeFinishUp");
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage].iError = XER_FinishUp;
-    psProperties->sRunModeStages[psProperties->iLastRunModeStage++].piRoutine = MapModeFinishUp;
-
-    psProperties->piRunModeFinalStage = MapModeFinalStage;
-  }
-  else if (strcmp(psProperties->pcRunModeArgument, "--mapfull") == 0)
-  {
-    psProperties->iRunMode = FTIMES_MAPFULL;
     strcpy(psProperties->cDataType, FTIMES_MAPDATA);
 
     psProperties->piRunModeProcessArguments = MapModeProcessArguments;
@@ -673,7 +646,7 @@ FTimesStagesLoop(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  snprintf(cMessage, MESSAGE_SIZE, "Program=%s %s %s", PROGRAM_NAME, VERSION, psProperties->pcRunModeArgument);
+  snprintf(cMessage, MESSAGE_SIZE, "Program=%s %s", SupportGetMyVersion(), psProperties->pcRunModeArgument);
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_EXECDATA_STRING, cMessage);
 
   snprintf(cMessage, MESSAGE_SIZE, "SystemOS=%s", SupportGetSystemOS());
@@ -755,7 +728,7 @@ FTimesFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
     }
   }
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   /*-
    *********************************************************************
    *
@@ -789,9 +762,11 @@ FTimesUsage(void)
   fprintf(stderr, "       ftimes --decoder snapshot [-l level]\n");
   fprintf(stderr, "       ftimes --digauto file [-l level] [list]\n");
   fprintf(stderr, "       ftimes --digfull file [-l level] [list]\n");
+  fprintf(stderr, "       ftimes --diglean file [-l level] [list]\n");
   fprintf(stderr, "       ftimes --getmode file [-l level]\n");
   fprintf(stderr, "       ftimes --mapauto mask [-l level] [list]\n");
   fprintf(stderr, "       ftimes --mapfull file [-l level] [list]\n");
+  fprintf(stderr, "       ftimes --maplean file [-l level] [list]\n");
   fprintf(stderr, "       ftimes --putmode file [-l level]\n");
   fprintf(stderr, "       ftimes --version\n");
   fprintf(stderr, "\n");
@@ -809,8 +784,8 @@ FTimesUsage(void)
 int
 FTimesVersion(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  fprintf(stdout, "%s %s\n", PROGRAM_NAME, VERSION);
-  return ER_OK;;
+  fprintf(stdout, "%s\n", SupportGetMyVersion());
+  return ER_OK;
 }
 
 

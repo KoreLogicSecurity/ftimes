@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: time.c,v 1.1.1.1 2002/01/18 03:17:24 mavrik Exp $
+ * $Id: time.c,v 1.4 2003/02/24 19:36:02 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -84,7 +83,7 @@ TimeGetTime(char *pcDate, char *pcTime, char *zonebuf, char *pcDateTime)
 }
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 /*-
  ***********************************************************************
  *
@@ -120,7 +119,7 @@ TimeFormatTime(time_t *ptimeValue, char *pcTime)
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *

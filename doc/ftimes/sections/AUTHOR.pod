@@ -1,4 +1,4 @@
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 

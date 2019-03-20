@@ -1,6 +1,6 @@
 =item B<Exclude>: [directory|file|link]
 
-Applies to B<digfull> and B<mapfull>.
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
 
 B<Exclude> is optional.  It specifies a directory, file, or symbolic
 link (UNIX only) to skip.  There can be as many excludes as you

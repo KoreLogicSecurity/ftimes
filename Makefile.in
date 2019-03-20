@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.5 2002/11/26 14:30:19 mavrik Exp $
+# $Id: Makefile.in,v 1.12 2003/06/26 14:08:13 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
 # All Rights Reserved.
 #
 ########################################################################
@@ -21,29 +21,41 @@ srcdir			= @srcdir@
 VPATH			= ${srcdir}
 
 INSTALL			= @INSTALL@
-SUBS			=\
-			cgi\
+
+SUBDIRS			=\
+			@server_subdirs@\
 			doc\
 			etc\
-			src
+			src\
+			tools
+
 CONFIGURE_FILES		=\
 			Makefile\
 			config.cache\
 			config.log\
-			config.status
+			config.status\
+			configure.lineno
 
 all:
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make $@; echo '<<<' $${i} '>>> Status=Done'; done
+	@cwd=`pwd`; for i in ${SUBDIRS}; do\
+		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
+	done
 
 install:
-	umask 22; if [ ! -d ${prefix} ]; then mkdir -p ${prefix}; fi
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make $@; echo '<<<' $${i} '>>> Status=Done'; done
+	@umask 22; if [ ! -d ${prefix} ]; then mkdir -p ${prefix}; fi
+	@cwd=`pwd`; for i in ${SUBDIRS}; do\
+		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
+	done
 
 clean:
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make $@; echo '<<<' $${i} '>>> Status=Done'; done
+	@cwd=`pwd`; for i in ${SUBDIRS}; do\
+		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
+	done
 
 clean-all:
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make $@; echo '<<<' $${i} '>>> Status=Done'; done
+	@cwd=`pwd`; for i in ${SUBDIRS}; do\
+		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
+	done
 	rm -f ${CONFIGURE_FILES}
 
 auto:
@@ -55,13 +67,15 @@ auto:
 		echo "";\
 		exit 1;\
 	fi
-	autoconf; autoheader --localdir=src configure.in > src/config.h.in
+	autoconf && autoheader ; rm -rf autom4te.cache src/config.h.in~
 
 atar: ctar dtar
 
 ctar:
-	@cwd=`pwd`; dir=`basename $$cwd`; tar -C ../ -zcf "../$$dir-current.tgz" $$dir
+	@cwd=`pwd`; dir=`basename $${cwd}`;\
+	tar -C ../ -zcf "../$${dir}-current.tgz" $${dir}
 
 dtar:
-	@cwd=`pwd`; dir=`basename $$cwd`; ts=`date "+%Y-%m-%d"`; tar -C ../ -zcf "../$$dir-$$ts.tgz" $$dir
+	@cwd=`pwd`; dir=`basename $${cwd}`; date=`date "+%Y-%m-%d"`;\
+	tar -C ../ -zcf "../$${dir}-$${date}.tgz" $${dir}
 

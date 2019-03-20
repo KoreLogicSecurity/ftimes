@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.4 2002/11/26 14:30:20 mavrik Exp $
+# $Id: Makefile.in,v 1.9 2003/03/17 20:17:03 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
 # All Rights Reserved.
 #
 ########################################################################
@@ -24,20 +24,24 @@ srcdir			= @srcdir@
 VPATH			= ${srcdir}
 
 INSTALL			= @INSTALL@
-SUBS			= ftimes
+SUBDIRS			= ftimes
 ALL_HTML_FILES		= ftimes.html
 ALL_MAN1_FILES		= ftimes.1
 
 all:
 
-install: ${ALL_HTML_FILES} ${ALL_MAN1_FILES}
-	umask 22; if [ ! -d ${docdir} ]; then mkdir -p ${docdir}; fi
-	for i in ${ALL_HTML_FILES}; do\
+install: install-man
+
+install-html: ${ALL_HTML_FILES}
+	@umask 22; if [ ! -d ${docdir} ]; then mkdir -p ${docdir}; fi
+	@for i in ${ALL_HTML_FILES}; do\
 		if [ -f ${srcdir}/$${i} ]; then file=${srcdir}/$${i}; else file=$${i}; fi;\
 		${INSTALL} -m 644 $${file} ${docdir};\
 	done
-	umask 22; if [ ! -d ${man1dir} ]; then mkdir -p ${man1dir}; fi
-	for i in ${ALL_MAN1_FILES}; do\
+
+install-man: ${ALL_MAN1_FILES}
+	@umask 22; if [ ! -d ${man1dir} ]; then mkdir -p ${man1dir}; fi
+	@for i in ${ALL_MAN1_FILES}; do\
 		if [ -f ${srcdir}/$${i} ]; then file=${srcdir}/$${i}; else file=$${i}; fi;\
 		${INSTALL} -m 644 $${file} ${man1dir};\
 	done
@@ -56,7 +60,9 @@ dist:
 		echo "";\
 		exit 1;\
 	fi
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make install; echo '<<<' $${i} '>>> Status=Done'; done
+	@cwd=`pwd`; for i in ${SUBDIRS}; do\
+		echo '===>' doc/$${i} && cd $${cwd}/$${i} && make install ;\
+	done
 
 dist-clean:
 	@if [ "${srcdir}" != `echo "@""srcdir""@"` ]; then\
@@ -67,6 +73,8 @@ dist-clean:
 		echo "";\
 		exit 1;\
 	fi
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make clean-all; echo '<<<' $${i} '>>> Status=Done'; done
+	@cwd=`pwd`; for i in ${SUBDIRS}; do\
+		echo '===>' doc/$${i} && cd $${cwd}/$${i} && make clean-all ;\
+	done
 	rm -f Makefile ${ALL_HTML_FILES} ${ALL_MAN1_FILES}
 

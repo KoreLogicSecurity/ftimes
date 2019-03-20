@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: properties.c,v 1.5 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: properties.c,v 1.11 2003/08/13 21:39:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -245,14 +244,14 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
   char               *pc;
   char               *pcControl;
   char               *pcE;
-#ifdef FTimes_WIN32
+#ifdef WIN32
   char               *pcMessage;
 #endif
   int                 i;
   int                 iError;
   int                 iRunMode;
   int                 iValue;
-#ifdef FTimes_UNIX
+#ifdef UNIX
   struct stat         sStatEntry;
 #endif
   unsigned int        iLength;
@@ -453,22 +452,39 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->sFound.bHashDirectoriesFound = TRUE;
   }
 
+  else if (strcasecmp(pcControl, KEY_HashSymbolicLinks) == 0 && RUN_MODE_IS_SET(MODES_HashSymbolicLinks, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bHashSymbolicLinksFound);
+    EVALUATE_TWOSTATE(pc, "Y", "N", psProperties->bHashSymbolicLinks);
+    psProperties->sFound.bHashSymbolicLinksFound = TRUE;
+  }
+
   else if (strcasecmp(pcControl, KEY_URLGetRequest) == 0 && RUN_MODE_IS_SET(MODES_URLGetRequest, iRunMode))
   {
     DUPLICATE_ERROR(psProperties->sFound.bURLGetRequestFound);
-    if (strcasecmp(pc, "MapConfig") == 0)
+    if (strcasecmp(pc, "MapFullConfig") == 0)
     {
-      strncpy(psProperties->cURLGetRequest, "MapConfig", GET_REQUEST_BUFSIZE);
+      strncpy(psProperties->cURLGetRequest, "MapFullConfig", GET_REQUEST_BUFSIZE);
       psProperties->iNextRunMode = FTIMES_MAPFULL;
     }
-    else if (strcasecmp(pc, "DigConfig") == 0)
+    else if (strcasecmp(pc, "MapLeanConfig") == 0)
     {
-      strncpy(psProperties->cURLGetRequest, "DigConfig", GET_REQUEST_BUFSIZE);
+      strncpy(psProperties->cURLGetRequest, "MapLeanConfig", GET_REQUEST_BUFSIZE);
+      psProperties->iNextRunMode = FTIMES_MAPLEAN;
+    }
+    else if (strcasecmp(pc, "DigFullConfig") == 0)
+    {
+      strncpy(psProperties->cURLGetRequest, "DigFullConfig", GET_REQUEST_BUFSIZE);
       psProperties->iNextRunMode = FTIMES_DIGFULL;
+    }
+    else if (strcasecmp(pc, "DigLeanConfig") == 0)
+    {
+      strncpy(psProperties->cURLGetRequest, "DigLeanConfig", GET_REQUEST_BUFSIZE);
+      psProperties->iNextRunMode = FTIMES_DIGLEAN;
     }
     else
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Value must be [MapConfig|DigConfig].", cRoutine, pcControl);
+      snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Value must be [Dig{Full,Lean}Config|Map{Full,Lean}Config].", cRoutine, pcControl);
       return ER;
     }
     psProperties->sFound.bURLGetRequestFound = TRUE;
@@ -507,14 +523,14 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
      *
      *******************************************************************
      */
-#ifdef FTimes_WIN32
+#ifdef WIN32
     if (!(isalpha((int) pc[0]) && pc[1] == ':'))
     {
       snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Value = [%s], A full path is required.", cRoutine, pcControl, pc);
       return ER;
     }
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
     if (pc[0] != FTIMES_SLASHCHAR)
     {
       snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Value = [%s], A full path is required.", cRoutine, pcControl, pc);
@@ -545,7 +561,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
      *
      *******************************************************************
      */
-#ifdef FTimes_WIN32
+#ifdef WIN32
     if (!(isalpha((int) pc[0]) && pc[1] == ':'))
     {
       snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Value = [%s], A full path is required.", cRoutine, pcControl, pc);
@@ -561,7 +577,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       }
     }
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
     if (pc[0] != FTIMES_SLASHCHAR)
     {
       snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Value = [%s], A full path is required.", cRoutine, pcControl, pc);
@@ -795,12 +811,12 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
   else if (strcasecmp(pcControl, KEY_OutFileHash) == 0 && RUN_MODE_IS_SET(MODES_OutFileHash, iRunMode))
   {
     DUPLICATE_ERROR(psProperties->sFound.bOutFileHashFound);
-    if (iLength != MD5_HASH_STRING_LENGTH - 1)
+    if (iLength != FTIMEX_MAX_MD5_LENGTH - 1)
     {
       snprintf(pcError, ERRBUF_SIZE, "%s: Control = [%s], Invalid length [%d].", cRoutine, pcControl, iLength);
       return ER;
     }
-    for (i = 0; i < MD5_HASH_STRING_LENGTH - 1; i++)
+    for (i = 0; i < FTIMEX_MAX_MD5_LENGTH - 1; i++)
     {
       psProperties->cOutFileHash[i] = tolower((int) pc[i]);
     }
@@ -1077,6 +1093,12 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
   if (RUN_MODE_IS_SET(MODES_HashDirectories, psProperties->iRunMode))
   {
     snprintf(cMessage, MESSAGE_SIZE, "%s=%s", KEY_HashDirectories, psProperties->bHashDirectories ? "Y" : "N");
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, cMessage);
+  }
+
+  if (RUN_MODE_IS_SET(MODES_HashSymbolicLinks, psProperties->iRunMode))
+  {
+    snprintf(cMessage, MESSAGE_SIZE, "%s=%s", KEY_HashSymbolicLinks, psProperties->bHashSymbolicLinks ? "Y" : "N");
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, cMessage);
   }
 

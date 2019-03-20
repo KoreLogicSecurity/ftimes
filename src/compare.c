@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.c,v 1.4 2003/01/16 21:36:32 mavrik Exp $
+ * $Id: compare.c,v 1.8 2003/08/13 21:39:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
@@ -169,7 +169,7 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
   int                 iLineLength;
   int                 iLineNumber;
   int                 iToLower;
-  unsigned char       aucHash[MD5_HASH_LENGTH];
+  unsigned char       aucHash[MD5_HASH_SIZE];
 
   acLocalError[0] = iLineLength = iLineNumber = 0;
 
@@ -610,7 +610,7 @@ CompareLoadBaselineData(char *pcFilename, char *pcError)
   int                 iToLower;
   int                *piNodeIndex;
   struct stat         statEntry;
-  unsigned char       aucHash[MD5_HASH_LENGTH];
+  unsigned char       aucHash[MD5_HASH_SIZE];
 
   acLocalError[0] = iLineLength = iLineNumber = 0;
 
@@ -810,11 +810,11 @@ CompareNewProperties(char *pcError)
 #endif
   }
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
   psProperties->piCompareRoutine = strcasecmp;
   strncpy(psProperties->acNewLine, CRLF, NEWLINE_LENGTH);
 #endif
-#ifdef FTimes_UNIX
+#ifdef UNIX
   psProperties->piCompareRoutine = strcmp;
   strncpy(psProperties->acNewLine, LF, NEWLINE_LENGTH);
 #endif
@@ -1067,7 +1067,7 @@ ComparePreprocessLine(FILE *pFile, int iToLower, char *pcLine, int *piLength, un
       }
     }
   }
-  md5_string((unsigned char *) acName, iLength, pucHash);
+  MD5HashString((unsigned char *) acName, iLength, pucHash);
 
   return ER_OK;
 }

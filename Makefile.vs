@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.5 2002/11/26 16:23:42 mavrik Exp $
+# $Id: Makefile.vs,v 1.9 2003/08/13 01:53:22 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
 # All Rights Reserved.
 #
 ########################################################################
@@ -15,6 +15,7 @@
 
 BUILD_TYPE		= RELEASE	# [RELEASE|DEBUG]
 PLATFORM_TYPE		= WINNT		# [WINNT|WIN98]
+USE_CGI			= N		# [Y|N]
 USE_SSL			= Y		# [Y|N]
 USE_STATIC_SSL_LIBS	= N		# [Y|N]
 USE_XMAGIC		= N		# [Y|N]
@@ -54,11 +55,10 @@ COMPILER_FLAGS		=\
 			/D _MBCS\
 			/D _CONSOLE\
 			/D WIN32\
-			/D FTimes_WIN32\
 !IF "$(PLATFORM_TYPE)" == "WIN98"
-			/D FTimes_WIN98\
+			/D WIN98\
 !ELSE
-			/D FTimes_WINNT\
+			/D WINNT\
 !ENDIF
 			$(SSL_COMPILER_FLAGS)\
 			$(XMAGIC_COMPILER_FLAGS)\
@@ -152,19 +152,25 @@ all: "$(EXECUTEABLE)"
 install: "$(EXECUTEABLE)"
 	if not exist "$(INSTALL_DIR)" mkdir "$(INSTALL_DIR)"
 	if not exist "$(INSTALL_DIR)\bin" mkdir "$(INSTALL_DIR)\bin"
+!IF "$(USE_CGI)" == "Y" || "$(USE_CGI)" == "y"
 	if not exist "$(INSTALL_DIR)\cgi" mkdir "$(INSTALL_DIR)\cgi"
 	if not exist "$(INSTALL_DIR)\cgi\cgi-client" mkdir "$(INSTALL_DIR)\cgi\cgi-client"
+!ENDIF
 	if not exist "$(INSTALL_DIR)\doc" mkdir "$(INSTALL_DIR)\doc"
 	if not exist "$(INSTALL_DIR)\etc" mkdir "$(INSTALL_DIR)\etc"
 	if not exist "$(INSTALL_DIR)\log" mkdir "$(INSTALL_DIR)\log"
 	if not exist "$(INSTALL_DIR)\run" mkdir "$(INSTALL_DIR)\run"
 	copy "$(EXECUTEABLE)" "$(INSTALL_DIR)\bin"
+!IF "$(USE_CGI)" == "Y" || "$(USE_CGI)" == "y"
 	copy cgi\nph-ftimes.cgi "$(INSTALL_DIR)\cgi\cgi-client"
+!ENDIF
 	copy doc\ftimes.html "$(INSTALL_DIR)\doc"
-	copy etc\dig.cfg "$(INSTALL_DIR)\etc"
-	copy etc\get.cfg "$(INSTALL_DIR)\etc"
-	copy etc\map.cfg "$(INSTALL_DIR)\etc"
-	copy etc\put.cfg "$(INSTALL_DIR)\etc"
+	copy etc\digfull.cfg.sample "$(INSTALL_DIR)\etc"
+	copy etc\diglean.cfg.sample "$(INSTALL_DIR)\etc"
+	copy etc\get.cfg.sample "$(INSTALL_DIR)\etc"
+	copy etc\mapfull.cfg.sample "$(INSTALL_DIR)\etc"
+	copy etc\maplean.cfg.sample "$(INSTALL_DIR)\etc"
+	copy etc\put.cfg.sample "$(INSTALL_DIR)\etc"
 !IF ("$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y") && ("$(USE_STATIC_SSL_LIBS)" == "N" || "$(USE_STATIC_SSL_LIBS)" == "n")
 	copy "$(SSL_DLL1)" "$(INSTALL_DIR)\bin"
 	copy "$(SSL_DLL2)" "$(INSTALL_DIR)\bin"

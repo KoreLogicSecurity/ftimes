@@ -1,22 +1,21 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: map.c,v 1.10 2003/01/14 23:28:21 mavrik Exp $
+ * $Id: map.c,v 1.17 2003/08/13 21:39:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 static int giDirectories;
 static int giFiles;
 static int giSpecial;
-#ifdef FTimes_WINNT
+#ifdef WINNT
 static int giStreams;
 #endif
 
@@ -65,7 +64,7 @@ MapGetSpecialCount()
 }
 
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
 /*-
  ***********************************************************************
  *
@@ -109,7 +108,7 @@ MapGetIncompleteRecordCount()
 }
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 /*-
  ***********************************************************************
  *
@@ -136,7 +135,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   int                 iPathLength;
   int                 iParentPathLength;
   struct dirent      *pDirEntry;
-  struct hash_block   dirHashBlock;
+  MD5_CONTEXT         sDirMD5Context;
   struct stat         sStatPDirectory, *psStatPDirectory;
   struct stat         sStatCDirectory, *psStatCDirectory;
 
@@ -165,13 +164,13 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   /*-
    *********************************************************************
    *
-   * If directory hashing is enabled, initialize dirHashBlock.
+   * If directory hashing is enabled, initialize sDirMD5Context.
    *
    *********************************************************************
    */
   if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
   {
-    md5_begin(&dirHashBlock);
+    MD5Alpha(&sDirMD5Context);
   }
 
   /*-
@@ -372,7 +371,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
        */
       if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
       {
-        md5_middle(&dirHashBlock, sFTFileData.ucFileMD5, MD5_HASH_LENGTH);
+        MD5Cycle(&sDirMD5Context, sFTFileData.ucFileMD5, MD5_HASH_SIZE);
       }
 
       /*-
@@ -547,7 +546,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
       else if (S_ISLNK(sFTFileData.statEntry.st_mode))
       {
         giSpecial++;
-        if ((psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+        if (psProperties->bHashSymbolicLinks && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
         {
           iError = readlink(cNewRawPath, cLinkData, FTIMES_MAX_PATH - 1);
           if (iError == ER)
@@ -558,7 +557,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
           else
           {
             cLinkData[iError] = 0; /* Readlink does not append a NULL. */
-            md5_string((unsigned char *) cLinkData, strlen(cLinkData), sFTFileData.ucFileMD5);
+            MD5HashString((unsigned char *) cLinkData, strlen(cLinkData), sFTFileData.ucFileMD5);
           }
         }
 #ifdef USE_XMAGIC
@@ -600,7 +599,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
        */
       if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
       {
-        md5_middle(&dirHashBlock, sFTFileData.ucFileMD5, MD5_HASH_LENGTH);
+        MD5Cycle(&sDirMD5Context, sFTFileData.ucFileMD5, MD5_HASH_SIZE);
       }
 
       /*-
@@ -658,7 +657,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
    */
   if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
   {
-    md5_end(&dirHashBlock, pucTreeHash);
+    MD5Omega(&sDirMD5Context, pucTreeHash);
   }
 
   closedir(pDir);
@@ -667,7 +666,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -732,7 +731,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   int                 iNameLength;
   int                 iParentPathLength;
   int                 iPathLength;
-  struct hash_block   dirHashBlock;
+  MD5_CONTEXT         sDirMD5Context;
   WIN32_FIND_DATA     findData;
 
   cLocalError[0] = 0;
@@ -760,13 +759,13 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   /*-
    *********************************************************************
    *
-   * If directory hashing is enabled, initialize dirHashBlock.
+   * If directory hashing is enabled, initialize sDirMD5Context.
    *
    *********************************************************************
    */
   if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
   {
-    md5_begin(&dirHashBlock);
+    MD5Alpha(&sDirMD5Context);
   }
 
   /*-
@@ -858,7 +857,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
     sFTFileData.iStreamCount = -1; /* Develop routines check for this value. */
     sFTFileData.iFSType = iFSType;
 
-#ifdef FTimes_WIN98
+#ifdef WIN98
 
     /*-
      *******************************************************************
@@ -955,7 +954,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
        */
       if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
       {
-        md5_middle(&dirHashBlock, sFTFileData.ucFileMD5, MD5_HASH_LENGTH);
+        MD5Cycle(&sDirMD5Context, sFTFileData.ucFileMD5, MD5_HASH_SIZE);
       }
 
       /*-
@@ -1120,7 +1119,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
        */
       if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
       {
-        md5_middle(&dirHashBlock, sFTFileData.ucFileMD5, MD5_HASH_LENGTH);
+        MD5Cycle(&sDirMD5Context, sFTFileData.ucFileMD5, MD5_HASH_SIZE);
       }
 
       /*-
@@ -1137,7 +1136,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
         ErrorHandler(iError, pcError, ERROR_CRITICAL);
       }
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
       /*-
        *****************************************************************
        *
@@ -1147,7 +1146,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
        */
       if (sFTFileData.iStreamCount > 0)
       {
-        MapStream(psProperties, &sFTFileData, &dirHashBlock, cLocalError);
+        MapStream(psProperties, &sFTFileData, &sDirMD5Context, cLocalError);
       }
       if (sFTFileData.pucStreamInfo)
       {
@@ -1178,7 +1177,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
    */
   if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
   {
-    md5_end(&dirHashBlock, pucTreeHash);
+    MD5Omega(&sDirMD5Context, pucTreeHash);
   }
 
   FindClose(hSearch);
@@ -1186,7 +1185,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
 }
 
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
 /*-
  ***********************************************************************
  *
@@ -1195,7 +1194,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
  ***********************************************************************
  */
 void
-MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, struct hash_block *pDirHashBlock, char *pcError)
+MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTEXT *pDirHashBlock, char *pcError)
 {
   const char          cRoutine[] = "MapStream()";
   char                cLocalError[ERRBUF_SIZE];
@@ -1379,7 +1378,7 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, struct ha
      */
     if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
     {
-      md5_middle(pDirHashBlock, sFTFileData.ucFileMD5, MD5_HASH_LENGTH);
+      MD5Cycle(pDirHashBlock, sFTFileData.ucFileMD5, MD5_HASH_SIZE);
     }
 
     /*-
@@ -1537,7 +1536,7 @@ MapCountNamedStreams(HANDLE hFile, int *piStreamCount, unsigned char **ppucStrea
 #endif /* WIN32 */
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 int
 MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
 {
@@ -1689,7 +1688,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   else if (S_ISLNK(sFTFileData.statEntry.st_mode))
   {
     giSpecial++;
-    if ((psProperties->ulFieldMask & MD5_SET) == MD5_SET)
+    if (psProperties->bHashSymbolicLinks && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
     {
       iError = readlink(pcPath, cLinkData, FTIMES_MAX_PATH - 1);
       if (iError == ER)
@@ -1700,7 +1699,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
       else
       {
         cLinkData[iError] = 0; /* Readlink does not append a NULL. */
-        md5_string((unsigned char *) cLinkData, strlen(cLinkData), sFTFileData.ucFileMD5);
+        MD5HashString((unsigned char *) cLinkData, strlen(cLinkData), sFTFileData.ucFileMD5);
       }
     }
 #ifdef USE_XMAGIC
@@ -1759,7 +1758,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -1778,8 +1777,8 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   int                 iFSType;
   int                 iPathLength;
 
-#ifdef FTimes_WINNT
-  struct hash_block   unusedHashBlock;
+#ifdef WINNT
+  MD5_CONTEXT         sUnusedMD5Context;
 #endif
 
   cLocalError[0] = 0;
@@ -1932,7 +1931,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     ErrorHandler(iError, pcError, ERROR_CRITICAL);
   }
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   /*-
    *********************************************************************
    *
@@ -1944,9 +1943,9 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   {
     if (psProperties->bHashDirectories && (psProperties->ulFieldMask & MD5_SET) == MD5_SET)
     {
-      md5_begin(&unusedHashBlock);
+      MD5Alpha(&sUnusedMD5Context);
     }
-    MapStream(psProperties, &sFTFileData, &unusedHashBlock, cLocalError);
+    MapStream(psProperties, &sFTFileData, &sUnusedMD5Context, cLocalError);
   }
   if (sFTFileData.pucStreamInfo)
   {
@@ -1983,7 +1982,7 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
   int                 iError;
   int                 iWriteCount;
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
   /*-
    *********************************************************************
    *
@@ -1999,17 +1998,17 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
    * mtime         FTIMES_TIME_FORMAT_SIZE
    * ctime         FTIMES_TIME_FORMAT_SIZE
    * size          20 (64 bits in decimal)
-   * md5           MD5_HASH_STRING_LENGTH
+   * md5           FTIMEX_MAX_MD5_LENGTH
    * |'s           13 (not counting those embedded in time)
    * ------------------------------------------------------------------
-   * Total         ((4 * FTIMES_MAX_PATH) + 2) + MD5_HASH_STRING_LENGTH + (3 * FTIMES_TIME_FORMAT_SIZE) + 103
+   * Total         ((4 * FTIMES_MAX_PATH) + 2) + FTIMEX_MAX_MD5_LENGTH + (3 * FTIMES_TIME_FORMAT_SIZE) + 103
    *
    *********************************************************************
    */
-  static char         cOutput[((4 * FTIMES_MAX_PATH) + 2) + MD5_HASH_STRING_LENGTH + (3 * FTIMES_TIME_FORMAT_SIZE) + 103];
+  static char         cOutput[((4 * FTIMES_MAX_PATH) + 2) + FTIMEX_MAX_MD5_LENGTH + (3 * FTIMES_TIME_FORMAT_SIZE) + 103];
 #endif
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
   /*-
    *********************************************************************
    *
@@ -2023,14 +2022,14 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
    * chtime|chms   FTIMES_TIME_FORMAT_SIZE
    * size          20 (64 bits in decimal)
    * altstreams    10 (32 bits in decimal)
-   * md5           MD5_HASH_STRING_LENGTH
+   * md5           FTIMEX_MAX_MD5_LENGTH
    * |'s           11 (not counting those embedded in time)
    * -----------------------------------------------------------------
-   * Total         ((4 * FTIMES_MAX_PATH) + 2) + MD5_HASH_STRING_LENGTH + (4 * FTIMES_TIME_FORMAT_SIZE) + 81
+   * Total         ((4 * FTIMES_MAX_PATH) + 2) + FTIMEX_MAX_MD5_LENGTH + (4 * FTIMES_TIME_FORMAT_SIZE) + 81
    *
    *********************************************************************
    */
-  static char         cOutput[((4 * FTIMES_MAX_PATH) + 2) + MD5_HASH_STRING_LENGTH + (4 * FTIMES_TIME_FORMAT_SIZE) + 81];
+  static char         cOutput[((4 * FTIMES_MAX_PATH) + 2) + FTIMEX_MAX_MD5_LENGTH + (4 * FTIMES_TIME_FORMAT_SIZE) + 81];
 #endif
 
   /*-
@@ -2082,7 +2081,7 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
    *
    *********************************************************************
    */
-  md5_middle(&psProperties->sOutFileHashContext, cOutput, iWriteCount);
+  MD5Cycle(&psProperties->sOutFileHashContext, cOutput, iWriteCount);
 
   return ER_OK;
 }
@@ -2114,7 +2113,7 @@ MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  md5_begin(&psProperties->sOutFileHashContext);
+  MD5Alpha(&psProperties->sOutFileHashContext);
 
   /*-
    *********************************************************************
@@ -2156,13 +2155,13 @@ MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  md5_middle(&psProperties->sOutFileHashContext, cHeaderData, iIndex);
+  MD5Cycle(&psProperties->sOutFileHashContext, cHeaderData, iIndex);
 
   return ER_OK;
 }
 
 
-#ifdef FTimes_UNIX
+#ifdef UNIX
 /*-
  ***********************************************************************
  *
@@ -2199,7 +2198,7 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
 #endif
 
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
 /*-
  ***********************************************************************
  *
@@ -2217,11 +2216,11 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
   HANDLE              hFile;
   WIN32_FILE_ATTRIBUTE_DATA fileAttributeData;
 
-#ifdef FTimes_WIN98
+#ifdef WIN98
   DWORD               dwFileAttributes;
 #endif
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   DWORD               dwStatus;
   FILE_BASIC_INFORMATION fileBasicInfo;
   IO_STATUS_BLOCK     ioStatusBlock;
@@ -2232,7 +2231,7 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
 
   psFTData->iFileFlags = Have_Nothing;
 
-#ifdef FTimes_WIN98
+#ifdef WIN98
   /*-
    *********************************************************************
    *
@@ -2320,7 +2319,7 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTData, char *pcError)
       pcError[0] = 0;
     }
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
     memset(&fileBasicInfo, 0, sizeof(FILE_BASIC_INFORMATION));
     dwStatus = NtdllNQIF(hFile, &ioStatusBlock, &fileBasicInfo, sizeof(FILE_BASIC_INFORMATION), FileBasicInformation);
     if (dwStatus == 0)

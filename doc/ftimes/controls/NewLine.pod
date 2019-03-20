@@ -1,6 +1,6 @@
 =item B<NewLine>: [LF|CRLF]
 
-Applies to B<digfull> and B<mapfull>.
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
 
 B<NewLine> is optional.  When set to the value CRLF, it generates
 Windows style line feeds (i.e. carriage return and linefeed).  When

@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: digmode.c,v 1.4 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: digmode.c,v 1.9 2003/08/13 21:39:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -236,6 +235,20 @@ DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
     }
 #endif
   }
+  else if (psProperties->iRunMode == FTIMES_DIGLEAN)
+  {
+    if (psProperties->cBaseName[0] == 0)
+    {
+      snprintf(pcError, ERRBUF_SIZE, "%s: Missing BaseName.", cRoutine);
+      return ER_MissingControl;
+    }
+
+    if (psProperties->cOutDirName[0] == 0 && strcmp(psProperties->cBaseName, "-") != 0)
+    {
+      snprintf(pcError, ERRBUF_SIZE, "%s: Missing OutDir.", cRoutine);
+      return ER_MissingControl;
+    }
+  }
 
   return ER_OK;
 }
@@ -340,7 +353,7 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (psProperties->iRunMode == FTIMES_DIGFULL)
+  if (psProperties->iRunMode == FTIMES_DIGFULL || (psProperties->iRunMode == FTIMES_DIGLEAN && strcmp(psProperties->cBaseName, "-") != 0))
   {
     iError = SupportMakeName(psProperties->cLogDirName, psProperties->cBaseName, psProperties->cDateTime, ".log", psProperties->cLogFileName, cLocalError);
     if (iError != ER_OK)
@@ -378,7 +391,7 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  if (psProperties->iRunMode == FTIMES_DIGFULL)
+  if (psProperties->iRunMode == FTIMES_DIGFULL || (psProperties->iRunMode == FTIMES_DIGLEAN && strcmp(psProperties->cBaseName, "-") != 0))
   {
     iError = SupportMakeName(psProperties->cOutDirName, psProperties->cBaseName, psProperties->cDateTime, ".dig", psProperties->cOutFileName, cLocalError);
     if (iError != ER_OK)
@@ -502,7 +515,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   int                 i;
   int                 iFirst;
   int                 iIndex;
-  unsigned char       ucFileHash[MD5_HASH_LENGTH];
+  unsigned char       ucFileHash[MD5_HASH_SIZE];
 
   cLocalError[0] = 0;
 
@@ -520,13 +533,13 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->pFileOut = NULL;
   }
 
-  memset(ucFileHash, 0, MD5_HASH_LENGTH);
-  md5_end(&psProperties->sOutFileHashContext, ucFileHash);
-  for (i = 0; i < MD5_HASH_LENGTH; i++)
+  memset(ucFileHash, 0, MD5_HASH_SIZE);
+  MD5Omega(&psProperties->sOutFileHashContext, ucFileHash);
+  for (i = 0; i < MD5_HASH_SIZE; i++)
   {
     sprintf(&psProperties->cOutFileHash[i * 2], "%02x", ucFileHash[i]);
   }
-  psProperties->cOutFileHash[MD5_HASH_STRING_LENGTH - 1] = 0;
+  psProperties->cOutFileHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
 
   /*-
    *********************************************************************
@@ -583,7 +596,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
 #endif
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   snprintf(cMessage, MESSAGE_SIZE, "StreamsEncountered=%d", MapGetStreamCount());
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
 #endif
@@ -611,7 +624,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 #endif
 #endif
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
     snprintf(cMessage, MESSAGE_SIZE, "BytesAnalyzed=%I64u", AnalyzeGetByteCount());
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
 #endif
@@ -671,7 +684,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   sprintf(cMessage, "TotalMatches=%qu", DigGetTotalMatches());
 #endif
 #endif
-#ifdef FTimes_WIN32
+#ifdef WIN32
   snprintf(cMessage, MESSAGE_SIZE, "MatchCount=%I64u", DigGetTotalMatches());
 #endif
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);

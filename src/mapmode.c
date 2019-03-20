@@ -1,16 +1,15 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: mapmode.c,v 1.4 2003/01/16 21:08:09 mavrik Exp $
+ * $Id: mapmode.c,v 1.9 2003/08/13 21:39:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -143,11 +142,11 @@ MapModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *******************************************************************
    *
-   * Read the config file, if in full map mode.
+   * Read the config file, if in map{full,lean} mode.
    *
    *******************************************************************
    */
-  if (psProperties->iRunMode == FTIMES_MAPFULL)
+  if (psProperties->iRunMode == FTIMES_MAPFULL || psProperties->iRunMode == FTIMES_MAPLEAN)
   {
     iError = PropertiesReadFile(psProperties->cConfigFile, psProperties, cLocalError);
     if (iError != ER_OK)
@@ -260,6 +259,20 @@ MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
       return ER_MissingControl;
     }
 #endif
+  }
+  else if (psProperties->iRunMode == FTIMES_MAPLEAN)
+  {
+    if (psProperties->cBaseName[0] == 0)
+    {
+      snprintf(pcError, ERRBUF_SIZE, "%s: Missing BaseName.", cRoutine);
+      return ER_MissingControl;
+    }
+
+    if (psProperties->cOutDirName[0] == 0 && strcmp(psProperties->cBaseName, "-") != 0)
+    {
+      snprintf(pcError, ERRBUF_SIZE, "%s: Missing OutDir.", cRoutine);
+      return ER_MissingControl;
+    }
   }
 
   return ER_OK;
@@ -390,7 +403,7 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (psProperties->iRunMode == FTIMES_MAPFULL)
+  if (psProperties->iRunMode == FTIMES_MAPFULL || (psProperties->iRunMode == FTIMES_MAPLEAN && strcmp(psProperties->cBaseName, "-") != 0))
   {
     iError = SupportMakeName(psProperties->cLogDirName, psProperties->cBaseName, psProperties->cDateTime, ".log", psProperties->cLogFileName, cLocalError);
     if (iError != ER_OK)
@@ -428,7 +441,7 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  if (psProperties->iRunMode == FTIMES_MAPFULL)
+  if (psProperties->iRunMode == FTIMES_MAPFULL || (psProperties->iRunMode == FTIMES_MAPLEAN && strcmp(psProperties->cBaseName, "-") != 0))
   {
     iError = SupportMakeName(psProperties->cOutDirName, psProperties->cBaseName, psProperties->cDateTime, ".map", psProperties->cOutFileName, cLocalError);
     if (iError != ER_OK)
@@ -567,7 +580,7 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   int                 i;
   int                 iFirst;
   int                 iIndex;
-  unsigned char       ucFileHash[MD5_HASH_LENGTH];
+  unsigned char       ucFileHash[MD5_HASH_SIZE];
 
   cLocalError[0] = 0;
 
@@ -585,13 +598,13 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->pFileOut = NULL;
   }
 
-  memset(ucFileHash, 0, MD5_HASH_LENGTH);
-  md5_end(&psProperties->sOutFileHashContext, ucFileHash);
-  for (i = 0; i < MD5_HASH_LENGTH; i++)
+  memset(ucFileHash, 0, MD5_HASH_SIZE);
+  MD5Omega(&psProperties->sOutFileHashContext, ucFileHash);
+  for (i = 0; i < MD5_HASH_SIZE; i++)
   {
     sprintf(&psProperties->cOutFileHash[i * 2], "%02x", ucFileHash[i]);
   }
-  psProperties->cOutFileHash[MD5_HASH_STRING_LENGTH - 1] = 0;
+  psProperties->cOutFileHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
 
   /*-
    *********************************************************************
@@ -618,7 +631,7 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   snprintf(cMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->cOutFileName);
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
 
-  if (psProperties->iRunMode == FTIMES_DIGFULL && psProperties->bURLPutSnapshot && psProperties->bURLCreateConfig)
+  if (psProperties->iRunMode == FTIMES_MAPFULL && psProperties->bURLPutSnapshot && psProperties->bURLCreateConfig)
   {
     snprintf(cMessage, MESSAGE_SIZE, "CfgFileName=%s", psProperties->cCfgFileName);
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
@@ -648,7 +661,7 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
 #endif
 
-#ifdef FTimes_WINNT
+#ifdef WINNT
   snprintf(cMessage, MESSAGE_SIZE, "StreamsEncountered=%d", MapGetStreamCount());
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
 #endif
@@ -676,7 +689,7 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 #endif
 #endif
 
-#ifdef FTimes_WIN32
+#ifdef WIN32
     snprintf(cMessage, MESSAGE_SIZE, "BytesAnalyzed=%I64u", AnalyzeGetByteCount());
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
 #endif

@@ -19,13 +19,14 @@ See the Include control for more information.
 
 Verify the syntax of a given configuration B<file> in the context
 of a specified B<mode> where B<mode> can be one of: B<digauto>,
-B<digfull>, B<getmode>, B<mapfull>, or B<putmode>.  The given
-configuration B<file> is parsed with the same methods that would
-be used if B<FTimes> had been invoked in that particular run B<mode>.
-By default, directories and files are not checked for existence.
-This allows config files to be tested in a separate environment
-from where they will be used.  Strict testing (i.e. directories
-and files must exist) may be enabled with the B<-s> option.
+B<digfull>, B<diglean>, B<getmode>, B<mapfull>, B<maplean>, or
+B<putmode>.  The given configuration B<file> is parsed with the
+same methods that would be used if B<FTimes> had been invoked in
+that particular run B<mode>.  By default, directories and files are
+not checked for existence.  This allows config files to be tested
+in a separate environment from where they will be used.  Strict
+testing (i.e. directories and files must exist) may be enabled with
+the B<-s> option.
 
 The value 'Syntax Passed' is written to stdout, if all syntax checks
 are satisfied.  Otherwise, the value 'Syntax Failed' and a description
@@ -67,8 +68,8 @@ for the B<FieldMask> control.
 =item B<--decoder> B<snapshot> B<[-l level]>
 
 Decode a compressed B<snapshot>.  A compressed snapshot can be
-created by running B<FTimes> in map mode (i.e. B<mapfull>) with
-B<Compress> enabled.  Output is written to stdout.
+created by running B<FTimes> in map mode (i.e. B<mapfull> or
+B<maplean>) with B<Compress> enabled.  Output is written to stdout.
 
 =item B<--digauto> B<file> B<[-l level]> B<[list]>
 
@@ -94,12 +95,23 @@ an Include list is not specified, B<FTimes> will search the entire
 system.  Remote shares or mount points will only be searched if
 B<MapRemoteFiles> is enabled.
 
+=item B<--diglean> B<file> B<[-l level]> B<[list]>
+
+Use the configuration settings in B<file> to search an Include list
+for a set of user defined strings.  The Include list may be specified
+by a combination of B<Include> controls and B<list> arguments.  If
+an Include list is not specified, B<FTimes> will search the entire
+system.  Remote shares or mount points will only be searched if
+B<MapRemoteFiles> is enabled.  The difference between this mode and
+B<--digfull> is that fewer controls are defined/available and output
+can be written directly to std{err,out}.
+
 =item B<--getmode> B<file>
 
-Use the configuration settings in B<file> to download dig or map
-configuration information.  One of three possible actions, depending
-on how getmode is configured, will take place once the download is
-complete:
+Use the configuration settings in B<file> to download digfull,
+diglean, mapfull, or maplean configuration information.  One of
+three possible actions, depending on how getmode is configured,
+will take place once the download is complete:
 
 =over 5
 
@@ -109,19 +121,19 @@ B<FTimes> writes the downloaded information to stdout,
 
 =item *
 
-B<FTimes> writes the downloaded information to the file specified by B<OutFileName>, or
+B<FTimes> writes the downloaded information to the file specified by B<GetFileName>, or
 
 =item *
 
-B<FTimes> restarts in B<digfull> or B<mapfull> using downloaded information to control its behavior
+B<FTimes> restarts in B<digfull>, B<diglean>, B<mapfull>, or B<maplean> using the downloaded information as it's new configuration file
 
 =back
 
 The first action is effected when B<GetAndExec> is disabled and
-B<OutFileName> is not specified.  The second action is effected when
-B<GetAndExec> is disabled and B<OutFileName> is specified.  The
-third action is effected when B<GetAndExec> is enabled and
-B<OutFileName> is specified.
+B<GetFileName> is not specified.  The second action is effected
+when B<GetAndExec> is disabled and B<GetFileName> is specified.
+The third action is effected when B<GetAndExec> is enabled and
+B<GetFileName> is specified.
 
 =item B<--mapauto> B<mask> B<[-l level]> B<[list]>
 
@@ -141,6 +153,16 @@ Include list may be specified by a combination of B<Include> controls
 and B<list> arguments.  If an Include list is not specified,
 B<FTimes> will map the entire system.  Remote shares or mount points
 will only be mapped if B<MapRemoteFiles> is enabled.
+
+=item B<--maplean> B<file> B<[-l level]> B<[list]>
+
+Use configuration settings in B<file> to map an Include list.  The
+Include list may be specified by a combination of B<Include> controls
+and B<list> arguments.  If an Include list is not specified, B<FTimes>
+will map the entire system.  Remote shares or mount points will
+only be mapped if B<MapRemoteFiles> is enabled.  The difference
+between this mode and B<--mapfull> is that fewer controls are
+defined/available and output can be written directly to std{err,out}.
 
 =item B<--putmode> B<file> B<[-l level]>
 

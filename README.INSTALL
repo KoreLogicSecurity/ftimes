@@ -14,7 +14,7 @@
 
 1.1 Revision
 
-  $Id: INSTALL,v 1.9 2003/01/14 04:52:27 mavrik Exp $
+  $Id: README.INSTALL,v 1.4 2003/08/15 13:31:43 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -184,6 +184,11 @@
     ./configure --prefix=/usr/local/my_ftimes
     make
 
+  To see a listing of all available configure options execute the
+  following command:
+
+    ./configure --help
+
   When the software has been built to your satisfaction, it can be
   installed with the following command:
 
@@ -324,7 +329,7 @@
     |   - clientid_timestamp_runtype.env
     |   - clientid_timestamp_runtype.rdy
     |   - ...
-    |   |
+    |
     - logfiles
     |   |
     |   - nph-ftimes.log
@@ -335,8 +340,10 @@
         |   |
         |   - cfgfiles
         |       |
-        |       - dig.cfg
-        |       - map.cfg
+        |       - digfull.cfg
+        |       - diglean.cfg
+        |       - mapfull.cfg
+        |       - maplean.cfg
         |
         - <clientid-2>
         - ...
@@ -545,7 +552,7 @@
 
 3.3 Verify Client-Server Connectivity
 
-  Before tackling this section, read the FTimes' man page.  Pay
+  Before tackling this section, read the FTimes man page.  Pay
   particular attention to information regarding get mode.
 
   The purpose of this section is to test connectivity.  This will
@@ -558,7 +565,7 @@
 3.3.1 Server Configuration
 
   On the server you need to create directories for S001_TEST_0001_1
-  and insert the following config file as map.cfg.
+  and insert the following config file as mapfull.cfg.
 
   The directories may be created as follows:
 
@@ -568,10 +575,10 @@
     chown -R 0:0 S001_TEST_0001_1
 
   Goto /integrity/profiles/S001_TEST_0001_1/cfgfiles, and create
-  map.cfg.  Make sure you replace <password> with its real value.
-  Also, don't forget to modify URLPutURL as appropriate.
+  mapfull.cfg.  Make sure you replace <password> with its real
+  value.  Also, don't forget to modify URLPutURL as appropriate.
 
-    --- map.cfg ---
+    --- mapfull.cfg ---
     BaseName=S001_TEST_0001_1
     OutDir=.
     URLPutSnapshot=Y
@@ -582,7 +589,7 @@
     URLCreateConfig=Y
     Include=/tmp # or c:\temp
     FieldMask=ALL-magic
-    --- map.cfg ---
+    --- mapfull.cfg ---
 
 3.3.2 Client Configuration
 
@@ -602,7 +609,7 @@
     URLUsername=S001_TEST_0001_1
     URLPassword=<password>
     URLAuthType=basic
-    URLGetRequest=MapConfig
+    URLGetRequest=MapFullConfig
     --- get.cfg ---
 
   To avoid having to type a long path each time you invoke FTimes,

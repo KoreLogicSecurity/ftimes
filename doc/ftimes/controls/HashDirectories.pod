@@ -1,6 +1,6 @@
 =item B<HashDirectories>: [Y|N]
 
-Applies to B<mapfull>.
+Applies to B<mapfull> and B<maplean>.
 
 B<HashDirectories> is optional.  When enabled, (i.e. 'Y') it
 instructs B<FTimes> to compute digests for directories.  This is

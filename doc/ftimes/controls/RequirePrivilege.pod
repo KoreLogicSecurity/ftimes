@@ -1,6 +1,6 @@
 =item B<RequirePrivilege>: [Y|N]
 
-Applies to B<digfull> and B<mapfull>.
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
 
 B<RequirePrivilege> is optional.  When enabled, (i.e. 'Y') it
 indicates that the operator wants to ensure that the snapshot is

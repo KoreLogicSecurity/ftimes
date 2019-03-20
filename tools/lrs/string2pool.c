@@ -1,11 +1,11 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: string2pool.c,v 1.2 2002/10/22 00:46:01 mavrik Exp $
+ * $Id: string2pool.c,v 1.1 2003/03/12 18:16:39 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2002-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
@@ -22,7 +22,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #endif
-
 
 /*-
  ***********************************************************************
@@ -101,7 +100,7 @@ ConstructIncludeFile(FILE *pFile, char *pcPoolType, unsigned long ulFinal, int *
   fprintf(pFile, " *\n");
   fprintf(pFile, " ***********************************************************************\n");
   fprintf(pFile, " *\n");
-  fprintf(pFile, " * Copyright 2002 Klayton Monroe, Exodus Communications, Inc.\n");
+  fprintf(pFile, " * Copyright 2002-2003 Klayton Monroe, Cable & Wireless\n");
   fprintf(pFile, " * All Rights Reserved.\n");
   fprintf(pFile, " *\n");
   fprintf(pFile, " ***********************************************************************\n");

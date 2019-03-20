@@ -33,7 +33,7 @@ exist or have the proper format, B<FTimes> will abort.
 
 =item Config
 
-This file contains directives used to configure B<FTimes'>.  In
+This file contains directives used to configure B<FTimes>.  In
 general a particular config file applies to a single mode of
 operation.  This is because different modes support different
 controls.  Refer to the CONFIGURATION CONTROLS section of this

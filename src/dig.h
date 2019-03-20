@@ -1,11 +1,11 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: dig.h,v 1.1.1.1 2002/01/18 03:17:02 mavrik Exp $
+ * $Id: dig.h,v 1.3 2003/08/13 21:39:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
@@ -63,7 +63,7 @@ int                 DigGetStringCount(void);
 int                 DigGetStringsMatched(void);
 K_UINT64            DigGetTotalMatches(void);
 int                 DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, K_UINT64 ui64AbsoluteOffset, char *pcFilename, char *pcError);
-void                DigSetHashBlock(struct hash_block *pHashBlock);
+void                DigSetHashBlock(MD5_CONTEXT *pMD5Context);
 void                DigSetMatchLimit(int iMatchLimit);
 void                DigSetNewLine(char *pcNewLine);
 void                DigSetOutputStream(FILE *pFile);

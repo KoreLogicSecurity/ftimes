@@ -1,6 +1,6 @@
 =item B<DigString>: <string>
 
-Applies to B<digauto> and B<digfull>.
+Applies to B<digauto>, B<digfull>, and B<diglean>.
 
 B<DigString> is required.  It specifies a search string.  This
 string must be URL encoded if it contains '%', '+', ' ', or any

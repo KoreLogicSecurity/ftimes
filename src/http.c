@@ -1,16 +1,15 @@
 /*-
  ***********************************************************************
  *
- * $Id: http.c,v 1.5 2003/01/13 13:26:18 mavrik Exp $
+ * $Id: http.c,v 1.7 2003/08/13 16:06:31 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2001-2003 Klayton Monroe, Cable & Wireless
  * All Rights Reserved.
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 static unsigned char ucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -145,7 +144,11 @@ HTTPBuildRequest(HTTP_URL *psURL, char *pcError)
     sprintf(pcRequest, "%s %s%s%s HTTP/1.1\r\n"
                        "Host: %s:%d\r\n"
                        "Content-Type: application/octet-stream\r\n"
+#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
+                       "Content-Length: %u\r\n"
+#else
                        "Content-Length: %lu\r\n"
+#endif
                        "Authorization: Basic %s\r\n"
                        "\r\n",
                        psURL->pcMeth,
@@ -163,7 +166,11 @@ HTTPBuildRequest(HTTP_URL *psURL, char *pcError)
     sprintf(pcRequest, "%s %s%s%s HTTP/1.1\r\n"
                        "Host: %s:%d\r\n"
                        "Content-Type: application/octet-stream\r\n"
+#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
+                       "Content-Length: %u\r\n"
+#else
                        "Content-Length: %lu\r\n"
+#endif
                        "\r\n",
                        psURL->pcMeth,
                        psURL->pcPath,
@@ -1253,16 +1260,19 @@ HTTPParseUserPass(char *pcUserPass, HTTP_URL *psURL, char *pcError)
  ***********************************************************************
  */
 int
-HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, char **ppcData, K_UINT32 ui32ContentLength, char *pcError)
+HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, void **ppvData, K_UINT32 ui32ContentLength, char *pcError)
 {
   const char          acRoutine[] = "HTTPReadDataIntoMemory()";
   char                acLocalError[MESSAGE_SIZE];
+  char              **ppcData;
   int                 iNRead;
   int                 iZRead;
   int                 iToRead;
   K_UINT32            ui32Offset;
 
   ui32Offset = iZRead = 0;
+
+  ppcData = (char **) ppvData;
 
   /*-
    *********************************************************************
@@ -1273,7 +1283,15 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, char **ppcData, K_UINT32 ui3
    */
   if (ui32ContentLength > (K_UINT32) HTTP_MAX_MEMORY_SIZE)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds internally defined limit.", acRoutine, ui32ContentLength, HTTP_MAX_MEMORY_SIZE);
+#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
+    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%u] > [%u]: Length exceeds internally defined limit.",
+#else
+    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds internally defined limit.",
+#endif
+      acRoutine,
+      ui32ContentLength,
+      (K_UINT32) HTTP_MAX_MEMORY_SIZE
+      );
     return -1;
   }
 
@@ -1321,7 +1339,15 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, char **ppcData, K_UINT32 ui3
   }
   if (ui32Offset != ui32ContentLength)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%lu] != [%lu]: Actual-Length vs Content-Length Mismatch.", acRoutine, ui32Offset, ui32ContentLength);
+#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
+    snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%u] != [%u]: Actual-Length vs Content-Length Mismatch.",
+#else
+    snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%lu] != [%lu]: Actual-Length vs Content-Length Mismatch.",
+#endif
+      acRoutine,
+      ui32Offset,
+      ui32ContentLength
+      );
     HTTPFreeData(*ppcData);
     return -1;
   }
@@ -1383,7 +1409,15 @@ HTTPReadDataIntoStream(SOCKET_CONTEXT *psSocketCTX, FILE *pFile, K_UINT32 ui32Co
   }
   if (ui32Offset != ui32ContentLength)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%lu] != [%lu]: Actual-Length vs Content-Length Mismatch.", acRoutine, ui32Offset, ui32ContentLength);
+#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
+    snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%u] != [%u]: Actual-Length vs Content-Length Mismatch.",
+#else
+    snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%lu] != [%lu]: Actual-Length vs Content-Length Mismatch.",
+#endif
+      acRoutine,
+      ui32Offset,
+      ui32ContentLength
+      );
     return -1;
   }
   return 0;
@@ -1706,6 +1740,7 @@ HTTPSetURLPort(HTTP_URL *psURL, char *pcPort, char *pcError)
   char                acLocalError[MESSAGE_SIZE];
   char               *pc;
   int                 iError;
+  int                 iPort;
 
   acLocalError[0] = 0;
 
@@ -1741,12 +1776,13 @@ HTTPSetURLPort(HTTP_URL *psURL, char *pcPort, char *pcError)
       }
       pc++;
     }
-    psURL->ui16Port = atoi(psURL->pcPort);
-    if (psURL->ui16Port < 1 || psURL->ui16Port > 65535)
+    iPort = atoi(psURL->pcPort);
+    if (iPort < 1 || iPort > 65535)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Port = [%s]: Value must be 1-65535.", acRoutine, psURL->pcPort);
       return -1;
     }
+    psURL->ui16Port = (K_UINT16) iPort;
   }
   else
   {
@@ -2128,7 +2164,15 @@ HTTPSubmitRequest(HTTP_URL *psURL, int iInputType, void *pInput, int iOutputType
    */
   if (psURL->ui32DownloadLimit != 0 && psResponseHeader->ui32ContentLength > psURL->ui32DownloadLimit)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds user defined limit.", acRoutine, psResponseHeader->ui32ContentLength, psURL->ui32DownloadLimit);
+#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
+    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%u] > [%u]: Length exceeds user defined limit.",
+#else
+    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds user defined limit.",
+#endif
+      acRoutine,
+      psResponseHeader->ui32ContentLength,
+      psURL->ui32DownloadLimit
+      );
     SocketCleanup(psSocketCTX);
     return -1;
   }
@@ -2146,7 +2190,7 @@ HTTPSubmitRequest(HTTP_URL *psURL, int iInputType, void *pInput, int iOutputType
     iError = 0;
     break;
   case HTTP_MEMORY_OUTPUT:
-    iError = HTTPReadDataIntoMemory(psSocketCTX, (char **) &pOutput, psResponseHeader->ui32ContentLength, acLocalError);
+    iError = HTTPReadDataIntoMemory(psSocketCTX, (void **) &pOutput, psResponseHeader->ui32ContentLength, acLocalError);
     break;
   case HTTP_STREAM_OUTPUT:
     iError = HTTPReadDataIntoStream(psSocketCTX, (FILE *) pOutput, psResponseHeader->ui32ContentLength, acLocalError);
