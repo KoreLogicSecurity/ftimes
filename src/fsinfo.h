@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.h,v 1.6 2003/02/23 17:40:08 mavrik Exp $
+ * $Id: fsinfo.h,v 1.9 2004/04/04 07:09:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -37,7 +36,8 @@ enum eFSTypes
   FSTYPE_NFS3,
   FSTYPE_FFS,
   FSTYPE_REISER,
-  FSTYPE_HFS
+  FSTYPE_HFS,
+  FSTYPE_VXFS
 };
 
 
@@ -113,7 +113,7 @@ enum eFSTypes
  *
  ***********************************************************************
  */
-int                 GetFileSystemType(char *path, char *ebuf);
+int                 GetFileSystemType(char *pcPath, char *pcError);
 
 
 /*-
@@ -123,4 +123,4 @@ int                 GetFileSystemType(char *path, char *ebuf);
  *
  ***********************************************************************
  */
-extern char         FSType[][FSINFO_MAX_STRING];
+extern char         gaacFSType[][FSINFO_MAX_STRING];

@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: socket.c,v 1.4 2003/02/23 17:40:09 mavrik Exp $
+ * $Id: socket.c,v 1.6 2004/04/17 19:34:04 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2001-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -56,7 +55,9 @@ SOCKET_CONTEXT
 *SocketConnect(unsigned long ulIP, unsigned short usPort, int iType, void *psslCTX, char *pcError)
 {
   const char          acRoutine[] = "SocketConnect()";
-  char                acLocalError[MESSAGE_SIZE];
+#ifdef USE_SSL
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+#endif
   struct sockaddr_in  sServerAddr;
   SOCKET_CONTEXT     *psSocketCTX;
 
@@ -65,8 +66,6 @@ SOCKET_CONTEXT
   WORD                wVersion;
   WSADATA             wsaData;
 #endif
-
-  acLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -184,10 +183,10 @@ int
 SocketRead(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToRead, char *pcError)
 {
   const char          acRoutine[] = "SocketRead()";
-  char                acLocalError[MESSAGE_SIZE];
+#ifdef USE_SSL
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+#endif
   int                 iNRead;
-
-  acLocalError[0] = 0;
 
   switch (psSocketCTX->iType)
   {
@@ -224,10 +223,10 @@ int
 SocketWrite(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToSend, char *pcError)
 {
   const char          acRoutine[] = "SocketWrite()";
-  char                acLocalError[MESSAGE_SIZE];
+#ifdef USE_SSL
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+#endif
   int                 iNSent;
-
-  acLocalError[0] = 0;
 
   if (iToSend == 0)
   {

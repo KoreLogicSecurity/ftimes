@@ -28,7 +28,7 @@
 
 1.1 Revision
 
-  $Id: README,v 1.10 2003/03/27 14:25:09 mavrik Exp $
+  $Id: README,v 1.11 2004/02/26 21:57:21 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -39,9 +39,11 @@
   Section 2.1 .................. National Software Reference Library (NSRL)
   Section 2.1.1 ................ NSRL Gotchas
   Section 2.2 .................. Sun's Solaris Fingerprint Database
-  Section 2.2.1 ................ Sun Gotchas
-  Section 2.3 .................. KnownGoods
-  Section 2.4 .................. Installation Media, Packages, and Backups
+  Section 2.3 .................. HashKeeper
+  Section 2.3.1 ................ HashKeeper Gotchas
+  Section 2.4 .................. KnownGoods
+  Section 2.4.1 ................ KnownGoods Gotchas
+  Section 2.5 .................. Installation Media, Packages, and Backups
   Section 3 .................... Hash Resolution Work-Flow
   Section 3.1 .................. Harvesting Subject Hashes
   Section 3.2 .................. Subject Database Construction
@@ -52,14 +54,16 @@
   Section 4 .................... Supported File Formats
   Section 4.1 .................. FTimes
   Section 4.2 .................. HashDig
-  Section 4.3 .................. KnownGoods
-  Section 4.4 .................. MD5
-  Section 4.5 .................. MD5Deep
-  Section 4.6 .................. MD5Sum
-  Section 4.7 .................. NSRL1
-  Section 4.8 .................. NSRL2
-  Section 4.9 .................. Plain
-  Section 4.10 ................. RPM
+  Section 4.3 .................. HashKeeper
+  Section 4.4 .................. KnownGoods
+  Section 4.5 .................. MD5
+  Section 4.6 .................. MD5Deep
+  Section 4.7 .................. MD5Sum
+  Section 4.8 .................. NSRL1
+  Section 4.9 .................. NSRL2
+  Section 4.10 ................. OpenSSL
+  Section 4.11 ................. Plain
+  Section 4.12 ................. RPM
   Section 5 .................... Requirements
   Section 6 .................... License
 
@@ -100,6 +104,7 @@
 
     - National Software Reference Library (NSRL)
     - Sun's Solaris Fingerprint Database
+    - HashKeeper
     - KnownGoods
     - Installation media, packages, and backups
 
@@ -156,9 +161,12 @@
   determine if this issue applies.
 
   Running the harvest script on millions of hashes takes a lot of
-  space. Consequently, your /tmp partition may fill up.  By default,
+  space.  Consequently, your /tmp partition may fill up.  By default,
   /tmp is used as the temporary work area.  This location can be
   changed with the '-T' option.
+
+  Don't assume that all hashes in NSRL data sets are known good
+  hashes.
 
 2.2 Sun's Solaris Fingerprint Database
 
@@ -200,20 +208,43 @@
   As a side note, slinging hashes collected from other OSes against
   Sun's online database can yield useful results.
 
-2.3 KnownGoods
+2.3 HashKeeper
 
-  KnownGoods' online hash database is available here:
+  HashKeeper hash sets are available here:
 
-    http://www.knowngoods.org/
+    http://www.hashkeeper.org/files/
 
-  Hash sets for various OSes are available here:
+  To create a HashKeeper reference database, you must first download
+  some hash sets.  Assuming the hash sets you downloaded are located
+  in ${HKS}, then the following commands can be used to construct
+  a reference database:
+
+    hashdig-harvest.pl -c k -t hk -o hk.hd ${HKS}/*.hsh
+
+    hashdig-make.pl -F -i -d hk.db hk.hd
+
+  As additional hash sets are released, any new hashes can be merged
+  into the existing database (i.e. hk.db) by rerunning the harvest
+  and make utilities as follows:
+
+    hashdig-harvest.pl -c k -t hk -o hk.hd.new ${HKS}/*.hsh.new
+
+    hashdig-make.pl -d hk.db hk.hd.new
+
+2.3.1 HashKeeper Gotchas
+
+  See NSRL Gotchas.
+
+2.4 KnownGoods
+
+  KnownGoods hash sets are available here:
 
     http://www.knowngoods.org/download.html
 
   To create a KnownGoods reference database, you must first download
   some hash sets.  Assuming the hash sets you downloaded are located
-  in ${KGS}, then the following commands can be used to construct a
-  reference database:
+  in ${KGS}, then the following commands can be used to construct
+  a reference database:
 
     hashdig-harvest.pl -c k -t kg -o kg.hd ${KGS}/*.txt
 
@@ -227,11 +258,11 @@
 
     hashdig-make.pl -d kg.db kg.hd.new
 
-2.3.1 KnownGoods Gotchas
+2.4.1 KnownGoods Gotchas
 
   See NSRL Gotchas.
 
-2.4 Installation Media, Packages, and Backups
+2.5 Installation Media, Packages, and Backups
 
   Installation media, packages, and backups, if trusted and untainted,
   can play a major role in hash resolution.  This is because they
@@ -300,14 +331,14 @@
 3.3 Subject Database Bashing
 
   Next, subject hashes are bashed against (compared to) existing
-  reference databases (e.g., nsrl.db, sunsolve.db, kg.db, site.db,
-  and so on) -- these are databases that you create and maintain.
+  reference databases (e.g., nsrl.db, sunsolve.db, hk.db, kg.db,
+  site.db, etc.) -- these are databases that you create and maintain.
   As hashes in the subject database are resolved, their category
   information is updated.  The primary rule of engagement is that
   known hashes trump unknown hashes.  In shell speak this process
   takes on the following form:
 
-    for i in "nsrl.db" "sunsolve.db" "kg.db" "site.db" ; do
+    for i in "nsrl.db" "sunsolve.db" "hk.db" "kg.db" "site.db" ; do
       hashdig-bash.pl -r $i -s subject.db
     done
 
@@ -344,7 +375,7 @@
 
     hashdig-dump.pl subject.db | hashdig-bind.pl -t ftimes -f - ${MAPS}/*.map
 
-3.4 Sorting and Filtering
+3.5 Sorting and Filtering
 
   As a followup step, the practitioner may decide that it's necessary
   or desirable to sort or filter the output in different ways.  One
@@ -356,10 +387,11 @@
 4 Supported File Formats
 
   Currently, hashdig-harvest.pl supports the following formats:
-  FTIMES, KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM, NSRL1, NSRL2, PLAIN,
-  and RPM.  Of these, hashdig-bind.pl supports the following formats:
-  FTIMES, KG|KNOWNGOODS, MD5, MD5DEEP, and MD5SUM.  The only format
-  supported by hashdig-make.pl is HASHDIG.
+  FTIMES, HK|HASHKEEPER, KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM,
+  OPENSSL, NSRL1, NSRL2, PLAIN, and RPM.  Of these, hashdig-bind.pl
+  supports the following formats: FTIMES, KG|KNOWNGOODS, MD5,
+  MD5DEEP, MD5SUM, and OPENSSL.  The only format supported by
+  hashdig-make.pl is HASHDIG.
 
   Details regarding each supported format are discussed in the
   following sections.
@@ -371,6 +403,10 @@
   from UNIX systems, it is helpful to include the mode field as it
   is used to filter out symlink hashes -- generally, symlink hashes
   are not used during hash resolution.
+
+  Here's an example invocation (--mapauto mode):
+
+    ftimes --mapauto all-magic /sbin /usr/bin /usr/sbin
 
   Here's the minimum FTimes format (i.e. FieldMask=none+md5):
 
@@ -410,7 +446,17 @@
 
     category|hash
 
-4.3 KnownGoods
+4.3 HashKeeper
+
+  The HashKeeper format refers to reference data sets distributed
+  by the HashKeeper project and the National Software Reference
+  Library (2.X series).
+
+  Here's the HashKeeper format:
+
+    file_id,hashset_id,file_name,directory,hash,file_size,date_modified,time_modified,time_zone,comments,date_accessed,time_accessed
+
+4.4 KnownGoods
 
   The KnownGoods format refers to reference data sets distributed
   by the Known Goods project.
@@ -419,36 +465,48 @@
 
     ID,FILENAME,MD5,SHA-1,SIZE,TYPE,PLATFORM,PACKAGE
 
-4.4 MD5
+4.5 MD5
 
   The MD5 format refers to data collected with the md5 utility that
   is distributed with FreeBSD.
+
+  Here's an example invocation:
+
+    find /sbin /usr/bin /usr/sbin -type f -exec md5 {} \;
 
   Here's the MD5 format:
 
     MD5 (name) = hash
 
-4.5 MD5Deep
+4.6 MD5Deep
 
   The MD5Deep format refers to data collected with the md5deep
   utility which is located here:
 
     http://md5deep.sourceforge.net/
 
+  Here's an example invocation:
+
+    md5deep -r /sbin /usr/bin /usr/sbin
+
   Here's the MD5Deep format:
 
     hash  name
 
-4.6 MD5Sum
+4.7 MD5Sum
 
   The MD5Sum format refers to data collected with the md5sum utility
   that is distributed with Linux.
+
+  Here's an example invocation:
+
+    find /sbin /usr/bin /usr/sbin -type f -exec md5sum {} \;
 
   Here's the MD5Sum format:
 
     hash  name
 
-4.7 NSRL1
+4.8 NSRL1
 
   The NSRL1 format refers to reference data sets distributed by the
   National Software Reference Library (1.X series).
@@ -457,7 +515,7 @@
 
     SHA-1,FileName,FileSize,ProductCode,OpSystemCode,MD4,MD5,CRC32,SpecialCode
 
-4.8 NSRL2
+4.9 NSRL2
 
   The NSRL2 format refers to reference data sets distributed by the
   National Software Reference Library (2.X series).
@@ -466,7 +524,22 @@
 
     SHA-1,MD5,CRC32,FileName,FileSize,ProductCode,OpSystemCode,SpecialCode
 
-4.9 Plain
+4.10 OpenSSL
+
+  The OpenSSL format refers to data collected with the openssl
+  utility which is located here:
+
+    http://www.openssl.org/
+
+  Here's an example invocation:
+
+    find /sbin /usr/bin /usr/sbin -type f -exec openssl md5 {} \;
+
+  Here's the OpenSSL format:
+
+    MD5(name)= hash
+
+4.11 Plain
 
   The Plain format refers to input that consists of one MD5 hash
   per line.
@@ -475,7 +548,7 @@
 
     hash
 
-4.10 RPM
+4.12 RPM
 
   The RPM format refers to input created using RPM's query mode in
   conjunction with its dump option.

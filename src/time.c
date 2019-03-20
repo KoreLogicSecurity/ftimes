@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: time.c,v 1.4 2003/02/24 19:36:02 mavrik Exp $
+ * $Id: time.c,v 1.6 2004/04/04 07:09:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -20,7 +19,7 @@
  ***********************************************************************
  */
 time_t
-TimeGetTime(char *pcDate, char *pcTime, char *zonebuf, char *pcDateTime)
+TimeGetTime(char *pcDate, char *pcTime, char *pcZone, char *pcDateTime)
 {
   int                 iCount;
   time_t              timeValue;
@@ -48,9 +47,9 @@ TimeGetTime(char *pcDate, char *pcTime, char *zonebuf, char *pcDateTime)
     }
   }
 
-  if (zonebuf != NULL)
+  if (pcZone != NULL)
   {
-    iCount = strftime(zonebuf, FTIMES_ZONE_SIZE, FTIMES_RUNZONE_FORMAT, localtime(&timeValue));
+    iCount = strftime(pcZone, FTIMES_ZONE_SIZE, FTIMES_RUNZONE_FORMAT, localtime(&timeValue));
     if (iCount < 0 || iCount > FTIMES_ZONE_SIZE - 1)
     {
       return ER;
@@ -92,7 +91,7 @@ TimeGetTime(char *pcDate, char *pcTime, char *zonebuf, char *pcDateTime)
  ***********************************************************************
  */
 int
-TimeFormatTime(time_t *ptimeValue, char *pcTime)
+TimeFormatTime(time_t *pTimeValue, char *pcTime)
 {
   int                 iCount;
 
@@ -107,7 +106,7 @@ TimeFormatTime(time_t *ptimeValue, char *pcTime)
 
   pcTime[0] = 0;
 
-  iCount = strftime(pcTime, FTIMES_TIME_SIZE, FTIMES_TIME_FORMAT, gmtime(ptimeValue));
+  iCount = strftime(pcTime, FTIMES_TIME_SIZE, FTIMES_TIME_FORMAT, gmtime(pTimeValue));
 
   if (iCount != FTIMES_TIME_FORMAT_SIZE - 1)
   {
@@ -128,22 +127,22 @@ TimeFormatTime(time_t *ptimeValue, char *pcTime)
  ***********************************************************************
  */
 int
-TimeFormatTime(FILETIME *pFileTime, char *pcTime)
+TimeFormatTime(FILETIME *psFileTime, char *pcTime)
 {
   int                 iCount;
-  SYSTEMTIME          systemTime;
+  SYSTEMTIME          sSystemTime;
 
   pcTime[0] = 0;
 
-  if (!FileTimeToSystemTime(pFileTime, &systemTime))
+  if (!FileTimeToSystemTime(psFileTime, &sSystemTime))
   {
     return ER;
   }
 
   iCount = snprintf(pcTime, FTIMES_TIME_FORMAT_SIZE, FTIMES_TIME_FORMAT,
-                   systemTime.wYear, systemTime.wMonth, systemTime.wDay,
-                   systemTime.wHour, systemTime.wMinute, systemTime.wSecond,
-                   systemTime.wMilliseconds);
+                   sSystemTime.wYear, sSystemTime.wMonth, sSystemTime.wDay,
+                   sSystemTime.wHour, sSystemTime.wMinute, sSystemTime.wSecond,
+                   sSystemTime.wMilliseconds);
 
   if (iCount < FTIMES_TIME_FORMAT_SIZE - 3 || iCount > FTIMES_TIME_FORMAT_SIZE - 1)
   {
@@ -162,22 +161,22 @@ TimeFormatTime(FILETIME *pFileTime, char *pcTime)
  ***********************************************************************
  */
 int
-TimeFormatOutOfBandTime(FILETIME *pFileTime, char *pcTime)
+TimeFormatOutOfBandTime(FILETIME *psFileTime, char *pcTime)
 {
   int                 iCount;
-  SYSTEMTIME          systemTime;
+  SYSTEMTIME          sSystemTime;
 
   pcTime[0] = 0;
 
-  if (!FileTimeToSystemTime(pFileTime, &systemTime))
+  if (!FileTimeToSystemTime(psFileTime, &sSystemTime))
   {
     return ER;
   }
 
   iCount = snprintf(pcTime, FTIMES_OOB_TIME_FORMAT_SIZE, FTIMES_OOB_TIME_FORMAT,
-                   systemTime.wYear, systemTime.wMonth, systemTime.wDay,
-                   systemTime.wHour, systemTime.wMinute, systemTime.wSecond,
-                   systemTime.wMilliseconds);
+                   sSystemTime.wYear, sSystemTime.wMonth, sSystemTime.wDay,
+                   sSystemTime.wHour, sSystemTime.wMinute, sSystemTime.wSecond,
+                   sSystemTime.wMilliseconds);
 
   if (iCount < FTIMES_OOB_TIME_FORMAT_SIZE - 3 || iCount > FTIMES_OOB_TIME_FORMAT_SIZE - 1)
   {

@@ -1,20 +1,19 @@
 =item B<BaseName>: <name>
 
-Applies to B<digfull>, B<diglean>, B<getmode>, B<mapfull>, B<maplean>, and B<putmode>.
+Applies to B<digfull>, B<diglean>, B<getmode>, B<mapfull>, B<maplean>,
+and B<putmode>.
 
-B<BaseName> is required.  It provides prefix that will be attached
-to various output files.  It also serves as the CLIENTID parameter
-in GET/PUT requests. If not specified, the program will abort.
+B<BaseName> is required.  It specifies the name prefix that will
+be attached to the various output files.  It also serves as the
+CLIENTID parameter in GET/PING/PUT requests.  The recommended name
+format is one that matches the following regular expression:
 
-The recommended format (i.e. the format expected by C<nph-ftimes.cgi>)
-for this control is CDDD_CCCC_DDDD_D where C is a character in the
-range [A-Z] and D is a digit in the range [0-9].  However, you may
-use any name that suits your particular requirements.  If you don't
-use the recommended format, a good alternative would be the name
-of the host being baselined.
+    ^[0-9A-Za-z_-]{1,64}$
 
-If you intend to upload snapshots to an Integrity Server
-configured to receive such, you will need to coordinate with the
-administrator of that server to obtain the necessary access and
-configuration information.
+This is because nph-ftimes.cgi uses that expression to validate the
+CLIENTID parameter in GET/PING/PUT requests.  Typically, B<BaseName>
+and B<URLUsername> will be the same when basic authentication is
+enabled, but this is not a requirement.  If you're using FTimes in
+a lean mode, a good naming convention would be to use the hostname
+of the system being baselined.
 

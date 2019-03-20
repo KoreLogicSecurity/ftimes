@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-resolve-sunsolve.pl,v 1.4 2003/03/26 19:10:58 mavrik Exp $
+# $Id: hashdig-resolve-sunsolve.pl,v 1.9 2004/04/20 19:04:05 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -14,6 +14,7 @@
 ######################################################################
 
 use strict;
+use File::Basename;
 use Getopt::Std;
 use IO::Socket;
 
@@ -29,9 +30,9 @@ use IO::Socket;
   #
   ####################################################################
 
-  my ($program);
+  my ($sProgram);
 
-  $program = "hashdig-resolve-sunsolve.pl";
+  $sProgram = basename(__FILE__);
 
   ####################################################################
   #
@@ -39,11 +40,11 @@ use IO::Socket;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('d:f:k:s:w:', \%options))
+  if (!getopts('d:f:k:r:s:w:', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
@@ -52,7 +53,7 @@ use IO::Socket;
   #
   ####################################################################
 
-  my $outDir = (exists($options{'d'})) ? $options{'d'} : "sunsolve";
+  my $sOutDir = (exists($hOptions{'d'})) ? $hOptions{'d'} : "sunsolve";
 
   ####################################################################
   #
@@ -60,37 +61,31 @@ use IO::Socket;
   #
   ####################################################################
 
-  my ($fileHandle, $filename);
+  my ($sFileHandle, $sFilename);
 
-  if (!exists($options{'f'}))
+  if (!exists($hOptions{'f'}) || !defined($hOptions{'f'}) || length($hOptions{'f'}) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
+  }
+  $sFilename = $hOptions{'f'};
+
+  if ($sFilename eq '-')
+  {
+    $sFileHandle = \*STDIN;
   }
   else
   {
-    $filename = $options{'f'};
-    if (!defined($filename) || length($filename) < 1)
+    if (!-f $sFilename)
     {
-      Usage($program);
+      print STDERR "$sProgram: File='$sFilename' Error='File must exist and be regular.'\n";
+      exit(2);
     }
-    if (-f $filename)
+    if (!open(FH, "<$sFilename"))
     {
-      if (!open(FH, $filename))
-      {
-        print STDERR "$program: File='$filename' Error='$!'\n";
-        exit(2);
-      }
-      $fileHandle = \*FH;
+      print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
+      exit(2);
     }
-    else
-    {
-      if ($filename ne '-')
-      {
-        print STDERR "$program: File='$filename' Error='File must be regular.'\n";
-        exit(2);
-      }
-      $fileHandle = \*STDIN;
-    }
+    $sFileHandle = \*FH;
   }
 
   ####################################################################
@@ -99,11 +94,25 @@ use IO::Socket;
   #
   ####################################################################
 
-  my $kidLimit = (exists($options{'k'})) ? $options{'k'} : 5;
+  my $sKidLimit = (exists($hOptions{'k'})) ? $hOptions{'k'} : 5;
 
-  if ($kidLimit !~ /^\d+$/)
+  if ($sKidLimit !~ /^\d+$/)
   {
-    print STDERR "$program: KidLimit='$kidLimit' Error='Limit must be a number.'\n";
+    print STDERR "$sProgram: KidLimit='$sKidLimit' Error='Limit must be a number.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # A redoBlock, '-r', is optional. Default value is undefined.
+  #
+  ####################################################################
+
+  my $sRedoBlock = (exists($hOptions{'r'})) ? $hOptions{'r'} : undef;
+
+  if (defined($sRedoBlock) && $sRedoBlock !~ /^\d+$/)
+  {
+    print STDERR "$sProgram: GetBlock='$sRedoBlock' Error='Block must be a number.'\n";
     exit(2);
   }
 
@@ -113,11 +122,11 @@ use IO::Socket;
   #
   ####################################################################
 
-  my $sleepInterval = (exists($options{'s'})) ? $options{'s'} : 0;
+  my $sSleepInterval = (exists($hOptions{'s'})) ? $hOptions{'s'} : 0;
 
-  if ($sleepInterval !~ /^\d+$/)
+  if ($sSleepInterval !~ /^\d+$/)
   {
-    print STDERR "$program: SleepInterval='$sleepInterval' Error='Interval must be a number.'\n";
+    print STDERR "$sProgram: SleepInterval='$sSleepInterval' Error='Interval must be a number.'\n";
     exit(2);
   }
 
@@ -127,11 +136,11 @@ use IO::Socket;
   #
   ####################################################################
 
-  my $warningLimit = (exists($options{'w'})) ? $options{'w'} : 1;
+  my $sWarningLimit = (exists($hOptions{'w'})) ? $hOptions{'w'} : 1;
 
-  if ($warningLimit !~ /^\d+$/)
+  if ($sWarningLimit !~ /^\d+$/)
   {
-    print STDERR "$program: WarningLimit='$warningLimit' Error='Limit must be a number.'\n";
+    print STDERR "$sProgram: WarningLimit='$sWarningLimit' Error='Limit must be a number.'\n";
     exit(2);
   }
 
@@ -143,19 +152,30 @@ use IO::Socket;
 
   if (scalar(@ARGV) > 0)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # Create output directory.
+  # Verify existence of or create output directory.
   #
   ####################################################################
 
-  if (-d $outDir || !mkdir($outDir, 0755))
+  if (defined($sRedoBlock))
   {
-    print STDERR "$program: Directory='$outDir' Error='Directory exists or could not be created.'\n";
-    exit(2);
+    if (!-d $sOutDir)
+    {
+      print STDERR "$sProgram: Directory='$sOutDir' Error='Directory does not exist.'\n";
+      exit(2);
+    }
+  }
+  else
+  {
+    if (-d $sOutDir || !mkdir($sOutDir, 0755))
+    {
+      print STDERR "$sProgram: Directory='$sOutDir' Error='Directory exists or could not be created.'\n";
+      exit(2);
+    }
   }
 
   ####################################################################
@@ -164,48 +184,58 @@ use IO::Socket;
   #
   ####################################################################
 
-  my ($block, $count, $errorMessage, $kidPid, @kidPids, $md5Hashes, $warnings);
+  my ($sBlock, $sCount, $sErrorMessage, $sKidPid, @aKidPids, $sMD5Hashes, $sWarnings);
 
-  for ($block = $count = 1, $md5Hashes = "", $warnings = 0; my $record = <$fileHandle>; $count++)
+  $sBlock = (defined($sRedoBlock)) ? $sRedoBlock : 0;
+  $sCount = 0;
+  $sMD5Hashes = "";
+  $sWarnings = 0;
+
+  while (my $sRecord = <$sFileHandle>)
   {
-    if (scalar(@kidPids) >= $kidLimit)
+    $sRecord =~ s/[\r\n]+$//;
+    if ($sRecord =~ /^[0-9a-fA-F]{32}$/)
     {
-      for (my $pid = wait, my $i = 0; $i < scalar(@kidPids); $i++)
+      $sMD5Hashes .= $sRecord . "\n";
+      if (++$sCount % 256 == 0)
       {
-        if ($kidPids[$i] == $pid)
+        if (scalar(@aKidPids) >= $sKidLimit)
         {
-          splice(@kidPids, $i, 1);
-          last;
+          my $sPid = wait;
+          for (my $sIndex = 0; $sIndex < scalar(@aKidPids); $sIndex++)
+          {
+            if ($aKidPids[$sIndex] == $sPid)
+            {
+              splice(@aKidPids, $sIndex, 1);
+              last;
+            }
+          }
         }
+        $sKidPid = SunFingerPrintLookup($sOutDir, $sBlock, $sMD5Hashes, $sRedoBlock, \$sErrorMessage);
+        if (!defined($sKidPid))
+        {
+          print STDERR "$sProgram: $sErrorMessage\n";
+        }
+        else
+        {
+          push(@aKidPids, $sKidPid);
+        }
+        sleep($sSleepInterval) if ($sSleepInterval > 0);
+        $sMD5Hashes = "";
+        $sBlock++;
+        last if (defined($sRedoBlock));
       }
     }
-    $record =~ s/[\r\n]+$//;
-    if ($record !~ /^[0-9a-fA-F]{32}[\r\n]*$/)
+    else
     {
-      print STDERR "$program: File='$filename' Record='$record' Error='Record did not parse properly.'\n";
-      $warnings++;
-      if ($warningLimit && $warnings >= $warningLimit)
+      print STDERR "$sProgram: File='$sFilename' Record='$sRecord' Error='Record did not parse properly.'\n";
+      $sWarnings++;
+      if ($sWarningLimit && $sWarnings >= $sWarningLimit)
       {
-        print STDERR "$program: WarningLimit='$warningLimit' Error='Limit exceeded. Program aborting.'\n";
+        print STDERR "$sProgram: WarningLimit='$sWarningLimit' Error='Limit exceeded. Program aborting.'\n";
+        WaitLoop();
         exit(2);
       }
-      next;
-    }
-    $md5Hashes .= $record . "\n";
-    if ($count % 256 == 0)
-    {
-      $kidPid = SunFingerPrintLookup($outDir, $block, $md5Hashes, \$errorMessage);
-      if (!defined($kidPid))
-      {
-        print STDERR "$program: $errorMessage\n";
-      }
-      else
-      {
-        push(@kidPids, $kidPid);
-      }
-      sleep($sleepInterval) if ($sleepInterval > 0);
-      $md5Hashes = "";
-      $block++;
     }
   }
 
@@ -215,18 +245,18 @@ use IO::Socket;
   #
   ####################################################################
 
-  if ($count && length($md5Hashes))
+  if ($sCount && length($sMD5Hashes))
   {
-    $kidPid = SunFingerPrintLookup($outDir, $block, $md5Hashes, \$errorMessage);
-    if (!defined($kidPid))
+    $sKidPid = SunFingerPrintLookup($sOutDir, $sBlock, $sMD5Hashes, $sRedoBlock, \$sErrorMessage);
+    if (!defined($sKidPid))
     {
-      print STDERR "$program: $errorMessage\n";
+      print STDERR "$sProgram: $sErrorMessage\n";
     }
     else
     {
-      push(@kidPids, $kidPid);
+      push(@aKidPids, $sKidPid);
     }
-    $md5Hashes = "";
+    $sMD5Hashes = "";
   }
 
   ####################################################################
@@ -235,7 +265,7 @@ use IO::Socket;
   #
   ####################################################################
 
-  while (wait() != -1) {}
+  WaitLoop();
 
   1;
 
@@ -248,11 +278,11 @@ use IO::Socket;
 
 sub SunFingerPrintLookup
 {
-  my ($outDir, $block, $md5Hashes, $pErrorMessage) = @_;
+  my ($sOutDir, $sBlock, $sMD5Hashes, $sRedoBlock, $psErrorMessage) = @_;
 
-  my $sunSite = "sunsolve.sun.com";
-  my $getFile = sprintf("%s/hashdig-getblock.%06d", $outDir, $block);
-  my $outFile = sprintf("%s/hashdig-sunsolve.%06d", $outDir, $block);
+  my $sSunSite = "sunsolve.sun.com";
+  my $sGetFile = sprintf("%s/hashdig-getblock.%06d", $sOutDir, $sBlock);
+  my $sOutFile = sprintf("%s/hashdig-sunsolve.%06d", $sOutDir, $sBlock);
 
   ####################################################################
   #
@@ -260,30 +290,33 @@ sub SunFingerPrintLookup
   #
   ####################################################################
 
-  my $kidPid = fork();
-  if (!defined($kidPid))
+  my $sKidPid = fork();
+  if (!defined($sKidPid))
   {
-    $$pErrorMessage = "SunFingerPrintLookup(): Block='$block' Error='$!'";
+    $$psErrorMessage = "SunFingerPrintLookup(): Block='$sBlock' Error='$!'";
     return undef;
   }
 
-  if ($kidPid == 0)
+  if ($sKidPid == 0)
   {
-    if (!open(FH, ">$getFile"))
+    if (!defined($sRedoBlock) || !-f $sGetFile)
     {
-      print STDERR "SunFingerPrintLookup(): Block='$block' Error='$!'\n";
-      exit(2);
+      if (!open(FH, ">$sGetFile"))
+      {
+        print STDERR "SunFingerPrintLookup(): Block='$sBlock' Error='$!'\n";
+        exit(2);
+      }
+      print FH $sMD5Hashes;
+      close(FH);
     }
-    print FH $md5Hashes;
-    close(FH);
-    if (!open(FH, ">$outFile"))
+    if (!open(FH, ">$sOutFile"))
     {
-      print STDERR "SunFingerPrintLookup(): Block='$block' Error='$!'\n";
+      print STDERR "SunFingerPrintLookup(): Block='$sBlock' Error='$!'\n";
       exit(2);
     }
 
-    my $handle = IO::Socket::INET->new(Proto => "tcp", PeerAddr => $sunSite, PeerPort => 80) or die "($!)\n";
-    $handle->autoflush(1);
+    my $sHandle = IO::Socket::INET->new(Proto => "tcp", PeerAddr => $sSunSite, PeerPort => 80) or die "($!)\n";
+    $sHandle->autoflush(1);
 
     ##################################################################
     #
@@ -291,10 +324,10 @@ sub SunFingerPrintLookup
     #
     ##################################################################
 
-    my $md5List = "md5list=";
-    my $submit = "&submit=submit";
+    my $sMD5List = "md5list=";
+    my $sSubmit = "&submit=submit";
 
-    my $size = length($md5List) + length($md5Hashes) + length($submit);
+    my $sSize = length($sMD5List) + length($sMD5Hashes) + length($sSubmit);
 
     ##################################################################
     #
@@ -302,12 +335,12 @@ sub SunFingerPrintLookup
     #
     ##################################################################
 
-    my $header = "POST /pub-cgi/fileFingerprints.pl HTTP/1.0\n";
-    my $ctype = "Content-type: application/x-www-form-urlencoded\nContent-Length:$size\n\n";
+    my $sHeader = "POST /pub-cgi/fileFingerprints.pl HTTP/1.0\n";
+    my $sCType = "Content-Type: application/x-www-form-urlencoded\nContent-Length:$sSize\n\n";
 
-    if (!print $handle $header . $ctype . $md5List)
+    if (!print $sHandle $sHeader . $sCType . $sMD5List)
     {
-      print STDERR "SunFingerPrintLookup(): Block='$block' Error='Socket write failed for header data: ($!)'\n";
+      print STDERR "SunFingerPrintLookup(): Block='$sBlock' Error='Socket write failed for header data: ($!)'\n";
       exit(2);
     }
 
@@ -317,9 +350,9 @@ sub SunFingerPrintLookup
     #
     ##################################################################
 
-    if (!print $handle $md5Hashes)
+    if (!print $sHandle $sMD5Hashes)
     {
-      print STDERR "SunFingerPrintLookup(): Block='$block' Error='Socket write failed for hash data: ($!)'\n";
+      print STDERR "SunFingerPrintLookup(): Block='$sBlock' Error='Socket write failed for hash data: ($!)'\n";
       exit(2);
     }
 
@@ -329,9 +362,9 @@ sub SunFingerPrintLookup
     #
     ##################################################################
 
-    if (!print $handle $submit)
+    if (!print $sHandle $sSubmit)
     {
-      print STDERR "SunFingerPrintLookup(): Block='$block' Error='Socket write failed for submit data: ($!)'\n";
+      print STDERR "SunFingerPrintLookup(): Block='$sBlock' Error='Socket write failed for submit data: ($!)'\n";
       exit(2);
     }
 
@@ -341,7 +374,7 @@ sub SunFingerPrintLookup
     #
     ##################################################################
 
-    while (<$handle>)
+    while (<$sHandle>)
     {
       print FH;
     }
@@ -357,10 +390,10 @@ sub SunFingerPrintLookup
   }
   else
   {
-    print STDOUT "KidPid='$kidPid' File='$outFile'\n";
+    print STDOUT "KidPid='$sKidPid' File='$sOutFile'\n";
   }
 
-  return $kidPid;
+  return $sKidPid;
 }
 
 
@@ -372,11 +405,23 @@ sub SunFingerPrintLookup
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-d dir] [-k count] [-s count] [-w count] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-d dir] [-k count] [-r block] [-s count] [-w count] -f {file|-}\n";
   print STDERR "\n";
   exit(1);
+}
+
+
+######################################################################
+#
+# WaitLoop
+#
+######################################################################
+
+sub WaitLoop
+{
+  while (wait() != -1) {}
 }
 
 
@@ -388,7 +433,7 @@ hashdig-resolve-sunsolve.pl - Resolve hashes against Sun's Solaris Fingerprint D
 
 =head1 SYNOPSIS
 
-B<hashdig-resolve-sunsolve.pl> B<[-d dir]> B<[-k count]> B<[-w count]> B<[-s count]> B<-f {file|-}>
+B<hashdig-resolve-sunsolve.pl> B<[-d dir]> B<[-k count]> B<[-w count]> B<[-r block]> B<[-s count]> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
@@ -432,6 +477,18 @@ program to read from stdin.
 Specifies the number of simultaneous kid processes to create -- one
 kid per request. The default value is 5.
 
+=item B<-r block>
+
+Specifies a particular request ID to redo. Individual requests can
+fail from time to time; this option allows you to selectively redo
+those requests as necessary. The original output B<dir> must exist,
+and be specified if not the default value. The B<file> argument
+should be the name of the original getblock file or '-' for stdin.
+However, no more than 256 valid records from the specified B<file>
+will be processed. Output will be written to the original sunsolve
+file whether it exists or not. A corresponding getblock file will
+be created only if it doesn't exist.
+
 =item B<-s count>
 
 Specifies the number of seconds to wait between subsequent requests.
@@ -447,15 +504,15 @@ program aborts. The default value is 1. If this option is set to
 
 =head1 BUGS
 
-Under certain conditions (e.g., slow link, killed TCP sessions,
-etc.), requests can fail without an error message being generated.
-In these situations, output from the affected request is often
-invalid or incomplete. Currently, there is no mechanism to detect
-whether or not such is the case.
+Under certain conditions (e.g., slow link, killed TCP sessions, too
+many kid processes, etc.), requests can fail without generating an
+error message. In these situations, output from the affected request
+is often invalid or incomplete. Currently, there is no mechanism
+to detect whether or not such is the case.
 
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 
 =head1 SEE ALSO
 

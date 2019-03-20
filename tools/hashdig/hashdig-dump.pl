@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-dump.pl,v 1.2 2003/03/24 13:25:00 mavrik Exp $
+# $Id: hashdig-dump.pl,v 1.8 2004/04/21 01:29:59 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -15,6 +15,7 @@
 
 use strict;
 use DB_File;
+use File::Basename;
 use Getopt::Std;
 
 ######################################################################
@@ -29,9 +30,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($program);
+  my ($sProgram);
 
-  $program = "hashdig-dump.pl";
+  $sProgram = basename(__FILE__);
 
   ####################################################################
   #
@@ -39,58 +40,58 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('c:hr', \%options))
+  if (!getopts('c:hr', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # The category flag, '-c', is optional. Default value is "A".
+  # The Category flag, '-c', is optional. Default value is "A".
   #
   ####################################################################
 
-  my ($category);
+  my ($sCategory);
 
-  $category = (exists($options{'c'})) ? uc($options{'c'}) : "A";
+  $sCategory = (exists($hOptions{'c'})) ? uc($hOptions{'c'}) : "A";
 
-  if ($category !~ /^[AKU]$/)
+  if ($sCategory !~ /^[AKU]$/)
   {
-    print STDERR "$program: Category='$category' Error='Invalid category.'\n";
+    print STDERR "$sProgram: Category='$sCategory' Error='Invalid category.'\n";
     exit(2);
   }
 
   ####################################################################
   #
-  # The hashOnly flag, '-h', is optional. Default value is 0.
+  # The HashOnly flag, '-h', is optional. Default value is 0.
   #
   ####################################################################
 
-  my ($hashOnly);
+  my ($sHashOnly);
 
-  $hashOnly = (exists($options{'h'})) ? 1 : 0;
+  $sHashOnly = (exists($hOptions{'h'})) ? 1 : 0;
 
   ####################################################################
   #
-  # The reverseFormat flag, '-r', is optional. Default value is 0.
+  # The ReverseFormat flag, '-r', is optional. Default value is 0.
   #
   ####################################################################
 
-  my ($cIndex, $hIndex, $reverseFormat);
+  my ($sCIndex, $sHIndex, $sReverseFormat);
 
-  $reverseFormat = (exists($options{'r'})) ? 1 : 0;
+  $sReverseFormat = (exists($hOptions{'r'})) ? 1 : 0;
 
-  if ($reverseFormat)
+  if ($sReverseFormat)
   {
-    $cIndex = 0;
-    $hIndex = 1;
+    $sCIndex = 0;
+    $sHIndex = 1;
   }
   else
   {
-    $cIndex = 1;
-    $hIndex = 0;
+    $sCIndex = 1;
+    $sHIndex = 0;
   }
 
   ####################################################################
@@ -99,25 +100,25 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($dbFile);
+  my ($sDBFile);
 
   if (scalar(@ARGV) != 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
-  $dbFile = shift;
+  $sDBFile = shift;
 
   ####################################################################
   #
-  # Tie onDiskList to the db.
+  # Tie OnDiskList to the db.
   #
   ####################################################################
 
-  my (%onDiskList);
+  my (%hOnDiskList);
 
-  if (!tie(%onDiskList, "DB_File", $dbFile, O_RDONLY, 0644, $DB_BTREE))
+  if (!tie(%hOnDiskList, "DB_File", $sDBFile, O_RDONLY, 0644, $DB_BTREE))
   {
-    print STDERR "$program: File='$dbFile' Error='$!'\n";
+    print STDERR "$sProgram: File='$sDBFile' Error='$!'\n";
     exit(2);
   }
 
@@ -127,37 +128,37 @@ use Getopt::Std;
   #
   ####################################################################
 
-  if ($category =~ /^[KU]$/)
+  if ($sCategory =~ /^[KU]$/)
   {
-    if ($hashOnly)
+    if ($sHashOnly)
     {
-      while (my (@pair) = each(%onDiskList))
+      while (my (@aPair) = each(%hOnDiskList))
       {
-        print "$pair[0]\n" unless ($pair[1] ne $category);
+        print "$aPair[0]\n" unless ($aPair[1] ne $sCategory);
       }
     }
     else
     {
-      while (my (@pair) = each(%onDiskList))
+      while (my (@aPair) = each(%hOnDiskList))
       {
-        print "$pair[$hIndex]|$pair[$cIndex]\n" unless ($pair[1] ne $category);
+        print "$aPair[$sHIndex]|$aPair[$sCIndex]\n" unless ($aPair[1] ne $sCategory);
       }
     }
   }
   else
   {
-    if ($hashOnly)
+    if ($sHashOnly)
     {
-      while (my (@pair) = each(%onDiskList))
+      while (my (@aPair) = each(%hOnDiskList))
       {
-        print "$pair[0]\n";
+        print "$aPair[0]\n";
       }
     }
     else
     {
-      while (my (@pair) = each(%onDiskList))
+      while (my (@aPair) = each(%hOnDiskList))
       {
-        print "$pair[$hIndex]|$pair[$cIndex]\n";
+        print "$aPair[$sHIndex]|$aPair[$sCIndex]\n";
       }
     }
   }
@@ -168,7 +169,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  untie(%onDiskList);
+  untie(%hOnDiskList);
 
   1;
 
@@ -181,9 +182,9 @@ use Getopt::Std;
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-c {A|K|U}] [-h|-r] db\n";
+  print STDERR "Usage: $sProgram [-c {A|K|U}] [-h|-r] db\n";
   print STDERR "\n";
   exit(1);
 }
@@ -202,7 +203,7 @@ B<hashdig-dump.pl> B<[-c {A|K|U}]> B<[-h|-r]> B<db>
 =head1 DESCRIPTION
 
 This utility enumerates a HashDig database that has been created
-with hashdig-make.pl. Output is written to stdout and has the the
+with hashdig-make.pl. Output is written to stdout and has the
 following format:
 
     hash|category
@@ -233,7 +234,7 @@ been specified.
 
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 
 =head1 SEE ALSO
 

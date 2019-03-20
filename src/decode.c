@@ -1,21 +1,20 @@
 /*-
  ***********************************************************************
  *
- * $Id: decode.c,v 1.6 2003/08/13 18:25:47 mavrik Exp $
+ * $Id: decode.c,v 1.12 2004/04/23 02:51:12 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
 
-static unsigned char  Base64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static int            FromBase64[256];
+static unsigned char  gaucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static int            giFromBase64[256];
 
-static DECODE_TABLE   DecodeTable[] = {
+static DECODE_TABLE   gasDecodeTable[] = {
   { "zname",       "name",          DecodeName                 },
   { "dev",         "dev",           Decode32bFieldBase16To10   },
   { "inode",       "inode",         Decode32bFieldBase16To10   },
@@ -40,9 +39,9 @@ static DECODE_TABLE   DecodeTable[] = {
   { "magic",       "magic",         DecodeMagic                },
   { "md5",         "md5",           DecodeMd5                  }
 };
-#define DECODE_TABLE_SIZE sizeof(DecodeTable) / sizeof(DecodeTable[0])
+#define DECODE_TABLE_SIZE sizeof(gasDecodeTable) / sizeof(gasDecodeTable[0])
 
-static DECODE_TABLE   DecodeMap[DECODE_TABLE_SIZE];
+static DECODE_TABLE   gasDecodeMap[DECODE_TABLE_SIZE];
 
 static K_UINT32       gui32RecordsDecoded;
 static K_UINT32       gui32RecordsLost;
@@ -58,17 +57,15 @@ static K_UINT32       gui32RecordsLost;
 int
 Decode32bFieldBase16To08(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
-  const char          cRoutine[] = "Decode32bFieldBase16To08()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "Decode32bFieldBase16To08()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 i;
   int                 iReturnValue;
-  int                 n;
+  int                 n = 0;
   static int          iFirst = 1;
   static K_UINT32     ui32ValueNew[DECODE_TABLE_SIZE];
   static K_UINT32     ui32ValueOld[DECODE_TABLE_SIZE];
   static K_UINT32    *pui32ValueOld[DECODE_TABLE_SIZE];
-
-  cLocalError[0] = n = 0;
 
   if (iFirst || iAction == DECODE_RESET)
   {
@@ -90,10 +87,10 @@ Decode32bFieldBase16To08(char *pcName, int iIndex, int iAction, char *pcToken, i
   if (iLength)
   {
 
-    iReturnValue = Decode32bValueBase16To10(pcToken, iLength, &ui32ValueNew[iIndex], pui32ValueOld[iIndex], cLocalError);
+    iReturnValue = Decode32bValueBase16To10(pcToken, iLength, &ui32ValueNew[iIndex], pui32ValueOld[iIndex], acLocalError);
     if (iReturnValue == ER)
     {
-      sprintf(pcError, "%s: Field = [%s]: %s", pcName, cRoutine, cLocalError);
+      sprintf(pcError, "%s: Field = [%s]: %s", pcName, acRoutine, acLocalError);
       return iReturnValue;
     }
     n += sprintf(&pcOutput[n], "%o", (unsigned) ui32ValueNew[iIndex]);
@@ -122,17 +119,15 @@ Decode32bFieldBase16To08(char *pcName, int iIndex, int iAction, char *pcToken, i
 int
 Decode32bFieldBase16To10(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
-  const char          cRoutine[] = "Decode32bFieldBase16To10()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "Decode32bFieldBase16To10()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 i;
   int                 iReturnValue;
-  int                 n;
+  int                 n = 0;
   static int          iFirst = 1;
   static K_UINT32     ui32ValueNew[DECODE_TABLE_SIZE];
   static K_UINT32     ui32ValueOld[DECODE_TABLE_SIZE];
   static K_UINT32    *pui32ValueOld[DECODE_TABLE_SIZE];
-
-  cLocalError[0] = n = 0;
 
   if (iFirst || iAction == DECODE_RESET)
   {
@@ -154,10 +149,10 @@ Decode32bFieldBase16To10(char *pcName, int iIndex, int iAction, char *pcToken, i
   if (iLength)
   {
 
-    iReturnValue = Decode32bValueBase16To10(pcToken, iLength, &ui32ValueNew[iIndex], pui32ValueOld[iIndex], cLocalError);
+    iReturnValue = Decode32bValueBase16To10(pcToken, iLength, &ui32ValueNew[iIndex], pui32ValueOld[iIndex], acLocalError);
     if (iReturnValue == ER)
     {
-      sprintf(pcError, "%s: Field = [%s]: %s", pcName, cRoutine, cLocalError);
+      sprintf(pcError, "%s: Field = [%s]: %s", pcName, acRoutine, acLocalError);
       return iReturnValue;
     }
     n += sprintf(&pcOutput[n], "%u", (unsigned) ui32ValueNew[iIndex]);
@@ -186,7 +181,7 @@ Decode32bFieldBase16To10(char *pcName, int iIndex, int iAction, char *pcToken, i
 int
 Decode32bValueBase16To10(char *pcData, int iLength, K_UINT32 *pui32ValueNew, K_UINT32 *pui32ValueOld, char *pcError)
 {
-  const char          cRoutine[] = "Decode32bValueBase16To10()";
+  const char          acRoutine[] = "Decode32bValueBase16To10()";
   int                 i;
   int                 iSign;
   K_UINT32            ui32;
@@ -209,7 +204,7 @@ Decode32bValueBase16To10(char *pcData, int iLength, K_UINT32 *pui32ValueNew, K_U
 
   if (pui32ValueOld == NULL && (pcData[0] == '#' || pcData[0] == '+' || pcData[0] == '-'))
   {
-    sprintf(pcError, "%s: Expected previous value to be defined!", cRoutine);
+    sprintf(pcError, "%s: Expected previous value to be defined!", acRoutine);
     return ER;
   }
 
@@ -246,7 +241,7 @@ Decode32bValueBase16To10(char *pcData, int iLength, K_UINT32 *pui32ValueNew, K_U
         }
         else
         {
-          sprintf(pcError, "%s: Bad hex digit.", cRoutine);
+          sprintf(pcError, "%s: Bad hex digit.", acRoutine);
           return ER;
         }
         i++;
@@ -254,7 +249,7 @@ Decode32bValueBase16To10(char *pcData, int iLength, K_UINT32 *pui32ValueNew, K_U
     }
     else
     {
-      sprintf(pcError, "%s: Field length exceeds 8 digits!", cRoutine);
+      sprintf(pcError, "%s: Field length exceeds 8 digits!", acRoutine);
       return ER;
     }
     if (iSign != 0)
@@ -278,25 +273,23 @@ Decode32bValueBase16To10(char *pcData, int iLength, K_UINT32 *pui32ValueNew, K_U
 int
 Decode64bFieldBase16To10(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
-  const char          cRoutine[] = "Decode64bFieldBase16To10()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "Decode64bFieldBase16To10()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 i;
   int                 iReturnValue;
-  int                 n;
+  int                 n = 0;
   static int          iFirst = 1;
-  static K_UINT64     ui64ValueNew[DECODE_TABLE_SIZE];
-  static K_UINT64     ui64ValueOld[DECODE_TABLE_SIZE];
-  static K_UINT64    *pui64ValueOld[DECODE_TABLE_SIZE];
-
-  cLocalError[0] = n = 0;
+  static K_UINT64     aui64ValueNew[DECODE_TABLE_SIZE];
+  static K_UINT64     aui64ValueOld[DECODE_TABLE_SIZE];
+  static K_UINT64    *apui64ValueOld[DECODE_TABLE_SIZE];
 
   if (iFirst || iAction == DECODE_RESET)
   {
     for (i = 0; i < DECODE_TABLE_SIZE; i++)
     {
-      ui64ValueNew[i] = 0;
-      ui64ValueOld[i] = 0;
-      pui64ValueOld[i] = &ui64ValueOld[i];
+      aui64ValueNew[i] = 0;
+      aui64ValueOld[i] = 0;
+      apui64ValueOld[i] = &aui64ValueOld[i];
     }
     iFirst = 0;
     if (iAction == DECODE_RESET)
@@ -309,33 +302,33 @@ Decode64bFieldBase16To10(char *pcName, int iIndex, int iAction, char *pcToken, i
 
   if (iLength)
   {
-    iReturnValue = Decode64bValueBase16To10(pcToken, iLength, &ui64ValueNew[iIndex], pui64ValueOld[iIndex], cLocalError);
+    iReturnValue = Decode64bValueBase16To10(pcToken, iLength, &aui64ValueNew[iIndex], apui64ValueOld[iIndex], acLocalError);
     if (iReturnValue == ER)
     {
-      sprintf(pcError, "%s: Field = [%s]: %s", pcName, cRoutine, cLocalError);
+      sprintf(pcError, "%s: Field = [%s]: %s", pcName, acRoutine, acLocalError);
       return iReturnValue;
     }
 
 #ifdef WIN32
-    n += sprintf(&pcOutput[n], "%I64u", ui64ValueNew[iIndex]);
+    n += snprintf(&pcOutput[n], FTIMES_MAX_64BIT_SIZE, "%I64u", aui64ValueNew[iIndex]);
 #endif
 #ifdef UNIX
 #ifdef USE_AP_SNPRINTF
-    n += snprintf(&pcOutput[n], 22, "%qu", ui64ValueNew[iIndex]);
+    n += snprintf(&pcOutput[n], FTIMES_MAX_64BIT_SIZE, "%qu", (unsigned long long) aui64ValueNew[iIndex]);
 #else
-    n += sprintf(&pcOutput[n], "%qu", ui64ValueNew[iIndex]);
+    n += snprintf(&pcOutput[n], FTIMES_MAX_64BIT_SIZE, "%llu", (unsigned long long) aui64ValueNew[iIndex]);
 #endif
 #endif
-    ui64ValueOld[iIndex] = ui64ValueNew[iIndex];
+    aui64ValueOld[iIndex] = aui64ValueNew[iIndex];
 
     /*
      * If we got this far, then it's ok to reset any NULL pointers.
      */
-    pui64ValueOld[iIndex] = &ui64ValueOld[iIndex];
+    apui64ValueOld[iIndex] = &aui64ValueOld[iIndex];
   }
   else
   {
-    pui64ValueOld[iIndex] = NULL;
+    apui64ValueOld[iIndex] = NULL;
   }
   return n;
 }
@@ -351,8 +344,8 @@ Decode64bFieldBase16To10(char *pcName, int iIndex, int iAction, char *pcToken, i
 int
 Decode64bValueBase16To10(char *pcData, int iLength, K_UINT64 *pui64ValueNew, K_UINT64 *pui64ValueOld, char *pcError)
 {
-  const char          cRoutine[] = "Decode64bValueBase16To10()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "Decode64bValueBase16To10()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 i;
   int                 iReturnValue;
   K_UINT32            ui32UpperNew;
@@ -360,13 +353,13 @@ Decode64bValueBase16To10(char *pcData, int iLength, K_UINT64 *pui64ValueNew, K_U
   K_UINT32            ui32LowerOld;
   K_UINT64            ui64;
 
-  i = cLocalError[0] = 0;
+  i = acLocalError[0] = 0;
 
   ui64 = (K_UINT64) 0;
 
   if (pui64ValueOld == NULL && pcData[0] == '#')
   {
-    sprintf(pcError, "%s: Expected previous value to be defined!", cRoutine);
+    sprintf(pcError, "%s: Expected previous value to be defined!", acRoutine);
     return ER;
   }
 
@@ -376,10 +369,10 @@ Decode64bValueBase16To10(char *pcData, int iLength, K_UINT64 *pui64ValueNew, K_U
     ui32LowerOld = (K_UINT32) (*pui64ValueOld & 0xffffff);
     i++;
     iLength--;
-    iReturnValue = Decode32bValueBase16To10(&pcData[i], iLength, &ui32LowerNew, &ui32LowerOld, cLocalError);
+    iReturnValue = Decode32bValueBase16To10(&pcData[i], iLength, &ui32LowerNew, &ui32LowerOld, acLocalError);
     if (iReturnValue == ER)
     {
-      sprintf(pcError, "%s: %s", cRoutine, cLocalError);
+      sprintf(pcError, "%s: %s", acRoutine, acLocalError);
       return iReturnValue;
     }
 
@@ -402,7 +395,7 @@ Decode64bValueBase16To10(char *pcData, int iLength, K_UINT64 *pui64ValueNew, K_U
       }
       else
       {
-        sprintf(pcError, "%s: Bad hex digit.", cRoutine);
+        sprintf(pcError, "%s: Bad hex digit.", acRoutine);
         return ER;
       }
       i++;
@@ -410,7 +403,7 @@ Decode64bValueBase16To10(char *pcData, int iLength, K_UINT64 *pui64ValueNew, K_U
   }
   else
   {
-    sprintf(pcError, "%s: Field length exceeds 16 digits!", cRoutine);
+    sprintf(pcError, "%s: Field length exceeds 16 digits!", acRoutine);
     return ER;
   }
 
@@ -433,12 +426,12 @@ DecodeBuildFromBase64Table(void)
 
   for (i = 0; i < 256; i++)
   {
-    FromBase64[i] = (-1);
+    giFromBase64[i] = (-1);
   }
 
-  for (i = 0; Base64[i] != '\0'; i++)
+  for (i = 0; gaucBase64[i] != '\0'; i++)
   {
-    FromBase64[Base64[i]] = i;
+    giFromBase64[gaucBase64[i]] = i;
   }
 }
 
@@ -453,11 +446,11 @@ DecodeBuildFromBase64Table(void)
 int
 DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
 {
-  const char          cRoutine[] = "DecodeFile()";
-  char                cHeader[FTIMES_MAX_LINE];
-  char                cLine[FTIMES_MAX_LINE];
-  char                cLocalError[ERRBUF_SIZE];
-  char                cOutput[FTIMES_MAX_LINE];
+  const char          acRoutine[] = "DecodeFile()";
+  char                acHeader[FTIMES_MAX_LINE];
+  char                acLine[FTIMES_MAX_LINE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acOutput[FTIMES_MAX_LINE];
   char               *pc;
   FILE               *pFile;
   int                 i;
@@ -466,8 +459,6 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
   int                 iReturnValue;
   int                 iSkipToNextCheckpoint;
   int                 n;
-
-  cLocalError[0] = 0;
 
   DecodeBuildFromBase64Table();
 
@@ -487,7 +478,7 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
     pFile = fopen(pcFilename, "rb");
     if (pFile == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s]: %s", cRoutine, pcFilename, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, pcFilename, strerror(errno));
       return ER_fopen;
     }
   }
@@ -500,7 +491,7 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
    *********************************************************************
    */
   iLineNumber = 1;
-  fgets(cLine, FTIMES_MAX_LINE, pFile);
+  fgets(acLine, FTIMES_MAX_LINE, pFile);
 
   /*-
    *********************************************************************
@@ -509,16 +500,16 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
    *
    *********************************************************************
    */
-  if (SupportChopEOLs(cLine, feof(pFile) ? 0 : 1, cLocalError) == ER)
+  if (SupportChopEOLs(acLine, feof(pFile) ? 0 : 1, acLocalError) == ER)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
     fclose(pFile);
     return ER;
   }
 
-  if (strncmp(cLine, "zname|", 6) != 0)
+  if (strncmp(acLine, "zname|", 6) != 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: Unrecognized header.", cRoutine, pcFilename, iLineNumber);
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: Unrecognized header.", acRoutine, pcFilename, iLineNumber);
     fclose(pFile);
     return ER_BadValue;
   }
@@ -530,19 +521,19 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
    *
    *********************************************************************
    */
-  for (iDecodeIndex = 0, pc = strtok(cLine, DECODE_SEPARATOR_S); pc != NULL; pc = strtok(NULL, DECODE_SEPARATOR_S), iDecodeIndex++)
+  for (iDecodeIndex = 0, pc = strtok(acLine, DECODE_SEPARATOR_S); pc != NULL; pc = strtok(NULL, DECODE_SEPARATOR_S), iDecodeIndex++)
   {
     for (i = 0; i < DECODE_TABLE_SIZE; i++)
     {
-      if (strcmp(DecodeTable[i].ZName, pc) == 0)
+      if (strcmp(gasDecodeTable[i].acZName, pc) == 0)
       {
-        DecodeMap[iDecodeIndex] = DecodeTable[i]; /* This initializes all elements at the given index. */
+        gasDecodeMap[iDecodeIndex] = gasDecodeTable[i]; /* This initializes all elements at the given index. */
         break;
       }
     }
     if (i == DECODE_TABLE_SIZE)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d], Field = [%s]: Unrecognized field.", cRoutine, pcFilename, iLineNumber, pc);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d], Field = [%s]: Unrecognized field.", acRoutine, pcFilename, iLineNumber, pc);
       fclose(pFile);
       return ER_BadValue;
     }
@@ -557,9 +548,9 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
    */
   for (i = n = 0; i < iDecodeIndex; i++)
   {
-    n += sprintf(&cHeader[n], "%s%s", DecodeMap[i].UName, (i < iDecodeIndex - 1) ? DECODE_SEPARATOR_S : "");
+    n += sprintf(&acHeader[n], "%s%s", gasDecodeMap[i].acUName, (i < iDecodeIndex - 1) ? DECODE_SEPARATOR_S : "");
   }
-  fprintf(pFileOut, "%s%s", cHeader, pcNewLine);
+  fprintf(pFileOut, "%s%s", acHeader, pcNewLine);
 
   /*-
    *********************************************************************
@@ -569,7 +560,7 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
    *********************************************************************
    */
   iSkipToNextCheckpoint = FALSE;
-  for (cLine[0] = cOutput[0] = 0, iLineNumber = 2; fgets(cLine, FTIMES_MAX_LINE, pFile) != NULL; cLine[0] = cOutput[0] = 0, iLineNumber++)
+  for (acLine[0] = acOutput[0] = 0, iLineNumber = 2; fgets(acLine, FTIMES_MAX_LINE, pFile) != NULL; acLine[0] = acOutput[0] = 0, iLineNumber++)
   {
     /*-
      *******************************************************************
@@ -578,9 +569,9 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
      *
      *******************************************************************
      */
-    if (SupportChopEOLs(cLine, feof(pFile) ? 0 : 1, cLocalError) == ER)
+    if (SupportChopEOLs(acLine, feof(pFile) ? 0 : 1, acLocalError) == ER)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
       fclose(pFile);
       return ER;
     }
@@ -594,15 +585,15 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
      */
     if (iSkipToNextCheckpoint)
     {
-      if (strncmp(cLine, "00", 2) == 0) /* Checkpoint */
+      if (strncmp(acLine, "00", 2) == 0) /* Checkpoint */
       {
         iSkipToNextCheckpoint = FALSE;
-        DecodeName("reset", 0, DECODE_RESET, NULL, 0, NULL, cLocalError);
-        Decode32bFieldBase16To10("reset", 0, DECODE_RESET, NULL, 0, NULL, cLocalError);
-        Decode64bFieldBase16To10("reset", 0, DECODE_RESET, NULL, 0, NULL, cLocalError);
-        DecodeTime("reset", 0, DECODE_RESET, NULL, 0, NULL, cLocalError);
-        DecodeMilliseconds("reset", 0, DECODE_RESET, NULL, 0, NULL, cLocalError);
-        snprintf(pcError, ERRBUF_SIZE, "%s: Line = [%d]: Checkpoint located. Restarting decoder routines.", cRoutine, iLineNumber);
+        DecodeName("reset", 0, DECODE_RESET, NULL, 0, NULL, acLocalError);
+        Decode32bFieldBase16To10("reset", 0, DECODE_RESET, NULL, 0, NULL, acLocalError);
+        Decode64bFieldBase16To10("reset", 0, DECODE_RESET, NULL, 0, NULL, acLocalError);
+        DecodeTime("reset", 0, DECODE_RESET, NULL, 0, NULL, acLocalError);
+        DecodeMilliseconds("reset", 0, DECODE_RESET, NULL, 0, NULL, acLocalError);
+        snprintf(pcError, MESSAGE_SIZE, "%s: Line = [%d]: Checkpoint located. Restarting decoder routines.", acRoutine, iLineNumber);
         ErrorHandler(ER_BadHandle, pcError, ERROR_WARNING);
       }
       else
@@ -619,12 +610,12 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
      *
      *******************************************************************
      */
-    iReturnValue = DecodeLine(cLine, cOutput, cLocalError);
+    iReturnValue = DecodeLine(acLine, acOutput, acLocalError);
     if (iReturnValue == ER)
     {
-      cOutput[0] = 0;
+      acOutput[0] = 0;
       iSkipToNextCheckpoint = TRUE;
-      snprintf(pcError, ERRBUF_SIZE, "%s: Line = [%d]: %s", cRoutine, iLineNumber, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Line = [%d]: %s", acRoutine, iLineNumber, acLocalError);
       ErrorHandler(ER_BadHandle, pcError, ERROR_FAILURE);
       gui32RecordsLost++;
     }
@@ -640,9 +631,9 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
      *
      *******************************************************************
      */
-    if (cOutput[0] != 0)
+    if (acOutput[0] != 0)
     {
-      fprintf(pFileOut, "%s%s", cOutput, pcNewLine);
+      fprintf(pFileOut, "%s%s", acOutput, pcNewLine);
     }
   }
   fclose(pFile);
@@ -661,7 +652,7 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
 int
 DecodeFormatOutOfBandTime(char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
-  const char          cRoutine[] = "DecodeFormatOutOfBandTime()";
+  const char          acRoutine[] = "DecodeFormatOutOfBandTime()";
   int                 i;
   int                 n;
 
@@ -675,7 +666,7 @@ DecodeFormatOutOfBandTime(char *pcToken, int iLength, char *pcOutput, char *pcEr
 
   if (iLength != (int) strlen("YYYYMMDDHHMMSS"))
   {
-    sprintf(pcError, "%s: Field length != %d!", cRoutine, (int) strlen("YYYYMMDDHHMMSS"));
+    sprintf(pcError, "%s: Field length != %d!", acRoutine, (int) strlen("YYYYMMDDHHMMSS"));
     return ER;
   }
 
@@ -754,7 +745,7 @@ DecodeFormatTime(FILETIME *pFileTime, char *pcTime)
 int
 DecodeGetBase64Hash(char *pcData, unsigned char *pucHash, int iLength, char *pcError)
 {
-  const char          cRoutine[] = "DecodeGetBase64Hash()";
+  const char          acRoutine[] = "DecodeGetBase64Hash()";
   int                 i;
   int                 j;
   int                 iLeft;
@@ -762,18 +753,18 @@ DecodeGetBase64Hash(char *pcData, unsigned char *pucHash, int iLength, char *pcE
 
   if (iLength != 22)
   {
-    sprintf(pcError, "%s: Hash must be 22 bytes long", cRoutine);
+    sprintf(pcError, "%s: Hash must be 22 bytes long", acRoutine);
     return ER;
   }
 
   for (i = 0, j = 0, ui32 = 0, iLeft = 0; i < 22; i++)
   {
-    if (FromBase64[(int) pcData[i]] < 0)
+    if (giFromBase64[(int) pcData[i]] < 0)
     {
-      sprintf(pcError, "%s: Illegal base64 character", cRoutine);
+      sprintf(pcError, "%s: Illegal base64 character", acRoutine);
       return ER;
     }
-    ui32 = (ui32 << 6) | FromBase64[(int) pcData[i]];
+    ui32 = (ui32 << 6) | giFromBase64[(int) pcData[i]];
     iLeft += 6;
     while (iLeft >= 8)
     {
@@ -823,22 +814,19 @@ DecodeGetRecordsLost(void)
 int
 DecodeLine(char *pcLine, char *pcOutput, char *pcError)
 {
-  const char          cRoutine[] = "DecodeLine()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "DecodeLine()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcName;
   char               *pcToken;
-  int                 iDone;
+  int                 iDone = 0;
   int                 iIndex;
-  int                 iLength;
-  int                 iOffset;
+  int                 iLength = 0;
+  int                 iOffset = 0;
   int                 iReturnValue;
-  int                 iTokenCount;
-  int                 n;
-
-  n = cLocalError[0] = 0;
+  int                 iTokenCount = 0;
+  int                 n = 0;
 
   pcToken = pcLine;
-  iDone = iLength = iOffset = iTokenCount = 0;
 
   while (!iDone)
   {
@@ -849,12 +837,12 @@ DecodeLine(char *pcLine, char *pcOutput, char *pcError)
         iDone = 1;
       }
       pcLine[iOffset] = 0;
-      pcName = DecodeMap[iTokenCount].ZName;
+      pcName = gasDecodeMap[iTokenCount].acZName;
       iIndex = iTokenCount;
-      iReturnValue = DecodeMap[iTokenCount].Routine(pcName, iIndex, DECODE_DECODE, pcToken, iLength, &pcOutput[n], cLocalError);
+      iReturnValue = gasDecodeMap[iTokenCount].piRoutine(pcName, iIndex, DECODE_DECODE, pcToken, iLength, &pcOutput[n], acLocalError);
       if (iReturnValue == ER)
       {
-        sprintf(pcError, "%s: %s", cRoutine, cLocalError);
+        sprintf(pcError, "%s: %s", acRoutine, acLocalError);
         return ER;
       }
       n += iReturnValue;
@@ -908,14 +896,12 @@ DecodeMagic(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, c
 int
 DecodeMd5(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
-  const char          cRoutine[] = "DecodeMd5()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "DecodeMd5()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 i;
   int                 iReturnValue;
-  int                 n;
+  int                 n = 0;
   unsigned char       ucFileMd5[16];
-
-  cLocalError[0] = n = 0;
 
   if (iAction == DECODE_RESET)
   {
@@ -940,10 +926,10 @@ DecodeMd5(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, cha
     }
     else
     {
-      iReturnValue = DecodeGetBase64Hash(pcToken, ucFileMd5, iLength, cLocalError);
+      iReturnValue = DecodeGetBase64Hash(pcToken, ucFileMd5, iLength, acLocalError);
       if (iReturnValue == ER)
       {
-        sprintf(pcError, "%s: %s", cRoutine, cLocalError);
+        sprintf(pcError, "%s: %s", acRoutine, acLocalError);
         return iReturnValue;
       }
       for (i = 0; i < 16; i++)
@@ -966,12 +952,12 @@ DecodeMd5(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, cha
 int
 DecodeMilliseconds(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
-  const char          cRoutine[] = "DecodeMilliseconds()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "DecodeMilliseconds()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 i;
   int                 iReturnValue;
   int                 iTimeIndex;
-  int                 n;
+  int                 n = 0;
   static int          iFirst = 1;
   static K_UINT32     ui32MilliNew[4];
   static K_UINT32     ui32MilliOld[4];
@@ -981,8 +967,6 @@ DecodeMilliseconds(char *pcName, int iIndex, int iAction, char *pcToken, int iLe
 #define  M_MILLI_INDEX 1
 #define  C_MILLI_INDEX 2
 #define CH_MILLI_INDEX 3
-
-  cLocalError[0] = n = 0;
 
   if (iFirst || iAction == DECODE_RESET)
   {
@@ -1033,7 +1017,7 @@ DecodeMilliseconds(char *pcName, int iIndex, int iAction, char *pcToken, int iLe
       }
       else
       {
-        sprintf(pcError, "%s: Field = [%s]: Expected previous value to be defined!", cRoutine, pcName);
+        sprintf(pcError, "%s: Field = [%s]: Expected previous value to be defined!", acRoutine, pcName);
         return ER;
       }
     }
@@ -1045,7 +1029,7 @@ DecodeMilliseconds(char *pcName, int iIndex, int iAction, char *pcToken, int iLe
       }
       else
       {
-        sprintf(pcError, "%s: Field = [%s]: Expected atime value to be defined!", cRoutine, pcName);
+        sprintf(pcError, "%s: Field = [%s]: Expected atime value to be defined!", acRoutine, pcName);
         return ER;
       }
     }
@@ -1057,7 +1041,7 @@ DecodeMilliseconds(char *pcName, int iIndex, int iAction, char *pcToken, int iLe
       }
       else
       {
-        sprintf(pcError, "%s: Field = [%s]: Expected mtime value to be defined!", cRoutine, pcName);
+        sprintf(pcError, "%s: Field = [%s]: Expected mtime value to be defined!", acRoutine, pcName);
         return ER;
       }
     }
@@ -1069,16 +1053,16 @@ DecodeMilliseconds(char *pcName, int iIndex, int iAction, char *pcToken, int iLe
       }
       else
       {
-        sprintf(pcError, "%s: Field = [%s]: Expected ctime value to be defined!", cRoutine, pcName);
+        sprintf(pcError, "%s: Field = [%s]: Expected ctime value to be defined!", acRoutine, pcName);
         return ER;
       }
     }
     else
     {
-      iReturnValue = Decode32bValueBase16To10(pcToken, iLength, &ui32MilliNew[iTimeIndex], pui32MilliOld[iTimeIndex], cLocalError);
+      iReturnValue = Decode32bValueBase16To10(pcToken, iLength, &ui32MilliNew[iTimeIndex], pui32MilliOld[iTimeIndex], acLocalError);
       if (iReturnValue == ER)
       {
-        sprintf(pcError, "DecodeMilliseconds(%s): %s", pcName, cLocalError);
+        sprintf(pcError, "DecodeMilliseconds(%s): %s", pcName, acLocalError);
         return iReturnValue;
       }
     }
@@ -1108,18 +1092,16 @@ DecodeMilliseconds(char *pcName, int iIndex, int iAction, char *pcToken, int iLe
 int
 DecodeName(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
-  const char          cRoutine[] = "DecodeName()";
+  const char          acRoutine[] = "DecodeName()";
   int                 i;
   int                 j;
-  int                 n;
+  int                 n = 0;
   unsigned int        iFromLastLine;
-  static char         cLastName[1024] = "";
-
-  n = 0;
+  static char         acLastName[1024] = "";
 
   if (iAction == DECODE_RESET)
   {
-    memset(cLastName, 0, 1024);
+    memset(acLastName, 0, 1024);
     return ER_OK;
   }
 
@@ -1142,13 +1124,13 @@ DecodeName(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
       }
       else
       {
-        sprintf(pcError, "%s: Illegal 2 byte prefix.", cRoutine);
+        sprintf(pcError, "%s: Illegal 2 byte prefix.", acRoutine);
         return ER;
       }
     }
-    if (iFromLastLine > strlen(cLastName))
+    if (iFromLastLine > strlen(acLastName))
     {
-      sprintf(pcError, "%s: Not enough bytes available to perform decode.", cRoutine);
+      sprintf(pcError, "%s: Not enough bytes available to perform decode.", acRoutine);
       return ER;
     }
 
@@ -1157,7 +1139,7 @@ DecodeName(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
      */
     if (iFromLastLine == 0)
     {
-      cLastName[0] = '"';
+      acLastName[0] = '"';
       j = 1;
       i = 3;
     }
@@ -1168,30 +1150,30 @@ DecodeName(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
     }
     while (pcToken[i] != 0 && pcToken[i] != '"')
     {
-      cLastName[j++] = pcToken[i++];
+      acLastName[j++] = pcToken[i++];
     }
     if (pcToken[i] != '"')
     {
-      sprintf(pcError, "%s: Names must end with a double quote.", cRoutine);
+      sprintf(pcError, "%s: Names must end with a double quote.", acRoutine);
       return ER;
     }
-    cLastName[j++] = pcToken[i++];
-    cLastName[j] = 0;
-    n = sprintf(pcOutput, "%s", cLastName);
+    acLastName[j++] = pcToken[i++];
+    acLastName[j] = 0;
+    n = sprintf(pcOutput, "%s", acLastName);
 
     /*
      * Compute name md5 hash and insert into output record.
      */
-    if (cLastName[0] != '"' || cLastName[j - 1] != '"')
+    if (acLastName[0] != '"' || acLastName[j - 1] != '"')
     {
-      sprintf(pcError, "%s: Names must be enclosed in double quotes.", cRoutine);
+      sprintf(pcError, "%s: Names must be enclosed in double quotes.", acRoutine);
       return ER;
     }
 
   }
   else
   {
-    sprintf(pcError, "%s: Name length must be greater than 2.", cRoutine);
+    sprintf(pcError, "%s: Name length must be greater than 2.", acRoutine);
     return ER;
   }
   return n;
@@ -1208,13 +1190,13 @@ DecodeName(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
 int
 DecodeTime(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, char *pcOutput, char *pcError)
 {
-  const char          cRoutine[] = "DecodeTime()";
-  char                cLocalError[ERRBUF_SIZE];
-  char                cTimeString[64];
+  const char          acRoutine[] = "DecodeTime()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acTimeString[64];
   int                 i;
   int                 iReturnValue;
   int                 iTimeIndex;
-  int                 n;
+  int                 n = 0;
   static int          iFirst = 1;
   static K_UINT32     ui32SecondsNew[4];
   static K_UINT32     ui32SecondsOld[4];
@@ -1224,8 +1206,6 @@ DecodeTime(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
 #define  M_TIME_INDEX 1
 #define  C_TIME_INDEX 2
 #define CH_TIME_INDEX 3
-
-  cLocalError[0] = n = 0;
 
   if (iFirst || iAction == DECODE_RESET)
   {
@@ -1260,7 +1240,7 @@ DecodeTime(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
   }
   else
   {
-    sprintf(pcError, "%s: Field = [%s]: Unknown field.", cRoutine, pcName);
+    sprintf(pcError, "%s: Field = [%s]: Unknown field.", acRoutine, pcName);
     return ER;
   }
 
@@ -1270,10 +1250,10 @@ DecodeTime(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
   {
     if (pcToken[0] == '~')
     {
-      iReturnValue = DecodeFormatOutOfBandTime(&pcToken[1], iLength - 1, &pcOutput[n], cLocalError);
+      iReturnValue = DecodeFormatOutOfBandTime(&pcToken[1], iLength - 1, &pcOutput[n], acLocalError);
       if (iReturnValue == ER)
       {
-        sprintf(pcError, "%s: Field = [%s]: %s", cRoutine, pcName, cLocalError);
+        sprintf(pcError, "%s: Field = [%s]: %s", acRoutine, pcName, acLocalError);
         return iReturnValue;
       }
       n += iReturnValue;
@@ -1289,7 +1269,7 @@ DecodeTime(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
         }
         else
         {
-          sprintf(pcError, "%s: Field = [%s]: Expected a previous value to be defined!", cRoutine, pcName);
+          sprintf(pcError, "%s: Field = [%s]: Expected a previous value to be defined!", acRoutine, pcName);
           return ER;
         }
       }
@@ -1301,7 +1281,7 @@ DecodeTime(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
         }
         else
         {
-          sprintf(pcError, "%s: Field = [%s]: Expected atime value to be defined!", cRoutine, pcName);
+          sprintf(pcError, "%s: Field = [%s]: Expected atime value to be defined!", acRoutine, pcName);
           return ER;
         }
       }
@@ -1313,7 +1293,7 @@ DecodeTime(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
         }
         else
         {
-          sprintf(pcError, "%s: Field = [%s]: Expected mtime value to be defined!", cRoutine, pcName);
+          sprintf(pcError, "%s: Field = [%s]: Expected mtime value to be defined!", acRoutine, pcName);
           return ER;
         }
       }
@@ -1325,16 +1305,16 @@ DecodeTime(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
         }
         else
         {
-          sprintf(pcError, "%s: Field = [%s]: Expected ctime value to be defined!", cRoutine, pcName);
+          sprintf(pcError, "%s: Field = [%s]: Expected ctime value to be defined!", acRoutine, pcName);
           return ER;
         }
       }
       else
       {
-        iReturnValue = Decode32bValueBase16To10(pcToken, iLength, &ui32SecondsNew[iTimeIndex], pui32SecondsOld[iTimeIndex], cLocalError);
+        iReturnValue = Decode32bValueBase16To10(pcToken, iLength, &ui32SecondsNew[iTimeIndex], pui32SecondsOld[iTimeIndex], acLocalError);
         if (iReturnValue == ER)
         {
-          sprintf(pcError, "%s: Field = [%s]: %s", cRoutine, pcName, cLocalError);
+          sprintf(pcError, "%s: Field = [%s]: %s", acRoutine, pcName, acLocalError);
           return iReturnValue;
         }
       }
@@ -1346,13 +1326,13 @@ DecodeTime(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, ch
         u_int64time = (((((K_UINT64) ui32SecondsNew[iTimeIndex]) * 1000)) * 10000) + UNIX_EPOCH_IN_NT_TIME;
         time64.dwLowDateTime = (K_UINT32) (u_int64time & (K_UINT32) 0xffffffff);
         time64.dwHighDateTime = (DWORD) (u_int64time >> 32);
-        DecodeFormatTime(&time64, cTimeString);
+        DecodeFormatTime(&time64, acTimeString);
       }
 #endif
 #ifdef UNIX
-      TimeFormatTime((time_t *) &ui32SecondsNew[iTimeIndex], cTimeString);
+      TimeFormatTime((time_t *) &ui32SecondsNew[iTimeIndex], acTimeString);
 #endif
-      n += sprintf(&pcOutput[n], "%s", cTimeString);
+      n += sprintf(&pcOutput[n], "%s", acTimeString);
       ui32SecondsOld[iTimeIndex] = ui32SecondsNew[iTimeIndex];
 
       /*

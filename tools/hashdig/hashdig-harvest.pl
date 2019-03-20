@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-harvest.pl,v 1.6 2003/03/27 02:57:56 mavrik Exp $
+# $Id: hashdig-harvest.pl,v 1.18 2004/04/21 01:29:59 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -14,6 +14,7 @@
 ######################################################################
 
 use strict;
+use File::Basename;
 use Getopt::Std;
 
 ######################################################################
@@ -28,9 +29,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($program, %properties);
+  my ($sProgram, %hProperties);
 
-  $program = $properties{'program'} = "hashdig-harvest.pl";
+  $sProgram = $hProperties{'program'} = basename(__FILE__);
 
   ####################################################################
   #
@@ -38,29 +39,29 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('c:o:qs:T:t:', \%options))
+  if (!getopts('c:o:qs:T:t:', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # The category flag, '-c', is optional. Default value is "U".
+  # The Category flag, '-c', is optional. Default value is "U".
   #
   ####################################################################
 
-  my ($category);
+  my ($sCategory);
 
-  $category = (exists($options{'c'})) ? uc($options{'c'}) : "U";
+  $sCategory = (exists($hOptions{'c'})) ? uc($hOptions{'c'}) : "U";
 
-  if ($category !~ /^[KU]$/)
+  if ($sCategory !~ /^[KU]$/)
   {
-    print STDERR "$program: Category='$category' Error='Invalid category.'\n";
+    print STDERR "$sProgram: Category='$sCategory' Error='Invalid category.'\n";
     exit(2);
   }
-  $properties{'category'} = $category;
+  $hProperties{'category'} = $sCategory;
 
   ####################################################################
   #
@@ -68,93 +69,98 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($filename);
+  my ($sFilename);
 
-  $filename = (exists($options{'o'})) ? $options{'o'} : undef;
+  $sFilename = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
 
-  if (!defined($filename) || length($filename) < 1)
+  if (!defined($sFilename) || length($sFilename) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # The beQuiet flag, '-q', is optional. Default value is 0.
+  # The BeQuiet flag, '-q', is optional. Default value is 0.
   #
   ####################################################################
 
-  $properties{'beQuiet'} = (exists($options{'q'})) ? 1 : 0;
+  $hProperties{'BeQuiet'} = (exists($hOptions{'q'})) ? 1 : 0;
 
   ####################################################################
   #
-  # The sort flag, '-s', is optional. Default value is "sort".
+  # The Sort flag, '-s', is optional. Default value is "sort".
   #
   ####################################################################
 
-  my ($sort);
+  my ($sSort);
 
-  $sort = (exists($options{'s'})) ? $options{'s'} : "sort";
-
-  ####################################################################
-  #
-  # The tmpDir flag, '-T', is optional. Default value is "/tmp".
-  #
-  ####################################################################
-
-  my ($tmpDir);
-
-  $tmpDir = (exists($options{'T'})) ? $options{'T'} : "/tmp";
+  $sSort = (exists($hOptions{'s'})) ? $hOptions{'s'} : "sort";
 
   ####################################################################
   #
-  # The fileType flag, '-t', is required.
+  # The TmpDir flag, '-T', is optional. Default value is $TMPDIR,
+  # or if that is not defined, fall back to "/tmp".
   #
   ####################################################################
 
-  my ($fileType, $processFile);
+  my ($sTmpDir);
 
-  $fileType = (exists($options{'t'})) ? uc($options{'t'}) : undef;
+  $sTmpDir = (exists($hOptions{'T'})) ? $hOptions{'T'} : (defined($ENV{'TMPDIR'})) ? $ENV{'TMPDIR'} : "/tmp";
 
-  if (!defined($fileType))
+  ####################################################################
+  #
+  # The FileType flag, '-t', is required.
+  #
+  ####################################################################
+
+  my ($sFileType, $sProcessFile);
+
+  $sFileType = (exists($hOptions{'t'})) ? uc($hOptions{'t'}) : undef;
+
+  if (!defined($sFileType))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
-  if ($fileType =~ /^FTIMES$/)
+  if ($sFileType =~ /^FTIMES$/)
   {
-    $processFile = \&ProcessFTimesFile;
+    $sProcessFile = \&ProcessFTimesFile;
   }
-  elsif ($fileType =~ /^(KG|KNOWNGOODS)$/)
+  elsif ($sFileType =~ /^(HK|HASHKEEPER)$/)
   {
-    $processFile = \&ProcessKnownGoodsFile;
+    $sProcessFile = \&ProcessHashKeeperFile;
   }
-  elsif ($fileType =~ /^MD5$/)
+  elsif ($sFileType =~ /^(KG|KNOWNGOODS)$/)
   {
-    $processFile = \&ProcessMD5File;
+    $sProcessFile = \&ProcessKnownGoodsFile;
   }
-  elsif ($fileType =~ /^MD5SUM|MD5DEEP$/)
+  elsif ($sFileType =~ /^(MD5|OPENSSL)$/)
   {
-    $processFile = \&ProcessMD5SumFile;
+    $sProcessFile = \&ProcessMD5File;
   }
-  elsif ($fileType =~ /^NSRL1$/)
+  elsif ($sFileType =~ /^(MD5SUM|MD5DEEP)$/)
   {
-    $processFile = \&ProcessNSRL1File;
+    $sProcessFile = \&ProcessMD5SumFile;
   }
-  elsif ($fileType =~ /^NSRL2$/)
+  elsif ($sFileType =~ /^NSRL1$/)
   {
-    $processFile = \&ProcessNSRL2File;
+    $sProcessFile = \&ProcessNSRL1File;
   }
-  elsif ($fileType =~ /^PLAIN$/)
+  elsif ($sFileType =~ /^NSRL2$/)
   {
-    $processFile = \&ProcessPlainFile;
+    $sProcessFile = \&ProcessNSRL2File;
   }
-  elsif ($fileType =~ /^RPM$/)
+  elsif ($sFileType =~ /^PLAIN$/)
   {
-    $processFile = \&ProcessRPMFile;
+    $sProcessFile = \&ProcessPlainFile;
+  }
+  elsif ($sFileType =~ /^RPM$/)
+  {
+    $sProcessFile = \&ProcessRPMFile;
   }
   else
   {
-    print STDERR "$program: FileType='$fileType' Error='Invalid file type.'\n";
+    print STDERR "$sProgram: FileType='$sFileType' Error='Invalid file type.'\n";
     exit(2);
   }
 
@@ -166,7 +172,7 @@ use Getopt::Std;
 
   if (scalar(@ARGV) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
@@ -175,9 +181,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  if ($filename ne "-" && -f $filename && !unlink($filename))
+  if ($sFilename ne "-" && -f $sFilename && !unlink($sFilename))
   {
-    print STDERR "$program: File='$filename' Error='$!'\n";
+    print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
     exit(2);
   }
 
@@ -187,16 +193,16 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($command);
+  my ($sCommand);
 
-  $command = "$sort -u -T $tmpDir";
-  if ($filename ne "-")
+  $sCommand = "$sSort -u -T $sTmpDir";
+  if ($sFilename ne "-")
   {
-    $command .= " -o $filename";
+    $sCommand .= " -o $sFilename";
   }
-  if (!open(SH, "|$command"))
+  if (!open(SH, "|$sCommand"))
   {
-    print STDERR "$program: Command='$command' Error='$!'\n";
+    print STDERR "$sProgram: Command='$sCommand' Error='$!'\n";
     exit(2);
   }
 
@@ -206,9 +212,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  foreach my $inputFile (@ARGV)
+  foreach my $sInputFile (@ARGV)
   {
-    &$processFile($inputFile, \%properties, \*SH);
+    &$sProcessFile($sInputFile, \%hProperties, \*SH);
   }
 
   ####################################################################
@@ -230,7 +236,7 @@ use Getopt::Std;
 
 sub ProcessFTimesFile
 {
-  my ($filename, $pProperties, $sortHandle) = @_;
+  my ($sFilename, $phProperties, $sSortHandle) = @_;
 
   ####################################################################
   #
@@ -238,11 +244,11 @@ sub ProcessFTimesFile
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -253,40 +259,40 @@ sub ProcessFTimesFile
   #
   ####################################################################
 
-  my (@fields, $hashIndex, $header, $modeIndex);
+  my (@aFields, $sHashIndex, $sHeader, $sModeIndex);
 
-  $header = <FH>;
+  $sHeader = <FH>;
 
-  if (!defined($header))
+  if (!defined($sHeader))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
+      $sHeader =~ s/[\r\n]+$//;
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
   }
 
-  @fields = split(/\|/, $header, -1);
+  @aFields = split(/\|/, $sHeader, -1);
 
-  for (my $i = 0; $i < scalar(@fields); $i++)
+  for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
   {
-    if ($fields[$i] =~ /^mode$/o)
+    if ($aFields[$sIndex] =~ /^mode$/o)
     {
-      $modeIndex = $i;
+      $sModeIndex = $sIndex;
     }
-    elsif ($fields[$i] =~ /^md5[\r\n]*$/o)
+    elsif ($aFields[$sIndex] =~ /^md5[\r\n]*$/o)
     {
-      $hashIndex = $i;
+      $sHashIndex = $sIndex;
     }
   }
 
-  if (!defined($hashIndex))
+  if (!defined($sHashIndex))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
+      $sHeader =~ s/[\r\n]+$//;
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
   }
@@ -297,29 +303,144 @@ sub ProcessFTimesFile
   #
   ####################################################################
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    @fields = split(/\|/, $record, -1);
+    @aFields = split(/\|/, $sRecord, -1);
 
-    $fields[$hashIndex] .= "";
-    if ($fields[$hashIndex] =~ /^[0-9a-fA-F]{32}[\r\n]*$/o)
+    $aFields[$sHashIndex] .= "";
+    if ($aFields[$sHashIndex] =~ /^[0-9a-fA-F]{32}[\r\n]*$/o)
     {
-      if (defined($modeIndex) && $fields[$modeIndex] =~ /^12[0-7]{4}$/o)
+      if (defined($sModeIndex) && (($aFields[$sModeIndex] =~ /^12[0-7]{4}$/o) || ($aFields[$sModeIndex] =~ /^4[0-7]{4}$/o)))
       {
-        next; # Skip symlink hashes
+        next; # Skip directories and symbolic links.
       }
-      print $sortHandle lc(substr($fields[$hashIndex],0,32)), "|", $$pProperties{'category'}, "\n";
+      print $sSortHandle lc(substr($aFields[$sHashIndex],0,32)), "|", $$phProperties{'category'}, "\n";
     }
-    elsif ($fields[$hashIndex] =~ /^(?:DIRECTORY|SPECIAL)[\r\n]*$/o)
+    elsif ($aFields[$sHashIndex] =~ /^(?:DIRECTORY|SPECIAL|SYMLINK)[\r\n]*$/o)
     {
-      next; # Skip directories and special files
+      next; # Skip directories, special files, and symbolic links.
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        $sRecord =~ s/[\r\n]+$//;
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
+      }
+    }
+  }
+
+  close(FH);
+
+  return 1;
+}
+
+
+######################################################################
+#
+# ProcessHashKeeperFile
+#
+######################################################################
+
+sub ProcessHashKeeperFile
+{
+  my ($sFilename, $phProperties, $sSortHandle) = @_;
+
+  ####################################################################
+  #
+  # Open input file.
+  #
+  ####################################################################
+
+  if (!open(FH, "<$sFilename"))
+  {
+    if (!$$phProperties{'BeQuiet'})
+    {
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
+    }
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # The header for this format is useless for field-index parsing
+  # due to potential delimiter collision issues. The hash field is
+  # bound to the left by the file_name and directory fields and to
+  # the right by the comments field. All of these fields could
+  # contain embedded commas, so using a comma as the delimiter will
+  # not work without extra processing. Therefore, we'll impose the
+  # following parse rules:
+  #
+  #  - The file_id and hashset_id fields must be defined and contain
+  #    one or more decimal characters.
+  #
+  #  - The file_name field must be defined, contain one or more
+  #    characters (except double quotes), and be enclosed by double
+  #    quotes.
+  #
+  #  - The directory field may be empty, but if it is defined, then
+  #    it must contain one or more characters (except double quotes)
+  #    and be enclosed by double quotes.
+  #
+  #  - The hash field must be defined, contain 32 hex characters,
+  #    and be enclosed by double quotes.
+  #
+  #  - All remaining fields are ignored.
+  #
+  # This amounts to the following regular expression:
+  #
+  #  ^\d+,\d+,"[^"]+",(?:|"[^"]+"),"([0-9A-Fa-f]{32})",.*$
+  #
+  ####################################################################
+
+  ####################################################################
+  #
+  # Process header.
+  #
+  ####################################################################
+
+  my ($sHeader);
+
+  $sHeader = <FH>;
+  $sHeader =~ s/[\r\n]+$//;
+
+  if (!defined($sHeader))
+  {
+    if (!$$phProperties{'BeQuiet'})
+    {
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
+    }
+    return undef;
+  }
+
+  if ($sHeader !~ /^"file_id","hashset_id","file_name","directory","hash","file_size","date_modified","time_modified","time_zone","comments","date_accessed","time_accessed"$/)
+  {
+    if (!$$phProperties{'BeQuiet'})
+    {
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
+    }
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Process records.
+  #
+  ####################################################################
+
+  while (my $sRecord = <FH>)
+  {
+    $sRecord =~ s/[\r\n]+$//;
+
+    if (my ($sHash) = $sRecord =~ /^\d+,\d+,"[^"]+",(?:|"[^"]+"),"([0-9A-Fa-f]{32})",.*$/o)
+    {
+      print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
+    }
+    else
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
@@ -338,7 +459,7 @@ sub ProcessFTimesFile
 
 sub ProcessKnownGoodsFile
 {
-  my ($filename, $pProperties, $sortHandle) = @_;
+  my ($sFilename, $phProperties, $sSortHandle) = @_;
 
   ####################################################################
   #
@@ -346,11 +467,11 @@ sub ProcessKnownGoodsFile
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -361,26 +482,26 @@ sub ProcessKnownGoodsFile
   #
   ####################################################################
 
-  my (@fields, $hashIndex, $header);
+  my (@aFields, $sHashIndex, $sHeader);
 
-  $header = "ID,FILENAME,MD5,SHA-1,SIZE,TYPE,PLATFORM,PACKAGE";
+  $sHeader = "ID,FILENAME,MD5,SHA-1,SIZE,TYPE,PLATFORM,PACKAGE";
 
-  @fields = reverse(split(/,/, $header, -1));
+  @aFields = reverse(split(/,/, $sHeader, -1));
 
-  for (my $i = 0; $i < scalar(@fields); $i++)
+  for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
   {
-    if ($fields[$i] =~ /^MD5$/i)
+    if ($aFields[$sIndex] =~ /^MD5$/i)
     {
-      $hashIndex = $i;
+      $sHashIndex = $sIndex;
     }
   }
 
-  if (!defined($hashIndex))
+  if (!defined($sHashIndex))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
+      $sHeader =~ s/[\r\n]+$//;
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
   }
@@ -391,21 +512,21 @@ sub ProcessKnownGoodsFile
   #
   ####################################################################
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    @fields = (reverse(split(/,/, $record, -1)))[$hashIndex];
+    @aFields = (reverse(split(/,/, $sRecord, -1)))[$sHashIndex];
 
-    $fields[0] .= "";
-    if ($fields[0] =~ /^[0-9a-fA-F]{32}$/o)
+    $aFields[0] .= "";
+    if ($aFields[0] =~ /^[0-9a-fA-F]{32}$/o)
     {
-      print $sortHandle lc($fields[0]), "|", $$pProperties{'category'}, "\n";
+      print $sSortHandle lc($aFields[0]), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        $sRecord =~ s/[\r\n]+$//;
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
@@ -424,7 +545,7 @@ sub ProcessKnownGoodsFile
 
 sub ProcessMD5File
 {
-  my ($filename, $pProperties, $sortHandle) = @_;
+  my ($sFilename, $phProperties, $sSortHandle) = @_;
 
   ####################################################################
   #
@@ -432,11 +553,11 @@ sub ProcessMD5File
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -455,18 +576,18 @@ sub ProcessMD5File
   #
   ####################################################################
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    if (my ($hash) = $record =~ /^MD5\s+\(.*\)\s+=\s+([0-9a-fA-F]{32})$/o)
+    if (my ($sHash) = $sRecord =~ /^MD5\s*\(.*\)\s*=\s+([0-9a-fA-F]{32})$/o)
     {
-      print $sortHandle lc($hash), "|", $$pProperties{'category'}, "\n";
+      print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        $sRecord =~ s/[\r\n]+$//;
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
@@ -485,7 +606,7 @@ sub ProcessMD5File
 
 sub ProcessMD5SumFile
 {
-  my ($filename, $pProperties, $sortHandle) = @_;
+  my ($sFilename, $phProperties, $sSortHandle) = @_;
 
   ####################################################################
   #
@@ -493,11 +614,11 @@ sub ProcessMD5SumFile
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -516,18 +637,18 @@ sub ProcessMD5SumFile
   #
   ####################################################################
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    if (my ($hash) = $record =~ /^([0-9a-fA-F]{32})\s+.*\s*$/o)
+    if (my ($sHash) = $sRecord =~ /^([0-9a-fA-F]{32})\s+.*\s*$/o)
     {
-      print $sortHandle lc($hash), "|", $$pProperties{'category'}, "\n";
+      print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        $sRecord =~ s/[\r\n]+$//;
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
@@ -546,7 +667,7 @@ sub ProcessMD5SumFile
 
 sub ProcessNSRL1File
 {
-  my ($filename, $pProperties, $sortHandle) = @_;
+  my ($sFilename, $phProperties, $sSortHandle) = @_;
 
   ####################################################################
   #
@@ -554,11 +675,11 @@ sub ProcessNSRL1File
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -569,36 +690,36 @@ sub ProcessNSRL1File
   #
   ####################################################################
 
-  my (@fields, $hashIndex, $header, $modeIndex);
+  my (@aFields, $sHashIndex, $sHeader, $sModeIndex);
 
-  $header = <FH>;
+  $sHeader = <FH>;
 
-  if (!defined($header))
+  if (!defined($sHeader))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
+      $sHeader =~ s/[\r\n]+$//;
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
   }
 
-  @fields = reverse(split(/,/, $header, -1));
+  @aFields = reverse(split(/,/, $sHeader, -1));
 
-  for (my $i = 0; $i < scalar(@fields); $i++)
+  for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
   {
-    if ($fields[$i] =~ /^"MD5"$/o)
+    if ($aFields[$sIndex] =~ /^"MD5"$/o)
     {
-      $hashIndex = $i;
+      $sHashIndex = $sIndex;
     }
   }
 
-  if (!defined($hashIndex))
+  if (!defined($sHashIndex))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
+      $sHeader =~ s/[\r\n]+$//;
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
   }
@@ -609,20 +730,20 @@ sub ProcessNSRL1File
   #
   ####################################################################
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    my $hash = "" . (reverse(split(/,/, $record, -1)))[$hashIndex];
+    my $sHash = "" . (reverse(split(/,/, $sRecord, -1)))[$sHashIndex];
 
-    if ($hash =~ /^"[0-9a-fA-F]{32}"$/o)
+    if ($sHash =~ /^"[0-9a-fA-F]{32}"$/o)
     {
-      print $sortHandle lc(substr($hash,1,32)), "|", $$pProperties{'category'}, "\n";
+      print $sSortHandle lc(substr($sHash,1,32)), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        $sRecord =~ s/[\r\n]+$//;
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
@@ -641,7 +762,7 @@ sub ProcessNSRL1File
 
 sub ProcessNSRL2File
 {
-  my ($filename, $pProperties, $sortHandle) = @_;
+  my ($sFilename, $phProperties, $sSortHandle) = @_;
 
   ####################################################################
   #
@@ -649,11 +770,11 @@ sub ProcessNSRL2File
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -664,36 +785,36 @@ sub ProcessNSRL2File
   #
   ####################################################################
 
-  my (@fields, $hashIndex, $header, $modeIndex);
+  my (@aFields, $sHashIndex, $sHeader, $sModeIndex);
 
-  $header = <FH>;
+  $sHeader = <FH>;
 
-  if (!defined($header))
+  if (!defined($sHeader))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
+      $sHeader =~ s/[\r\n]+$//;
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
   }
 
-  @fields = split(/,/, $header, -1);
+  @aFields = split(/,/, $sHeader, -1);
 
-  for (my $i = 0; $i < scalar(@fields); $i++)
+  for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
   {
-    if ($fields[$i] =~ /^"MD5"$/o)
+    if ($aFields[$sIndex] =~ /^"MD5"$/o)
     {
-      $hashIndex = $i;
+      $sHashIndex = $sIndex;
     }
   }
 
-  if (!defined($hashIndex))
+  if (!defined($sHashIndex))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
+      $sHeader =~ s/[\r\n]+$//;
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
   }
@@ -704,20 +825,20 @@ sub ProcessNSRL2File
   #
   ####################################################################
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    my $hash = "" . (split(/,/, $record, -1))[$hashIndex];
+    my $sHash = "" . (split(/,/, $sRecord, -1))[$sHashIndex];
 
-    if ($hash =~ /^"[0-9a-fA-F]{32}"$/o)
+    if ($sHash =~ /^"[0-9a-fA-F]{32}"$/o)
     {
-      print $sortHandle lc(substr($hash,1,32)), "|", $$pProperties{'category'}, "\n";
+      print $sSortHandle lc(substr($sHash,1,32)), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        $sRecord =~ s/[\r\n]+$//;
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
@@ -736,7 +857,7 @@ sub ProcessNSRL2File
 
 sub ProcessPlainFile
 {
-  my ($filename, $pProperties, $sortHandle) = @_;
+  my ($sFilename, $phProperties, $sSortHandle) = @_;
 
   ####################################################################
   #
@@ -744,11 +865,11 @@ sub ProcessPlainFile
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -767,18 +888,18 @@ sub ProcessPlainFile
   #
   ####################################################################
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    if (my ($hash) = $record =~ /^([0-9a-fA-F]{32})$/o)
+    if (my ($sHash) = $sRecord =~ /^([0-9a-fA-F]{32})$/o)
     {
-      print $sortHandle lc($hash), "|", $$pProperties{'category'}, "\n";
+      print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        $sRecord =~ s/[\r\n]+$//;
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
@@ -797,7 +918,7 @@ sub ProcessPlainFile
 
 sub ProcessRPMFile
 {
-  my ($filename, $pProperties, $sortHandle) = @_;
+  my ($sFilename, $phProperties, $sSortHandle) = @_;
 
   ####################################################################
   #
@@ -805,11 +926,11 @@ sub ProcessRPMFile
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -820,30 +941,30 @@ sub ProcessRPMFile
   #
   ####################################################################
 
-  my (@fields, $hashIndex, $header, $modeIndex);
+  my (@aFields, $sHashIndex, $sHeader, $sModeIndex);
 
-  $header = "path size mtime md5sum mode owner group isconfig isdoc rdev symlink";
+  $sHeader = "path size mtime md5sum mode owner group isconfig isdoc rdev symlink";
 
-  @fields = reverse(split(/ /, $header, -1));
+  @aFields = reverse(split(/ /, $sHeader, -1));
 
-  for (my $i = 0; $i < scalar(@fields); $i++)
+  for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
   {
-    if ($fields[$i] =~ /^md5sum$/o)
+    if ($aFields[$sIndex] =~ /^md5sum$/o)
     {
-      $hashIndex = $i;
+      $sHashIndex = $sIndex;
     }
-    if ($fields[$i] =~ /^mode$/o)
+    if ($aFields[$sIndex] =~ /^mode$/o)
     {
-      $modeIndex = $i;
+      $sModeIndex = $sIndex;
     }
   }
 
-  if (!defined($hashIndex) || !defined($modeIndex))
+  if (!defined($sHashIndex) || !defined($sModeIndex))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
+      $sHeader =~ s/[\r\n]+$//;
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
   }
@@ -854,26 +975,26 @@ sub ProcessRPMFile
   #
   ####################################################################
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    @fields = reverse(split(/ /, $record, -1));
+    @aFields = reverse(split(/ /, $sRecord, -1));
 
-    $fields[$hashIndex] .= "";
-    if ($fields[$hashIndex] =~ /^[0-9a-fA-F]{32}$/o)
+    $aFields[$sHashIndex] .= "";
+    if ($aFields[$sHashIndex] =~ /^[0-9a-fA-F]{32}$/o)
     {
-      print $sortHandle lc($fields[$hashIndex]), "|", $$pProperties{'category'}, "\n";
+      print $sSortHandle lc($aFields[$sHashIndex]), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
-      $fields[$modeIndex] .= "";
-      if ($fields[$modeIndex] !~ /^010[0-7]{4}$/o)
+      $aFields[$sModeIndex] .= "";
+      if ($aFields[$sModeIndex] !~ /^010[0-7]{4}$/o)
       {
         next; # Skip anything that's not a regular file
       }
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        $sRecord =~ s/[\r\n]+$//;
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
@@ -892,9 +1013,9 @@ sub ProcessRPMFile
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-c {K|U}] [-q] [-s file] [-T dir] -t type -o {file|-} file [file ...]\n";
+  print STDERR "Usage: $sProgram [-c {K|U}] [-q] [-s file] [-T dir] -t type -o {file|-} file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -949,25 +1070,26 @@ designed to work with GNU sort.
 =item B<-T dir>
 
 Specifies the directory sort should use as a temporary work area.
-The default directory is /tmp.
+The default directory is that specified by the TMPDIR environment
+variable, or /tmp if TMPDIR is not set.
 
 =item B<-t type>
 
 Specifies the type of files that are to be processed. All files
 processed in a given invocation must be of the same type. Currently,
-the following types are supported: FTIMES, KG|KNOWNGOODS, MD5,
-MD5DEEP, MD5SUM, NSRL1, NSRL2, PLAIN, and RPM. The value for this
-option is not case sensitive.
+the following types are supported: FTIMES, HK|HASHKEEPER, KG|KNOWNGOODS,
+MD5, MD5DEEP, MD5SUM, NSRL1, NSRL2, OPENSSL, PLAIN, and RPM. The
+value for this option is not case sensitive.
 
 =back
 
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 
 =head1 SEE ALSO
 
-ftimes(1), hashdig-make.pl, md5(1), md5sum(1), md5deep, rpm(8)
+ftimes(1), hashdig-make.pl, md5(1), md5sum(1), md5deep, openssl(1), rpm(8)
 
 =head1 LICENSE
 

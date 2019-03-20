@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hipdig.pl,v 1.5 2003/08/12 20:58:46 mavrik Exp $
+# $Id: hipdig.pl,v 1.20 2004/04/26 20:12:46 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -14,6 +14,7 @@
 ######################################################################
 
 use strict;
+use File::Basename;
 use Getopt::Std;
 
 ######################################################################
@@ -28,9 +29,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($program);
+  my ($sProgram);
 
-  $program = "hipdig.pl";
+  $sProgram = basename(__FILE__);
 
   ####################################################################
   #
@@ -38,20 +39,20 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('DhqRrs:t:', \%options))
+  if (!getopts('DHhqRrs:t:', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # The dump domain information flag, '-D', is optional.
+  # The DumpDomainInformation flag, '-D', is optional.
   #
   ####################################################################
 
-  if (exists($options{'D'}))
+  if (exists($hOptions{'D'}))
   {
     DumpDomainInformation(0);
     exit(0);
@@ -59,31 +60,41 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The printHeader flag, '-h', is optional. Default value is 0.
+  # The PrintHex flag, '-H', is optional. Default value is 0.
   #
   ####################################################################
 
-  my ($printHeader);
+  my ($sPrintHex);
 
-  $printHeader = (exists($options{'h'})) ? 1 : 0;
-
-  ####################################################################
-  #
-  # The beQuiet flag, '-q', is optional. Default value is 0.
-  #
-  ####################################################################
-
-  my ($beQuiet);
-
-  $beQuiet = (exists($options{'q'})) ? 1 : 0;
+  $sPrintHex = (exists($hOptions{'H'})) ? 1 : 0;
 
   ####################################################################
   #
-  # The dump domain regex information flag, '-R', is optional.
+  # The PrintHeader flag, '-h', is optional. Default value is 0.
   #
   ####################################################################
 
-  if (exists($options{'R'}))
+  my ($sPrintHeader);
+
+  $sPrintHeader = (exists($hOptions{'h'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # The BeQuiet flag, '-q', is optional. Default value is 0.
+  #
+  ####################################################################
+
+  my ($sBeQuiet);
+
+  $sBeQuiet = (exists($hOptions{'q'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # The DumpDomainRegexInformation flag, '-R', is optional.
+  #
+  ####################################################################
+
+  if (exists($hOptions{'R'}))
   {
     DumpDomainInformation(1);
     exit(0);
@@ -91,71 +102,75 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The regularOnly flag, '-r', is optional. Default value is 0.
+  # The RegularOnly flag, '-r', is optional. Default value is 0.
   #
   ####################################################################
 
-  my ($regularOnly);
+  my ($sRegularOnly);
 
-  $regularOnly = (exists($options{'r'})) ? 1 : 0;
+  $sRegularOnly = (exists($hOptions{'r'})) ? 1 : 0;
 
   ####################################################################
   #
-  # The saveLength flag, '-s', is optional. Default value is 64.
+  # The SaveLength flag, '-s', is optional. Default value is 64.
   #
   ####################################################################
 
-  my ($saveLength);
+  my ($sSaveLength);
 
-  $saveLength = (exists($options{'s'})) ? $options{'s'} : 64;
+  $sSaveLength = (exists($hOptions{'s'})) ? $hOptions{'s'} : 64;
 
-  if ($saveLength !~ /^\d{1,10}$/ || $saveLength <= 0)
+  if ($sSaveLength !~ /^\d{1,10}$/ || $sSaveLength <= 0)
   {
-    print STDERR "$program: SaveLength='$saveLength' Error='Invalid save length.'\n";
+    print STDERR "$sProgram: SaveLength='$sSaveLength' Error='Invalid save length.'\n";
     exit(2);
   }
 
   ####################################################################
   #
-  # The digType flag, '-t', is optional. Default value is "IP".
+  # The DigType flag, '-t', is optional. Default value is "IP".
   #
   ####################################################################
 
-  my ($digType, $digRoutine);
+  my ($sDigType, $sDigRoutine);
 
-  $digType = (exists($options{'t'})) ? uc($options{'t'}) : "IP";
+  $sDigType = (exists($hOptions{'t'})) ? uc($hOptions{'t'}) : "IP";
 
-  if ($digType =~ /^IP$/)
+  if ($sDigType =~ /^IP$/)
   {
-    $digRoutine = \&Dig4IPs;
+    $sDigRoutine = \&Dig4IPs;
   }
-  elsif ($digType =~ /^HOST$/)
+  elsif ($sDigType =~ /^HOST$/)
   {
-    $digRoutine = \&Dig4Domains;
+    $sDigRoutine = \&Dig4Domains;
   }
-  elsif ($digType =~ /^(PASS|PASSWORD)$/)
+  elsif ($sDigType =~ /^(PASS|PASSWORD)$/)
   {
-    $digRoutine = \&Dig4Passwords;
+    $sDigRoutine = \&Dig4Passwords;
   }
-  elsif ($digType =~ /^(T1|TRACK1)$/)
+  elsif ($sDigType =~ /^(T1|TRACK1)$/)
   {
-    $digRoutine = \&Dig4Track1;
+    $sDigRoutine = \&Dig4Track1;
   }
-  elsif ($digType =~ /^(T1S|TRACK1-STRICT)$/)
+  elsif ($sDigType =~ /^(T1S|TRACK1-STRICT)$/)
   {
-    $digRoutine = \&Dig4Track1Strict;
+    $sDigRoutine = \&Dig4Track1Strict;
   }
-  elsif ($digType =~ /^(T2|TRACK2)$/)
+  elsif ($sDigType =~ /^(T2|TRACK2)$/)
   {
-    $digRoutine = \&Dig4Track2;
+    $sDigRoutine = \&Dig4Track2;
   }
-  elsif ($digType =~ /^(T2S|TRACK2-STRICT)$/)
+  elsif ($sDigType =~ /^(T2S|TRACK2-STRICT)$/)
   {
-    $digRoutine = \&Dig4Track2Strict;
+    $sDigRoutine = \&Dig4Track2Strict;
+  }
+  elsif ($sDigType =~ /^(SSN|SOCIAL)$/)
+  {
+    $sDigRoutine = \&Dig4SSN;
   }
   else
   {
-    print STDERR "$program: DigType='$digType' Error='Invalid dig type.'\n";
+    print STDERR "$sProgram: DigType='$sDigType' Error='Invalid dig type.'\n";
     exit(2);
   }
 
@@ -167,7 +182,24 @@ use Getopt::Std;
 
   if (scalar(@ARGV) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
+  }
+
+  ####################################################################
+  #
+  # Set print format.
+  #
+  ####################################################################
+
+  my ($sFormat);
+
+  if ($sPrintHex)
+  {
+    $sFormat = "\"%s\"|0x%x|%s\n";
+  }
+  else
+  {
+    $sFormat = "\"%s\"|%d|%s\n";
   }
 
   ####################################################################
@@ -176,7 +208,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  if ($printHeader)
+  if ($sPrintHeader)
   {
     print "name|offset|string\n";
   }
@@ -187,22 +219,22 @@ use Getopt::Std;
   #
   ####################################################################
 
-  foreach my $file (@ARGV)
+  foreach my $sFile (@ARGV)
   {
-    if ($regularOnly && !-f $file)
+    if ($sRegularOnly && !-f $sFile)
     {
-      if (!$beQuiet)
+      if (!$sBeQuiet)
       {
-        print STDERR "$program: File='$file' Error='File is not regular.'\n";
+        print STDERR "$sProgram: File='$sFile' Error='File is not regular.'\n";
       }
       next;
     }
 
-    if (!open(FH, "<$file"))
+    if (!open(FH, "<$sFile"))
     {
-      if (!$beQuiet)
+      if (!$sBeQuiet)
       {
-        print STDERR "$program: File='$file' Error='$!'\n";
+        print STDERR "$sProgram: File='$sFile' Error='$!'\n";
       }
       next;
     }
@@ -227,24 +259,24 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my ($data, $dataOffset, $lastOffset, $nRead, $readOffset, $dataLength);
+    my ($sData, $sDataOffset, $sLastOffset, $sNRead, $sReadOffset, $sDataLength);
 
-    $readOffset = $dataOffset = 0;
+    $sReadOffset = $sDataOffset = 0;
 
-    while ($nRead = read(FH, $data, 0x8000, $dataOffset))
+    while ($sNRead = read(FH, $sData, 0x8000, $sDataOffset))
     {
-      $dataLength = $dataOffset + $nRead;
-      $lastOffset = &$digRoutine(\$data, $dataOffset, $readOffset, $file);
-      $dataOffset = ($dataLength - $lastOffset > $saveLength) ? $saveLength : $dataLength - $lastOffset;
-      $data = substr($data, ($dataLength - $dataOffset), $dataOffset);
-      $readOffset += $nRead;
+      $sDataLength = $sDataOffset + $sNRead;
+      $sLastOffset = &$sDigRoutine(\$sData, $sDataOffset, $sReadOffset, $sFile, $sFormat);
+      $sDataOffset = ($sDataLength - $sLastOffset > $sSaveLength) ? $sSaveLength : $sDataLength - $sLastOffset;
+      $sData = substr($sData, ($sDataLength - $sDataOffset), $sDataOffset);
+      $sReadOffset += $sNRead;
     }
 
-    if (!defined($nRead))
+    if (!defined($sNRead))
     {
-      if (!$beQuiet)
+      if (!$sBeQuiet)
       {
-        print STDERR "$program: File='$file' Error='$!'\n";
+        print STDERR "$sProgram: File='$sFile' Error='$!'\n";
       }
     }
 
@@ -268,7 +300,7 @@ use Getopt::Std;
 
 sub Dig4Domains
 {
-  my ($pData, $dataOffset, $readOffset, $filename) = @_;
+  my ($psData, $sDataOffset, $sReadOffset, $sFilename, $sFormat) = @_;
 
   ####################################################################
   #
@@ -281,14 +313,17 @@ sub Dig4Domains
   #
   ####################################################################
 
-  my ($absoluteOffset, $matchOffset);
+  my ($sAbsoluteOffset, $sAdjustment, $sMatchOffset);
 
-  $matchOffset = 0;
+  $sAdjustment = 0; # No adjustment is required (i.e., a trailing lookahead is used).
+
+  $sMatchOffset = 0;
 
   while (
-          $$pData =~ m{
-                        ( # Remember the matched string as $1.
-                          (?:[\w-]{1,}\.)+ # One or more of (one or more (alphanumeric or hyphen) followed by a dot)
+          $$psData =~ m{
+                        (?:^|[^\w.]) # The match must be preceded by nothing or anything but an alphanumeric or a dot.
+                        (
+                          (?:[\w-]+\.)+ # Match one or more of (one or more (alphanumeric or hyphen) followed by a dot).
                           (?:
                             A[CDEFGILMNOQRSTUWZ]|
                             B[ABDEFGHIJMNORSTVWYZ]|
@@ -317,17 +352,18 @@ sub Dig4Domains
                             Z[AMRW]|
                             COM|EDU|GOV|INT|MIL|NET|ORG|
                             ARPA|NATO
-                          )\.? # Fully qualified domain names will end with a dot
-                        )[^\w\.] # The match must not be followed by an alphanumeric or a dot
+                          )\.? # Fully qualified names will end with a dot.
+                        ) # Save the match in $1.
+                        (?![\w.]) # The match must be followed by nothing or anything but an alphanumeric or a dot.
                       }gsxio
         )
   {
-    $matchOffset = pos($$pData);
-    $absoluteOffset = ($readOffset - $dataOffset) + ($matchOffset - (length($1) + 1));
-    print "\"$filename\"|$absoluteOffset|$1\n";
+    $sMatchOffset = pos($$psData);
+    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
   }
 
-  return $matchOffset;
+  return $sMatchOffset;
 }
 
 
@@ -339,7 +375,7 @@ sub Dig4Domains
 
 sub Dig4IPs
 {
-  my ($pData, $dataOffset, $readOffset, $filename) = @_;
+  my ($psData, $sDataOffset, $sReadOffset, $sFilename, $sFormat) = @_;
 
   ####################################################################
   #
@@ -351,27 +387,31 @@ sub Dig4IPs
   #
   ####################################################################
 
-  my ($absoluteOffset, $matchOffset);
+  my ($sAbsoluteOffset, $sAdjustment, $sMatchOffset);
 
-  $matchOffset = 0;
+  $sAdjustment = 0; # No adjustment is required (i.e., a trailing lookahead is used).
+
+  $sMatchOffset = 0;
 
   while (
-          $$pData =~ m{
-                        ( # Remember the matched string as $1.
+          $$psData =~ m{
+                        (?:^|[^0-9.]) # The match must be preceded by nothing or anything but a digit or a dot.
+                        (
                           (?:[1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9])\.
                           (?:[0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9])\.
                           (?:[0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9])\.
                           (?:[0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9])
-                        )[^0-9\.] # The match must not be followed by a digit or a dot
+                        ) # Save the match in $1.
+                        (?![0-9.]) # The match must be followed by nothing or anything but a digit or a dot.
                       }gsxo
         )
   {
-    $matchOffset = pos($$pData);
-    $absoluteOffset = ($readOffset - $dataOffset) + ($matchOffset - (length($1) + 1));
-    print "\"$filename\"|$absoluteOffset|$1\n";
+    $sMatchOffset = pos($$psData);
+    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
   }
 
-  return $matchOffset;
+  return $sMatchOffset;
 }
 
 
@@ -383,7 +423,7 @@ sub Dig4IPs
 
 sub Dig4Passwords
 {
-  my ($pData, $dataOffset, $readOffset, $filename) = @_;
+  my ($psData, $sDataOffset, $sReadOffset, $sFilename, $sFormat) = @_;
 
   ####################################################################
   #
@@ -395,27 +435,29 @@ sub Dig4Passwords
   #
   ####################################################################
 
-  my ($absoluteOffset, $matchOffset);
+  my ($sAbsoluteOffset, $sAdjustment, $sMatchOffset);
 
-  $matchOffset = 0;
+  $sAdjustment = 1; # Adjustment of one is required (i.e., to account for trailing ':').
+
+  $sMatchOffset = 0;
 
   while (
-          $$pData =~ m{
-                        : # The match must be preceded by a colon
+          $$psData =~ m{
+                        : # The match must be preceded by a colon.
                         (
                           \$[1-9]\$[\.\/0-9a-zA-Z]{8}\$[\.\/0-9a-zA-Z]{22}| # Modular crypt
                           [\.\/0-9a-zA-Z]{13}(?:,[\.\/0-9a-zA-Z]{4})? # Old crypt
-                        )
-                        : # The match must be followed by a colon
+                        ) # Save the match in $1.
+                        : # The match must be followed by a colon.
                       }gsxo
         )
   {
-    $matchOffset = pos($$pData);
-    $absoluteOffset = ($readOffset - $dataOffset) + ($matchOffset - (length($1) + 1));
-    print "\"$filename\"|$absoluteOffset|$1\n";
+    $sMatchOffset = pos($$psData);
+    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
   }
 
-  return $matchOffset;
+  return $sMatchOffset;
 }
 
 
@@ -427,7 +469,7 @@ sub Dig4Passwords
 
 sub Dig4Track1
 {
-  my ($pData, $dataOffset, $readOffset, $filename) = @_;
+  my ($psData, $sDataOffset, $sReadOffset, $sFilename, $sFormat) = @_;
 
   ####################################################################
   #
@@ -451,12 +493,14 @@ sub Dig4Track1
   #
   ####################################################################
 
-  my ($absoluteOffset, $matchOffset);
+  my ($sAbsoluteOffset, $sAdjustment, $sMatchOffset);
 
-  $matchOffset = 0;
+  $sAdjustment = 0; # No adjustment is required.
+
+  $sMatchOffset = 0;
 
   while (
-          $$pData =~ m{
+          $$psData =~ m{
                         (
                           %                                  # Field 1
                           B                                  # Field 2
@@ -464,16 +508,16 @@ sub Dig4Track1
                           \^                                 # Field 4
                           [^\^]*                             # Field 5
                           \^                                 # Field 6
-                        )
+                        ) # Save the match in $1.
                       }gsxo
         )
   {
-    $matchOffset = pos($$pData);
-    $absoluteOffset = ($readOffset - $dataOffset) + ($matchOffset - (length($1) + 1));
-    print "\"$filename\"|$absoluteOffset|$1\n";
+    $sMatchOffset = pos($$psData);
+    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
   }
 
-  return $matchOffset;
+  return $sMatchOffset;
 }
 
 
@@ -485,7 +529,7 @@ sub Dig4Track1
 
 sub Dig4Track1Strict
 {
-  my ($pData, $dataOffset, $readOffset, $filename) = @_;
+  my ($psData, $sDataOffset, $sReadOffset, $sFilename, $sFormat) = @_;
 
   ####################################################################
   #
@@ -497,12 +541,14 @@ sub Dig4Track1Strict
   #
   ####################################################################
 
-  my ($absoluteOffset, $matchOffset);
+  my ($sAbsoluteOffset, $sAdjustment, $sMatchOffset);
 
-  $matchOffset = 0;
+  $sAdjustment = 0; # No adjustment is required.
+
+  $sMatchOffset = 0;
 
   while (
-          $$pData =~ m{
+          $$psData =~ m{
                         (
                           %                                  # Field 1
                           B                                  # Field 2
@@ -515,16 +561,16 @@ sub Dig4Track1Strict
                           [0-9]{0,5}                         # Field 9
                           [^%\^\?]*                          # Field 10
                           \?                                 # Field 11
-                        )
+                        ) # Save the match in $1.
                       }gsxo
         )
   {
-    $matchOffset = pos($$pData);
-    $absoluteOffset = ($readOffset - $dataOffset) + ($matchOffset - (length($1) + 1));
-    print "\"$filename\"|$absoluteOffset|$1\n";
+    $sMatchOffset = pos($$psData);
+    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
   }
 
-  return $matchOffset;
+  return $sMatchOffset;
 }
 
 
@@ -536,7 +582,7 @@ sub Dig4Track1Strict
 
 sub Dig4Track2
 {
-  my ($pData, $dataOffset, $readOffset, $filename) = @_;
+  my ($psData, $sDataOffset, $sReadOffset, $sFilename, $sFormat) = @_;
 
   ####################################################################
   #
@@ -557,26 +603,28 @@ sub Dig4Track2
   #
   ####################################################################
 
-  my ($absoluteOffset, $matchOffset);
+  my ($sAbsoluteOffset, $sAdjustment, $sMatchOffset);
 
-  $matchOffset = 0;
+  $sAdjustment = 0; # No adjustment is required.
+
+  $sMatchOffset = 0;
 
   while (
-          $$pData =~ m{
+          $$psData =~ m{
                         (
                           ;                                  # Field 1
                           [0-9A-Za-z]{13}(?:[0-9A-Za-z]{3})? # Field 2
                           =                                  # Field 3
-                        )
+                        ) # Save the match in $1.
                       }gsxo
         )
   {
-    $matchOffset = pos($$pData);
-    $absoluteOffset = ($readOffset - $dataOffset) + ($matchOffset - (length($1) + 1));
-    print "\"$filename\"|$absoluteOffset|$1\n";
+    $sMatchOffset = pos($$psData);
+    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
   }
 
-  return $matchOffset;
+  return $sMatchOffset;
 }
 
 
@@ -588,7 +636,7 @@ sub Dig4Track2
 
 sub Dig4Track2Strict
 {
-  my ($pData, $dataOffset, $readOffset, $filename) = @_;
+  my ($psData, $sDataOffset, $sReadOffset, $sFilename, $sFormat) = @_;
 
   ####################################################################
   #
@@ -600,12 +648,14 @@ sub Dig4Track2Strict
   #
   ####################################################################
 
-  my ($absoluteOffset, $matchOffset);
+  my ($sAbsoluteOffset, $sAdjustment, $sMatchOffset);
 
-  $matchOffset = 0;
+  $sAdjustment = 0; # No adjustment is required.
+
+  $sMatchOffset = 0;
 
   while (
-          $$pData =~ m{
+          $$psData =~ m{
                         (
                           ;                                  # Field 1
                           [0-9A-Za-z]{13}(?:[0-9A-Za-z]{3})? # Field 2
@@ -615,16 +665,66 @@ sub Dig4Track2Strict
                           [0-9]{0,5}                         # Field 6
                           [^;=\?]*                           # Field 7
                           \?                                 # Field 8
-                        )
+                        ) # Save the match in $1.
                       }gsxo
         )
   {
-    $matchOffset = pos($$pData);
-    $absoluteOffset = ($readOffset - $dataOffset) + ($matchOffset - (length($1) + 1));
-    print "\"$filename\"|$absoluteOffset|$1\n";
+    $sMatchOffset = pos($$psData);
+    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
   }
 
-  return $matchOffset;
+  return $sMatchOffset;
+}
+
+######################################################################
+#
+# Dig4SSN
+#
+######################################################################
+
+sub Dig4SSN
+{
+  my ($psData, $sDataOffset, $sReadOffset, $sFilename, $sFormat) = @_;
+
+  ####################################################################
+  #
+  # A Social Security Number (SSN) consists of nine digits having the
+  # following format: AAA-GG-SSSS. The first three digits (AAA) denote
+  # the area (or State) where the application for the original SSN was
+  # filed. Within each area, group numbers (GG) range from 01 to 99,
+  # but they are not assigned in consecutive order. Within each group,
+  # serial numbers (SSSS) run consecutively from 0001 through 9999.
+  # This information was obtained from following references:
+  #
+  #   http://www.ssa.gov/employer/ssnweb.htm
+  #   http://www.ssa.gov/employer/stateweb.htm
+  #
+  ####################################################################
+
+  my ($sAbsoluteOffset, $sAdjustment, $sMatchOffset);
+
+  $sAdjustment = 0; # No adjustment is required (i.e., a trailing lookahead is used).
+
+  $sMatchOffset = 0;
+
+  while (
+          $$psData =~ m{
+                        (?:^|[^0-9]) # The match must be preceded by nothing or anything but a digit.
+                        (?!0{3}-?\d{2}-?\d{4}) # The match must not contain all zeros in the AAA field.
+                        (?!\d{3}-?0{2}-?\d{4}) # The match must not contain all zeros in the GG field.
+                        (?!\d{3}-?\d{2}-?0{4}) # The match must not contain all zeros in the SSSS field.
+                        (\d{3}(?:-\d{2}-|\d{2})\d{4}) # Save the match in $1.
+                        (?![0-9]) # The match must be followed by nothing or anything but a digit.
+                      }gsxo
+        )
+  {
+    $sMatchOffset = pos($$psData);
+    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
+  }
+
+  return $sMatchOffset;
 }
 
 
@@ -636,7 +736,7 @@ sub Dig4Track2Strict
 
 sub DumpDomainInformation
 {
-  my ($dumpRegex) = @_;
+  my ($sDumpRegex) = @_;
 
   ####################################################################
   #
@@ -644,7 +744,7 @@ sub DumpDomainInformation
   #
   ####################################################################
 
-  my %domainList =
+  my %hDomainList =
   (
     'AC'   => 'Ascension Island',
     'AD'   => 'Andorra',
@@ -906,40 +1006,40 @@ sub DumpDomainInformation
     'NATO' => 'NATO'
   );
 
-  if ($dumpRegex)
+  if ($sDumpRegex)
   {
-    foreach my $letter ("A" .. "W", "Y", "Z")
+    foreach my $sLetter ("A" .. "W", "Y", "Z")
     {
-      print $letter, "[";
-      foreach my $domain (sort(keys(%domainList)))
+      print $sLetter, "[";
+      foreach my $sDomain (sort(keys(%hDomainList)))
       {
-        if (length($domain) == 2 && $domain =~ /$letter(.)/)
+        if (length($sDomain) == 2 && $sDomain =~ /$sLetter(.)/)
         {
           print "$1";
         }
       }
       print "]|\n";
     }
-    foreach my $length ("3", "4")
+    foreach my $sLength ("3", "4")
     {
-      my (@list);
+      my (@aList);
 
-      foreach my $domain (sort(keys(%domainList)))
+      foreach my $sDomain (sort(keys(%hDomainList)))
       {
-        if (length($domain) == $length)
+        if (length($sDomain) == $sLength)
         {
-          push(@list, $domain);
+          push(@aList, $sDomain);
         }
       }
-      print join("|", @list);
-      print (($length == 3) ? "|\n" : "\n");
+      print join("|", @aList);
+      print (($sLength == 3) ? "|\n" : "\n");
     }
   }
   else
   {
-    foreach my $domain (sort(keys(%domainList)))
+    foreach my $sDomain (sort(keys(%hDomainList)))
     {
-      print "$domain|$domainList{$domain}\n";
+      print "$sDomain|$hDomainList{$sDomain}\n";
     }
   }
 
@@ -955,9 +1055,9 @@ sub DumpDomainInformation
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-D] [-h] [-q] [-R] [-r] [-s length] [-t type] file [file ...]\n";
+  print STDERR "Usage: $sProgram [-D] [-H] [-h] [-q] [-R] [-r] [-s length] [-t type] file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -971,7 +1071,7 @@ hipdig.pl - Dig for hostnames, IPs, or encrypted passwords
 
 =head1 SYNOPSIS
 
-B<hipdig.pl> B<[-D]> B<[-h]> B<[-q]> B<[-R]> B<[-r]> B<[-s length]> B<[-t type]> B<file [file ...]>
+B<hipdig.pl> B<[-D]> B<[-H]> B<[-h]> B<[-q]> B<[-R]> B<[-r]> B<[-s length]> B<[-t type]> B<file [file ...]>
 
 =head1 DESCRIPTION
 
@@ -991,6 +1091,11 @@ to extract a variable amount of context surrounding each hit.
 =item B<-D>
 
 Dump known domain information to stdout and exit.
+
+=item B<-H>
+
+Print offsets in hex.  If not set, offsets will be printed in
+decimal.
 
 =item B<-h>
 
@@ -1016,9 +1121,10 @@ carry over from one search buffer to the next.
 =item B<-t type>
 
 Specifies the type of search that is to be conducted. Currently,
-the following types are supported: HOST, IP, PASS|PASSWORD, T1|TRACK1,
-and T1S|TRACK1-STRICT.  The default value is IP.  The value for
-this option is not case sensitive.
+the following types are supported: HOST, IP, PASS|PASSWORD, SSN|SOCIAL,
+T1|TRACK1, T1S|TRACK1-STRICT, T2|TRACK2, and T2S|TRACK2-STRICT.
+The default value is IP.  The value for this option is not case
+sensitive.
 
 =back
 

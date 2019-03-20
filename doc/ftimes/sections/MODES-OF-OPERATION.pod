@@ -25,7 +25,7 @@ same methods that would be used if B<FTimes> had been invoked in
 that particular run B<mode>.  By default, directories and files are
 not checked for existence.  This allows config files to be tested
 in a separate environment from where they will be used.  Strict
-testing (i.e. directories and files must exist) may be enabled with
+testing (i.e., directories and files must exist) may be enabled with
 the B<-s> option.
 
 The value 'Syntax Passed' is written to stdout, if all syntax checks
@@ -51,8 +51,8 @@ can have one of the following values:
     C - Changed
     M - Missing
     N - New
-    U - Unknown (i.e. one or both fields were NULL)
-    X - Cross (i.e. Changed and Unknown)
+    U - Unknown (i.e., one or both fields were NULL)
+    X - Cross (i.e., Changed and Unknown)
 
 The changed field contains a comma separated list of fields that
 have changed.  This field will be NULL if the category is New or
@@ -77,8 +77,10 @@ Use default configuration settings to search an Include list for
 a set of user defined strings.  These strings are defined in B<file>
 according to the syntax for the B<DigString> control.  If B<list>
 is not specified, B<FTimes> will search the entire system including
-remote shares or mount points.  Output is written to stdout and
-has the following format.
+remote shares or mount points.  Any device files specifically
+included in the B<list> will be searched (i.e., B<AnalyzeDeviceFiles>
+is always enabled in this mode of operation).  Output is written
+to stdout and has the following format.
 
     name|offset|string
 
@@ -93,7 +95,9 @@ for a set of user defined strings.  The Include list may be specified
 by a combination of B<Include> controls and B<list> arguments.  If
 an Include list is not specified, B<FTimes> will search the entire
 system.  Remote shares or mount points will only be searched if
-B<MapRemoteFiles> is enabled.
+B<AnalyzeRemoteFiles> is enabled.  Any device files specifically
+included in the B<list> will only be searched if B<AnalyzeDeviceFiles>
+is enabled.
 
 =item B<--diglean> B<file> B<[-l level]> B<[list]>
 
@@ -102,9 +106,11 @@ for a set of user defined strings.  The Include list may be specified
 by a combination of B<Include> controls and B<list> arguments.  If
 an Include list is not specified, B<FTimes> will search the entire
 system.  Remote shares or mount points will only be searched if
-B<MapRemoteFiles> is enabled.  The difference between this mode and
-B<--digfull> is that fewer controls are defined/available and output
-can be written directly to std{err,out}.
+B<AnalyzeRemoteFiles> is enabled.  Any device files specifically
+included in the B<list> will only be searched if B<AnalyzeDeviceFiles>
+is enabled.  The difference between this mode and B<--digfull> is
+that fewer controls are defined/available and output can be written
+directly to std{err,out}.
 
 =item B<--getmode> B<file>
 
@@ -140,8 +146,11 @@ B<GetFileName> is specified.
 Use default configuration settings to map an Include list according
 to the specified B<mask> where mask identifies the attributes to
 be collected.  If B<list> is not specified, B<FTimes> will map the
-entire system including remote shares or mount points.  Output is
-written to stdout, and its format depends on the value of B<mask>.
+entire system including remote shares or mount points.  Any device
+files specifically included in the B<list> will be mapped (i.e.,
+B<AnalyzeDeviceFiles> is always enabled in this mode of operation).
+Output is written to stdout, and its format depends on the value
+of B<mask>.
 
 The specified B<mask> must comply with the syntax rules set forth
 for the B<FieldMask> control.
@@ -152,7 +161,9 @@ Use configuration settings in B<file> to map an Include list.  The
 Include list may be specified by a combination of B<Include> controls
 and B<list> arguments.  If an Include list is not specified,
 B<FTimes> will map the entire system.  Remote shares or mount points
-will only be mapped if B<MapRemoteFiles> is enabled.
+will only be mapped if B<AnalyzeRemoteFiles> is enabled.  Any device
+files specifically included in the B<list> will only be mapped
+if B<AnalyzeDeviceFiles> is enabled.
 
 =item B<--maplean> B<file> B<[-l level]> B<[list]>
 
@@ -160,9 +171,11 @@ Use configuration settings in B<file> to map an Include list.  The
 Include list may be specified by a combination of B<Include> controls
 and B<list> arguments.  If an Include list is not specified, B<FTimes>
 will map the entire system.  Remote shares or mount points will
-only be mapped if B<MapRemoteFiles> is enabled.  The difference
-between this mode and B<--mapfull> is that fewer controls are
-defined/available and output can be written directly to std{err,out}.
+only be mapped if B<AnalyzeRemoteFiles> is enabled.  Any device
+files specifically included in the B<list> will only be mapped
+if B<AnalyzeDeviceFiles> is enabled.  The difference between this mode
+and B<--mapfull> is that fewer controls are defined/available and
+output can be written directly to std{err,out}.
 
 =item B<--putmode> B<file> B<[-l level]>
 

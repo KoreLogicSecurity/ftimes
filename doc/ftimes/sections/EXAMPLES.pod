@@ -16,7 +16,7 @@ following information has been provided:
 
     URL = https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
     Authentication Type = Basic
-    Username/ClientID = S001_TEST_0001_0
+    Username/ClientID = client_1
     Password = password
     AllowedFieldMask = ALL-magic
     AllowedDataType = map
@@ -39,24 +39,24 @@ The following file contains the necessary directives to complete
 this task.
 
     --- example1.cfg ---
-    BaseName=S001_TEST_0001_0
+    BaseName=client_1
     OutDir=.
     RunType=baseline
     FieldMask=ALL-magic
     URLPutSnapshot=Y
     URLPutURL=https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
     URLAuthType=basic
-    URLUsername=S001_TEST_0001_0
+    URLUsername=client_1
     URLPassword=password
     URLCreateConfig=Y
     Compress=Y
     --- example1.cfg ---
 
 Note that there are no B<Include> directives.  This omission causes
-B<FTimes> to map everything (i.e. the entire system).
+B<FTimes> to map everything (i.e., the entire system).
 
 Also, note that B<OutDir> has been set to the current directory
-(i.e. '.').  This, while entirely legal, assumes that (1) '.' is
+(i.e., '.').  This, while entirely legal, assumes that (1) '.' is
 writeable and (2) there is enough disk space to hold all generated
 output.
 
@@ -161,7 +161,8 @@ the following command line:
 where maplean.cfg contained the following directives:
 
     --- maplean.cfg ---
-    BaseName=S001_TEST_0001_0
+    BaseName=client_1
+    BaseNameSuffix=datetime
     HashDirectories=Y
     FieldMask=all-magic
     Include=/etc
@@ -171,8 +172,8 @@ where maplean.cfg contained the following directives:
 Now, suppose that you wish to upload the associated snapshot files
 (see below) to an account on an Integrity Server.
 
-    /maps/S001_TEST_0001_0_20001230203000.log
-    /maps/S001_TEST_0001_0_20001230203000.map
+    /maps/client_1_20001230203000.log
+    /maps/client_1_20001230203000.map
 
 The first thing that needs to be done is to obtain the necessary
 upload information.  Assume that an Integrity Server has already
@@ -181,7 +182,7 @@ following information has been provided:
 
     URL = https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
     Authentication Type = Basic
-    Username/ClientID = S001_TEST_0001_0
+    Username/ClientID = client_1
     Password = password
     AllowedFieldMask = ALL-magic
     Server Validates Client Certificates = N
@@ -194,9 +195,9 @@ been arbitrarily set to snapshot -- it could have also been set to
 linktest or baseline depending on your needs.
 
     --- example4.cfg ---
-    BaseName=S001_TEST_0001_0
-    LogFileName=/maps/S001_TEST_0001_0_20001230203000.log
-    OutFileName=/maps/S001_TEST_0001_0_20001230203000.map
+    BaseName=client_1
+    LogFileName=/maps/client_1_20001230203000.log
+    OutFileName=/maps/client_1_20001230203000.map
     OutFileHash=6958d1337f4f11312a402d0c8f9c050b
     DataType=map
     FieldMask=all-magic
@@ -204,7 +205,7 @@ linktest or baseline depending on your needs.
     RunType=snapshot
     URLPutURL=https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
     URLAuthType=basic
-    URLUsername=S001_TEST_0001_0
+    URLUsername=client_1
     URLPassword=password
     --- example4.cfg ---
 
@@ -225,7 +226,7 @@ the following information has been provided:
 
     URL = https://www.integrity.net:443/cgi-client/nph-ftimes.cgi
     Authentication Type = Basic
-    Username/ClientID = S001_TEST_0001_0
+    Username/ClientID = client_1
     Password = password
     Server Validates Client Certificates = Y
     Server Common Name = www.integrity.net
@@ -244,12 +245,12 @@ Armed with that information, the following config file may be
 constructed.
 
     --- example5.cfg ---
-    BaseName=S001_TEST_0001_0
+    BaseName=client_1
     URLGetURL=https://www.integrity.net:443/cgi-client/nph-ftimes.cgi
     URLGetRequest=MapFullConfig
     GetAndExec=N
     URLAuthType=basic
-    URLUsername=S001_TEST_0001_0
+    URLUsername=client_1
     URLPassword=password
     SSLUseCertificate=Y
     SSLPublicCertFile=/usr/local/integrity/etc/PublicCert.pem

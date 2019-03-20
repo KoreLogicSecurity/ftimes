@@ -2,6 +2,6 @@
 
 Applies to B<putmode>.
 
-B<DataType> is required.  It represents the DATATYPE parameter
-in PUT requests, and specifies the type of data being posted.
+B<DataType> is required.  It represents the DATATYPE parameter in
+PUT requests, and specifies the type of data being posted.
 

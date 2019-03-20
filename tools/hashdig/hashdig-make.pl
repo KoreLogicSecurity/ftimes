@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-make.pl,v 1.5 2003/03/26 20:47:30 mavrik Exp $
+# $Id: hashdig-make.pl,v 1.10 2004/04/21 01:29:59 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -15,6 +15,7 @@
 
 use strict;
 use DB_File;
+use File::Basename;
 use Getopt::Std;
 
 ######################################################################
@@ -29,9 +30,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($program);
+  my ($sProgram);
 
-  $program = "hashdig-make.pl";
+  $sProgram = basename(__FILE__);
 
   ####################################################################
   #
@@ -39,11 +40,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('d:Fiqr', \%options))
+  if (!getopts('d:Fiqr', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
@@ -52,72 +53,65 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($dbFile);
+  my ($sDBFile);
 
-  if (!exists($options{'d'}))
+  if (!exists($hOptions{'d'}) || !defined($hOptions{'d'}) || length($hOptions{'d'}) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
+  }
+  $sDBFile = $hOptions{'d'};
+
+  ####################################################################
+  #
+  # The ForceNew flag, '-F', is optional. Default value is 0.
+  #
+  ####################################################################
+
+  my ($sForceNew);
+
+  $sForceNew = (exists($hOptions{'F'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # The InsertOnly flag, '-i', is optional. Default value is 0.
+  #
+  ####################################################################
+
+  my ($sInsertOnly);
+
+  $sInsertOnly = (exists($hOptions{'i'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # The BeQuiet flag, '-q', is optional. Default value is 0.
+  #
+  ####################################################################
+
+  my ($sBeQuiet);
+
+  $sBeQuiet = (exists($hOptions{'q'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # The ReverseFormat flag, '-r', is optional. Default value is 0.
+  #
+  ####################################################################
+
+  my ($sCIndex, $sHIndex, $sRecordRegex, $sReverseFormat);
+
+  $sReverseFormat = (exists($hOptions{'r'})) ? 1 : 0;
+
+  if ($sReverseFormat)
+  {
+    $sRecordRegex = qq(^([KU])\\|([0-9a-fA-F]{32})\$);
+    $sCIndex = 0;
+    $sHIndex = 1;
   }
   else
   {
-    $dbFile = $options{'d'};
-    if (!defined($dbFile) || length($dbFile) < 1)
-    {
-      Usage($program);
-    }
-  }
-
-  ####################################################################
-  #
-  # The forceNew flag, '-F', is optional. Default value is 0.
-  #
-  ####################################################################
-
-  my ($forceNew);
-
-  $forceNew = (exists($options{'F'})) ? 1 : 0;
-
-  ####################################################################
-  #
-  # The insertOnly flag, '-i', is optional. Default value is 0.
-  #
-  ####################################################################
-
-  my ($insertOnly);
-
-  $insertOnly = (exists($options{'i'})) ? 1 : 0;
-
-  ####################################################################
-  #
-  # The beQuiet flag, '-q', is optional. Default value is 0.
-  #
-  ####################################################################
-
-  my ($beQuiet);
-
-  $beQuiet = (exists($options{'q'})) ? 1 : 0;
-
-  ####################################################################
-  #
-  # The reverseFormat flag, '-r', is optional. Default value is 0.
-  #
-  ####################################################################
-
-  my ($cIndex, $hIndex, $recordRegex, $reverseFormat);
-
-  $reverseFormat = (exists($options{'r'})) ? 1 : 0;
-
-  if ($reverseFormat)
-  {
-    $recordRegex = qq(^([KU])\\|([0-9a-fA-F]{32})\$);
-    $cIndex = 0;
-    $hIndex = 1;
-  }
-  else
-  {
-    $recordRegex = qq(^([0-9a-fA-F]{32})\\|([KU])\$);
-    $cIndex = 1;
-    $hIndex = 0;
+    $sRecordRegex = qq(^([0-9a-fA-F]{32})\\|([KU])\$);
+    $sCIndex = 1;
+    $sHIndex = 0;
   }
 
   ####################################################################
@@ -128,22 +122,22 @@ use Getopt::Std;
 
   if (scalar(@ARGV) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # Tie onDiskList to the db.
+  # Tie OnDiskList to the db.
   #
   ####################################################################
 
-  my (%onDiskList, $tieFlags);
+  my (%hOnDiskList, $sTieFlags);
 
-  $tieFlags = ($forceNew) ? O_RDWR|O_CREAT|O_TRUNC : O_RDWR|O_CREAT;
+  $sTieFlags = ($sForceNew) ? O_RDWR|O_CREAT|O_TRUNC : O_RDWR|O_CREAT;
 
-  if (!tie(%onDiskList, "DB_File", $dbFile, $tieFlags, 0644, $DB_BTREE))
+  if (!tie(%hOnDiskList, "DB_File", $sDBFile, $sTieFlags, 0644, $DB_BTREE))
   {
-    print STDERR "$program: File='$dbFile' Error='$!'\n";
+    print STDERR "$sProgram: File='$sDBFile' Error='$!'\n";
     exit(2);
   }
 
@@ -153,70 +147,70 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($accepted, $inserted, $rejected, $updated) = (0, 0, 0, 0);
+  my ($sAccepted, $sInserted, $sRejected, $sUpdated) = (0, 0, 0, 0);
 
-  foreach my $hdFile (@ARGV)
+  foreach my $sHDFile (@ARGV)
   {
-    if (!open(FH, "<$hdFile"))
+    if (!open(FH, "<$sHDFile"))
     {
-      if (!$beQuiet)
+      if (!$sBeQuiet)
       {
-        print STDERR "$program: File='$hdFile' Error='$!'\n";
+        print STDERR "$sProgram: File='$sHDFile' Error='$!'\n";
       }
       next;
     }
-    if ($insertOnly)
+    if ($sInsertOnly)
     {
-      while (my $record = <FH>)
+      while (my $sRecord = <FH>)
       {
-        if (my @fields = $record =~ /$recordRegex/o)
+        if (my @aFields = $sRecord =~ /$sRecordRegex/o)
         {
-          $fields[$hIndex] = lc($fields[$hIndex]);
-          $onDiskList{$fields[$hIndex]} = $fields[$cIndex];
-          $accepted++;
-          $inserted++;
+          $aFields[$sHIndex] = lc($aFields[$sHIndex]);
+          $hOnDiskList{$aFields[$sHIndex]} = $aFields[$sCIndex];
+          $sAccepted++;
+          $sInserted++;
         }
         else
         {
-          if (!$beQuiet)
+          if (!$sBeQuiet)
           {
-            $record =~ s/[\r\n]+$//;
-            print STDERR "$program: File='$hdFile' Record='$record' Error='Record did not parse properly.'\n";
+            $sRecord =~ s/[\r\n]+$//;
+            print STDERR "$sProgram: File='$sHDFile' Record='$sRecord' Error='Record did not parse properly.'\n";
           }
-          $rejected++;
+          $sRejected++;
         }
       }
     }
     else
     {
-      while (my $record = <FH>)
+      while (my $sRecord = <FH>)
       {
-        if (my @fields = $record =~ /$recordRegex/o)
+        if (my @aFields = $sRecord =~ /$sRecordRegex/o)
         {
-          $fields[$hIndex] = lc($fields[$hIndex]);
-          if (exists($onDiskList{$fields[$hIndex]}))
+          $aFields[$sHIndex] = lc($aFields[$sHIndex]);
+          if (exists($hOnDiskList{$aFields[$sHIndex]}))
           {
-            if ($onDiskList{$fields[$hIndex]} ne $fields[$cIndex])
+            if ($hOnDiskList{$aFields[$sHIndex]} ne $aFields[$sCIndex])
             {
-              $onDiskList{$fields[$hIndex]} = $fields[$cIndex];
-              $updated++;
+              $hOnDiskList{$aFields[$sHIndex]} = $aFields[$sCIndex];
+              $sUpdated++;
             }
           }
           else
           {
-            $inserted++;
-            $onDiskList{$fields[$hIndex]} = $fields[$cIndex];
+            $sInserted++;
+            $hOnDiskList{$aFields[$sHIndex]} = $aFields[$sCIndex];
           }
-          $accepted++;
+          $sAccepted++;
         }
         else
         {
-          if (!$beQuiet)
+          if (!$sBeQuiet)
           {
-            $record =~ s/[\r\n]+$//;
-            print STDERR "$program: File='$hdFile' Record='$record' Error='Record did not parse properly.'\n";
+            $sRecord =~ s/[\r\n]+$//;
+            print STDERR "$sProgram: File='$sHDFile' Record='$sRecord' Error='Record did not parse properly.'\n";
           }
-          $rejected++;
+          $sRejected++;
         }
       }
     }
@@ -229,13 +223,13 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (@counts);
+  my (@aCounts);
 
-  push(@counts, "Accepted='$accepted'");
-  push(@counts, "Rejected='$rejected'");
-  push(@counts, "Inserted='$inserted'");
-  push(@counts, ($insertOnly) ? "Updated='NA'" : "Updated='$updated'");
-  print join(' ', @counts), "\n";
+  push(@aCounts, "Accepted='$sAccepted'");
+  push(@aCounts, "Rejected='$sRejected'");
+  push(@aCounts, "Inserted='$sInserted'");
+  push(@aCounts, ($sInsertOnly) ? "Updated='NA'" : "Updated='$sUpdated'");
+  print join(' ', @aCounts), "\n";
 
   ####################################################################
   #
@@ -243,7 +237,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  untie(%onDiskList);
+  untie(%hOnDiskList);
 
   1;
 
@@ -256,9 +250,9 @@ use Getopt::Std;
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-F] [-i] [-q] [-r] -d db file [file ...]\n";
+  print STDERR "Usage: $sProgram [-F] [-i] [-q] [-r] -d db file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -334,7 +328,7 @@ on that instead.
 
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 
 =head1 SEE ALSO
 

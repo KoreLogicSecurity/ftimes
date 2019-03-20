@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-bash.pl,v 1.6 2003/03/26 20:47:27 mavrik Exp $
+# $Id: hashdig-bash.pl,v 1.11 2004/04/21 01:29:58 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -15,6 +15,7 @@
 
 use strict;
 use DB_File;
+use File::Basename;
 use Getopt::Std;
 
 ######################################################################
@@ -29,9 +30,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($program);
+  my ($sProgram);
 
-  $program = "hashdig-bash.pl";
+  $sProgram = basename(__FILE__);
 
   ####################################################################
   #
@@ -39,26 +40,26 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('i:r:s:', \%options))
+  if (!getopts('i:r:s:', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # The iterator flag, '-i', is optional. Default value is undef.
+  # The Iterator flag, '-i', is optional. Default value is undef.
   #
   ####################################################################
 
-  my ($iterator);
+  my ($sIterator);
 
-  $iterator = (exists($options{'i'})) ? uc($options{'i'}) : undef;
+  $sIterator = (exists($hOptions{'i'})) ? uc($hOptions{'i'}) : undef;
 
-  if (defined($iterator) && $iterator !~ /^[RS]$/)
+  if (defined($sIterator) && $sIterator !~ /^[RS]$/)
   {
-    print STDERR "$program: Iterator='$iterator' Error='Invalid iterator.'\n";
+    print STDERR "$sProgram: Iterator='$sIterator' Error='Invalid iterator.'\n";
     exit(2);
   }
 
@@ -68,20 +69,13 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($dbRFile);
+  my ($sDBRFile);
 
-  if (!exists($options{'r'}))
+  if (!exists($hOptions{'r'}) || !defined($hOptions{'r'}) || length($hOptions{'r'}) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
-  else
-  {
-    $dbRFile = $options{'r'}; # The "R" is for Reference.
-    if (!defined($dbRFile) || length($dbRFile) < 1)
-    {
-      Usage($program);
-    }
-  }
+  $sDBRFile = $hOptions{'r'}; # The "R" is for Reference.
 
   ####################################################################
   #
@@ -89,25 +83,18 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($dbSFile, $dbTFile);
+  my ($sDBSFile, $sDBTFile);
 
-  if (!exists($options{'s'}))
+  if (!exists($hOptions{'s'}) || !defined($hOptions{'s'}) || length($hOptions{'s'}) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
-  else
-  {
-    $dbSFile = $options{'s'}; # The "S" is for Subject.
-    $dbTFile = $options{'s'}; # The "T" is for Tag.
-    if (!defined($dbSFile) || length($dbSFile) < 1)
-    {
-      Usage($program);
-    }
-  }
+  $sDBSFile = $hOptions{'s'}; # The "S" is for Subject.
+  $sDBTFile = $hOptions{'s'}; # The "T" is for Tag.
 
-  if ($dbSFile eq $dbRFile)
+  if ($sDBSFile eq $sDBRFile)
   {
-    print STDERR "$program: Reference='$dbRFile' Subject='$dbSFile' Error='Reference and subject databases must not be the same.'\n";
+    print STDERR "$sProgram: Reference='$sDBRFile' Subject='$sDBSFile' Error='Reference and subject databases must not be the same.'\n";
     exit(2);
   }
 
@@ -119,48 +106,48 @@ use Getopt::Std;
 
   if (scalar(@ARGV) > 0)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # Tie onDiskRList to the reference db.
+  # Tie OnDiskRList to the reference db.
   #
   ####################################################################
 
-  my (%onDiskRList);
+  my (%hOnDiskRList);
 
-  if (!tie(%onDiskRList, "DB_File", $dbRFile, O_RDONLY, 0644, $DB_BTREE))
+  if (!tie(%hOnDiskRList, "DB_File", $sDBRFile, O_RDONLY, 0644, $DB_BTREE))
   {
-    print STDERR "$program: File='$dbRFile' Error='$!'\n";
+    print STDERR "$sProgram: File='$sDBRFile' Error='$!'\n";
     exit(2);
   }
 
   ####################################################################
   #
-  # Tie onDiskSList to the subject db.
+  # Tie OnDiskSList to the subject db.
   #
   ####################################################################
 
-  my (%onDiskSList);
+  my (%hOnDiskSList);
 
-  if (!tie(%onDiskSList, "DB_File", $dbSFile, O_RDONLY, 0644, $DB_BTREE))
+  if (!tie(%hOnDiskSList, "DB_File", $sDBSFile, O_RDONLY, 0644, $DB_BTREE))
   {
-    print STDERR "$program: File='$dbSFile' Error='$!'\n";
+    print STDERR "$sProgram: File='$sDBSFile' Error='$!'\n";
     exit(2);
   }
 
   ####################################################################
   #
-  # Tie onDiskTList to the subject db.
+  # Tie OnDiskTList to the subject db.
   #
   ####################################################################
 
-  my (%onDiskTList);
+  my (%hOnDiskTList);
 
-  if (!tie(%onDiskTList, "DB_File", $dbTFile, O_RDWR, 0644, $DB_BTREE))
+  if (!tie(%hOnDiskTList, "DB_File", $sDBTFile, O_RDWR, 0644, $DB_BTREE))
   {
-    print STDERR "$program: File='$dbTFile' Error='$!'\n";
+    print STDERR "$sProgram: File='$sDBTFile' Error='$!'\n";
     exit(2);
   }
 
@@ -170,19 +157,19 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($onDiskRSize, $onDiskSSize, $useSubject);
+  my ($sOnDiskRSize, $sOnDiskSSize, $sUseSubject);
 
-  if (!defined($iterator))
+  if (!defined($sIterator))
   {
-    $onDiskRSize = -s $dbRFile;
-    $onDiskSSize = -s $dbSFile;
-    if (!defined($onDiskRSize) || !defined($onDiskSSize))
+    $sOnDiskRSize = -s $sDBRFile;
+    $sOnDiskSSize = -s $sDBSFile;
+    if (!defined($sOnDiskRSize) || !defined($sOnDiskSSize))
     {
-      $iterator = "S";
+      $sIterator = "S";
     }
     else
     {
-      $iterator = ($onDiskRSize >= $onDiskSSize) ? "S" : "R";
+      $sIterator = ($sOnDiskRSize >= $sOnDiskSSize) ? "S" : "R";
     }
   }
 
@@ -192,30 +179,30 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($bashed, $tagged) = (0, 0);
+  my ($sBashed, $sTagged) = (0, 0);
 
-  if ($iterator eq "S")
+  if ($sIterator eq "S")
   {
-    while (my ($hash, $category) = each(%onDiskSList))
+    while (my ($sHash, $sCategory) = each(%hOnDiskSList))
     {
-      if (exists($onDiskRList{$hash}))
+      if (exists($hOnDiskRList{$sHash}))
       {
-        $onDiskTList{$hash} = $onDiskRList{$hash};
-        $tagged++;
+        $hOnDiskTList{$sHash} = $hOnDiskRList{$sHash};
+        $sTagged++;
       }
-      $bashed++;
+      $sBashed++;
     }
   }
   else
   {
-    while (my ($hash, $category) = each(%onDiskRList))
+    while (my ($sHash, $sCategory) = each(%hOnDiskRList))
     {
-      if (exists($onDiskSList{$hash}))
+      if (exists($hOnDiskSList{$sHash}))
       {
-        $onDiskTList{$hash} = $category;
-        $tagged++;
+        $hOnDiskTList{$sHash} = $sCategory;
+        $sTagged++;
       }
-      $bashed++;
+      $sBashed++;
     }
   }
 
@@ -225,11 +212,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (@counts);
+  my (@aCounts);
 
-  push(@counts, "Bashed='$bashed'");
-  push(@counts, "Tagged='$tagged'");
-  print join(' ', @counts), "\n";
+  push(@aCounts, "Bashed='$sBashed'");
+  push(@aCounts, "Tagged='$sTagged'");
+  print join(' ', @aCounts), "\n";
 
   ####################################################################
   #
@@ -237,9 +224,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  untie(%onDiskRList);
-  untie(%onDiskSList);
-  untie(%onDiskTList);
+  untie(%hOnDiskRList);
+  untie(%hOnDiskSList);
+  untie(%hOnDiskTList);
 
   1;
 
@@ -252,9 +239,9 @@ use Getopt::Std;
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-i {R|S}] -r db -s db\n";
+  print STDERR "Usage: $sProgram [-i {R|S}] -r db -s db\n";
   print STDERR "\n";
   exit(1);
 }
@@ -303,7 +290,7 @@ Specifies the name of the subject database.
 
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 
 =head1 SEE ALSO
 

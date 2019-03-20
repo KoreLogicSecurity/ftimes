@@ -8,7 +8,7 @@ attempts to determine the type of each file it maps.  If the magic
 field is not set, this control is ignored.  B<MagicFile> may be
 specified as a relative path.
 
-Note: XMagic is not built into B<FTimes> by default.  If your
-version of B<FTimes> does not have this support and the magic field
-is requested, B<FTimes> will produce null fields.
+Note: XMagic is not built into B<FTimes> by default.  If your version
+of B<FTimes> does not have this support and the magic field is
+requested, B<FTimes> will produce null fields.
 

@@ -38,7 +38,7 @@ The original design objectives for B<FTimes> were to build a tool that:
 
 =item *
 
-does one thing extremely well (i.e. collect file attributes),
+does one thing extremely well (i.e., collect file attributes),
 
 =item *
 

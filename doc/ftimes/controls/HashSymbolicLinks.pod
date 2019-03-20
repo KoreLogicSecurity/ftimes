@@ -1,0 +1,9 @@
+=item B<HashSymbolicLinks>: [Y|N]
+
+Applies to B<mapfull> and B<maplean>.
+
+B<HashSymbolicLinks> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to compute digests for symbolic links.  This
+is done by hashing the data returned by readlink().  The default
+value is 'N'.
+

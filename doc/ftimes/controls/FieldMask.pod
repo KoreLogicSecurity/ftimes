@@ -1,6 +1,7 @@
 =item B<FieldMask>: <mask>
 
-Applies to B<compare>, B<mapauto>, B<mapfull>, B<maplean>, and B<putmode>.
+Applies to B<compare>, B<mapauto>, B<mapfull>, B<maplean>, and
+B<putmode>.
 
 B<FieldMask> is required in B<compare>.  Its value indicates what
 fields are to be compared for change.
@@ -20,12 +21,10 @@ and it must comply with the following case insensitive syntax:
 or
 
     NONE<+|-><field>[<+|-><field>...]
- 
-The following fields may be specified on Windows platforms with
-two caveats:  (1) chtime is only available on Windows NT/2K systems
-and (2) altstreams is only available if the target file system is
-NTFS.
 
+The following fields may be specified on Windows platforms with two
+caveats:  (1) chtime is only available on Windows NT/2K systems and
+(2) altstreams is only available if the target file system is NTFS.
 
     volume     - Volume serial number
     findex     - File serial number

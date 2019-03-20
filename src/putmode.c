@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: putmode.c,v 1.3 2003/02/23 17:40:09 mavrik Exp $
+ * $Id: putmode.c,v 1.7 2004/04/22 02:19:10 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -22,12 +21,10 @@
 int
 PutModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError)
 {
-  const char          cRoutine[] = "PutModeProcessArguments()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "PutModeProcessArguments()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
   int                 iLength;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -41,18 +38,18 @@ PutModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
     iLength = strlen(ppcArgumentVector[0]);
     if (iLength > FTIMES_MAX_PATH - 1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Length = [%d]: Length exceeds %d bytes.", cRoutine, ppcArgumentVector[0], iLength, FTIMES_MAX_PATH - 1);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Length = [%d]: Length exceeds %d bytes.", acRoutine, ppcArgumentVector[0], iLength, FTIMES_MAX_PATH - 1);
       return ER_Length;
     }
-    strncpy(psProperties->cConfigFile, ppcArgumentVector[0], FTIMES_MAX_PATH);
+    strncpy(psProperties->acConfigFile, ppcArgumentVector[0], FTIMES_MAX_PATH);
     if (iArgumentCount >= 2)
     {
       if (iArgumentCount == 3 && strcmp(ppcArgumentVector[1], "-l") == 0)
       {
-        iError = SupportSetLogLevel(ppcArgumentVector[2], &psProperties->iLogLevel, cLocalError);
+        iError = SupportSetLogLevel(ppcArgumentVector[2], &psProperties->iLogLevel, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: Level = [%s]: %s", cRoutine, ppcArgumentVector[2], cLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: Level = [%s]: %s", acRoutine, ppcArgumentVector[2], acLocalError);
           return iError;
         }
       }
@@ -80,8 +77,8 @@ PutModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
 int
 PutModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "PutModeInitialize()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "PutModeInitialize()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
 
   /*-
@@ -92,8 +89,8 @@ PutModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   psProperties->bURLPutSnapshot = TRUE;
-  psProperties->cOutFileHash[0] = 0;
-  psProperties->cRunDateTime[0] = 0;
+  psProperties->acOutFileHash[0] = 0;
+  psProperties->acRunDateTime[0] = 0;
   psProperties->pFileLog = stderr;
   psProperties->pFileOut = stdout;
 
@@ -104,10 +101,10 @@ PutModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  iError = PropertiesReadFile(psProperties->cConfigFile, psProperties, cLocalError);
+  iError = PropertiesReadFile(psProperties->acConfigFile, psProperties, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -125,69 +122,69 @@ PutModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 PutModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "PutModeCheckDependencies()";
+  const char          acRoutine[] = "PutModeCheckDependencies()";
 #ifdef USE_SSL
-  char                cLocalError[ERRBUF_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
 #endif
 
-  if (psProperties->cBaseName[0] == 0)
+  if (psProperties->acBaseName[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing BaseName.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing BaseName.", acRoutine);
     return ER_MissingControl;
   }
 
-  if (psProperties->ptPutURL == NULL)
+  if (psProperties->psPutURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing URLPutURL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing URLPutURL.", acRoutine);
     return ER_MissingControl;
   }
 
-  if (psProperties->ptPutURL->pcPath[0] == 0)
+  if (psProperties->psPutURL->pcPath[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing path in URLPutURL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing path in URLPutURL.", acRoutine);
     return ER_MissingControl;
   }
 
-  if (psProperties->cLogFileName[0] == 0)
+  if (psProperties->acLogFileName[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing LogFileName.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing LogFileName.", acRoutine);
     return ER_MissingControl;
   }
 
-  if (psProperties->cOutFileName[0] == 0)
+  if (psProperties->acOutFileName[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing OutFileName.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing OutFileName.", acRoutine);
     return ER_MissingControl;
   }
 
-  if (psProperties->cOutFileHash[0] == 0)
+  if (psProperties->acOutFileHash[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing OutFileHash.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing OutFileHash.", acRoutine);
     return ER_MissingControl;
   }
 
-  if (psProperties->cDataType[0] == 0)
+  if (psProperties->acDataType[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing DataType.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing DataType.", acRoutine);
     return ER_MissingControl;
   }
 
-  if (psProperties->cMaskString[0] == 0)
+  if (psProperties->acMaskString[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing FieldMask.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing FieldMask.", acRoutine);
     return ER_MissingControl;
   }
 
-  if (psProperties->cRunDateTime[0] == 0)
+  if (psProperties->acRunDateTime[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing DateTime.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing DateTime.", acRoutine);
     return ER_MissingControl;
   }
 
 #ifdef USE_SSL
-  if (SSLCheckDependencies(psProperties->psSSLProperties, cLocalError) != ER_OK)
+  if (SSLCheckDependencies(psProperties->psSSLProperties, acLocalError) != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER_MissingControl;
   }
 #endif
@@ -210,19 +207,19 @@ PutModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    *
    * Establish Log file stream, and update Message Handler. Don't
-   * overwrite cLogFileName b/c it's in use.
+   * overwrite acLogFileName b/c it's in use.
    *
    *********************************************************************
    */
   psProperties->pFileLog = stderr;
 
-  MessageSetNewLine(psProperties->cNewLine);
+  MessageSetNewLine(psProperties->acNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
 
   /*-
    *******************************************************************
    *
-   * Establish Out file stream. Don't overwrite cOutFileName b/c it's
+   * Establish Out file stream. Don't overwrite acOutFileName b/c it's
    * in use.
    *
    *******************************************************************
@@ -252,11 +249,9 @@ PutModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 PutModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "PutModeWorkHorse()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "PutModeWorkHorse()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -265,17 +260,17 @@ PutModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = URLPingRequest(psProperties, cLocalError);
+  iError = URLPingRequest(psProperties, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER_URLPingRequest;
   }
 
-  iError = URLPutRequest(psProperties, cLocalError);
+  iError = URLPutRequest(psProperties, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER_URLPutRequest;
   }
 

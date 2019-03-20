@@ -1,17 +1,24 @@
 /*-
  ***********************************************************************
  *
- * $Id: ktypes.h,v 1.3 2003/08/13 16:19:05 mavrik Exp $
+ * $Id: ktypes.h,v 1.5 2004/04/17 19:48:08 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2003 Klayton Monroe, All Rights Reserved.
+ * Copyright 2003-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
 
+/*-
+ ***********************************************************************
+ *
+ * Defines
+ *
+ ***********************************************************************
+ */
 #if defined(UNIX)
-  #if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
+  #if defined(K_CPU_ALPHA) || defined(K_CPU_IA64) || defined(K_CPU_X86_64) || defined(K_CPU_AMD64)
     typedef char               K_INT08;
     typedef unsigned char      K_UINT08;
     typedef short              K_INT16;
@@ -25,8 +32,8 @@
     typedef unsigned char      K_UINT08;
     typedef short              K_INT16;
     typedef unsigned short     K_UINT16;
-    typedef long               K_INT32;
-    typedef unsigned long      K_UINT32;
+    typedef int                K_INT32;
+    typedef unsigned int       K_UINT32;
     typedef long long          K_INT64;
     typedef unsigned long long K_UINT64;
   #endif
@@ -35,8 +42,8 @@
     typedef unsigned char      K_UINT08;
     typedef short              K_INT16;
     typedef unsigned short     K_UINT16;
-    typedef long               K_INT32;
-    typedef unsigned long      K_UINT32;
+    typedef int                K_INT32;
+    typedef unsigned int       K_UINT32;
     typedef __int64            K_INT64;
     typedef unsigned __int64   K_UINT64;
 #endif

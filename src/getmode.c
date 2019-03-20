@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: getmode.c,v 1.5 2003/08/13 01:53:23 mavrik Exp $
+ * $Id: getmode.c,v 1.11 2004/04/22 02:19:10 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -22,12 +21,10 @@
 int
 GetModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError)
 {
-  const char          cRoutine[] = "GetModeProcessArguments()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "GetModeProcessArguments()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
   int                 iLength;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -41,18 +38,18 @@ GetModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
     iLength = strlen(ppcArgumentVector[0]);
     if (iLength > FTIMES_MAX_PATH - 1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Length = [%d]: Length exceeds %d bytes.", cRoutine, ppcArgumentVector[0], iLength, FTIMES_MAX_PATH - 1);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Length = [%d]: Length exceeds %d bytes.", acRoutine, ppcArgumentVector[0], iLength, FTIMES_MAX_PATH - 1);
       return ER_Length;
     }
-    strncpy(psProperties->cConfigFile, ppcArgumentVector[0], FTIMES_MAX_PATH);
+    strncpy(psProperties->acConfigFile, ppcArgumentVector[0], FTIMES_MAX_PATH);
     if (iArgumentCount >= 2)
     {
       if (iArgumentCount == 3 && strcmp(ppcArgumentVector[1], "-l") == 0)
       {
-        iError = SupportSetLogLevel(ppcArgumentVector[2], &psProperties->iLogLevel, cLocalError);
+        iError = SupportSetLogLevel(ppcArgumentVector[2], &psProperties->iLogLevel, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: Level = [%s]: %s", cRoutine, ppcArgumentVector[2], cLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: Level = [%s]: %s", acRoutine, ppcArgumentVector[2], acLocalError);
           return iError;
         }
       }
@@ -80,8 +77,8 @@ GetModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
 int
 GetModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "GetModeInitialize()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "GetModeInitialize()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
 
   /*-
@@ -101,10 +98,10 @@ GetModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  iError = PropertiesReadFile(psProperties->cConfigFile, psProperties, cLocalError);
+  iError = PropertiesReadFile(psProperties->acConfigFile, psProperties, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -122,48 +119,48 @@ GetModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 GetModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "GetModeCheckDependencies()";
+  const char          acRoutine[] = "GetModeCheckDependencies()";
 #ifdef USE_SSL
-  char                cLocalError[ERRBUF_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
 #endif
 
-  if (psProperties->cBaseName[0] == 0)
+  if (psProperties->acBaseName[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing BaseName.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing BaseName.", acRoutine);
     return ER_MissingControl;
   }
 
   if (psProperties->bGetAndExec)
   {
-    if (psProperties->cGetFileName[0] == 0)
+    if (psProperties->acGetFileName[0] == 0)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Missing GetFileName.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Missing GetFileName.", acRoutine);
       return ER_MissingControl;
     }
   }
 
-  if (psProperties->cURLGetRequest[0] == 0)
+  if (psProperties->acURLGetRequest[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing URLGetRequest.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing URLGetRequest.", acRoutine);
     return ER_MissingControl;
   }
 
-  if (psProperties->ptGetURL == NULL)
+  if (psProperties->psGetURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing URLGetURL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing URLGetURL.", acRoutine);
     return ER_MissingControl;
   }
 
-  if (psProperties->ptGetURL->pcPath[0] == 0)
+  if (psProperties->psGetURL->pcPath[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing path in URLGetURL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing path in URLGetURL.", acRoutine);
     return ER_MissingControl;
   }
 
 #ifdef USE_SSL
-  if (SSLCheckDependencies(psProperties->psSSLProperties, cLocalError) != ER_OK)
+  if (SSLCheckDependencies(psProperties->psSSLProperties, acLocalError) != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER_MissingControl;
   }
 #endif
@@ -182,7 +179,7 @@ GetModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 GetModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "GetModeFinalize()";
+  const char          acRoutine[] = "GetModeFinalize()";
 
   /*-
    *********************************************************************
@@ -191,10 +188,10 @@ GetModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  strncpy(psProperties->cLogFileName, "stderr", FTIMES_MAX_PATH);
+  strncpy(psProperties->acLogFileName, "stderr", FTIMES_MAX_PATH);
   psProperties->pFileLog = stderr;
 
-  MessageSetNewLine(psProperties->cNewLine);
+  MessageSetNewLine(psProperties->acNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
 
   /*-
@@ -204,18 +201,18 @@ GetModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  if (psProperties->cGetFileName[0])
+  if (psProperties->acGetFileName[0])
   {
-    if ((psProperties->pFileOut = fopen(psProperties->cGetFileName, "wb")) == NULL)
+    if ((psProperties->pFileOut = fopen(psProperties->acGetFileName, "wb")) == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: GetFile = [%s]: %s", cRoutine, psProperties->cGetFileName, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: GetFile = [%s]: %s", acRoutine, psProperties->acGetFileName, strerror(errno));
       return ER_fopen;
     }
-    strncpy(psProperties->cOutFileName, psProperties->cGetFileName, FTIMES_MAX_PATH);
+    strncpy(psProperties->acOutFileName, psProperties->acGetFileName, FTIMES_MAX_PATH);
   }
   else
   {
-    strncpy(psProperties->cOutFileName, "stdout", FTIMES_MAX_PATH);
+    strncpy(psProperties->acOutFileName, "stdout", FTIMES_MAX_PATH);
     psProperties->pFileOut = stdout;
   }
 
@@ -242,20 +239,18 @@ GetModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 GetModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "GetModeWorkHorse()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "GetModeWorkHorse()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
 
-  cLocalError[0] = 0;
-
-  iError = URLGetRequest(psProperties, cLocalError);
+  iError = URLGetRequest(psProperties, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER_URLGetRequest;
   }
 
-  if (psProperties->cGetFileName[0])
+  if (psProperties->acGetFileName[0])
   {
 #ifdef UNIX
     if (psProperties->pFileOut && psProperties->pFileOut != stdout)
@@ -280,7 +275,7 @@ GetModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 GetModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  char                cMessage[MESSAGE_SIZE];
+  char                acMessage[MESSAGE_SIZE];
 
   /*-
    *********************************************************************
@@ -289,11 +284,11 @@ GetModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  snprintf(cMessage, MESSAGE_SIZE, "LogFileName=%s", psProperties->cLogFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "LogFileName=%s", psProperties->acLogFileName);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-  snprintf(cMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->cOutFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->acOutFileName);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
   /*-
    *********************************************************************
@@ -318,8 +313,8 @@ GetModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 GetModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "GetModeFinalStage()";
-  char                cMode[10]; /* strlen("--mapmode") + 1 */
+  const char          acRoutine[] = "GetModeFinalStage()";
+  char                acMode[10]; /* strlen("--mapmode") + 1 */
   int                 iError;
 
   /*-
@@ -334,27 +329,27 @@ GetModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
     switch (psProperties->iNextRunMode)
     {
     case FTIMES_MAPFULL:
-      strcpy(cMode, "--mapfull");
+      strcpy(acMode, "--mapfull");
       break;
     case FTIMES_MAPLEAN:
-      strcpy(cMode, "--maplean");
+      strcpy(acMode, "--maplean");
       break;
     case FTIMES_DIGFULL:
-      strcpy(cMode, "--digfull");
+      strcpy(acMode, "--digfull");
       break;
     case FTIMES_DIGLEAN:
-      strcpy(cMode, "--diglean");
+      strcpy(acMode, "--diglean");
       break;
     default:
-      snprintf(pcError, ERRBUF_SIZE, "%s: Invalid RunMode. That shouldn't happen.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Invalid RunMode. That shouldn't happen.", acRoutine);
       return ER_BadValue;
       break;
     }
 
-    iError = execlp(psProperties->pcProgram, psProperties->pcProgram, cMode, psProperties->cGetFileName, 0);
+    iError = execlp(psProperties->pcProgram, psProperties->pcProgram, acMode, psProperties->acGetFileName, (char *) 0);
     if (iError == ER)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Command = [%s %s %s]: execlp(): %s", cRoutine, psProperties->pcProgram, cMode, psProperties->cGetFileName, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: Command = [%s %s %s]: execlp(): %s", acRoutine, psProperties->pcProgram, acMode, psProperties->acGetFileName, strerror(errno));
       return ER_execlp;
     }
   }

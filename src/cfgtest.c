@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: cfgtest.c,v 1.3 2003/08/13 01:53:23 mavrik Exp $
+ * $Id: cfgtest.c,v 1.7 2004/04/22 02:19:09 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -22,11 +21,8 @@
 int
 CfgTestProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError)
 {
-  const char          cRoutine[] = "CfgTestProcessArguments()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "CfgTestProcessArguments()";
   int                 iLength;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -40,10 +36,10 @@ CfgTestProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
     iLength = strlen(ppcArgumentVector[0]);
     if (iLength > FTIMES_MAX_PATH - 1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Length = [%d]: Length exceeds %d bytes.", cRoutine, ppcArgumentVector[0], iLength, FTIMES_MAX_PATH - 1);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Length = [%d]: Length exceeds %d bytes.", acRoutine, ppcArgumentVector[0], iLength, FTIMES_MAX_PATH - 1);
       return ER_Length;
     }
-    strncpy(psProperties->cConfigFile, ppcArgumentVector[0], FTIMES_MAX_PATH);
+    strncpy(psProperties->acConfigFile, ppcArgumentVector[0], FTIMES_MAX_PATH);
     if (strcasecmp(ppcArgumentVector[1], "digauto") == 0)
     {
       psProperties->iTestRunMode = FTIMES_DIGAUTO;
@@ -74,7 +70,7 @@ CfgTestProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
     }
     else
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Mode = [%s]: Mode must be one of {digauto|digfull|getmode|mapfull|putmode}.", cRoutine, ppcArgumentVector[1]);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Mode = [%s]: Mode must be one of {digauto|digfull|diglean|getmode|mapfull|maplean|putmode}.", acRoutine, ppcArgumentVector[1]);
       return ER_BadValue;
     }
     if (iArgumentCount == 3 && strcmp(ppcArgumentVector[2], "-s") == 0)

@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: xmagic.c,v 1.6 2003/02/23 17:40:09 mavrik Exp $
+ * $Id: xmagic.c,v 1.12 2004/04/22 02:55:09 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -22,9 +21,9 @@
 #define SKIP_WHITESPACE(pc) { while (*pc && isspace((int) *pc)) pc++; }
 #define FIND_DELIMETER(pc) { while (*pc && (!isspace((int) *pc) || *(pc - 1) == '\\')) pc++; }
 
-int                 SystemByteOrder = -1;
-K_UINT08            ByteOrderMagic[4] = {0x01, 0x02, 0x03, 0x04};
-XMAGIC             *XMagicTree;
+int                 giSystemByteOrder = -1;
+K_UINT08            gaui08ByteOrderMagic[4] = {0x01, 0x02, 0x03, 0x04};
+XMAGIC             *gpsXMagicTree;
 
 
 /*-
@@ -124,12 +123,12 @@ XMagicCompareStrings(unsigned char *pucS1, unsigned char *pucS2, int iLength, ch
 int
 XMagicCompareValues(unsigned char *pucBuffer, int iNRead, XMAGIC *psXMagic, K_UINT32 ui32Offset, char *pcDescription, char *pcError)
 {
-  int                 iMatch;
+  char               *pucValue = NULL;
+  int                 iMatch = 0;
   K_UINT32            ui32Value;
   K_UINT32            ui32ValueTmp;
   K_UINT16            ui16ValueTmp;
-
-  iMatch = 0;
+  void               *pvValue = NULL;
 
   switch (psXMagic->ui32Type)
   {
@@ -177,22 +176,24 @@ XMagicCompareValues(unsigned char *pucBuffer, int iNRead, XMAGIC *psXMagic, K_UI
     break;
 
   case XMAGIC_STRING:
-    ui32Value = (K_UINT32) (pucBuffer + ui32Offset);
+    pucValue = pucBuffer + ui32Offset;
     break;
 
   default:
-    snprintf(pcError, ERRBUF_SIZE, "XMagicCompareValues(): invalid type");
+    snprintf(pcError, MESSAGE_SIZE, "XMagicCompareValues(): invalid type");
     return ER_BadMagicType;
     break;
   }
 
   if (psXMagic->ui32Type == XMAGIC_STRING)
   {
-    iMatch = XMagicCompareStrings((unsigned char *) ui32Value, psXMagic->sValue.ui08String, psXMagic->iStringLength, psXMagic->cOperator);
+    iMatch = XMagicCompareStrings(pucValue, psXMagic->sValue.ui08String, psXMagic->iStringLength, psXMagic->cOperator);
+    pvValue = (void *) pucValue;
   }
   else
   {
     iMatch = XMagicCompareNumbers(ui32Value, psXMagic->sValue.ui32Number, psXMagic->cOperator);
+    pvValue = (void *) &ui32Value;
   }
 
   /*-
@@ -204,7 +205,7 @@ XMagicCompareValues(unsigned char *pucBuffer, int iNRead, XMAGIC *psXMagic, K_UI
    */
   if (iMatch)
   {
-    XMagicFormatDescription(ui32Value, psXMagic, pcDescription);
+    XMagicFormatDescription(pvValue, psXMagic, pcDescription);
   }
 
   return iMatch;
@@ -222,10 +223,8 @@ int
 XMagicConvert2charHex(char *pcSRC, char *pcDST)
 {
   int                 iConverted;
-  unsigned int        uiResult1;
-  unsigned int        uiResult2;
-
-  uiResult1 = uiResult2 = 0;
+  unsigned int        uiResult1 = 0;
+  unsigned int        uiResult2 = 0;
 
   if (isxdigit((int) *(pcSRC + 1)) && isxdigit((int) *pcSRC))
   {
@@ -332,17 +331,18 @@ XMagicConvertHexToInt(int iC)
  ***********************************************************************
  */
 void
-XMagicFormatDescription(K_UINT32 ui32Value, XMAGIC *psXMagic, char *pcDescription)
+XMagicFormatDescription(void *pvValue, XMAGIC *psXMagic, char *pcDescription)
 {
-  char                cSafeBuffer[4 * XMAGIC_DESCRIPTION_BUFSIZE];
+  char                acSafeBuffer[4 * XMAGIC_DESCRIPTION_BUFSIZE];
   char               *pc;
   int                 i;
   int                 iBytesLeft;
   int                 n;
+  K_UINT32           *pui32Value;
 
   pcDescription[0] = n = 0;
 
-  if ((psXMagic->ui32Level > 0) && (psXMagic->cDescription[0] != 0) && ((psXMagic->ui32Flags & XMAGIC_NO_SPACE) != XMAGIC_NO_SPACE))
+  if ((psXMagic->ui32Level > 0) && (psXMagic->acDescription[0] != 0) && ((psXMagic->ui32Flags & XMAGIC_NO_SPACE) != XMAGIC_NO_SPACE))
   {
     pcDescription[0] = ' ';
     pcDescription[1] = 0;
@@ -355,11 +355,10 @@ XMagicFormatDescription(K_UINT32 ui32Value, XMAGIC *psXMagic, char *pcDescriptio
   {
     if (psXMagic->cOperator == '=')
     {
-      n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->cDescription, psXMagic->sValue.ui08String);
+      n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, psXMagic->sValue.ui08String);
     }
     else
     {
-
       /*-
        *****************************************************************
        *
@@ -369,42 +368,43 @@ XMagicFormatDescription(K_UINT32 ui32Value, XMAGIC *psXMagic, char *pcDescriptio
        *
        *****************************************************************
        */
-      for (i = 0, pc = (unsigned char *) ui32Value; *pc && *pc != '\n' && *pc != '\r' && i < (iBytesLeft - 4); pc++)
+      for (i = 0, pc = (char *) pvValue; *pc && *pc != '\n' && *pc != '\r' && i < (iBytesLeft - 4); pc++)
       {
         if (*pc >= 0x20 && *pc <= 0x7e && *pc != '|')
         {
-          cSafeBuffer[i++] = *pc;
+          acSafeBuffer[i++] = *pc;
         }
         else
         {
-          cSafeBuffer[i++] = '<';
-          i += sprintf(&cSafeBuffer[i], "%02x", (unsigned char) *pc);
-          cSafeBuffer[i++] = '>';
+          acSafeBuffer[i++] = '<';
+          i += sprintf(&acSafeBuffer[i], "%02x", (unsigned char) *pc);
+          acSafeBuffer[i++] = '>';
         }
       }
-      cSafeBuffer[i] = 0;
-      n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->cDescription, cSafeBuffer);
+      acSafeBuffer[i] = 0;
+      n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, acSafeBuffer);
     }
   }
   else if (psXMagic->ui32Type == XMAGIC_DATE || psXMagic->ui32Type == XMAGIC_LEDATE || psXMagic->ui32Type == XMAGIC_BEDATE)
   {
-    for (i = 0, pc = ctime((time_t *) &ui32Value); *pc; pc++)
+    for (i = 0, pc = ctime((time_t *) pvValue); *pc; pc++)
     {
       if (*pc == '\r' || *pc == '\n')
       {
-        cSafeBuffer[i++] = 0;
+        acSafeBuffer[i++] = 0;
         break;
       }
       else
       {
-        cSafeBuffer[i++] = *pc;
+        acSafeBuffer[i++] = *pc;
       }
     }
-    n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->cDescription, cSafeBuffer);
+    n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, acSafeBuffer);
   }
   else
   {
-    n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->cDescription, ui32Value);
+    pui32Value = (K_UINT32 *) pvValue;
+    n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, *pui32Value);
   }
 }
 
@@ -419,7 +419,7 @@ XMagicFormatDescription(K_UINT32 ui32Value, XMAGIC *psXMagic, char *pcDescriptio
 int
 XMagicGetDescription(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
 {
-  const char          cRoutine[] = "XMagicGetDescription()";
+  const char          acRoutine[] = "XMagicGetDescription()";
   int                 iLength;
 
   /*-
@@ -458,10 +458,10 @@ XMagicGetDescription(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
   iLength = strlen(pcS);
   if (iLength > XMAGIC_DESCRIPTION_BUFSIZE - 1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Description length exceeds %d bytes.", cRoutine, XMAGIC_DESCRIPTION_BUFSIZE - 1);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Description length exceeds %d bytes.", acRoutine, XMAGIC_DESCRIPTION_BUFSIZE - 1);
     return ER_Length;
   }
-  strncpy(psXMagic->cDescription, pcS, XMAGIC_DESCRIPTION_BUFSIZE);
+  strncpy(psXMagic->acDescription, pcS, XMAGIC_DESCRIPTION_BUFSIZE);
 
   return ER_OK;
 }
@@ -477,7 +477,7 @@ XMagicGetDescription(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
 int
 XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
 {
-  const char          cRoutine[] = "XMagicGetOffset()";
+  const char          acRoutine[] = "XMagicGetOffset()";
   char               *pc;
   char               *pcEnd;
   char               *pcTmp;
@@ -492,7 +492,7 @@ XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
 
   if (psXMagic->ui32Level > XMAGIC_MAX_LEVEL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Level = [%lu]: Level must not exceed %d.", cRoutine, psXMagic->ui32Level, XMAGIC_MAX_LEVEL);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Level = [%u]: Level must not exceed %d.", acRoutine, psXMagic->ui32Level, XMAGIC_MAX_LEVEL);
     return ER_BadValue;
   }
 
@@ -510,7 +510,7 @@ XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
      */
     if (*(--pcE) != ')')
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: indirection terminator ')' not found", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: indirection terminator ')' not found", acRoutine);
       return ER_BadValue;
     }
 
@@ -531,7 +531,7 @@ XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
         psXMagic->sIndirection.ui32YOffset = strtoul(pcTmp, &pcEnd, 0);
         if (pcEnd != pcE || errno == ERANGE)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: failed to convert indirect offset [+-] value = [%s]", cRoutine, pc);
+          snprintf(pcError, MESSAGE_SIZE, "%s: failed to convert indirect offset [+-] value = [%s]", acRoutine, pc);
           return ER_BadValue;
         }
         else
@@ -571,7 +571,7 @@ XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
         }
         else
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: invalid indirect type", cRoutine);
+          snprintf(pcError, MESSAGE_SIZE, "%s: invalid indirect type", acRoutine);
           return ER_BadValue;
         }
         pcE = pcTmp;
@@ -591,7 +591,7 @@ XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
   psXMagic->ui32XOffset = strtoul(pc, &pcEnd, 0);
   if (pcEnd != pcE || errno == ERANGE)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: failed to convert offset = [%s]", cRoutine, pc);
+    snprintf(pcError, MESSAGE_SIZE, "%s: failed to convert offset = [%s]", acRoutine, pc);
     return ER_BadValue;
   }
 
@@ -658,8 +658,8 @@ XMagicGetTestOperator(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
 int
 XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
 {
-  const char          cRoutine[] = "XMagicGetTestValue()";
-  char                cString[4 * XMAGIC_STRING_BUFSIZE];
+  const char          acRoutine[] = "XMagicGetTestValue()";
+  char                acString[4 * XMAGIC_STRING_BUFSIZE];
   char               *pcEnd;
   int                 i;
   int                 iConverted;
@@ -687,25 +687,25 @@ XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
         switch (*pcS)
         {
         case 'a':
-          cString[i] = '\a';
+          acString[i] = '\a';
           break;
         case 'b':
-          cString[i] = '\b';
+          acString[i] = '\b';
           break;
         case 'f':
-          cString[i] = '\f';
+          acString[i] = '\f';
           break;
         case 'n':
-          cString[i] = '\n';
+          acString[i] = '\n';
           break;
         case 'r':
-          cString[i] = '\r';
+          acString[i] = '\r';
           break;
         case 't':
-          cString[i] = '\t';
+          acString[i] = '\t';
           break;
         case 'v':
-          cString[i] = '\v';
+          acString[i] = '\v';
           break;
         case '0':
         case '1':
@@ -715,24 +715,24 @@ XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
         case '5':
         case '6':
         case '7':
-          iConverted = XMagicConvert3charOct(pcS, &cString[i]);
+          iConverted = XMagicConvert3charOct(pcS, &acString[i]);
           pcS += iConverted - 1;
           break;
         case 'x':
           pcS++;
-          iConverted = XMagicConvert2charHex(pcS, &cString[i]);
+          iConverted = XMagicConvert2charHex(pcS, &acString[i]);
           switch (iConverted)
           {
           case -2:
-            snprintf(pcError, ERRBUF_SIZE, "%s: invalid hex digits = [%c%c]", cRoutine, *pcS, *(pcS + 1));
+            snprintf(pcError, MESSAGE_SIZE, "%s: invalid hex digits = [%c%c]", acRoutine, *pcS, *(pcS + 1));
             return ER_BadValue;
             break;
           case -1:
-            snprintf(pcError, ERRBUF_SIZE, "%s: invalid hex digit = [%c]", cRoutine, *pcS);
+            snprintf(pcError, MESSAGE_SIZE, "%s: invalid hex digit = [%c]", acRoutine, *pcS);
             return ER_BadValue;
             break;
           case 0:
-            cString[i] = *pcS;
+            acString[i] = *pcS;
             break;
           default:
             pcS += iConverted - 1;
@@ -740,27 +740,27 @@ XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
           }
           break;
         default:
-          cString[i] = *pcS;
+          acString[i] = *pcS;
           break;
         }
       }
       else
       {
-        cString[i] = *pcS;
+        acString[i] = *pcS;
       }
       i++;
       pcS++;
     }
-    cString[i] = 0;
+    acString[i] = 0;
 
     if (i > XMAGIC_STRING_BUFSIZE - 1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: string length > %d", cRoutine, XMAGIC_STRING_BUFSIZE - 1);
+      snprintf(pcError, MESSAGE_SIZE, "%s: string length > %d", acRoutine, XMAGIC_STRING_BUFSIZE - 1);
       return ER_BadValue;
     }
 
     psXMagic->iStringLength = i;
-    memcpy(psXMagic->sValue.ui08String, cString, i);
+    memcpy(psXMagic->sValue.ui08String, acString, i);
 
   }
   else
@@ -768,7 +768,7 @@ XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
     psXMagic->sValue.ui32Number = strtoul(pcS, &pcEnd, 0);
     if (pcEnd != pcE || errno == ERANGE)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: failed to convert test value = [%s]", cRoutine, pcS);
+      snprintf(pcError, MESSAGE_SIZE, "%s: failed to convert test value = [%s]", acRoutine, pcS);
       return ER_BadValue;
     }
   }
@@ -787,7 +787,7 @@ XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
 int
 XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
 {
-  const char          cRoutine[] = "XMagicGetType()";
+  const char          acRoutine[] = "XMagicGetType()";
   char               *pcEnd;
   char               *pcTmp;
 
@@ -806,7 +806,7 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
       psXMagic->ui32Mask = strtoul((pcTmp + 1), &pcEnd, 0);
       if (pcEnd != pcE || errno == ERANGE)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: failed to convert type mask = [%s]", cRoutine, (pcTmp + 1));
+        snprintf(pcError, MESSAGE_SIZE, "%s: failed to convert type mask = [%s]", acRoutine, (pcTmp + 1));
         return ER_BadValue;
       }
       pcE = pcTmp;
@@ -873,7 +873,7 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
   }
   else
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: invalid type = [%s]", cRoutine, pcS);
+    snprintf(pcError, MESSAGE_SIZE, "%s: invalid type = [%s]", acRoutine, pcS);
     return ER_BadMagicType;
   }
   return ER_OK;
@@ -980,29 +980,25 @@ XMagicGetValueOffset(unsigned char *pucBuffer, int iNRead, XMAGIC *psXMagic, cha
 int
 XMagicLoadMagic(char *pcFilename, char *pcError)
 {
-  const char          cRoutine[] = "XMagicLoadMagic()";
-  char                cLine[XMAGIC_MAX_LINE_LENGTH];
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "XMagicLoadMagic()";
+  char                acLine[XMAGIC_MAX_LINE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   FILE               *pFile;
   int                 iLineNumber;
   int                 iParentExists;
-  XMAGIC             *pHead;
-  XMAGIC             *pLast;
-  XMAGIC             *psXMagic;
+  XMAGIC             *psHead = NULL;
+  XMAGIC             *psLast = NULL;
+  XMAGIC             *psXMagic = NULL;
 
-  cLocalError[0] = 0;
-
-  pHead = pLast = psXMagic = NULL;
-
-  SystemByteOrder = (*(K_UINT32 *) ByteOrderMagic == 0x01020304) ? XMAGIC_MSB : XMAGIC_LSB;
+  giSystemByteOrder = (*(K_UINT32 *) gaui08ByteOrderMagic == 0x01020304) ? XMAGIC_MSB : XMAGIC_LSB;
 
   if ((pFile = fopen(pcFilename, "r")) == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s]: %s", cRoutine, pcFilename, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, pcFilename, strerror(errno));
     return ER_fopen;
   }
 
-  for (cLine[0] = 0, iLineNumber = 1; fgets(cLine, XMAGIC_MAX_LINE_LENGTH, pFile) != NULL; cLine[0] = 0, iLineNumber++)
+  for (acLine[0] = 0, iLineNumber = 1; fgets(acLine, XMAGIC_MAX_LINE, pFile) != NULL; acLine[0] = 0, iLineNumber++)
   {
     /*-
      *******************************************************************
@@ -1011,10 +1007,10 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
      *
      *******************************************************************
      */
-    if (iLineNumber == 1 && strncmp(cLine, "# XMagic", 8) != 0)
+    if (iLineNumber == 1 && strncmp(acLine, "# XMagic", 8) != 0)
     {
       fclose(pFile);
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: magic != [# XMagic]", cRoutine, pcFilename, iLineNumber);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: magic != [# XMagic]", acRoutine, pcFilename, iLineNumber);
       return ER_XMagic;
     }
 
@@ -1025,7 +1021,7 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
      *
      *******************************************************************
      */
-    if (cLine[0] == '#')
+    if (acLine[0] == '#')
     {
       continue;
     }
@@ -1037,10 +1033,10 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
      *
      *******************************************************************
      */
-    if (SupportChopEOLs(cLine, feof(pFile) ? 0 : 1, cLocalError) == ER)
+    if (SupportChopEOLs(acLine, feof(pFile) ? 0 : 1, acLocalError) == ER)
     {
       fclose(pFile);
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
       return ER;
     }
 
@@ -1051,7 +1047,7 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
      *
      *******************************************************************
      */
-    if (strlen(cLine) > 0)
+    if (strlen(acLine) > 0)
     {
 
       /*-
@@ -1064,7 +1060,7 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
       psXMagic = (XMAGIC *) malloc(sizeof(XMAGIC)); /* The caller must free this storage. */
       if (psXMagic == NULL)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
         return ER_BadHandle;
       }
 
@@ -1082,17 +1078,17 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
       psXMagic->psSibling = NULL;
       psXMagic->psChild = NULL;
 
-      if (XMagicParseLine(cLine, psXMagic, cLocalError) != ER_OK)
+      if (XMagicParseLine(acLine, psXMagic, acLocalError) != ER_OK)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, cLocalError);
+        snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
         free(psXMagic);
         return ER_XMagic;
       }
 
-      if (pHead == NULL && pLast == NULL)
+      if (psHead == NULL && psLast == NULL)
       {
         psXMagic->psParent = NULL;
-        pHead = psXMagic;
+        psHead = psXMagic;
       }
       else
       {
@@ -1100,35 +1096,35 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
         /*-
          ***************************************************************
          *
-         * If psXMagic->ui32Level == pLast->ui32Level, then we have a
+         * If psXMagic->ui32Level == psLast->ui32Level, then we have a
          * sibling.
          *
          ***************************************************************
          */
-        if (psXMagic->ui32Level == pLast->ui32Level)
+        if (psXMagic->ui32Level == psLast->ui32Level)
         {
-          psXMagic->psParent = pLast->psParent;
-          pLast->psSibling = psXMagic;
+          psXMagic->psParent = psLast->psParent;
+          psLast->psSibling = psXMagic;
         }
 
         /*-
          ***************************************************************
          *
-         * If psXMagic->ui32Level > pLast->ui32Level and the delta == 1,
+         * If psXMagic->ui32Level > psLast->ui32Level and the delta == 1,
          * then we have a child.
          *
          ***************************************************************
          */
-        else if (psXMagic->ui32Level > pLast->ui32Level)
+        else if (psXMagic->ui32Level > psLast->ui32Level)
         {
-          if ((psXMagic->ui32Level - pLast->ui32Level) > 1)
+          if ((psXMagic->ui32Level - psLast->ui32Level) > 1)
           {
-            snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: test level(s) skipped", cRoutine, pcFilename, iLineNumber);
+            snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: test level(s) skipped", acRoutine, pcFilename, iLineNumber);
             free(psXMagic);
             return ER_XMagic;
           }
-          psXMagic->psParent = pLast;
-          pLast->psChild = psXMagic;
+          psXMagic->psParent = psLast;
+          psLast->psChild = psXMagic;
         }
 
         /*-
@@ -1143,36 +1139,36 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
         else
         {
           iParentExists = 0;
-          while ((pLast = pLast->psParent) != NULL)
+          while ((psLast = psLast->psParent) != NULL)
           {
-            if (psXMagic->ui32Level == pLast->ui32Level)
+            if (psXMagic->ui32Level == psLast->ui32Level)
             {
-              psXMagic->psParent = pLast->psParent;
-              pLast->psSibling = psXMagic;
+              psXMagic->psParent = psLast->psParent;
+              psLast->psSibling = psXMagic;
               iParentExists = 1;
               break;
             }
           }
           if (!iParentExists)
           {
-            snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: missing parent magic", cRoutine, pcFilename, iLineNumber);
+            snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: missing parent magic", acRoutine, pcFilename, iLineNumber);
             free(psXMagic);
             return ER_XMagic;
           }
         }
       }
-      pLast = psXMagic;
+      psLast = psXMagic;
     }
   }
   if (ferror(pFile))
   {
     fclose(pFile);
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
     return ER_fgets;
   }
   fclose(pFile);
 
-  XMagicTree = pHead;
+  gpsXMagicTree = psHead;
 
   return ER_OK;
 }
@@ -1188,16 +1184,12 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
 int
 XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
 {
-  const char          cRoutine[] = "XMagicParseLine()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "XMagicParseLine()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcE;
   char               *pcS;
   int                 iError;
-  int                 iEndFound;
-
-  cLocalError[0] = 0;
-
-  iEndFound = 0;
+  int                 iEndFound = 0;
 
   pcE = pcS = pcLine;
 
@@ -1205,16 +1197,16 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
 
   if (*pcE == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: offset: unexpected NULL found", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: offset: unexpected NULL found", acRoutine);
     return ER_BadValue;
   }
 
   *pcE = 0;
 
-  iError = XMagicGetOffset(pcS, pcE, psXMagic, cLocalError);
+  iError = XMagicGetOffset(pcS, pcE, psXMagic, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -1228,16 +1220,16 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
 
   if (*pcE == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: type: unexpected NULL found", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: type: unexpected NULL found", acRoutine);
     return ER_BadValue;
   }
 
   *pcE = 0;
 
-  iError = XMagicGetType(pcS, pcE, psXMagic, cLocalError);
+  iError = XMagicGetType(pcS, pcE, psXMagic, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -1251,16 +1243,16 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
 
   if (*pcE == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: operator: unexpected NULL found", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: operator: unexpected NULL found", acRoutine);
     return ER_BadValue;
   }
 
   *pcE = 0;
 
-  iError = XMagicGetTestOperator(pcS, pcE, psXMagic, cLocalError);
+  iError = XMagicGetTestOperator(pcS, pcE, psXMagic, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -1289,10 +1281,10 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
     *pcE = 0;
   }
 
-  iError = XMagicGetTestValue(pcS, pcE, psXMagic, cLocalError);
+  iError = XMagicGetTestValue(pcS, pcE, psXMagic, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -1310,10 +1302,10 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
     pcE++;
   }
 
-  iError = XMagicGetDescription(pcS, pcE, psXMagic, cLocalError);
+  iError = XMagicGetDescription(pcS, pcE, psXMagic, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -1331,7 +1323,7 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
 K_UINT32
 XMagicSwapLong(K_UINT32 ui32Value, K_UINT32 ui32MagicType)
 {
-  if (SystemByteOrder == XMAGIC_MSB)
+  if (giSystemByteOrder == XMAGIC_MSB)
   {
     if (ui32MagicType == XMAGIC_LELONG || ui32MagicType == XMAGIC_LEDATE)
     {
@@ -1359,7 +1351,7 @@ XMagicSwapLong(K_UINT32 ui32Value, K_UINT32 ui32MagicType)
 K_UINT16
 XMagicSwapShort(K_UINT16 ui16Value, K_UINT32 ui32MagicType)
 {
-  if (SystemByteOrder == XMAGIC_MSB)
+  if (giSystemByteOrder == XMAGIC_MSB)
   {
     if (ui32MagicType == XMAGIC_LESHORT)
     {
@@ -1387,7 +1379,7 @@ XMagicSwapShort(K_UINT16 ui16Value, K_UINT32 ui32MagicType)
 int
 XMagicTestBuffer(unsigned char *pucBuffer, int iBufferLength, char *pcDescription, int iDescriptionLength, char *pcError)
 {
-  char                cLocalError[ERRBUF_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iBytesLeft;
   int                 iBytesUsed;
   int                 iMatch;
@@ -1414,7 +1406,7 @@ XMagicTestBuffer(unsigned char *pucBuffer, int iBufferLength, char *pcDescriptio
    */
   iBytesUsed = 0;
   iBytesLeft = iDescriptionLength - 1;
-  iMatch = XMagicTestMagic(pucBuffer, iBufferLength, XMagicTree, pcDescription, &iBytesUsed, &iBytesLeft, cLocalError);
+  iMatch = XMagicTestMagic(pucBuffer, iBufferLength, gpsXMagicTree, pcDescription, &iBytesUsed, &iBytesLeft, acLocalError);
   if (iMatch)
   {
     pcDescription[iBytesUsed] = 0;
@@ -1442,14 +1434,12 @@ XMagicTestBuffer(unsigned char *pucBuffer, int iBufferLength, char *pcDescriptio
 int
 XMagicTestFile(char *pcFilename, char *pcDescription, int iDescriptionLength, char *pcError)
 {
-  const char          cRoutine[] = "XMagicTestFile()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "XMagicTestFile()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   FILE               *pFile;
   int                 iError;
   int                 iNRead;
-  unsigned char       ucBuffer[XMAGIC_READ_BUFSIZE];
-
-  cLocalError[0] = 0;
+  unsigned char       aucBuffer[XMAGIC_READ_BUFSIZE];
 
   /*-
    *********************************************************************
@@ -1460,7 +1450,7 @@ XMagicTestFile(char *pcFilename, char *pcDescription, int iDescriptionLength, ch
    */
   if ((pFile = fopen(pcFilename, "rb")) == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return ER_fopen;
   }
 
@@ -1472,12 +1462,12 @@ XMagicTestFile(char *pcFilename, char *pcDescription, int iDescriptionLength, ch
    *
    *********************************************************************
    */
-  iNRead = fread(ucBuffer, 1, XMAGIC_READ_BUFSIZE, pFile);
+  iNRead = fread(aucBuffer, 1, XMAGIC_READ_BUFSIZE, pFile);
 
   if (ferror(pFile))
   {
     fclose(pFile);
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return ER_fread;
   }
 
@@ -1490,10 +1480,10 @@ XMagicTestFile(char *pcFilename, char *pcDescription, int iDescriptionLength, ch
    *
    *********************************************************************
    */
-  iError = XMagicTestBuffer(ucBuffer, iNRead, pcDescription, iDescriptionLength, cLocalError);
+  iError = XMagicTestBuffer(aucBuffer, iNRead, pcDescription, iDescriptionLength, acLocalError);
   if (iError == ER)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER_XMagic;
   }
 
@@ -1511,33 +1501,31 @@ XMagicTestFile(char *pcFilename, char *pcDescription, int iDescriptionLength, ch
 int
 XMagicTestMagic(unsigned char *pucBuffer, int iNRead, XMAGIC *psXMagic, char *pcDescription, int *iBytesUsed, int *iBytesLeft, char *pcError)
 {
-  char                cDescriptionLocal[XMAGIC_DESCRIPTION_BUFSIZE];
-  char                cLocalError[ERRBUF_SIZE];
+  char                acDescriptionLocal[XMAGIC_DESCRIPTION_BUFSIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iMatch;
   int                 iMatches;
   K_UINT32            ui32Offset;
   XMAGIC             *psMyXMagic;
 
-  cLocalError[0] = 0;
-
   for (iMatches = 0, psMyXMagic = psXMagic; psMyXMagic != NULL; psMyXMagic = psMyXMagic->psSibling)
   {
-    ui32Offset = XMagicGetValueOffset(pucBuffer, iNRead, psMyXMagic, cLocalError);
+    ui32Offset = XMagicGetValueOffset(pucBuffer, iNRead, psMyXMagic, acLocalError);
     if (ui32Offset == -1)
     {
       continue;
     }
 
-    iMatch = XMagicCompareValues(pucBuffer, iNRead, psMyXMagic, ui32Offset, cDescriptionLocal, cLocalError);
+    iMatch = XMagicCompareValues(pucBuffer, iNRead, psMyXMagic, ui32Offset, acDescriptionLocal, acLocalError);
 
     if (iMatch)
     {
-      *iBytesUsed += snprintf(&pcDescription[*iBytesUsed], *iBytesLeft, "%s", cDescriptionLocal);
+      *iBytesUsed += snprintf(&pcDescription[*iBytesUsed], *iBytesLeft, "%s", acDescriptionLocal);
       *iBytesLeft -= *iBytesUsed;
 
       if (psMyXMagic->psChild != NULL)
       {
-        XMagicTestMagic(pucBuffer, iNRead, psMyXMagic->psChild, pcDescription, iBytesUsed, iBytesLeft, cLocalError);
+        XMagicTestMagic(pucBuffer, iNRead, psMyXMagic->psChild, pcDescription, iBytesUsed, iBytesLeft, acLocalError);
       }
 
       if (psXMagic->ui32Level == 0)
@@ -1564,31 +1552,31 @@ XMagicTestMagic(unsigned char *pucBuffer, int iNRead, XMAGIC *psXMagic, char *pc
  ***********************************************************************
  */
 int
-XMagicTestSpecial(char *pcFilename, struct stat *pStat, char *pcDescription, int iDescriptionLength, char *pcError)
+XMagicTestSpecial(char *pcFilename, struct stat *psStatEntry, char *pcDescription, int iDescriptionLength, char *pcError)
 {
-  const char          cRoutine[] = "XMagicTestSpecial()";
+  const char          acRoutine[] = "XMagicTestSpecial()";
   char               *pcLinkBuffer;
   int                 n;
 
   if ((pcLinkBuffer = (char *) malloc(iDescriptionLength)) == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return ER_BadHandle;
   }
 
-  switch (pStat->st_mode & S_IFMT)
+  switch (psStatEntry->st_mode & S_IFMT)
   {
   case S_IFIFO:
     snprintf(pcDescription, iDescriptionLength, "named pipe (fifo)");
     break;
   case S_IFCHR:
-    snprintf(pcDescription, iDescriptionLength, "character special (%lu/%lu)", (unsigned long) major(pStat->st_rdev), (unsigned long) minor(pStat->st_rdev));
+    snprintf(pcDescription, iDescriptionLength, "character special (%lu/%lu)", (unsigned long) major(psStatEntry->st_rdev), (unsigned long) minor(psStatEntry->st_rdev));
     break;
   case S_IFDIR:
     snprintf(pcDescription, iDescriptionLength, "directory");
     break;
   case S_IFBLK:
-    snprintf(pcDescription, iDescriptionLength, "block special (%lu/%lu)", (unsigned long) major(pStat->st_rdev), (unsigned long) minor(pStat->st_rdev));
+    snprintf(pcDescription, iDescriptionLength, "block special (%lu/%lu)", (unsigned long) major(psStatEntry->st_rdev), (unsigned long) minor(psStatEntry->st_rdev));
     break;
   case S_IFREG:
     break;
@@ -1597,7 +1585,7 @@ XMagicTestSpecial(char *pcFilename, struct stat *pStat, char *pcDescription, int
     if (n == ER)
     {
       pcDescription[0] = 0;
-      snprintf(pcError, ERRBUF_SIZE, "%s: unreadable symbolic link: %s", cRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: unreadable symbolic link: %s", acRoutine, strerror(errno));
       free(pcLinkBuffer);
       return ER_readlink;
     }

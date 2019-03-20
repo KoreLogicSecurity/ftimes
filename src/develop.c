@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: develop.c,v 1.10 2003/08/13 21:39:49 mavrik Exp $
+ * $Id: develop.c,v 1.15 2004/04/23 02:51:12 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -21,8 +20,8 @@
  */
 #define COMPRESS_RECOVERY_RATE 100
 
-static unsigned char  ucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-static unsigned char  ucZeroHash[MD5_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+static unsigned char  gaucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static unsigned char  gaucZeroHash[MD5_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 
 /*-
@@ -59,13 +58,11 @@ DevelopNoOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCou
 int
 DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
-  char                cTime[FTIMES_TIME_FORMAT_SIZE];
-  int                 i,
-                      n,
-                      iError,
-                      iStatus;
-
-  iStatus = ER_OK;
+  char                acTime[FTIMES_TIME_FORMAT_SIZE];
+  int                 i;
+  int                 n;
+  int                 iError;
+  int                 iStatus = ER_OK;
 
   /*-
    *********************************************************************
@@ -94,7 +91,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & DEV_SET) == DEV_SET)
   {
-    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->statEntry.st_dev);
+    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_dev);
   }
 
   /*-
@@ -106,7 +103,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & INODE_SET) == INODE_SET)
   {
-    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->statEntry.st_ino);
+    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_ino);
   }
 
   /*-
@@ -118,7 +115,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & MODE_SET) == MODE_SET)
   {
-    n += sprintf(&pcOutData[n], "|%o", (unsigned) psFTData->statEntry.st_mode);
+    n += sprintf(&pcOutData[n], "|%o", (unsigned) psFTData->sStatEntry.st_mode);
   }
 
   /*-
@@ -130,7 +127,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & NLINK_SET) == NLINK_SET)
   {
-    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->statEntry.st_nlink);
+    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_nlink);
   }
 
   /*-
@@ -142,7 +139,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & UID_SET) == UID_SET)
   {
-    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->statEntry.st_uid);
+    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_uid);
   }
 
   /*-
@@ -154,7 +151,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & GID_SET) == GID_SET)
   {
-    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->statEntry.st_gid);
+    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_gid);
   }
 
   /*-
@@ -166,7 +163,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & RDEV_SET) == RDEV_SET)
   {
-    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->statEntry.st_rdev);
+    n += sprintf(&pcOutData[n], "|%u", (unsigned) psFTData->sStatEntry.st_rdev);
   }
 
   /*-
@@ -178,10 +175,10 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET)
   {
-    iError = TimeFormatTime(&psFTData->statEntry.st_atime, cTime);
+    iError = TimeFormatTime(&psFTData->sStatEntry.st_atime, acTime);
     if (iError == ER_OK)
     {
-      n += sprintf(&pcOutData[n], "|%s", cTime);
+      n += sprintf(&pcOutData[n], "|%s", acTime);
     }
     else
     {
@@ -200,10 +197,10 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET)
   {
-    iError = TimeFormatTime(&psFTData->statEntry.st_mtime, cTime);
+    iError = TimeFormatTime(&psFTData->sStatEntry.st_mtime, acTime);
     if (iError == ER_OK)
     {
-      n += sprintf(&pcOutData[n], "|%s", cTime);
+      n += sprintf(&pcOutData[n], "|%s", acTime);
     }
     else
     {
@@ -222,10 +219,10 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & CTIME_SET) == CTIME_SET)
   {
-    iError = TimeFormatTime(&psFTData->statEntry.st_ctime, cTime);
+    iError = TimeFormatTime(&psFTData->sStatEntry.st_ctime, acTime);
     if (iError == ER_OK)
     {
-      n += sprintf(&pcOutData[n], "|%s", cTime);
+      n += sprintf(&pcOutData[n], "|%s", acTime);
     }
     else
     {
@@ -245,17 +242,9 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   if ((psProperties->ulFieldMask & SIZE_SET) == SIZE_SET)
   {
 #ifdef USE_AP_SNPRINTF
-    /*-
-     *******************************************************************
-     *
-     * The USE_AP_SNPRINTF is needed to support certain versions of
-     * Solaris that can't grok %q.
-     *
-     *******************************************************************
-     */
-    n += snprintf(&pcOutData[n], 22, "|%qu", (unsigned long long) psFTData->statEntry.st_size);
+    n += snprintf(&pcOutData[n], FTIMES_MAX_64BIT_SIZE, "|%qu", (unsigned long long) psFTData->sStatEntry.st_size);
 #else
-    n += sprintf(&pcOutData[n], "|%qu", (unsigned long long) psFTData->statEntry.st_size);
+    n += snprintf(&pcOutData[n], FTIMES_MAX_64BIT_SIZE, "|%llu", (unsigned long long) psFTData->sStatEntry.st_size);
 #endif
   }
 
@@ -270,9 +259,9 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
   {
     pcOutData[n++] = '|';
-    if (psFTData->cType[0])
+    if (psFTData->acType[0])
     {
-      n += sprintf(&pcOutData[n], "%s", psFTData->cType);
+      n += sprintf(&pcOutData[n], "%s", psFTData->acType);
     }
     else
     {
@@ -298,15 +287,15 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   if ((psProperties->ulFieldMask & MD5_SET) == MD5_SET)
   {
     pcOutData[n++] = '|';
-    if (S_ISDIR(psFTData->statEntry.st_mode))
+    if (S_ISDIR(psFTData->sStatEntry.st_mode))
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
         {
           for (i = 0; i < MD5_HASH_SIZE; i++)
           {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
+            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMD5[i]);
           }
         }
       }
@@ -315,13 +304,13 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
         n += sprintf(&pcOutData[n], "DIRECTORY");
       }
     }
-    else if (S_ISREG(psFTData->statEntry.st_mode))
+    else if (S_ISREG(psFTData->sStatEntry.st_mode))
     {
-      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
       {
         for (i = 0; i < MD5_HASH_SIZE; i++)
         {
-          n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
+          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMD5[i]);
         }
       }
       else
@@ -330,15 +319,15 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
         iStatus = ER_NullFields;
       }
     }
-    else if (S_ISLNK(psFTData->statEntry.st_mode))
+    else if (S_ISLNK(psFTData->sStatEntry.st_mode))
     {
       if (psProperties->bHashSymbolicLinks)
       {
-        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
         {
           for (i = 0; i < MD5_HASH_SIZE; i++)
           {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
+            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMD5[i]);
           }
         }
         else
@@ -358,7 +347,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
   }
 
-  n += sprintf(&pcOutData[n], "%s", psProperties->cNewLine);
+  n += sprintf(&pcOutData[n], "%s", psProperties->acNewLine);
 
   /*-
    *********************************************************************
@@ -385,23 +374,21 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
 int
 DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
-  char                cTime[FTIMES_TIME_FORMAT_SIZE];
-  int                 iError,
-                      i,
-                      n,
-                      iStatus;
-  unsigned __int64    ui64FileIndex,
-                      ui64FileSize;
-  static DWORD        dwLastVolumeSerialNumber,
-                      dwLastFileIndexHigh,
-                      dwLastFileIndexLow,
-                      dwLastFileAttributes;
-  static unsigned __int64 ui64LastATime,
-                      ui64LastMTime,
-                      ui64LastCTime,
-                      ui64LastChTime;
-
-  iStatus = ER_OK;
+  char                acTime[FTIMES_TIME_FORMAT_SIZE];
+  int                 iError;
+  int                 i;
+  int                 n;
+  int                 iStatus = ER_OK;
+  unsigned __int64    ui64FileIndex;
+  unsigned __int64    ui64FileSize;
+  static DWORD        dwLastVolumeSerialNumber;
+  static DWORD        dwLastFileIndexHigh;
+  static DWORD        dwLastFileIndexLow;
+  static DWORD        dwLastFileAttributes;
+  static unsigned __int64 ui64LastATime;
+  static unsigned __int64 ui64LastMTime;
+  static unsigned __int64 ui64LastCTime;
+  static unsigned __int64 ui64LastChTime;
 
   /*-
    *********************************************************************
@@ -457,9 +444,9 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   if ((psProperties->ulFieldMask & FINDEX_SET) == FINDEX_SET)
   {
     pcOutData[n++] = '|';
-    if (psFTData->nFileIndexHigh != 0xffffffff && psFTData->nFileIndexLow != 0xffffffff)
+    if (psFTData->dwFileIndexHigh != 0xffffffff && psFTData->dwFileIndexLow != 0xffffffff)
     {
-      ui64FileIndex = (((unsigned __int64) psFTData->nFileIndexHigh) << 32) | psFTData->nFileIndexLow;
+      ui64FileIndex = (((unsigned __int64) psFTData->dwFileIndexHigh) << 32) | psFTData->dwFileIndexLow;
       n += sprintf(&pcOutData[n], "%I64u", ui64FileIndex);
     }
     else
@@ -495,7 +482,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET)
   {
-    if (psFTData->ftLastAccessTime.dwLowDateTime == 0 && psFTData->ftLastAccessTime.dwHighDateTime == 0)
+    if (psFTData->sFTATime.dwLowDateTime == 0 && psFTData->sFTATime.dwHighDateTime == 0)
     {
       n += sprintf(&pcOutData[n], "||");
       strcat(pcError, "atime,");
@@ -503,10 +490,10 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-      iError = TimeFormatTime((FILETIME *) &psFTData->ftLastAccessTime, cTime);
+      iError = TimeFormatTime((FILETIME *) &psFTData->sFTATime, acTime);
       if (iError == ER_OK)
       {
-        n += sprintf(&pcOutData[n], "|%s", cTime);
+        n += sprintf(&pcOutData[n], "|%s", acTime);
       }
       else
       {
@@ -526,7 +513,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET)
   {
-    if (psFTData->ftLastWriteTime.dwLowDateTime == 0 && psFTData->ftLastWriteTime.dwHighDateTime == 0)
+    if (psFTData->sFTMTime.dwLowDateTime == 0 && psFTData->sFTMTime.dwHighDateTime == 0)
     {
       n += sprintf(&pcOutData[n], "||");
       strcat(pcError, "mtime,");
@@ -534,10 +521,10 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-      iError = TimeFormatTime((FILETIME *) &psFTData->ftLastWriteTime, cTime);
+      iError = TimeFormatTime((FILETIME *) &psFTData->sFTMTime, acTime);
       if (iError == ER_OK)
       {
-        n += sprintf(&pcOutData[n], "|%s", cTime);
+        n += sprintf(&pcOutData[n], "|%s", acTime);
       }
       else
       {
@@ -557,7 +544,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & CTIME_SET) == CTIME_SET)
   {
-    if (psFTData->ftCreationTime.dwLowDateTime == 0 && psFTData->ftCreationTime.dwHighDateTime == 0)
+    if (psFTData->sFTCTime.dwLowDateTime == 0 && psFTData->sFTCTime.dwHighDateTime == 0)
     {
 #ifndef WIN98
 
@@ -576,10 +563,10 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-      iError = TimeFormatTime((FILETIME *) &psFTData->ftCreationTime, cTime);
+      iError = TimeFormatTime((FILETIME *) &psFTData->sFTCTime, acTime);
       if (iError == ER_OK)
       {
-        n += sprintf(&pcOutData[n], "|%s", cTime);
+        n += sprintf(&pcOutData[n], "|%s", acTime);
       }
       else
       {
@@ -599,7 +586,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & CHTIME_SET) == CHTIME_SET)
   {
-    if (psFTData->ftChangeTime.dwLowDateTime == 0 && psFTData->ftChangeTime.dwHighDateTime == 0)
+    if (psFTData->sFTChTime.dwLowDateTime == 0 && psFTData->sFTChTime.dwHighDateTime == 0)
     {
 #ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
@@ -612,10 +599,10 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-      iError = TimeFormatTime((FILETIME *) &psFTData->ftChangeTime, cTime);
+      iError = TimeFormatTime((FILETIME *) &psFTData->sFTChTime, acTime);
       if (iError == ER_OK)
       {
-        n += sprintf(&pcOutData[n], "|%s", cTime);
+        n += sprintf(&pcOutData[n], "|%s", acTime);
       }
       else
       {
@@ -638,7 +625,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if ((psProperties->ulFieldMask & SIZE_SET) == SIZE_SET)
   {
-    ui64FileSize = (((unsigned __int64) psFTData->nFileSizeHigh) << 32) | psFTData->nFileSizeLow;
+    ui64FileSize = (((unsigned __int64) psFTData->dwFileSizeHigh) << 32) | psFTData->dwFileSizeLow;
     n += sprintf(&pcOutData[n], "|%I64u", ui64FileSize);
   }
 
@@ -652,7 +639,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   if ((psProperties->ulFieldMask & ALTSTREAMS_SET) == ALTSTREAMS_SET)
   {
     pcOutData[n++] = '|';
-    if (psFTData->iStreamCount != 0xffffffff)
+    if (psFTData->iStreamCount != FTIMES_INVALID_STREAM_COUNT)
     {
       n += sprintf(&pcOutData[n], "%u", psFTData->iStreamCount);
     }
@@ -679,9 +666,9 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
   {
     pcOutData[n++] = '|';
-    if (psFTData->cType[0])
+    if (psFTData->acType[0])
     {
-      n += sprintf(&pcOutData[n], "%s", psFTData->cType);
+      n += sprintf(&pcOutData[n], "%s", psFTData->acType);
     }
     else
     {
@@ -710,11 +697,11 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
         {
           for (i = 0; i < MD5_HASH_SIZE; i++)
           {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
+            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMD5[i]);
           }
         }
       }
@@ -725,11 +712,11 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
       {
         for (i = 0; i < MD5_HASH_SIZE; i++)
         {
-          n += sprintf(&pcOutData[n], "%02x", psFTData->ucFileMD5[i]);
+          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMD5[i]);
         }
       }
       else
@@ -739,7 +726,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
       }
     }
   }
-  n += sprintf(&pcOutData[n], "%s", psProperties->cNewLine);
+  n += sprintf(&pcOutData[n], "%s", psProperties->acNewLine);
 
   /*-
    *********************************************************************
@@ -768,14 +755,12 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
 {
   int                 i;
   int                 n;
-  int                 iStatus;
-  unsigned long       x;
+  int                 iStatus = ER_OK;
+  unsigned long       ul;
   unsigned long       ulLeft;
-  static struct stat  statLastEntry;
+  static char         acLastName[4 * FTIMES_MAX_PATH]; /* This is an encoded name. */
   static long         lRecoveryCounter = 0;
-  static char         cLastName[4 * FTIMES_MAX_PATH]; /* This is an encoded name. */
-
-  iStatus = ER_OK;
+  static struct stat  sStatLastEntry;
 
   /*-
    *********************************************************************
@@ -796,7 +781,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if (lRecoveryCounter == 0)
   {
     n = sprintf(pcOutData, "00\"%s\"", psFTData->pcNeuteredPath);
-    strncpy(cLastName, psFTData->pcNeuteredPath, (4 * FTIMES_MAX_PATH));
+    strncpy(acLastName, psFTData->pcNeuteredPath, (4 * FTIMES_MAX_PATH));
   }
   else
   {
@@ -809,22 +794,22 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
      *******************************************************************
      */
     i = 0;
-    if (cLastName[0] == '\0')
+    if (acLastName[0] == '\0')
     {
       n = sprintf(pcOutData, "00\"%s\"", psFTData->pcNeuteredPath);
     }
     else
     {
       while ((i < 254) &&
-             (cLastName[i] != '\0') &&
+             (acLastName[i] != '\0') &&
              (psFTData->pcNeuteredPath[i] != '\0') &&
-             (cLastName[i] == psFTData->pcNeuteredPath[i]))
+             (acLastName[i] == psFTData->pcNeuteredPath[i]))
       {
         i++;
       }
       n = sprintf(pcOutData, "%02x%s\"", i + 1 /* Add 1 for the leading quote. */, &psFTData->pcNeuteredPath[i]);
     }
-    strncpy(&cLastName[i], &psFTData->pcNeuteredPath[i], ((4 * FTIMES_MAX_PATH) - i) /* Must subtract i here to prevent overruns. */);
+    strncpy(&acLastName[i], &psFTData->pcNeuteredPath[i], ((4 * FTIMES_MAX_PATH) - i) /* Must subtract i here to prevent overruns. */);
   }
 
   /*-
@@ -839,17 +824,17 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
     {
-      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_dev);
+      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_dev);
     }
     else
     {
-      if (psFTData->statEntry.st_dev == statLastEntry.st_dev)
+      if (psFTData->sStatEntry.st_dev == sStatLastEntry.st_dev)
       {
         pcOutData[n++] = '#';
       }
       else
       {
-        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_dev);
+        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_dev);
       }
     }
   }
@@ -866,11 +851,11 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
     {
-      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_ino);
+      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_ino);
     }
     else
     {
-      n += DevelopCompressHex(&pcOutData[n], psFTData->statEntry.st_ino, statLastEntry.st_ino);
+      n += DevelopCompressHex(&pcOutData[n], psFTData->sStatEntry.st_ino, sStatLastEntry.st_ino);
     }
   }
 
@@ -886,17 +871,17 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
     {
-      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_mode);
+      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_mode);
     }
     else
     {
-      if (psFTData->statEntry.st_mode == statLastEntry.st_mode)
+      if (psFTData->sStatEntry.st_mode == sStatLastEntry.st_mode)
       {
         pcOutData[n++] = '#';
       }
       else
       {
-        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_mode);
+        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_mode);
       }
     }
   }
@@ -913,17 +898,17 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
     {
-      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_nlink);
+      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_nlink);
     }
     else
     {
-      if (psFTData->statEntry.st_nlink == statLastEntry.st_nlink)
+      if (psFTData->sStatEntry.st_nlink == sStatLastEntry.st_nlink)
       {
         pcOutData[n++] = '#';
       }
       else
       {
-        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_nlink);
+        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_nlink);
       }
     }
   }
@@ -940,17 +925,17 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
     {
-      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_uid);
+      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_uid);
     }
     else
     {
-      if (psFTData->statEntry.st_uid == statLastEntry.st_uid)
+      if (psFTData->sStatEntry.st_uid == sStatLastEntry.st_uid)
       {
         pcOutData[n++] = '#';
       }
       else
       {
-        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_uid);
+        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_uid);
       }
     }
   }
@@ -967,17 +952,17 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
     {
-      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_gid);
+      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_gid);
     }
     else
     {
-      if (psFTData->statEntry.st_gid == statLastEntry.st_gid)
+      if (psFTData->sStatEntry.st_gid == sStatLastEntry.st_gid)
       {
         pcOutData[n++] = '#';
       }
       else
       {
-        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_gid);
+        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_gid);
       }
     }
   }
@@ -994,17 +979,17 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
     {
-      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_rdev);
+      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_rdev);
     }
     else
     {
-      if (psFTData->statEntry.st_rdev == statLastEntry.st_rdev)
+      if (psFTData->sStatEntry.st_rdev == sStatLastEntry.st_rdev)
       {
         pcOutData[n++] = '#';
       }
       else
       {
-        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_rdev);
+        n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_rdev);
       }
     }
   }
@@ -1021,15 +1006,15 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
     {
-      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_atime);
+      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_atime);
     }
-    else if (psFTData->statEntry.st_atime == statLastEntry.st_atime)
+    else if (psFTData->sStatEntry.st_atime == sStatLastEntry.st_atime)
     {
       pcOutData[n++] = '#';
     }
     else
     {
-      n += DevelopCompressHex(&pcOutData[n], psFTData->statEntry.st_atime, statLastEntry.st_atime);
+      n += DevelopCompressHex(&pcOutData[n], psFTData->sStatEntry.st_atime, sStatLastEntry.st_atime);
     }
   }
 
@@ -1043,23 +1028,23 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET)
   {
     pcOutData[n++] = '|';
-    if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && psFTData->statEntry.st_mtime == psFTData->statEntry.st_atime)
+    if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && psFTData->sStatEntry.st_mtime == psFTData->sStatEntry.st_atime)
     {
       pcOutData[n++] = 'X';
     }
     else if (lRecoveryCounter == 0)
     {
-      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_mtime);
+      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_mtime);
     }
     else
     {
-      if (psFTData->statEntry.st_mtime == statLastEntry.st_mtime)
+      if (psFTData->sStatEntry.st_mtime == sStatLastEntry.st_mtime)
       {
         pcOutData[n++] = '#';
       }
       else
       {
-        n += DevelopCompressHex(&pcOutData[n], psFTData->statEntry.st_mtime, statLastEntry.st_mtime);
+        n += DevelopCompressHex(&pcOutData[n], psFTData->sStatEntry.st_mtime, sStatLastEntry.st_mtime);
       }
     }
   }
@@ -1074,27 +1059,27 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if ((psProperties->ulFieldMask & CTIME_SET) == CTIME_SET)
   {
     pcOutData[n++] = '|';
-    if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && psFTData->statEntry.st_ctime == psFTData->statEntry.st_atime)
+    if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET && psFTData->sStatEntry.st_ctime == psFTData->sStatEntry.st_atime)
     {
       pcOutData[n++] = 'X';
     }
-    else if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET && psFTData->statEntry.st_ctime == psFTData->statEntry.st_mtime)
+    else if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET && psFTData->sStatEntry.st_ctime == psFTData->sStatEntry.st_mtime)
     {
       pcOutData[n++] = 'Y';
     }
     else if (lRecoveryCounter == 0)
     {
-      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->statEntry.st_ctime);
+      n += sprintf(&pcOutData[n], "%x", (unsigned) psFTData->sStatEntry.st_ctime);
     }
     else
     {
-      if (psFTData->statEntry.st_ctime == statLastEntry.st_ctime)
+      if (psFTData->sStatEntry.st_ctime == sStatLastEntry.st_ctime)
       {
         pcOutData[n++] = '#';
       }
       else
       {
-        n += DevelopCompressHex(&pcOutData[n], psFTData->statEntry.st_ctime, statLastEntry.st_ctime);
+        n += DevelopCompressHex(&pcOutData[n], psFTData->sStatEntry.st_ctime, sStatLastEntry.st_ctime);
       }
     }
   }
@@ -1110,17 +1095,9 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   {
     pcOutData[n++] = '|';
 #ifdef USE_AP_SNPRINTF
-    /*-
-     *******************************************************************
-     *
-     * The USE_AP_SNPRINTF is needed to support certain versions of
-     * Solaris that can't grok %q.
-     *
-     *******************************************************************
-     */
-    n += snprintf(&pcOutData[n], 18, "%qx", (unsigned long long) psFTData->statEntry.st_size);
+    n += snprintf(&pcOutData[n], FTIMES_MAX_64BIT_SIZE, "%qx", (unsigned long long) psFTData->sStatEntry.st_size);
 #else
-    n += sprintf(&pcOutData[n], "%qx", (unsigned long long) psFTData->statEntry.st_size);
+    n += snprintf(&pcOutData[n], FTIMES_MAX_64BIT_SIZE, "%llx", (unsigned long long) psFTData->sStatEntry.st_size);
 #endif
   }
 
@@ -1146,25 +1123,25 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if ((psProperties->ulFieldMask & MD5_SET) == MD5_SET)
   {
     pcOutData[n++] = '|';
-    if (S_ISDIR(psFTData->statEntry.st_mode))
+    if (S_ISDIR(psFTData->sStatEntry.st_mode))
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
           {
-            x = (x << 8) | psFTData->ucFileMD5[i];
+            ul = (ul << 8) | psFTData->aucFileMD5[i];
             ulLeft += 8;
             while (ulLeft > 6)
             {
-              pcOutData[n++] = ucBase64[(x >> (ulLeft - 6)) & 0x3f];
+              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
               ulLeft -= 6;
             }
           }
           if (ulLeft != 0)
           {
-            pcOutData[n++] = ucBase64[(x << (6 - ulLeft)) & 0x3f];
+            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
           }
         }
         else
@@ -1178,23 +1155,23 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         pcOutData[n++] = 'D';
       }
     }
-    else if (S_ISREG(psFTData->statEntry.st_mode))
+    else if (S_ISREG(psFTData->sStatEntry.st_mode))
     {
-      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
       {
-        for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+        for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
         {
-          x = (x << 8) | psFTData->ucFileMD5[i];
+          ul = (ul << 8) | psFTData->aucFileMD5[i];
           ulLeft += 8;
           while (ulLeft > 6)
           {
-            pcOutData[n++] = ucBase64[(x >> (ulLeft - 6)) & 0x3f];
+            pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
             ulLeft -= 6;
           }
         }
         if (ulLeft != 0)
         {
-          pcOutData[n++] = ucBase64[(x << (6 - ulLeft)) & 0x3f];
+          pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
         }
       }
       else
@@ -1203,25 +1180,25 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         iStatus = ER_NullFields;
       }
     }
-    else if (S_ISLNK(psFTData->statEntry.st_mode))
+    else if (S_ISLNK(psFTData->sStatEntry.st_mode))
     {
       if (psProperties->bHashSymbolicLinks)
       {
-        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
           {
-            x = (x << 8) | psFTData->ucFileMD5[i];
+            ul = (ul << 8) | psFTData->aucFileMD5[i];
             ulLeft += 8;
             while (ulLeft > 6)
             {
-              pcOutData[n++] = ucBase64[(x >> (ulLeft - 6)) & 0x3f];
+              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
               ulLeft -= 6;
             }
           }
           if (ulLeft != 0)
           {
-            pcOutData[n++] = ucBase64[(x << (6 - ulLeft)) & 0x3f];
+            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
           }
         }
         else
@@ -1241,16 +1218,16 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
   }
 
-  n += sprintf(&pcOutData[n], "%s", psProperties->cNewLine);
+  n += sprintf(&pcOutData[n], "%s", psProperties->acNewLine);
 
   /*-
    *********************************************************************
    *
-   * Copy psFTData->statEntry to statLastEntry for next time around.
+   * Copy psFTData->sStatEntry to sStatLastEntry for next time around.
    *
    *********************************************************************
    */
-  memcpy(&statLastEntry, &psFTData->statEntry, sizeof(struct stat));
+  memcpy(&sStatLastEntry, &psFTData->sStatEntry, sizeof(struct stat));
 
   if (++lRecoveryCounter >= COMPRESS_RECOVERY_RATE)
   {
@@ -1282,43 +1259,41 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
 int
 DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
-  char                cTime[FTIMES_TIME_FORMAT_SIZE];
-  int                 i,
-                      n,
-                      iError,
-                      iStatus;
-  unsigned long       x,
-                      ulATimeSeconds,
-                      ulMTimeSeconds,
-                      ulCTimeSeconds,
-                      ulChTimeSeconds,
-                      ulATimeMilliseconds,
-                      ulMTimeMilliseconds,
-                      ulCTimeMilliseconds,
-                      ulChTimeMilliseconds,
-                      ulTempATimeSeconds,
-                      ulTempMTimeSeconds,
-                      ulTempCTimeSeconds,
-                      ulTempChTimeSeconds,
-                      ulLeft;
-  unsigned __int64    ui64ATime,
-                      ui64MTime,
-                      ui64CTime,
-                      ui64ChTime,
-                      ui64FileIndex,
-                      ui64FileSize;
-  static char         cLastName[4 * FTIMES_MAX_PATH]; /* This is an encoded name. */
-  static DWORD        dwLastVolumeSerialNumber,
-                      dwLastFileIndexHigh,
-                      dwLastFileIndexLow,
-                      dwLastFileAttributes;
-  static unsigned __int64 ui64LastATime,
-                      ui64LastMTime,
-                      ui64LastCTime,
-                      ui64LastChTime;
+  char                acTime[FTIMES_TIME_FORMAT_SIZE];
+  int                 i;
+  int                 n;
+  int                 iError;
+  int                 iStatus = ER_OK;
+  unsigned long       ul;
+  unsigned long       ulATimeSeconds;
+  unsigned long       ulMTimeSeconds;
+  unsigned long       ulCTimeSeconds;
+  unsigned long       ulChTimeSeconds;
+  unsigned long       ulATimeMilliseconds;
+  unsigned long       ulMTimeMilliseconds;
+  unsigned long       ulCTimeMilliseconds;
+  unsigned long       ulChTimeMilliseconds;
+  unsigned long       ulTempATimeSeconds;
+  unsigned long       ulTempMTimeSeconds;
+  unsigned long       ulTempCTimeSeconds;
+  unsigned long       ulTempChTimeSeconds;
+  unsigned long       ulLeft;
+  unsigned __int64    ui64ATime;
+  unsigned __int64    ui64MTime;
+  unsigned __int64    ui64CTime;
+  unsigned __int64    ui64ChTime;
+  unsigned __int64    ui64FileIndex;
+  unsigned __int64    ui64FileSize;
+  static char         acLastName[4 * FTIMES_MAX_PATH]; /* This is an encoded name. */
+  static DWORD        dwLastVolumeSerialNumber;
+  static DWORD        dwLastFileIndexHigh;
+  static DWORD        dwLastFileIndexLow;
+  static DWORD        dwLastFileAttributes;
   static long         lRecoveryCounter = 0;
-
-  iStatus = ER_OK;
+  static unsigned __int64 ui64LastATime;
+  static unsigned __int64 ui64LastMTime;
+  static unsigned __int64 ui64LastCTime;
+  static unsigned __int64 ui64LastChTime;
 
   /*-
    *********************************************************************
@@ -1339,7 +1314,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if (lRecoveryCounter == 0)
   {
     n = sprintf(pcOutData, "00\"%s\"", psFTData->pcNeuteredPath);
-    strncpy(cLastName, psFTData->pcNeuteredPath, (4 * FTIMES_MAX_PATH));
+    strncpy(acLastName, psFTData->pcNeuteredPath, (4 * FTIMES_MAX_PATH));
   }
   else
   {
@@ -1352,22 +1327,22 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
      *******************************************************************
      */
     i = 0;
-    if (cLastName[0] == '\0')
+    if (acLastName[0] == '\0')
     {
       n = sprintf(pcOutData, "00\"%s\"", psFTData->pcNeuteredPath);
     }
     else
     {
       while ((i < 254) &&
-             (cLastName[i] != '\0') &&
+             (acLastName[i] != '\0') &&
              (psFTData->pcNeuteredPath[i] != '\0') &&
-             (cLastName[i] == psFTData->pcNeuteredPath[i]))
+             (acLastName[i] == psFTData->pcNeuteredPath[i]))
       {
         i++;
       }
       n = sprintf(pcOutData, "%02x%s\"", i + 1 /* Add 1 for the leading quote. */, &psFTData->pcNeuteredPath[i]);
     }
-    strncpy(&cLastName[i], &psFTData->pcNeuteredPath[i], ((4 * FTIMES_MAX_PATH) - i) /* Must subtract i here to prevent overruns. */);
+    strncpy(&acLastName[i], &psFTData->pcNeuteredPath[i], ((4 * FTIMES_MAX_PATH) - i) /* Must subtract i here to prevent overruns. */);
   }
 
   /*-
@@ -1422,21 +1397,21 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     pcOutData[n++] = '|';
     if (lRecoveryCounter == 0)
     {
-      ui64FileIndex = (((unsigned __int64) psFTData->nFileIndexHigh) << 32) | psFTData->nFileIndexLow;
+      ui64FileIndex = (((unsigned __int64) psFTData->dwFileIndexHigh) << 32) | psFTData->dwFileIndexLow;
       n += sprintf(&pcOutData[n], "%I64x", ui64FileIndex);
     }
     else
     {
-      if (psFTData->nFileIndexHigh != 0xffffffff && psFTData->nFileIndexLow != 0xffffffff)
+      if (psFTData->dwFileIndexHigh != 0xffffffff && psFTData->dwFileIndexLow != 0xffffffff)
       {
-        if (psFTData->nFileIndexHigh == dwLastFileIndexHigh)
+        if (psFTData->dwFileIndexHigh == dwLastFileIndexHigh)
         {
           pcOutData[n++] = '#';
-          n += DevelopCompressHex(&pcOutData[n], psFTData->nFileIndexLow, dwLastFileIndexLow);
+          n += DevelopCompressHex(&pcOutData[n], psFTData->dwFileIndexLow, dwLastFileIndexLow);
         }
         else
         {
-          ui64FileIndex = (((unsigned __int64) psFTData->nFileIndexHigh) << 32) | psFTData->nFileIndexLow;
+          ui64FileIndex = (((unsigned __int64) psFTData->dwFileIndexHigh) << 32) | psFTData->dwFileIndexLow;
           n += sprintf(&pcOutData[n], "%I64x", ui64FileIndex);
         }
       }
@@ -1490,7 +1465,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if ((psProperties->ulFieldMask & ATIME_SET) == ATIME_SET)
   {
     pcOutData[n++] = '|';
-    if (psFTData->ftLastAccessTime.dwLowDateTime == 0 && psFTData->ftLastAccessTime.dwHighDateTime == 0)
+    if (psFTData->sFTATime.dwLowDateTime == 0 && psFTData->sFTATime.dwHighDateTime == 0)
     {
       pcOutData[n++] = '|';
       strcat(pcError, "atime,");
@@ -1507,13 +1482,13 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else
     {
-      ui64ATime = (((unsigned __int64) psFTData->ftLastAccessTime.dwHighDateTime) << 32) | psFTData->ftLastAccessTime.dwLowDateTime;
+      ui64ATime = (((unsigned __int64) psFTData->sFTATime.dwHighDateTime) << 32) | psFTData->sFTATime.dwLowDateTime;
       if (ui64ATime < UNIX_EPOCH_IN_NT_TIME || ui64ATime > UNIX_LIMIT_IN_NT_TIME)
       {
-        iError = TimeFormatOutOfBandTime((FILETIME *) &psFTData->ftLastAccessTime, cTime);
+        iError = TimeFormatOutOfBandTime((FILETIME *) &psFTData->sFTATime, acTime);
         if (iError == ER_OK)
         {
-          n += sprintf(&pcOutData[n], "~%s", cTime);
+          n += sprintf(&pcOutData[n], "~%s", acTime);
         }
         else
         {
@@ -1559,7 +1534,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if ((psProperties->ulFieldMask & MTIME_SET) == MTIME_SET)
   {
     pcOutData[n++] = '|';
-    if (psFTData->ftLastWriteTime.dwLowDateTime == 0 && psFTData->ftLastWriteTime.dwHighDateTime == 0)
+    if (psFTData->sFTMTime.dwLowDateTime == 0 && psFTData->sFTMTime.dwHighDateTime == 0)
     {
       pcOutData[n++] = '|';
       strcat(pcError, "mtime,");
@@ -1576,13 +1551,13 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else
     {
-      ui64MTime = (((unsigned __int64) psFTData->ftLastWriteTime.dwHighDateTime) << 32) | psFTData->ftLastWriteTime.dwLowDateTime;
+      ui64MTime = (((unsigned __int64) psFTData->sFTMTime.dwHighDateTime) << 32) | psFTData->sFTMTime.dwLowDateTime;
       if (ui64MTime < UNIX_EPOCH_IN_NT_TIME || ui64MTime > UNIX_LIMIT_IN_NT_TIME)
       {
-        iError = TimeFormatOutOfBandTime((FILETIME *) &psFTData->ftLastWriteTime, cTime);
+        iError = TimeFormatOutOfBandTime((FILETIME *) &psFTData->sFTMTime, acTime);
         if (iError == ER_OK)
         {
-          n += sprintf(&pcOutData[n], "~%s", cTime);
+          n += sprintf(&pcOutData[n], "~%s", acTime);
         }
         else
         {
@@ -1631,7 +1606,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if ((psProperties->ulFieldMask & CTIME_SET) == CTIME_SET)
   {
     pcOutData[n++] = '|';
-    if (psFTData->ftCreationTime.dwLowDateTime == 0 && psFTData->ftCreationTime.dwHighDateTime == 0)
+    if (psFTData->sFTCTime.dwLowDateTime == 0 && psFTData->sFTCTime.dwHighDateTime == 0)
     {
       pcOutData[n++] = '|';
 #ifndef WIN98
@@ -1659,13 +1634,13 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else
     {
-      ui64CTime = (((unsigned __int64) psFTData->ftCreationTime.dwHighDateTime) << 32) | psFTData->ftCreationTime.dwLowDateTime;
+      ui64CTime = (((unsigned __int64) psFTData->sFTCTime.dwHighDateTime) << 32) | psFTData->sFTCTime.dwLowDateTime;
       if (ui64CTime < UNIX_EPOCH_IN_NT_TIME || ui64CTime > UNIX_LIMIT_IN_NT_TIME)
       {
-        iError = TimeFormatOutOfBandTime((FILETIME *) &psFTData->ftCreationTime, cTime);
+        iError = TimeFormatOutOfBandTime((FILETIME *) &psFTData->sFTCTime, acTime);
         if (iError == ER_OK)
         {
-          n += sprintf(&pcOutData[n], "~%s", cTime);
+          n += sprintf(&pcOutData[n], "~%s", acTime);
         }
         else
         {
@@ -1720,7 +1695,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if ((psProperties->ulFieldMask & CHTIME_SET) == CHTIME_SET)
   {
     pcOutData[n++] = '|';
-    if (psFTData->ftChangeTime.dwLowDateTime == 0 && psFTData->ftChangeTime.dwHighDateTime == 0)
+    if (psFTData->sFTChTime.dwLowDateTime == 0 && psFTData->sFTChTime.dwHighDateTime == 0)
     {
       pcOutData[n++] = '|';
 #ifndef WIN98
@@ -1742,13 +1717,13 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else
     {
-      ui64ChTime = (((unsigned __int64) psFTData->ftChangeTime.dwHighDateTime) << 32) | psFTData->ftChangeTime.dwLowDateTime;
+      ui64ChTime = (((unsigned __int64) psFTData->sFTChTime.dwHighDateTime) << 32) | psFTData->sFTChTime.dwLowDateTime;
       if (ui64ChTime < UNIX_EPOCH_IN_NT_TIME || ui64ChTime > UNIX_LIMIT_IN_NT_TIME)
       {
-        iError = TimeFormatOutOfBandTime((FILETIME *) &psFTData->ftChangeTime, cTime);
+        iError = TimeFormatOutOfBandTime((FILETIME *) &psFTData->sFTChTime, acTime);
         if (iError == ER_OK)
         {
-          n += sprintf(&pcOutData[n], "~%s", cTime);
+          n += sprintf(&pcOutData[n], "~%s", acTime);
         }
         else
         {
@@ -1812,7 +1787,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if ((psProperties->ulFieldMask & SIZE_SET) == SIZE_SET)
   {
     pcOutData[n++] = '|';
-    ui64FileSize = (((unsigned __int64) psFTData->nFileSizeHigh) << 32) | psFTData->nFileSizeLow;
+    ui64FileSize = (((unsigned __int64) psFTData->dwFileSizeHigh) << 32) | psFTData->dwFileSizeLow;
     n += sprintf(&pcOutData[n], "%I64x", ui64FileSize);
   }
 
@@ -1826,7 +1801,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   if ((psProperties->ulFieldMask & ALTSTREAMS_SET) == ALTSTREAMS_SET)
   {
     pcOutData[n++] = '|';
-    if (psFTData->iStreamCount != 0xffffffff)
+    if (psFTData->iStreamCount != FTIMES_INVALID_STREAM_COUNT)
     {
       n += sprintf(&pcOutData[n], "%x", psFTData->iStreamCount);
     }
@@ -1868,21 +1843,21 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
           {
-            x = (x << 8) | psFTData->ucFileMD5[i];
+            ul = (ul << 8) | psFTData->aucFileMD5[i];
             ulLeft += 8;
             while (ulLeft > 6)
             {
-              pcOutData[n++] = ucBase64[(x >> (ulLeft - 6)) & 0x3f];
+              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
               ulLeft -= 6;
             }
           }
           if (ulLeft != 0)
           {
-            pcOutData[n++] = ucBase64[(x << (6 - ulLeft)) & 0x3f];
+            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
           }
         }
         else
@@ -1898,21 +1873,21 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else
     {
-      if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileMD5, gaucZeroHash, MD5_HASH_SIZE) != 0)
       {
-        for (i = 0, x = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+        for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
         {
-          x = (x << 8) | psFTData->ucFileMD5[i];
+          ul = (ul << 8) | psFTData->aucFileMD5[i];
           ulLeft += 8;
           while (ulLeft > 6)
           {
-            pcOutData[n++] = ucBase64[(x >> (ulLeft - 6)) & 0x3f];
+            pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
             ulLeft -= 6;
           }
         }
         if (ulLeft != 0)
         {
-          pcOutData[n++] = ucBase64[(x << (6 - ulLeft)) & 0x3f];
+          pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
         }
       }
       else
@@ -1923,7 +1898,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
   }
 
-  n += sprintf(&pcOutData[n], "%s", psProperties->cNewLine);
+  n += sprintf(&pcOutData[n], "%s", psProperties->acNewLine);
 
   /*-
    *********************************************************************
@@ -1933,8 +1908,8 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
    *********************************************************************
    */
   dwLastVolumeSerialNumber = psFTData->dwVolumeSerialNumber;
-  dwLastFileIndexHigh = psFTData->nFileIndexHigh;
-  dwLastFileIndexLow = psFTData->nFileIndexLow;
+  dwLastFileIndexHigh = psFTData->dwFileIndexHigh;
+  dwLastFileIndexLow = psFTData->dwFileIndexLow;
   dwLastFileAttributes = psFTData->dwFileAttributes;
   ui64LastATime = ui64ATime;
   ui64LastMTime = ui64MTime;
@@ -1970,8 +1945,8 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
 int
 DevelopCompressHex(unsigned char *pcData, unsigned long ulHex, unsigned long ulOldHex)
 {
-  int                 iHexDigitCount,
-                      iHexDigitDeltaCount;
+  int                 iHexDigitCount;
+  int                 iHexDigitDeltaCount;
   unsigned long       ulDelta;
 
   /*-

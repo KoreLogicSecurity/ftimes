@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: http.h,v 1.5 2003/08/13 16:06:31 mavrik Exp $
+ * $Id: http.h,v 1.7 2004/04/17 19:49:44 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2001-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -33,12 +32,15 @@
 #define HTTP_SCHEME_HTTPS                 3
 
 #define HTTP_DEFAULT_HTTP_METHOD       "GET"
+#define HTTP_DEFAULT_JOB_ID               ""
+
 #define HTTP_DEFAULT_HTTP_PORT           80
 #define HTTP_DEFAULT_HTTPS_PORT         443
 
 #define HTTP_MAX_MEMORY_SIZE      0x4000000UL
 
 #define HTTP_CONTENT_TYPE_SIZE          256
+#define HTTP_JOB_ID_SIZE                256
 #define HTTP_REASON_PHRASE_SIZE         256
 #define HTTP_SERVER_SIZE                256
 
@@ -51,6 +53,7 @@
 #define HTTP_STREAM_OUTPUT                2
 
 #define FIELD_ContentLength       "Content-Length"
+#define FIELD_JobId                       "Job-Id"
 #define FIELD_TransferEncoding "Transfer-Encoding"
 
 /*-
@@ -63,12 +66,14 @@
 typedef struct _HTTP_RESPONSE_HDR
 {
   char                acContentType[HTTP_CONTENT_TYPE_SIZE];
+  char                acJobId[HTTP_JOB_ID_SIZE];
   char                acReasonPhrase[HTTP_REASON_PHRASE_SIZE];
   char                acServer[HTTP_SERVER_SIZE];
   int                 iMajorVersion;
   int                 iMinorVersion;
   int                 iStatusCode;
   int                 iContentLengthFound;
+  int                 iJobIdFound;
   K_UINT32            ui32ContentLength;
 } HTTP_RESPONSE_HDR;
 
@@ -81,6 +86,7 @@ typedef struct _HTTP_URL
   char               *pcPath;
   char               *pcQuery;
   char               *pcMeth;
+  char               *pcJobId;
   int                 iAuthType;
   int                 iScheme;
   K_UINT32            ui32DownloadLimit;
@@ -106,7 +112,6 @@ typedef struct _HTTP_STREAM_LIST
   struct _HTTP_STREAM_LIST *psNext;
 } HTTP_STREAM_LIST;
 
-
 /*-
  ***********************************************************************
  *
@@ -119,7 +124,6 @@ typedef struct _HTTP_STREAM_LIST
 #define HTTP_TERMINATE_LINE(pc) {while(*(pc)){if(*(pc)=='\n'){if(*((pc)-1)=='\r'){*((pc)-1)=0;}*(pc)=0;break;}(pc)++;}}
 
 #define HTTP_SKIP_SPACES_TABS(pc) {while((*(pc))&&((*(pc)==' ')||(*(pc)=='\t'))){(pc)++;}}
-
 
 /*-
  ***********************************************************************
@@ -150,6 +154,7 @@ int                   HTTPReadHeader(SOCKET_CONTEXT *psSocketCTX, char *pcRespon
 int                   HTTPSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError);
 void                  HTTPSetURLDownloadLimit(HTTP_URL *psURL, K_UINT32 ui32Limit);
 int                   HTTPSetURLHost(HTTP_URL *psURL, char *pcHost, char *pcError);
+int                   HTTPSetURLJobId(HTTP_URL *psURL, char *pcJobId, char *pcError);
 int                   HTTPSetURLMeth(HTTP_URL *psURL, char *pcMeth, char *pcError);
 int                   HTTPSetURLPass(HTTP_URL *psURL, char *pcPass, char *pcError);
 int                   HTTPSetURLPath(HTTP_URL *psURL, char *pcPath, char *pcError);

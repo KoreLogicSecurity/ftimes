@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.c,v 1.8 2003/08/13 21:39:49 mavrik Exp $
+ * $Id: compare.c,v 1.13 2004/04/24 06:25:13 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -56,10 +55,10 @@ static CMP_PROPERTIES *gpsCmpProperties;
  ***********************************************************************
  */
 int
-CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields[][CMP_MAX_LINE_LENGTH], char *pcError)
+CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields[][CMP_MAX_LINE], char *pcError)
 {
   const char          acRoutine[] = "CompareDecodeLine()";
-  char                acTempLine[CMP_MAX_LINE_LENGTH];
+  char                acTempLine[CMP_MAX_LINE];
   char               *pcHead;
   char               *pcTail;
   int                 i;
@@ -88,12 +87,12 @@ CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields
    *********************************************************************
    */
   iLength = strlen(pcLine);
-  if (iLength > CMP_MAX_LINE_LENGTH - 1)
+  if (iLength > CMP_MAX_LINE - 1)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", acRoutine, iLength, CMP_MAX_LINE_LENGTH - 1);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", acRoutine, iLength, CMP_MAX_LINE - 1);
     return ER;
   }
-  strncpy(acTempLine, pcLine, CMP_MAX_LINE_LENGTH);
+  strncpy(acTempLine, pcLine, CMP_MAX_LINE);
 
   /*-
    *********************************************************************
@@ -148,10 +147,10 @@ int
 CompareEnumerateChanges(char *pcFilename, char *pcError)
 {
   const char          acRoutine[] = "CompareEnumerateChanges()";
-  char                aacBaselineFields[ALL_FIELDS_TABLE_LENGTH][CMP_MAX_LINE_LENGTH];
-  char                aacSnapshotFields[ALL_FIELDS_TABLE_LENGTH][CMP_MAX_LINE_LENGTH];
-  char                acLine[CMP_MAX_LINE_LENGTH];
-  char                acLocalError[MESSAGE_SIZE];
+  char                aacBaselineFields[ALL_FIELDS_TABLE_LENGTH][CMP_MAX_LINE];
+  char                aacSnapshotFields[ALL_FIELDS_TABLE_LENGTH][CMP_MAX_LINE];
+  char                acLine[CMP_MAX_LINE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   CMP_DATA            sCompareData;
   int                 iLastIndex;
   int                 iTempIndex;
@@ -166,12 +165,10 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
   int                 iKeysIndex;
   int                 iNodeCount;
   int                 iNodeIndex;
-  int                 iLineLength;
-  int                 iLineNumber;
+  int                 iLineLength = 0;
+  int                 iLineNumber = 0;
   int                 iToLower;
   unsigned char       aucHash[MD5_HASH_SIZE];
-
-  acLocalError[0] = iLineLength = iLineNumber = 0;
 
   psProperties = CompareGetPropertiesReference();
 
@@ -244,7 +241,7 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
    *********************************************************************
    */
   iNodeCount = iNodeIndex = 0;
-  for (acLine[0] = 0, iLineNumber++; fgets(acLine, CMP_MAX_LINE_LENGTH, pFile) != NULL; acLine[0] = 0, iLineNumber++)
+  for (acLine[0] = 0, iLineNumber++; fgets(acLine, CMP_MAX_LINE, pFile) != NULL; acLine[0] = 0, iLineNumber++)
   {
     /*-
      *******************************************************************
@@ -596,23 +593,21 @@ int
 CompareLoadBaselineData(char *pcFilename, char *pcError)
 {
   const char          acRoutine[] = "CompareLoadBaselineData()";
-  char                acLine[CMP_MAX_LINE_LENGTH];
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLine[CMP_MAX_LINE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcPackedData;
   CMP_PROPERTIES     *psProperties;
   FILE               *pFile;
   int                 iError;
   int                 iFirst;
-  int                 iLineLength;
-  int                 iLineNumber;
+  int                 iLineLength = 0;
+  int                 iLineNumber = 0;
   int                 iNodeCount;
   int                 iNodeIndex;
   int                 iToLower;
   int                *piNodeIndex;
-  struct stat         statEntry;
+  struct stat         sStatEntry;
   unsigned char       aucHash[MD5_HASH_SIZE];
-
-  acLocalError[0] = iLineLength = iLineNumber = 0;
 
   psProperties = CompareGetPropertiesReference();
 
@@ -637,14 +632,14 @@ CompareLoadBaselineData(char *pcFilename, char *pcError)
    *
    *********************************************************************
    */
-  iError = fstat(fileno(pFile), &statEntry);
+  iError = fstat(fileno(pFile), &sStatEntry);
   if (iError == -1)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: fstat(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
     fclose(pFile);
     return ER;
   }
-  pcPackedData = malloc(statEntry.st_size);
+  pcPackedData = malloc(sStatEntry.st_size);
   if (pcPackedData == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
@@ -671,7 +666,7 @@ CompareLoadBaselineData(char *pcFilename, char *pcError)
 
   iFirst = 1;
   iNodeCount = iNodeIndex = iToLower = 0;
-  for (acLine[0] = 0, iLineNumber++; fgets(acLine, CMP_MAX_LINE_LENGTH, pFile) != NULL; acLine[0] = 0, iLineNumber++)
+  for (acLine[0] = 0, iLineNumber++; fgets(acLine, CMP_MAX_LINE, pFile) != NULL; acLine[0] = 0, iLineNumber++)
   {
     /*-
      *******************************************************************
@@ -791,7 +786,7 @@ CompareNewProperties(char *pcError)
   psProperties = (CMP_PROPERTIES *) calloc(sizeof(CMP_PROPERTIES), 1);
   if (psProperties == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
 
@@ -831,7 +826,7 @@ CompareNewProperties(char *pcError)
  ***********************************************************************
  */
 int
-CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *pMaskTable, int iMaskTableLength, char *pcError)
+CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *psMaskTable, int iMaskTableLength, char *pcError)
 {
   const char          acRoutine[] = "CompareParseStringMask()";
   char                acTempLine[ALL_FIELDS_MASK_SIZE];
@@ -977,7 +972,7 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
       {
         for (i = 0; i < iMaskTableLength; i++)
         {
-          if (pMaskTable[i].MaskName[0] && strcasecmp(pcToken, pMaskTable[i].MaskName) == 0)
+          if (psMaskTable[i].MaskName[0] && strcasecmp(pcToken, psMaskTable[i].MaskName) == 0)
           {
             PUTBIT(*ulMask, ((cLastAction == '+') ? 1 : 0), i);
             break;
@@ -1018,8 +1013,8 @@ int
 ComparePreprocessLine(FILE *pFile, int iToLower, char *pcLine, int *piLength, unsigned char *pucHash, char *pcError)
 {
   const char          acRoutine[] = "ComparePreprocessLine()";
-  char                acLocalError[MESSAGE_SIZE];
-  char                acName[CMP_MAX_LINE_LENGTH];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acName[CMP_MAX_LINE];
   int                 i;
   int                 iLength;
 
@@ -1084,8 +1079,8 @@ int
 CompareReadHeader(FILE *pFile, char *pcError)
 {
   const char          acRoutine[] = "CompareReadHeader()";
-  char                acHeader[CMP_MAX_LINE_LENGTH];
-  char                acLocalError[MESSAGE_SIZE];
+  char                acHeader[CMP_MAX_LINE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcHead;
   char               *pcTail;
   CMP_PROPERTIES     *psProperties;
@@ -1102,7 +1097,7 @@ CompareReadHeader(FILE *pFile, char *pcError)
    *
    *********************************************************************
    */
-  fgets(acHeader, CMP_MAX_LINE_LENGTH, pFile);
+  fgets(acHeader, CMP_MAX_LINE, pFile);
   if (ferror(pFile))
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: fgets(): %s", acRoutine, strerror(errno));
@@ -1252,7 +1247,7 @@ CompareWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
 {
   const char          acRoutine[] = "CompareWriteHeader()";
   char                acHeader[FTIMES_MAX_LINE];
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
   int                 iIndex;
 
@@ -1280,7 +1275,7 @@ int
 CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError)
 {
   const char          acRoutine[] = "CompareWriteRecord()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pc;
   int                 i;
   int                 iError;
@@ -1292,17 +1287,15 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
    *********************************************************************
    *
    * category      1
-   * name          CMP_MAX_LINE_LENGTH
+   * name          CMP_MAX_LINE
    * changed       ALL_FIELDS_MASK_SIZE
    * unknown       ALL_FIELDS_MASK_SIZE
    * |'s           3
    * newline       2
-   * -----------------------------------------------------------------
-   * Total         CMP_MAX_LINE_LENGTH + 2*ALL_FIELDS_MASK_SIZE + 6
    *
    *********************************************************************
    */
-  char                acOutput[CMP_MAX_LINE_LENGTH + (2 * ALL_FIELDS_MASK_SIZE) + 6];
+  char acOutput[CMP_MAX_LINE + (2 * ALL_FIELDS_MASK_SIZE) + 6];
 
   /*-
    *********************************************************************

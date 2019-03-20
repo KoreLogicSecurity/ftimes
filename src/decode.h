@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: decode.h,v 1.2 2003/02/23 17:40:08 mavrik Exp $
+ * $Id: decode.h,v 1.4 2004/04/04 07:09:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -33,9 +32,9 @@
  */
 typedef struct _DECODE_TABLE
 {
-  char                ZName[32];
-  char                UName[32];
-  int                 (*Routine) ();
+  char                acZName[32];
+  char                acUName[32];
+  int               (*piRoutine) ();
 } DECODE_TABLE;
 
 
@@ -50,7 +49,7 @@ int                 Decode32bFieldBase16To08(char *pcName, int iIndex, int iActi
 int                 Decode32bFieldBase16To10(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, char *pcOutput, char *pcError);
 int                 Decode32bValueBase16To10(char *pcData, int iLength, K_UINT32 *pui32ValueNew, K_UINT32 *pui32ValueOld, char *pcError);
 int                 Decode64bFieldBase16To10(char *pcName, int iIndex, int iAction, char *pcToken, int iLength, char *pcOutput, char *pcError);
-int                 Decode64bValueBase16To10(char *pcData, int iLength, K_UINT64 *pvalue_new, K_UINT64 *pvalue_old, char *pcError);
+int                 Decode64bValueBase16To10(char *pcData, int iLength, K_UINT64 *pui64ValueNew, K_UINT64 *pui64ValueOld, char *pcError);
 void                DecodeBuildFromBase64Table(void);
 int                 DecodeFile(char *pcFilename, FILE *pOutFile, char *pcNewLine, char *pcError);
 int                 DecodeFormatOutOfBandTime(char *pcToken, int iLength, char *pcOutput, char *pcError);

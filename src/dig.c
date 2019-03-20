@@ -1,29 +1,28 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.c,v 1.5 2003/08/13 21:39:49 mavrik Exp $
+ * $Id: dig.c,v 1.12 2004/04/25 15:22:57 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
 
 #ifdef WIN32
-static char           gcNewLine[NEWLINE_LENGTH] = CRLF;
+static char           gacNewLine[NEWLINE_LENGTH] = CRLF;
 #endif
 #ifdef UNIX
-static char           gcNewLine[NEWLINE_LENGTH] = LF;
+static char           gacNewLine[NEWLINE_LENGTH] = LF;
 #endif
 static DIG_SEARCH_LIST *gppsSearchList[256];
 static FILE          *gpFile;
 static int            giMatchLimit;
 static int            giMaxStringLength;
 static int            giStringCount;
-static MD5_CONTEXT   *gpMD5Context;
+static MD5_CONTEXT   *gpsMD5Context;
 
 
 /*-
@@ -36,13 +35,13 @@ static MD5_CONTEXT   *gpMD5Context;
 int
 DigAddString(char *pcString, char *pcError)
 {
-  const char          cRoutine[] = "DigAddString()";
-  char                cLocalError[ERRBUF_SIZE],
-                     *pcUnEscaped;
+  const char          acRoutine[] = "DigAddString()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char               *pcUnEscaped;
   int                 iLength;
-  DIG_SEARCH_LIST    *pListNew,
-                     *pListCurrent,
-                     *pListTail;
+  DIG_SEARCH_LIST    *pListNew;
+  DIG_SEARCH_LIST    *pListCurrent;
+  DIG_SEARCH_LIST    *pListTail;
 
   /*-
    *********************************************************************
@@ -54,12 +53,12 @@ DigAddString(char *pcString, char *pcError)
   iLength = strlen(pcString);
   if (iLength < 1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Length = [%d]: Length must be greater than zero.", cRoutine, iLength);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length must be greater than zero.", acRoutine, iLength);
     return ER_Length;
   }
   if (iLength > DIG_MAX_STRING_SIZE - 1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", cRoutine, iLength, DIG_MAX_STRING_SIZE - 1);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", acRoutine, iLength, DIG_MAX_STRING_SIZE - 1);
     return ER_Length;
   }
 
@@ -70,10 +69,10 @@ DigAddString(char *pcString, char *pcError)
    *
    *********************************************************************
    */
-  pcUnEscaped = HTTPUnEscape(pcString, &iLength, cLocalError);
+  pcUnEscaped = HTTPUnEscape(pcString, &iLength, acLocalError);
   if (pcUnEscaped == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER_BadValue;
   }
 
@@ -88,7 +87,7 @@ DigAddString(char *pcString, char *pcError)
   pListNew = pListTail = (DIG_SEARCH_LIST *) malloc(sizeof(DIG_SEARCH_LIST));
   if (pListNew == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     HTTPFreeData(pcUnEscaped);
     return ER_BadHandle;
   }
@@ -108,20 +107,20 @@ DigAddString(char *pcString, char *pcError)
   }
   else
   {
-    for ( ; pListCurrent != NULL; pListCurrent = pListCurrent->pNext)
+    for ( ; pListCurrent != NULL; pListCurrent = pListCurrent->psNext)
     {
-      if (pListCurrent->pNext == NULL)
+      if (pListCurrent->psNext == NULL)
       {
         pListTail = pListCurrent;
       }
-      if (memcmp(pListCurrent->cRawString, pcUnEscaped, iLength) == 0 && pListCurrent->iLength == iLength)
+      if (memcmp(pListCurrent->acRawString, pcUnEscaped, iLength) == 0 && pListCurrent->iLength == iLength)
       {
         free(pListNew);
         HTTPFreeData(pcUnEscaped);
         return ER_OK; /* Duplicate */
       }
     }
-    pListTail->pNext = pListNew;
+    pListTail->psNext = pListNew;
   }
 
   /*-
@@ -132,12 +131,12 @@ DigAddString(char *pcString, char *pcError)
    *********************************************************************
    */
   pListTail = pListNew;
-  strncpy(pListTail->cEscString, pcString, DIG_MAX_STRING_SIZE);
-  memcpy(pListTail->cRawString, (unsigned char *) pcUnEscaped, iLength);
+  strncpy(pListTail->acEscString, pcString, DIG_MAX_STRING_SIZE);
+  memcpy(pListTail->acRawString, (unsigned char *) pcUnEscaped, iLength);
   pListTail->iHits = 0;
   pListTail->iHitsPerFile = 0;
   pListTail->iLength = iLength;
-  pListTail->pNext = NULL;
+  pListTail->psNext = NULL;
 
   if (iLength > giMaxStringLength)
   {
@@ -166,7 +165,7 @@ DigClearCounts(void)
 
   for (i = 0; i < 256; i++)
   {
-    for (psSearchList = gppsSearchList[i]; psSearchList != NULL; psSearchList = psSearchList->pNext)
+    for (psSearchList = gppsSearchList[i]; psSearchList != NULL; psSearchList = psSearchList->psNext)
     {
       psSearchList->iHitsPerFile = 0;
     }
@@ -184,14 +183,24 @@ DigClearCounts(void)
 int
 DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
 {
-  const char          cRoutine[] = "DigDevelopOutput()";
-  char                cOffset[23],
-                      cOutput[ERRBUF_SIZE],
-                      cLocalError[ERRBUF_SIZE];
-  int                 iIndex,
-                      iError;
+  const char          acRoutine[] = "DigDevelopOutput()";
+  char                acOffset[FTIMES_MAX_64BIT_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  int                 iIndex;
+  int                 iError;
 
-  cLocalError[0] = 0;
+  /*-
+   *********************************************************************
+   * 
+   * name          1 (for quote) + (3 * FTIMES_MAX_PATH) + 1 (for quote)
+   * offset        FTIMES_MAX_64BIT_SIZE
+   * string        DIG_MAX_STRING_SIZE
+   * |'s           2
+   * newline       2
+   *
+   *********************************************************************
+   */
+  char acOutput[(3 * FTIMES_MAX_PATH) + FTIMES_MAX_64BIT_SIZE + DIG_MAX_STRING_SIZE + 6];
 
   /*-
    *********************************************************************
@@ -200,7 +209,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  iIndex = sprintf(cOutput, "\"%s\"", psSearchData->pcFile);
+  iIndex = sprintf(acOutput, "\"%s\"", psSearchData->pcFile);
 
   /*-
    *********************************************************************
@@ -211,16 +220,16 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    */
 #ifdef UNIX
 #ifdef USE_AP_SNPRINTF
-  iIndex += snprintf(&cOutput[iIndex], 22, "|%qu", (K_UINT64) psSearchData->ui64Offset);
-  snprintf(cOffset, 22, "%qu", (K_UINT64) psSearchData->ui64Offset);
+  iIndex += snprintf(&acOutput[iIndex], FTIMES_MAX_64BIT_SIZE, "|%qu", (unsigned long long) psSearchData->ui64Offset);
+  snprintf(acOffset, FTIMES_MAX_64BIT_SIZE, "%qu", (unsigned long long) psSearchData->ui64Offset);
 #else
-  iIndex += sprintf(&cOutput[iIndex], "|%qu", (K_UINT64) psSearchData->ui64Offset);
-  sprintf(cOffset, "%qu", (K_UINT64) psSearchData->ui64Offset);
+  iIndex += snprintf(&acOutput[iIndex], FTIMES_MAX_64BIT_SIZE, "|%llu", (unsigned long long) psSearchData->ui64Offset);
+  snprintf(acOffset, FTIMES_MAX_64BIT_SIZE, "%llu", (unsigned long long) psSearchData->ui64Offset);
 #endif
 #endif
 #ifdef WIN32
-  iIndex += sprintf(&cOutput[iIndex], "|%I64u", (K_UINT64) psSearchData->ui64Offset);
-  sprintf(cOffset, "%I64u", (K_UINT64) psSearchData->ui64Offset);
+  iIndex += snprintf(&acOutput[iIndex], FTIMES_MAX_64BIT_SIZE, "|%I64u", (K_UINT64) psSearchData->ui64Offset);
+  snprintf(acOffset, FTIMES_MAX_64BIT_SIZE, "%I64u", (K_UINT64) psSearchData->ui64Offset);
 #endif
 
   /*-
@@ -230,7 +239,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  iIndex += sprintf(&cOutput[iIndex], "|%s", psSearchData->pcString);
+  iIndex += sprintf(&acOutput[iIndex], "|%s", psSearchData->pcString);
 
   /*-
    *********************************************************************
@@ -239,7 +248,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  iIndex += sprintf(&cOutput[iIndex], "%s", gcNewLine);
+  iIndex += sprintf(&acOutput[iIndex], "%s", gacNewLine);
 
   /*-
    *********************************************************************
@@ -248,10 +257,10 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  iError = SupportWriteData(gpFile, cOutput, iIndex, cLocalError);
+  iError = SupportWriteData(gpFile, acOutput, iIndex, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -262,7 +271,7 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  MD5Cycle(gpMD5Context, cOutput, iIndex);
+  MD5Cycle(gpsMD5Context, acOutput, iIndex);
 
   return ER_OK;
 }
@@ -306,7 +315,7 @@ DigGetMaxStringLength(void)
 DIG_SEARCH_LIST *
 DigGetSearchList(int iIndex)
 {
-  return (iIndex >=0 && iIndex <=255) ? gppsSearchList[iIndex] : NULL;
+  return (iIndex >= 0 && iIndex <= 255) ? gppsSearchList[iIndex] : NULL;
 }
 
 
@@ -334,13 +343,13 @@ DigGetStringCount(void)
 int
 DigGetStringsMatched(void)
 {
-  int                 i,
-                      iMatched;
+  int                 i;
+  int                 iMatched;
   DIG_SEARCH_LIST    *psSearchList;
 
   for (i = 0, iMatched = 0; i < 256; i++)
   {
-    for (psSearchList = gppsSearchList[i]; psSearchList != NULL; psSearchList = psSearchList->pNext)
+    for (psSearchList = gppsSearchList[i]; psSearchList != NULL; psSearchList = psSearchList->psNext)
     {
       if (psSearchList->iHits > 0)
       {
@@ -368,7 +377,7 @@ DigGetTotalMatches(void)
 
   for (i = 0, ui64Matches = 0; i < 256; i++)
   {
-    for (psSearchList = gppsSearchList[i]; psSearchList != NULL; psSearchList = psSearchList->pNext)
+    for (psSearchList = gppsSearchList[i]; psSearchList != NULL; psSearchList = psSearchList->psNext)
     {
       if (psSearchList->iHits > 0)
       {
@@ -390,26 +399,24 @@ DigGetTotalMatches(void)
 int
 DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, K_UINT64 ui64AbsoluteOffset, char *pcFilename, char *pcError)
 {
-  const char          cRoutine[] = "DigSearchData()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "DigSearchData()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
   int                 iLength;
   int                 iStringLength;
   DIG_SEARCH_LIST    *psSearchList;
   DIG_SEARCH_DATA     sSearchData;
 
-  cLocalError[0] = 0;
-
   iLength = iDataLength;
   iStringLength = iStopShort ? giMaxStringLength : 1;
 
   while (iLength >= iStringLength)
   {
-    for ((psSearchList = gppsSearchList[*pucData]); psSearchList != NULL; psSearchList = psSearchList->pNext)
+    for ((psSearchList = gppsSearchList[*pucData]); psSearchList != NULL; psSearchList = psSearchList->psNext)
     {
       if (
            (giMatchLimit == 0 || psSearchList->iHitsPerFile < giMatchLimit) &&
-           memcmp(psSearchList->cRawString, pucData, psSearchList->iLength) == 0 &&
+           memcmp(psSearchList->acRawString, pucData, psSearchList->iLength) == 0 &&
            iLength >= psSearchList->iLength
          )
       {
@@ -418,12 +425,12 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, K_UINT64 
 
         sSearchData.pcFile = pcFilename;
         sSearchData.ui64Offset = ui64AbsoluteOffset + iDataLength - iLength;
-        sSearchData.pcString = psSearchList->cEscString;
+        sSearchData.pcString = psSearchList->acEscString;
 
-        iError = DigDevelopOutput(&sSearchData, cLocalError);
+        iError = DigDevelopOutput(&sSearchData, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
           return iError;
         }
       }
@@ -443,9 +450,9 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, K_UINT64 
  ***********************************************************************
  */
 void
-DigSetHashBlock(MD5_CONTEXT *pMD5Context)
+DigSetHashBlock(MD5_CONTEXT *psMD5Context)
 {
-  gpMD5Context = pMD5Context;
+  gpsMD5Context = psMD5Context;
 }
 
 
@@ -473,7 +480,7 @@ DigSetMatchLimit(int iMatchLimit)
 void
 DigSetNewLine(char *pcNewLine)
 {
-  strcpy(gcNewLine, (strcmp(pcNewLine, CRLF) == 0) ? CRLF : LF);
+  strcpy(gacNewLine, (strcmp(pcNewLine, CRLF) == 0) ? CRLF : LF);
 }
 
 
@@ -501,13 +508,11 @@ DigSetOutputStream(FILE *pFile)
 int
 DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
 {
-  const char          cRoutine[] = "DigWriteHeader()";
-  char                cLocalError[ERRBUF_SIZE],
-                      cHeaderData[FTIMES_MAX_LINE];
-  int                 iError,
-                      iIndex;
-
-  cLocalError[0] = 0;
+  const char          acRoutine[] = "DigWriteHeader()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acHeaderData[FTIMES_MAX_LINE];
+  int                 iError;
+  int                 iIndex;
 
   /*-
    *********************************************************************
@@ -516,7 +521,7 @@ DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
    *
    *********************************************************************
    */
-  MD5Alpha(gpMD5Context);
+  MD5Alpha(gpsMD5Context);
 
   /*-
    *********************************************************************
@@ -525,7 +530,7 @@ DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
    *
    *********************************************************************
    */
-  iIndex = sprintf(cHeaderData, "name|offset|string%s", pcNewLine);
+  iIndex = sprintf(acHeaderData, "name|offset|string%s", pcNewLine);
 
   /*-
    *********************************************************************
@@ -534,10 +539,10 @@ DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
    *
    *********************************************************************
    */
-  iError = SupportWriteData(pFile, cHeaderData, iIndex, cLocalError);
+  iError = SupportWriteData(pFile, acHeaderData, iIndex, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -548,7 +553,7 @@ DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
    *
    *********************************************************************
    */
-  MD5Cycle(gpMD5Context, cHeaderData, iIndex);
+  MD5Cycle(gpsMD5Context, acHeaderData, iIndex);
 
   return ER_OK;
 }

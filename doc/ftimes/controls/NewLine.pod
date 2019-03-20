@@ -3,10 +3,10 @@
 Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
 
 B<NewLine> is optional.  When set to the value CRLF, it generates
-Windows style line feeds (i.e. carriage return and linefeed).  When
+Windows style line feeds (i.e., carriage return and linefeed).  When
 B<NewLine> is set to the value LF, it generates UNIX style line
-feeds (i.e. linefeed).  This control is useful if you review/analyze
-data sets from different platforms on one particular computer.
-The default value for B<NewLine> is the native value for the
-operating system running the program.
+feeds (i.e., linefeed).  This control is useful if you review/analyze
+data sets from different platforms on one particular computer.  The
+default value is the native value for the operating system running
+the program.
 

@@ -1,12 +1,11 @@
 #!/usr/bin/perl
 ######################################################################
 #
-# $Id: nph-ftimes.cgi,v 1.8 2003/08/13 01:53:22 mavrik Exp $
+# $Id: nph-ftimes.cgi,v 1.10 2004/04/23 21:32:13 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
-# All Rights Reserved.
+# Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
 #
 ######################################################################
 
@@ -14,16 +13,18 @@ use strict;
 
 ######################################################################
 #
-# NPH Specific Initialization
+# Main Routine
 #
 ######################################################################
 
-  my %returnCodes =
+  my (%hProperties, %hReturnCodes, $sLocalError);
+
+  %hReturnCodes =
   (
     '200' => "OK",
-    '250' => "Ping Received", # ftimes only
-    '251' => "LinkTest Succeeded",
-    '252' => "Upload Succeeded, Relay Failed", # ftimes only
+    '250' => "Ping Test OK",
+    '251' => "Link Test OK",
+    '404' => "Not Found",
     '405' => "Method Not Allowed",
     '450' => "Invalid Query",
     '451' => "File Already Exists",
@@ -33,803 +34,563 @@ use strict;
     '455' => "Content-Length Exceeds Limit",
     '456' => "Content-Length Mismatch",
     '457' => "File Not Available",
-    '460' => "RequiredMask-FieldMask Mismatch", # ftimes only
+    '460' => "RequiredMask-FieldMask Mismatch",
     '500' => "Internal Server Error",
-    '550' => "Insufficient Access"
+    '550' => "Internal Server Initialization Error",
   );
 
-#######################################################################
-#
-# Platform Specific Initialization
-#
-#######################################################################
-
-  #####################################################################
+  ####################################################################
   #
-  # If the platform is WIN32, put the input stream in binary mode
-  # and close stderr. Without binmode, WIN32 Perl will internally
-  # handle carriage returns and line feeds, and that could result
-  # in a content length mismatch. If stderr is not closed, IIS has
-  # been known to clobber the nph response header.
+  # Punch in and go to work.
   #
-  #####################################################################
+  ####################################################################
 
-  my ($baseDirectory);
+  $hProperties{'StartTime'} = time;
+
+  ####################################################################
+  #
+  # Create/Verify run time environment, and process GET/PUT requests.
+  #
+  ####################################################################
+
+  if (!defined(CreateRunTimeEnvironment(\%hProperties, \$sLocalError)))
+  {
+    $hProperties{'ReturnStatus'} = 550;
+    $hProperties{'ReturnReason'} = $hReturnCodes{$hProperties{'ReturnStatus'}};
+    $hProperties{'ErrorMessage'} = $sLocalError;
+  }
+  else
+  {
+    if ($hProperties{'RequestMethod'} eq "GET")
+    {
+      $hProperties{'ReturnStatus'} = ProcessGetRequest(\%hProperties, \$sLocalError);
+      $hProperties{'ReturnReason'} = $hReturnCodes{$hProperties{'ReturnStatus'}};
+      $hProperties{'ErrorMessage'} = $sLocalError;
+    }
+    elsif ($hProperties{'RequestMethod'} eq "PING")
+    {
+      $hProperties{'ReturnStatus'} = ProcessPingRequest(\%hProperties, \$sLocalError);
+      $hProperties{'ReturnReason'} = $hReturnCodes{$hProperties{'ReturnStatus'}};
+      $hProperties{'ErrorMessage'} = $sLocalError;
+    }
+    elsif ($hProperties{'RequestMethod'} eq "PUT")
+    {
+      $hProperties{'ReturnStatus'} = ProcessPutRequest(\%hProperties, \$sLocalError);
+      $hProperties{'ReturnReason'} = $hReturnCodes{$hProperties{'ReturnStatus'}};
+      $hProperties{'ErrorMessage'} = $sLocalError;
+    }
+    else
+    {
+      $hProperties{'ReturnStatus'} = 405;
+      $hProperties{'ReturnReason'} = $hReturnCodes{$hProperties{'ReturnStatus'}};
+      $hProperties{'ErrorMessage'} = "Method ($hProperties{'RequestMethod'}) not allowed";
+    }
+  }
+  $hProperties{'ServerContentLength'} = SendResponse(\%hProperties);
+
+  ####################################################################
+  #
+  # Clean up and go home.
+  #
+  ####################################################################
+
+  $hProperties{'StopTime'} = time;
+
+  if ($hProperties{'EnableLogging'} =~ /^[Yy]$/)
+  {
+    LogMessage(\%hProperties);
+  }
+
+  1;
+
+
+######################################################################
+#
+# CompareMasks
+#
+######################################################################
+
+sub CompareMasks
+{
+  my ($sRequiredMask, $sSuppliedMask) = @_;
+
+  ####################################################################
+  #
+  # Squash input.
+  #
+  ####################################################################
+
+  $sRequiredMask =~ tr/A-Z/a-z/;
+  $sSuppliedMask =~ tr/A-Z/a-z/;
+
+  ####################################################################
+  #
+  # Check syntax.
+  #
+  ####################################################################
+
+  if ($sRequiredMask !~ /^(all|none)([+-][a-z]+)*$/)
+  {
+    return undef;
+  }
+  if ($sSuppliedMask !~ /^(all|none)([+-][a-z]+)*$/)
+  {
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Split input on +/- boundaries.
+  #
+  ####################################################################
+
+  my @aRequiredFields = split(/[+-]/, $sRequiredMask);
+  my @aSuppliedFields = split(/[+-]/, $sSuppliedMask);
+
+  ####################################################################
+  #
+  # Split input non +/- boundaries.
+  #
+  ####################################################################
+
+  my @aRequiredTokens = split(/[^+-]+/, $sRequiredMask);
+  my @aSuppliedTokens = split(/[^+-]+/, $sSuppliedMask);
+
+  ####################################################################
+  #
+  # Require base elements to be the same.
+  #
+  ####################################################################
+
+  my $aRequiredBase = $aRequiredFields[0];
+  my $aSuppliedBase = $aSuppliedFields[0];
+
+  if ($aRequiredBase ne $aSuppliedBase)
+  {
+    return 0;
+  }
+
+  ####################################################################
+  #
+  # Remove base element from the fields array.
+  #
+  ####################################################################
+
+  shift @aRequiredFields;
+  shift @aSuppliedFields;
+
+  ####################################################################
+  #
+  # Remove base element from the tokens array.
+  #
+  ####################################################################
+
+  shift @aRequiredTokens;
+  shift @aSuppliedTokens;
+
+  ####################################################################
+  #
+  # Tally up the tokens.
+  #
+  ####################################################################
+
+  my (%hRequiredHash, %hSuppliedHash);
+
+  for (my $sIndex = 0; $sIndex < scalar(@aRequiredFields); $sIndex++)
+  {
+    $hRequiredHash{$aRequiredFields[$sIndex]} = ($aRequiredTokens[$sIndex] eq "+") ? 1 : 0;
+  }
+  for (my $sIndex = 0; $sIndex < scalar(@aSuppliedFields); $sIndex++)
+  {
+    $hSuppliedHash{$aSuppliedFields[$sIndex]} = ($aSuppliedTokens[$sIndex] eq "+") ? 1 : 0;
+  }
+
+  ####################################################################
+  #
+  # Delete +/- fields. This depends on the value of the base field.
+  #
+  ####################################################################
+
+  if ($aRequiredBase eq "all")
+  {
+    foreach my $sField (keys(%hRequiredHash))
+    {
+      if ($hRequiredHash{$sField} == 1)
+      {
+        delete($hRequiredHash{$sField});
+      }
+    }
+    foreach my $sField (keys(%hSuppliedHash))
+    {
+      if ($hSuppliedHash{$sField} == 1)
+      {
+        delete($hSuppliedHash{$sField});
+      }
+    }
+  }
+  else
+  {
+    foreach my $sField (keys(%hRequiredHash))
+    {
+      if ($hRequiredHash{$sField} == 0)
+      {
+        delete($hRequiredHash{$sField});
+      }
+    }
+    foreach my $sField (keys(%hSuppliedHash))
+    {
+      if ($hSuppliedHash{$sField} == 0)
+      {
+        delete($hSuppliedHash{$sField});
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # Compare the normalized masks, and return true/false.
+  #
+  ####################################################################
+
+  return ((join("|", sort(keys(%hRequiredHash)))) eq (join("|", sort(keys(%hSuppliedHash)))));
+}
+
+
+######################################################################
+#
+# CreateRunTimeEnvironment
+#
+######################################################################
+
+sub CreateRunTimeEnvironment
+{
+  my ($phProperties, $psError) = @_;
+
+  ####################################################################
+  #
+  # Put input/output streams in binary mode.
+  #
+  ####################################################################
+
+  foreach my $sHandle (\*STDIN, \*STDOUT, \*STDERR)
+  {
+    binmode($sHandle);
+  }
+
+  ####################################################################
+  #
+  # Initialize regex variables.
+  #
+  ####################################################################
+
+  my %hRegexes =
+  (
+    'ClientId'  => qq(&CLIENTID=([\\w-]{1,64})),
+    'DataType'  => qq(&DATATYPE=(dig|map)),
+    'DateTime'  => qq(&DATETIME=(\\d{14})),
+    'EOL'       => qq(\$),
+    'FieldMask' => qq(&FIELDMASK=([a-zA-Z+-]{1,512})),
+    'LogLength' => qq(&LOGLENGTH=(\\d{1,20})), # 18446744073709551615
+    'MD5'       => qq(&MD5=([0-9a-fA-F]{32})),
+    'OutLength' => qq(&OUTLENGTH=(\\d{1,20})), # 18446744073709551615
+    'Request'   => qq(&REQUEST=(Map(?:Full|Lean)Config|Dig(?:Full|Lean)Config)),
+    'RunType'   => qq(&RUNTYPE=(baseline|linktest|snapshot)),
+    'SOL'       => qq(^),
+    'Version'   => qq(VERSION=(ftimes[\\w .]{1,64})),
+  );
+
+  $$phProperties{'GETRegex'} =
+    $hRegexes{'SOL'} .
+    $hRegexes{'Version'} .
+    $hRegexes{'ClientId'} .
+    $hRegexes{'Request'} .
+    $hRegexes{'EOL'}
+    ;
+
+  $$phProperties{'PINGRegex'} =
+    $hRegexes{'SOL'} .
+    $hRegexes{'Version'} .
+    $hRegexes{'ClientId'} .
+    $hRegexes{'DataType'} .
+    $hRegexes{'FieldMask'} .
+    $hRegexes{'EOL'}
+    ;
+
+  $$phProperties{'PUTRegex'} =
+    $hRegexes{'SOL'} .
+    $hRegexes{'Version'} .
+    $hRegexes{'ClientId'} .
+    $hRegexes{'DataType'} .
+    $hRegexes{'FieldMask'} .
+    $hRegexes{'RunType'} .
+    $hRegexes{'DateTime'} .
+    $hRegexes{'LogLength'} .
+    $hRegexes{'OutLength'} .
+    $hRegexes{'MD5'} .
+    $hRegexes{'EOL'}
+    ;
+
+  ####################################################################
+  #
+  # Initialize environment-specific variables.
+  #
+  ####################################################################
+
+  $$phProperties{'ContentLength'}  = $ENV{'CONTENT_LENGTH'};
+  $$phProperties{'QueryString'}    = $ENV{'QUERY_STRING'};
+  $$phProperties{'RemoteAddress'}  = $ENV{'REMOTE_ADDR'};
+  $$phProperties{'RemoteUser'}     = $ENV{'REMOTE_USER'};
+  $$phProperties{'RequestMethod'}  = $ENV{'REQUEST_METHOD'};
+  $$phProperties{'ServerSoftware'} = $ENV{'SERVER_SOFTWARE'};
+  $$phProperties{'PropertiesFile'} = $ENV{'FTIMES_PROPERTIES_FILE'};
+
+  ####################################################################
+  #
+  # Initialize platform-specific variables.
+  #
+  ####################################################################
 
   if ($^O =~ /MSWin32/i)
   {
-    $baseDirectory    = "c:/inetpub/wwwroot/integrity";
-    binmode(STDIN);
-    close(STDERR);
+    $$phProperties{'OSClass'} = "WINDOWS";
+    $$phProperties{'Newline'} = "\r\n";
   }
   else
   {
-    $baseDirectory    = "/integrity";
-    umask 022;
+    $$phProperties{'OSClass'} = "UNIX";
+    $$phProperties{'Newline'} = "\n";
+    umask(022);
   }
 
-#######################################################################
-#
-# Site Specific Initialization
-#
-#######################################################################
-
-  #####################################################################
-  #
-  # The require user variable forces the program to abort unless the
-  # REMOTE_USER environment variable has been set. Apache sets this
-  # REMOTE_USER when authentication is enabled.
-  #
-  #####################################################################
-
-  my $requireUser     = 1; # 0 = disabled, 1 = enabled
-
-  #####################################################################
-  #
-  # The require match variable forces the program to abort unless
-  # $username matches $clientId. When this value is disabled, other
-  # users may issue requests on behalf of a given client.
-  #
-  #####################################################################
-
-  my $requireMatch    = 1; # 0 = disabled, 1 = enabled
-
-  #####################################################################
-  #
-  # The enforce limit variable forces the program to abort whenever
-  # $contentLength is greater than $maxLength.
-  #
-  #####################################################################
-
-  my $enforceLimit    = 0; # 0 = disabled, 1 = enabled
-  my $maxLength       = 50000000; # 50 MB
-
-  #####################################################################
-  #
-  # The require mask variable forces the program to abort unless the
-  # FIELDMASK query string variable matches $requiredMask. The value
-  # assigned to $requiredMask depends on the value for the DATATYPE
-  # query string variable.
-  #
-  #####################################################################
-
-  my $requireMask     = 1; # 0 = disabled, 1 = enabled
-  my $requiredMask    = "";
-  my $requiredMapMask = "all-magic";
-  my $requiredDigMask = "all";
-
-  #####################################################################
-  #
-  # The following regex variables are used to validate query strings.
-  #
-  #####################################################################
-
-  my $reVersion       = "VERSION=(.+)";
-  my $reClientId      = "&CLIENTID=([A-Z]\\d{3}_[A-Z]{4}_\\d{4}_\\d{1})";
-  my $reRequest       = "&REQUEST=(Map(?:Full|Lean)Config|Dig(?:Full|Lean)Config)";
-  my $reDataType      = "&DATATYPE=(dig|map)";
-  my $reFieldMask     = "&FIELDMASK=([a-zA-Z+-]+)";
-  my $reRunType       = "&RUNTYPE=(baseline|linktest|snapshot)";
-  my $reDateTime      = "&DATETIME=(\\d{14})";
-  my $reLogLength     = "&LOGLENGTH=(\\d{1,10})"; #4294967295
-  my $reOutLength     = "&OUTLENGTH=(\\d{1,10})";
-  my $reMD5           = "&MD5=([0-9a-fA-F]{32})";
-
-#######################################################################
-#
-# Main Routine
-#
-#######################################################################
-
   ####################################################################
   #
-  # Attempt to fire up the log file. Keep going if it fails.
+  # Initialize site-specific variables.
   #
   ####################################################################
 
-  open(LH, ">>$baseDirectory/logfiles/nph-ftimes.log");
+  my (%hSiteProperties, $sLocalError);
+
+  %hSiteProperties =
+  (
+    'BaseDirectory'     => qq(^(?:[A-Za-z]:)?/[\\w-./]+\$),
+    'CapContentLength'  => qq(^[YyNn]\$),
+    'EnableLogging'     => qq(^[YyNn]\$),
+    'MaxContentLength'  => qq(^\\d{1,20}\$), # 18446744073709551615
+    'RequireMask'       => qq(^[YyNn]\$),
+    'RequireMatch'      => qq(^[YyNn]\$),
+    'RequireUser'       => qq(^[YyNn]\$),
+    'RequiredDigMask'   => qq(^[a-zA-Z+-]{1,512}\$),
+    'RequiredMapMask'   => qq(^[a-zA-Z+-]{1,512}\$),
+    'UseGMT'            => qq(^[YyNn]\$),
+  );
+
+  GetSiteProperties($phProperties, \%hSiteProperties, \$sLocalError);
 
   ####################################################################
   #
-  # These variables are included in every log entry.
+  # Initialize derived variables.
   #
   ####################################################################
 
-  my $logHandle       = \*LH;
-  my $username        = $ENV{'REMOTE_USER'};
-  my $cgiRemote       = $ENV{'REMOTE_ADDR'};
-  my $cgiMethod       = $ENV{'REQUEST_METHOD'};
-  my $cgiRequest      = undef;
-  my $byteCount       = undef;
-  my $startTime       = time;
-  my $returnCode      = undef;
-  my $context         = undef;
-  my $explanation     = undef;
+  $$phProperties{'IncomingDirectory'} = $$phProperties{'BaseDirectory'} . "/incoming";
+  $$phProperties{'LogfilesDirectory'} = $$phProperties{'BaseDirectory'} . "/logfiles";
+  $$phProperties{'ProfilesDirectory'} = $$phProperties{'BaseDirectory'} . "/profiles";
+  $$phProperties{'LogFile'} = $$phProperties{'LogfilesDirectory'} . "/nph-ftimes.log";
 
   ####################################################################
   #
-  # Make sure that a username has been defined, if required.
+  # Verify run time environment.
   #
   ####################################################################
 
-  if ($requireUser && (!defined $username || !length($username)))
+  if (!defined(VerifyRunTimeEnvironment($phProperties, \%hSiteProperties, \$sLocalError)))
   {
-    $returnCode = '452';
-    $context = undef;
-    $explanation = $returnCodes{$returnCode};
-    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
+    $$psError = $sLocalError;
+    return undef;
   }
 
-  ####################################################################
-  #
-  # Make sure that a content length has been defined.
-  #
-  ####################################################################
-
-  my $contentLength = $ENV{'CONTENT_LENGTH'};
-
-  if (!defined $contentLength || !length($contentLength))
-  {
-    $returnCode = '454';
-    $context = undef;
-    $explanation = $returnCodes{$returnCode};
-    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-  }
-
-  ####################################################################
-  #
-  # Check that the content length is within the limit, if required.
-  #
-  ####################################################################
-
-  if ($enforceLimit && $contentLength > $maxLength)
-  {
-    $returnCode = '455';
-    $context = "Length=$contentLength Limit=$maxLength";
-    $explanation = $returnCodes{$returnCode};
-    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-  }
-
-  ####################################################################
-  #
-  # Make sure that the required dig/map masks pass a syntax check.
-  #
-  ####################################################################
-
-  if ($requireMask && !defined CompareMasks($requiredMapMask, $requiredMapMask))
-  {
-    $returnCode = '500';
-    $context = "MapMask=$requiredMapMask";
-    $explanation = "Invalid Mask";
-    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-  }
-
-  if ($requireMask && !defined CompareMasks($requiredDigMask, $requiredDigMask))
-  {
-    $returnCode = '500';
-    $context = "DigMask=$requiredDigMask";
-    $explanation = "Invalid Mask";
-    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-  }
-
-  ####################################################################
-  #
-  # Make sure there is a writable drop zone.
-  #
-  ####################################################################
-
-  my $dropZone = $baseDirectory . "/incoming";
-
-  if (!-d $dropZone)
-  {
-    $returnCode = '500';
-    $context = "DropZone=$dropZone";
-    $explanation = $!;
-    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-  }
-
-  if (!-W $dropZone)
-  {
-    $returnCode = '550';
-    $context = "DropZone=$dropZone";
-    $explanation = "Write access is required for this object";
-    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-  }
-
-  ####################################################################
-  #
-  # Make sure there is a readable profiles directory.
-  #
-  ####################################################################
-
-  my $profiles = $baseDirectory . "/profiles";
-
-  if (!-d $profiles)
-  {
-    $returnCode = '500';
-    $context = "Profiles=$profiles";
-    $explanation = $!;
-    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-  }
-
-  if (!-R $profiles)
-  {
-    $returnCode = '550';
-    $context = "Profiles=$profiles";
-    $explanation = "Read access is required for this object";
-    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-  }
-
-  ####################################################################
-  #
-  # Preprocess the query string (i.e. unencode it).
-  #
-  ####################################################################
-
-  my $queryString = $ENV{'QUERY_STRING'};
-  $queryString =~ s/\+/ /g;
-  $queryString =~ s/%([0-9a-fA-F]{2})/pack("c", hex($1))/ge;
-
-  ####################################################################
-  #
-  # GET Request -- Determine what was requested, and serve it up.
-  #
-  ####################################################################
-
-  if ($cgiMethod eq "GET")
-  {
-    my $reGet  = "^" . $reVersion . $reClientId . $reRequest . "\$";
-
-    if ($queryString =~ /$reGet/)
-    {
-      my $version    = $1;
-      my $clientId   = $2;
-      my $cgiRequest = $3;
-
-      if ($requireUser && $requireMatch && $username ne $clientId)
-      {
-        $returnCode = '453';
-        $context = "Username=$username ClientId=$clientId";
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      $cgiRequest =~ /^(MapFull|MapLean|DigFull|DigLean)Config$/;
-      my $getFile = $profiles . "/" . $clientId . "/" . "cfgfiles" . "/" . lc($1) . ".cfg";
-
-      if (-e $getFile)
-      {
-        if (open(FILE, "$getFile"))
-        {
-          $byteCount = -s $getFile;
-          $returnCode = '200';
-          ReturnContent(\*FILE, $byteCount, $returnCode, $returnCodes{$returnCode});
-          $context = "File=$getFile";
-          $explanation = $returnCodes{$returnCode};
-          LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-          close(FILE);
-          Finish($logHandle);
-        }
-        else
-        {
-          $byteCount = 0;
-          $returnCode = '500';
-          $context = "File=$getFile";
-          $explanation = $!;
-          LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-          ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-        }
-      }
-      else
-      {
-        $returnCode = '457';
-        $context = "File=$getFile";
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-    }
-    else
-    {
-      $returnCode = '450';
-      $context = "QueryString=" . $ENV{'QUERY_STRING'}; # Extract actual value from ENV.
-      $explanation = $returnCodes{$returnCode};
-      LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-      ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-    }
-  }
-
-  ####################################################################
-  #
-  # PING Request -- Check the client's mask, and respond to the ping.
-  #
-  ####################################################################
-
-  elsif ($cgiMethod eq "PING")
-  {
-    my $rePing = "^" . $reVersion . $reClientId . $reDataType . $reFieldMask . "\$";
-
-    if ($queryString =~ /$rePing/)
-    {
-      my $version   = $1;
-      my $clientId  = $2;
-      my $dataType  = $3;
-      my $fieldMask = $4;
-
-      if ($requireUser && $requireMatch && $username ne $clientId)
-      {
-        $returnCode = '453';
-        $context = "Username=$username ClientId=$clientId";
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      ################################################################
-      #
-      # This logic helps to ensure mask consistency.
-      #
-      ################################################################
-
-      if ($requireMask)
-      {
-        $requiredMask = ($dataType =~ /^map$/i) ? $requiredMapMask : $requiredDigMask;
-        if (!CompareMasks($requiredMask, $fieldMask))
-        {
-          $returnCode = '460';
-          $context = "DataType=$dataType FieldMask=$fieldMask RequiredMask=$requiredMask";
-          $explanation = $returnCodes{$returnCode};
-          LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-          ReturnFailure($logHandle, $returnCode, ($returnCodes{$returnCode} . ", Use $requiredMask"));
-        }
-      }
-
-      $returnCode = '250';
-      $context = undef;
-      $explanation = $returnCodes{$returnCode};
-      LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-      ReturnSuccess($logHandle, $returnCode, $returnCodes{$returnCode});
-    }
-    else
-    {
-      $returnCode = '450';
-      $context = "QueryString=" . $ENV{'QUERY_STRING'}; # Extract actual value from ENV.
-      $explanation = $returnCodes{$returnCode};
-      LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-      ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-    }
-  }
-
-  ####################################################################
-  #
-  # PUT Request -- Write the uploaded data directly to disk.
-  #
-  ####################################################################
-
-  elsif ($cgiMethod eq "PUT")
-  {
-    my $rePut  = "^" . $reVersion . $reClientId . $reDataType . $reFieldMask . $reRunType . $reDateTime . $reLogLength . $reOutLength . $reMD5 . "\$";
-
-    if ($queryString =~ /$rePut/)
-    {
-      my $version   = $1;
-      my $clientId  = $2;
-      my $dataType  = $3;
-      my $fieldMask = $4;
-      my $runType   = $5;
-      my $dateTime  = $6;
-      my $logLength = $7;
-      my $outLength = $8;
-      my $md5       = $9;
-      $cgiRequest   = $clientId . "_" . $dateTime . "_" . $runType;
-
-      if ($requireUser && $requireMatch && $username ne $clientId)
-      {
-        $returnCode = '453';
-        $context = "Username=$username ClientId=$clientId";
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      ################################################################
-      #
-      # This logic helps to ensure mask consistency.
-      #
-      ################################################################
-
-      if ($requireMask)
-      {
-        $requiredMask = ($dataType =~ /^map$/i) ? $requiredMapMask : $requiredDigMask;
-        if (!CompareMasks($requiredMask, $fieldMask))
-        {
-          ReadAndChuckData($contentLength); # prevents a broken pipe
-          $returnCode = '460';
-          $context = "DataType=$dataType FieldMask=$fieldMask RequiredMask=$requiredMask";
-          $explanation = $returnCodes{$returnCode};
-          LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-          ReturnFailure($logHandle, $returnCode, ($returnCodes{$returnCode} . ", Use $requiredMask"));
-        }
-      }
-
-      ##############################################################
-      #
-      # If this is a linktest, dump the data and return success.
-      #
-      ##############################################################
-
-      if ($runType eq "linktest")
-      {
-        ReadAndChuckData($contentLength); # prevents a broken pipe
-        $returnCode = '251';
-        $context = undef;
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnSuccess($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      ##############################################################
-      #
-      # Otherwise, process the data.
-      #
-      ##############################################################
-
-      my $logFile = $dropZone . "/" . $cgiRequest . ".log";
-      my $outFile = $dropZone . "/" . $cgiRequest . "." . $dataType;
-      my $cfgFile = $dropZone . "/" . $cgiRequest . ".cfg";
-      my $rdyFile = $dropZone . "/" . $cgiRequest . ".rdy";
-
-      ##############################################################
-      #
-      # Make sure that none of the output files exist.
-      #
-      ##############################################################
-
-      if (-e $logFile)
-      {
-        ReadAndChuckData($contentLength); # prevents a broken pipe
-        $returnCode = '451';
-        $context = "File=$logFile";
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      if (-e $outFile)
-      {
-        ReadAndChuckData($contentLength); # prevents a broken pipe
-        $returnCode = '451';
-        $context = "File=$outFile";
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      if (-e $cfgFile)
-      {
-        ReadAndChuckData($contentLength); # prevents a broken pipe
-        $returnCode = '451';
-        $context = "File=$cfgFile";
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      if (-e $rdyFile)
-      {
-        ReadAndChuckData($contentLength); # prevents a broken pipe
-        $returnCode = '451';
-        $context = "File=$rdyFile";
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      ##############################################################
-      #
-      # Initialize the read byte count.
-      #
-      ##############################################################
-
-      $byteCount = 0;
-
-      ##############################################################
-      #
-      # Suck in the log data and store it in a file. Abort, if the
-      # file exists or can't be opened.
-      #
-      ##############################################################
-
-      if (!open(FILE, ">$logFile"))
-      {
-        ReadAndChuckData($contentLength); # prevents a broken pipe
-        $returnCode = '500';
-        $context = "File=$logFile";
-        $explanation = $!;
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      binmode(FILE);
-      my $nLog = ReadAndWriteData(\*FILE, $logLength);
-      close(FILE);
-      if ($nLog != $logLength)
-      {
-        $returnCode = '456';
-        $context = "File=$logFile NRead=$nLog Length=$logLength";
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-      $byteCount += $nLog;
-
-      ##############################################################
-      #
-      # Suck in the out data and store it in a file. Abort, if the
-      # file exists or can't be opened.
-      #
-      ##############################################################
-
-      if (!open(FILE, ">$outFile"))
-      {
-        ReadAndChuckData($contentLength); # prevents a broken pipe
-        $returnCode = '500';
-        $context = "File=$outFile";
-        $explanation = $!;
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      binmode(FILE);
-      my $nOut = ReadAndWriteData(\*FILE, $outLength);
-      close(FILE);
-      if ($nOut != $outLength)
-      {
-        $returnCode = '456';
-        $context = "File=$outFile NRead=$nOut Length=$outLength";
-        $explanation = $returnCodes{$returnCode};
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-      $byteCount += $nOut;
-
-      ##############################################################
-      #
-      # Create a put configuration file. This preserves important
-      # elements from the query string and makes it easier to relay
-      # the snapshot at some later time.
-      #
-      ##############################################################
-
-      if (!open(FILE, ">$cfgFile"))
-      {
-        $returnCode = '500';
-        $context = "File=$cfgFile";
-        $explanation = $!;
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-
-      print FILE "#\n";
-      print FILE "# This file contains most of the directives necessary to upload\n";
-      print FILE "# the associated snapshot to a remote server. Before attempting an\n";
-      print FILE "# upload, review the following information for completeness and\n";
-      print FILE "# correctness. You are required to supply the server's URL and any\n";
-      print FILE "# necessary credentials.\n";
-      print FILE "#\n";
-      print FILE "LogFileName=$logFile\n";
-      print FILE "OutFileName=$outFile\n";
-      print FILE "OutFileHash=$md5\n";
-      print FILE "#\n";
-      print FILE "BaseName=$clientId\n";
-      print FILE "DataType=$dataType\n";
-      print FILE "DateTime=$dateTime\n";
-      print FILE "FieldMask=$fieldMask\n";
-      print FILE "RunType=$runType\n";
-      print FILE "#\n";
-      close(FILE);
-
-      ##############################################################
-      #
-      # Create the .rdy file. This file acts as a lock release. In
-      # other words, its presence informs other applications that
-      # it's safe to process this snapshot.
-      #
-      ##############################################################
-
-      if (!open(FILE, ">$rdyFile"))
-      {
-        $returnCode = '500';
-        $context = "File=$rdyFile";
-        $explanation = $!;
-        LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-        ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-      }
-      print FILE "+";
-      close(FILE);
-
-      ####################################################################
-      #
-      # Return success.
-      #
-      ####################################################################
-
-      $returnCode = '200';
-      $context = undef;
-      $explanation = $returnCodes{$returnCode};
-      LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-      ReturnSuccess($logHandle, $returnCode, $returnCodes{$returnCode});
-    }
-    else
-    {
-      $returnCode = '450';
-      $context = "QueryString=" . $ENV{'QUERY_STRING'}; # Extract actual value from ENV.
-      $explanation = $returnCodes{$returnCode};
-      LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-      ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-    }
-  }
-
-  ####################################################################
-  #
-  # Unsupported Request -- Return an error.
-  #
-  ####################################################################
-
-  else
-  {
-    $returnCode = '405';
-    $context = undef;
-    $explanation = $returnCodes{$returnCode};
-    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
-    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-  }
-
-  1;
-
-
-######################################################################
-#
-# Finish
-#
-######################################################################
-
-sub Finish
-{
-  my ($logHandle) = @_;
-  close($logHandle) if ($logHandle);
-  exit;
-}
-
-
-######################################################################
-#
-# ReadAndWriteData
-#
-######################################################################
-
-sub ReadAndWriteData
-{
-  my ($fileHandle, $toRead) = @_;
-  my ($nRead, $nWritten);
-
-  $nRead = $nWritten = 0;
-  while($toRead)
-  {
-    my $data = "";
-    $nRead = sysread(STDIN, $data, $toRead);
-    $nWritten += syswrite($fileHandle, $data, $nRead);
-    $toRead -= $nRead;
-  }
-  return $nWritten;
-}
-
-
-######################################################################
-#
-# ReadAndChuckData
-#
-######################################################################
-
-sub ReadAndChuckData
-{
-  my ($toRead) = @_;
-
-  while($toRead)
-  {
-    my $data = "";
-    $toRead -= sysread(STDIN, $data, $toRead);
-  }
-  return $toRead;
-}
-
-
-######################################################################
-#
-# ReturnFailure
-#
-######################################################################
-
-sub ReturnFailure
-{
-  my ($fileHandle, $statusCode, $reasonPhrase) = @_;
-  print "HTTP/1.1 $statusCode $reasonPhrase\r\n";
-  print "Server: $ENV{'SERVER_SOFTWARE'}\r\n";
-  print "Content-Type: text/plain\r\n";
-  print "Content-Length: 0\r\n";
-  print "\r\n";
-  Finish($fileHandle);
   1;
 }
 
 
 ######################################################################
 #
-# ReturnSuccess
+# GetKeysAndValues
 #
 ######################################################################
 
-sub ReturnSuccess
+sub GetKeysAndValues
 {
-  my ($fileHandle, $statusCode, $reasonPhrase) = @_;
-  print "HTTP/1.1 $statusCode $reasonPhrase\r\n";
-  print "Server: $ENV{'SERVER_SOFTWARE'}\r\n";
-  print "Content-Type: text/plain\r\n";
-  print "Content-Length: 0\r\n";
-  print "\r\n";
-  Finish($fileHandle);
+  my ($sFile, $phValidKeys, $phKeyValuePairs, $psError) = @_;
+
+  ####################################################################
+  #
+  # Make sure that required inputs are defined.
+  #
+  ####################################################################
+
+  if (!defined($sFile) || !defined($phValidKeys) || !defined($phKeyValuePairs))
+  {
+    $$psError = "Unable to proceed due to missing or undefined inputs" if (defined($psError));
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Open properties file.
+  #
+  ####################################################################
+
+  if (!open(FH, "<$sFile"))
+  {
+    $$psError = "File ($sFile) could not be opened ($!)" if (defined($psError));
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Read properties file. Ignore comments and blank lines.
+  #
+  ####################################################################
+
+  while (my $sLine = <FH>)
+  {
+    $sLine =~ s/[\r\n]+$//; # Remove CRs and LFs.
+    $sLine =~ s/#.*$//; # Remove comments.
+    if ($sLine !~ /^\s*$/)
+    {
+      my ($sKey, $sValue) = ($sLine =~ /^([^=]*)=(.*)$/);
+      $sKey =~ s/^\s+//; # Remove leading whitespace.
+      $sKey =~ s/\s+$//; # Remove trailing whitespace.
+      $sValue =~ s/^\s+//; # Remove leading whitespace.
+      $sValue =~ s/\s+$//; # Remove trailing whitespace.
+      if (defined($sKey) && length($sKey))
+      {
+        foreach my $sKnownKey (keys(%$phValidKeys))
+        {
+          if ($sKey =~ /^$sKnownKey$/i)
+          {
+            $$phKeyValuePairs{$sKnownKey} = $sValue;
+          }
+        }
+      }
+    }
+  }
+  close(FH);
+
   1;
 }
 
 
 ######################################################################
 #
-# ReturnContent
+# GetSiteProperties
 #
 ######################################################################
 
-sub ReturnContent
+sub GetSiteProperties
 {
-  my ($fileHandle, $contentLength, $statusCode, $reasonPhrase) = @_;
-  print "HTTP/1.1 $statusCode $reasonPhrase\r\n";
-  print "Server: $ENV{'SERVER_SOFTWARE'}\r\n";
-  print "Content-Type: application/octet-stream\r\n";
-  print "Content-Length: $contentLength\r\n";
-  print "\r\n";
-  while (<$fileHandle>)
-  {
-    print;
-  }
+  my ($phProperties, $phSiteProperties, $psError) = @_;
+
+  ####################################################################
+  #
+  # BaseDirectory is the epicenter of activity.
+  #
+  ####################################################################
+
+  $$phProperties{'BaseDirectory'} = "/integrity";
+
+  ####################################################################
+  #
+  # When active, CapContentLength forces the script to abort when the
+  # client-supplied ContentLength exceeds MaxContentLength.
+  #
+  ####################################################################
+
+  $$phProperties{'CapContentLength'} = "N"; # [Y|N]
+
+  ####################################################################
+  #
+  # When active, EnableLogging forces the script to generate a log
+  # message for each request. If the designated LogFile can not be
+  # opened, the log message will be written to STDERR.
+  #
+  ####################################################################
+
+  $$phProperties{'EnableLogging'} = "Y"; # [Y|N]
+
+  ####################################################################
+  #
+  # When active, RequireMask forces the script to abort if the client
+  # does not supply the proper field mask.
+  #
+  ####################################################################
+
+  $$phProperties{'RequireMask'} = "Y"; # [Y|N]
+
+  ####################################################################
+  #
+  # When active, RequireMatch forces the script to abort if ClientId
+  # does not match RemoteUser. When this value is disabled, any
+  # authenticated user will be allowed to issue requests for a given
+  # client. Disabling RequireUser implicitly disables RequireMatch.
+  #
+  ####################################################################
+
+  $$phProperties{'RequireMatch'} = "Y"; # [Y|N]
+
+  ####################################################################
+  #
+  # When active, RequireUser forces the script to abort if RemoteUser
+  # has not been set.
+  #
+  ####################################################################
+
+  $$phProperties{'RequireUser'} = "Y"; # [Y|N]
+
+  ####################################################################
+  #
+  # RequiredDigMask defines the required field mask for dig data.
+  #
+  ####################################################################
+
+  $$phProperties{'RequiredDigMask'} = "all";
+
+  ####################################################################
+  #
+  # RequiredMapMask defines the required field mask for map data.
+  #
+  ####################################################################
+
+  $$phProperties{'RequiredMapMask'} = "all-magic";
+
+  ####################################################################
+  #
+  # MaxContentLength defines the largest ContentLength that will be
+  # allowed.
+  #
+  ####################################################################
+
+  $$phProperties{'MaxContentLength'} = 100000000; # 100 MB
+
+  ####################################################################
+  #
+  # When active, UseGMT forces the script to convert all time values
+  # to GMT. Otherwise, time values are converted to local time.
+  #
+  ####################################################################
+
+  $$phProperties{'UseGMT'} = "N"; # [Y|N]
+
+  ####################################################################
+  #
+  # Pull in any externally defined properties. These properties trump
+  # internally defined properties.
+  #
+  ####################################################################
+
+  GetKeysAndValues($$phProperties{'PropertiesFile'}, $phSiteProperties, $phProperties, undef);
+
   1;
 }
 
@@ -842,174 +603,665 @@ sub ReturnContent
 
 sub LogMessage
 {
-  my ($logHandle, $username, $address, $method, $request, $byteCount, $startTime, $status, $context, $explanation) = @_;
-  my $time = (scalar localtime);
-  my $runTime = time - $startTime;
-  my $delimeter = " ";
-  my @errorMessage;
+  my ($phProperties) = @_;
 
-  push(@errorMessage, ((defined $time)        ? $time               : "-"));
-  push(@errorMessage, ((defined $username)    ? $username           : "-"));
-  push(@errorMessage, ((defined $address)     ? $address            : "-"));
-  push(@errorMessage, ((defined $method)      ? $method             : "-"));
-  push(@errorMessage, ((defined $request)     ? $request            : "-"));
-  push(@errorMessage, ((defined $byteCount)   ? $byteCount          : "-"));
-  push(@errorMessage, ((defined $runTime)     ? $runTime            : "-"));
-  push(@errorMessage, ((defined $status)      ? $status             : "-"));
-  push(@errorMessage, ((defined $context)     ? "C{ $context }"     : "C{ - }"));
-  push(@errorMessage, ((defined $explanation) ? "E{ $explanation }" : "E{ - }"));
-  print $logHandle join($delimeter, @errorMessage) . "\n" if ($logHandle);
+  ####################################################################
+  #
+  # Create date/time stamp and calculate duration.
+  #
+  ####################################################################
+
+  my
+  (
+    $sSecond,
+    $sMinute,
+    $sHour,
+    $sMonthDay,
+    $sMonth,
+    $sYear,
+    $sWeekDay,
+    $sYearDay,
+    $sDaylightSavings
+  ) = ($$phProperties{'UseGMT'} =~ /^[Yy]$/) ? gmtime($$phProperties{'StopTime'}) : localtime($$phProperties{'StopTime'});
+
+  $$phProperties{'DateTime'} = sprintf("%04s-%02s-%02s %02s:%02s:%02s",
+    $sYear + 1900,
+    $sMonth + 1,
+    $sMonthDay,
+    $sHour,
+    $sMinute,
+    $sSecond
+    );
+
+  $$phProperties{'Duration'} = $$phProperties{'StopTime'} - $$phProperties{'StartTime'};
+
+  ####################################################################
+  #
+  # Construct log message.
+  #
+  ####################################################################
+
+  my (@aLogFields, @aOutputFields, $sLogMessage);
+
+  @aLogFields =
+  (
+    'DateTime',
+    'RemoteUser',
+    'RemoteAddress',
+    'RequestMethod',
+    'ClientId',
+    'ClientDataType',
+    'ClientFilename',
+    'ContentLength',
+    'ServerContentLength',
+    'Duration',
+    'ReturnStatus',
+    'ErrorMessage'
+  );
+
+  foreach my $sField (@aLogFields)
+  {
+    my $sValue = $$phProperties{$sField};
+    if ($sField =~ /^ErrorMessage$/)
+    {
+      push(@aOutputFields, ((defined($sValue) && length($sValue)) ? "-- $sValue" : "--"));
+    }
+    else
+    {
+      push(@aOutputFields, ((defined($sValue) && length($sValue)) ? "$sValue" : "-"));
+    }
+  }
+  $sLogMessage = join(" ", @aOutputFields);
+
+  ####################################################################
+  #
+  # Deliver log message.
+  #
+  ####################################################################
+
+  if (!open(LH, ">>" . $$phProperties{'LogFile'}))
+  {
+    print STDERR $sLogMessage, $$phProperties{'Newline'};
+    return undef;
+  }
+  binmode(LH);
+  print LH $sLogMessage, $$phProperties{'Newline'};
+  close(LH);
+
   1;
 }
 
 
 ######################################################################
 #
-# CompareMasks
+# ProcessGetRequest
 #
 ######################################################################
 
-sub CompareMasks
+sub ProcessGetRequest
 {
-  my ($requiredMask, $suppliedMask) = @_;
+  my ($phProperties, $psError) = @_;
 
   ####################################################################
   #
-  # Squash input.
+  # Proceed only if QueryString matches GETRegex.
   #
   ####################################################################
 
-  $requiredMask =~ tr/A-Z/a-z/;
-  $suppliedMask =~ tr/A-Z/a-z/;
+  my $sQueryString = URLDecode($$phProperties{'QueryString'});
 
-  ####################################################################
-  #
-  # Check syntax.
-  #
-  ####################################################################
-
-  if ($requiredMask !~ /^(all|none)([+-][a-z]+)*$/)
+  if ($sQueryString =~ /$$phProperties{'GETRegex'}/)
   {
-    return undef;
-  }
-  if ($suppliedMask !~ /^(all|none)([+-][a-z]+)*$/)
-  {
-    return undef;
-  }
+    $$phProperties{'ClientVersion'}  = $1;
+    $$phProperties{'ClientId'}       = $2 || "nobody";
+    $$phProperties{'ClientRequest'}  = $3;
 
-  ####################################################################
-  #
-  # Split input on +/- boundaries.
-  #
-  ####################################################################
+    $$phProperties{'ClientRequest'} =~ /^(MapFull|MapLean|DigFull|DigLean)Config$/;
+    $$phProperties{'ClientFilename'} = lc($1) . ".cfg";
 
-  my @requiredFields = split(/[+-]/, $requiredMask);
-  my @suppliedFields = split(/[+-]/, $suppliedMask);
+    ##################################################################
+    #
+    # Do username and client ID checks.
+    #
+    ##################################################################
 
-  ####################################################################
-  #
-  # Split input non +/- boundaries.
-  #
-  ####################################################################
-
-  my @requiredTokens = split(/[^+-]+/, $requiredMask);
-  my @suppliedTokens = split(/[^+-]+/, $suppliedMask);
-
-  ####################################################################
-  #
-  # Require the base elements to be the same.
-  #
-  ####################################################################
-
-  my $requiredBase = $requiredFields[0];
-  my $suppliedBase = $suppliedFields[0];
-
-  if ($requiredBase ne $suppliedBase)
-  {
-    return 0;
-  }
-
-  ####################################################################
-  #
-  # Remove the base element from the fields array.
-  #
-  ####################################################################
-
-  shift @requiredFields;
-  shift @suppliedFields;
-
-  ####################################################################
-  #
-  # Remove the base element from the tokens array.
-  #
-  ####################################################################
-
-  shift @requiredTokens;
-  shift @suppliedTokens;
-
-  ####################################################################
-  #
-  # Tally up the tokens.
-  #
-  ####################################################################
-
-  my (%requiredHash, %suppliedHash);
-
-  for (my $i = 0; $i < scalar(@requiredFields); $i++)
-  {
-    $requiredHash{$requiredFields[$i]} = ($requiredTokens[$i] eq "+") ? 1 : 0;
-  }
-  for (my $i = 0; $i < scalar(@suppliedFields); $i++)
-  {
-    $suppliedHash{$suppliedFields[$i]} = ($suppliedTokens[$i] eq "+") ? 1 : 0;
-  }
-
-  ####################################################################
-  #
-  # Delete the +/- fields. This depends on the value of the base field.
-  #
-  ####################################################################
-
-  if ($requiredBase eq "all")
-  {
-    foreach my $field (keys %requiredHash)
+    if ($$phProperties{'RequireUser'} =~ /^[Yy]$/ && (!defined($$phProperties{'RemoteUser'}) || !length($$phProperties{'RemoteUser'})))
     {
-      if ($requiredHash{$field} == 1)
-      {
-        delete $requiredHash{$field};
-      }
+      $$psError = "Remote user is undefined or null";
+      return 452;
     }
-    foreach my $field (keys %suppliedHash)
+
+    if ($$phProperties{'RequireUser'} =~ /^[Yy]$/ && $$phProperties{'RequireMatch'} =~ /^[Yy]$/ && $$phProperties{'RemoteUser'} ne $$phProperties{'ClientId'})
     {
-      if ($suppliedHash{$field} == 1)
+      $$psError = "Remote user ($$phProperties{'RemoteUser'}) does not match client ID ($$phProperties{'ClientId'})";
+      return 453;
+    }
+
+    ##################################################################
+    #
+    # Do content length checks.
+    #
+    ##################################################################
+
+    if (!defined($$phProperties{'ContentLength'}) || !length($$phProperties{'ContentLength'}))
+    {
+      $$psError = "Content length is undefined or null";
+      return 454;
+    }
+
+    if ($$phProperties{'CapContentLength'} =~ /^[Yy]$/ && $$phProperties{'ContentLength'} > $$phProperties{'MaxContentLength'})
+    {
+      $$psError = "Content length ($$phProperties{'ContentLength'}) exceeds maximum allowed length ($$phProperties{'MaxContentLength'})";
+      return 455;
+    }
+
+    ##################################################################
+    #
+    # Locate the requested file and serve it up.
+    #
+    ##################################################################
+
+    my ($sGetFile);
+
+    $sGetFile = $$phProperties{'ProfilesDirectory'} . "/" . $$phProperties{'ClientId'} . "/" . "cfgfiles" . "/" . $$phProperties{'ClientFilename'};
+    if (-e $sGetFile)
+    {
+      if (!open(FH, "<$sGetFile"))
       {
-        delete $suppliedHash{$field};
+        $$psError = "Requested file ($sGetFile) could not be opened ($!)";
+        return 457;
       }
+      binmode(FH);
+      $$phProperties{'ReturnHandle'} = \*FH;
+      $$psError = "Success";
+      return 200;
+    }
+    else
+    {
+      $$psError = "Requested file ($sGetFile) does not exist";
+      return 404;
     }
   }
   else
   {
-    foreach my $field (keys %requiredHash)
+    $$psError = "Invalid query string ($$phProperties{'QueryString'})";
+    return 450;
+  }
+}
+
+
+######################################################################
+#
+# ProcessPingRequest
+#
+######################################################################
+
+sub ProcessPingRequest
+{
+  my ($phProperties, $psError) = @_;
+
+  ####################################################################
+  #
+  # Proceed only if QueryString matches PINGRegex.
+  #
+  ####################################################################
+
+  my $sQueryString = URLDecode($$phProperties{'QueryString'});
+
+  if ($sQueryString =~ /$$phProperties{'PINGRegex'}/)
+  {
+    $$phProperties{'ClientVersion'}   = $1;
+    $$phProperties{'ClientId'}        = $2 || "nobody";
+    $$phProperties{'ClientDataType'}  = $3;
+    $$phProperties{'ClientFieldMask'} = $4;
+
+    ##################################################################
+    #
+    # Do username and client ID checks.
+    #
+    ##################################################################
+
+    if ($$phProperties{'RequireUser'} =~ /^[Yy]$/ && (!defined($$phProperties{'RemoteUser'}) || !length($$phProperties{'RemoteUser'})))
     {
-      if ($requiredHash{$field} == 0)
+      $$psError = "Remote user is undefined or null";
+      return 452;
+    }
+
+    if ($$phProperties{'RequireUser'} =~ /^[Yy]$/ && $$phProperties{'RequireMatch'} =~ /^[Yy]$/ && $$phProperties{'RemoteUser'} ne $$phProperties{'ClientId'})
+    {
+      $$psError = "Remote user ($$phProperties{'RemoteUser'}) does not match client ID ($$phProperties{'ClientId'})";
+      return 453;
+    }
+
+    ##################################################################
+    #
+    # Do content length checks.
+    #
+    ##################################################################
+
+    if (!defined($$phProperties{'ContentLength'}) || !length($$phProperties{'ContentLength'}))
+    {
+      $$psError = "Content length is undefined or null";
+      return 454;
+    }
+
+    if ($$phProperties{'CapContentLength'} =~ /^[Yy]$/ && $$phProperties{'ContentLength'} > $$phProperties{'MaxContentLength'})
+    {
+      $$psError = "Content length ($$phProperties{'ContentLength'}) exceeds maximum allowed length ($$phProperties{'MaxContentLength'})";
+      return 455;
+    }
+
+    ##################################################################
+    #
+    # Do field mask check.
+    #
+    ##################################################################
+
+    if ($$phProperties{'RequireMask'} =~ /^[Yy]$/)
+    {
+      my $sRequiredMask = ($$phProperties{'ClientDataType'} =~ /^map$/i) ? $$phProperties{'RequiredMapMask'} : $$phProperties{'RequiredDigMask'};
+      if (!CompareMasks($sRequiredMask, $$phProperties{'ClientFieldMask'}))
       {
-        delete $requiredHash{$field};
+        $$psError = "Field mask ($$phProperties{'ClientFieldMask'}) does not match required field mask ($sRequiredMask)";
+        return 460;
       }
     }
-    foreach my $field (keys %suppliedHash)
+
+    $$psError = "Success";
+    return 250;
+  }
+  else
+  {
+    $$psError = "Invalid query string ($$phProperties{'QueryString'})";
+    return 450;
+  }
+}
+
+
+######################################################################
+#
+# ProcessPutRequest
+#
+######################################################################
+
+sub ProcessPutRequest
+{
+  my ($phProperties, $psError) = @_;
+
+  ####################################################################
+  #
+  # Proceed only if QueryString matches PUTRegex.
+  #
+  ####################################################################
+
+  my $sQueryString = URLDecode($$phProperties{'QueryString'});
+
+  if ($sQueryString =~ /$$phProperties{'PUTRegex'}/)
+  {
+    my ($sLogLength, $sOutLength);
+
+    $$phProperties{'ClientVersion'}   = $1;
+    $$phProperties{'ClientId'}        = $2 || "nobody";
+    $$phProperties{'ClientDataType'}  = $3;
+    $$phProperties{'ClientFieldMask'} = $4;
+    $$phProperties{'ClientRunType'}   = $5;
+    $$phProperties{'ClientDateTime'}  = $6;
+    $$phProperties{'ClientLogLength'} = $sLogLength = $7;
+    $$phProperties{'ClientOutLength'} = $sOutLength = $8;
+    $$phProperties{'ClientMD5'}       = $9;
+
+    $$phProperties{'ClientFilename'} = $$phProperties{'ClientId'} . "_" . $$phProperties{'ClientDateTime'} . "_" . $$phProperties{'ClientRunType'};
+
+    ##################################################################
+    #
+    # Do username and client ID checks.
+    #
+    ##################################################################
+
+    if ($$phProperties{'RequireUser'} =~ /^[Yy]$/ && (!defined($$phProperties{'RemoteUser'}) || !length($$phProperties{'RemoteUser'})))
     {
-      if ($suppliedHash{$field} == 0)
+      $$psError = "Remote user is undefined or null";
+      return 452;
+    }
+
+    if ($$phProperties{'RequireUser'} =~ /^[Yy]$/ && $$phProperties{'RequireMatch'} =~ /^[Yy]$/ && $$phProperties{'RemoteUser'} ne $$phProperties{'ClientId'})
+    {
+      $$psError = "Remote user ($$phProperties{'RemoteUser'}) does not match client ID ($$phProperties{'ClientId'})";
+      return 453;
+    }
+
+    ##################################################################
+    #
+    # Do content length checks.
+    #
+    ##################################################################
+
+    if (!defined($$phProperties{'ContentLength'}) || !length($$phProperties{'ContentLength'}))
+    {
+      $$psError = "Content length is undefined or null";
+      return 454;
+    }
+
+    if ($$phProperties{'CapContentLength'} =~ /^[Yy]$/ && $$phProperties{'ContentLength'} > $$phProperties{'MaxContentLength'})
+    {
+      $$psError = "Content length ($$phProperties{'ContentLength'}) exceeds maximum allowed length ($$phProperties{'MaxContentLength'})";
+      return 455;
+    }
+
+    if ($$phProperties{'ContentLength'} != ($sOutLength + $sLogLength))
+    {
+      $$psError = "Content length ($$phProperties{'ContentLength'}) does not equal sum of individual stream lengths ($sOutLength + $sLogLength)";
+      return 456;
+    }
+
+    ##################################################################
+    #
+    # Do field mask check.
+    #
+    ##################################################################
+
+    if ($$phProperties{'RequireMask'} =~ /^[Yy]$/)
+    {
+      my $sRequiredMask = ($$phProperties{'ClientDataType'} =~ /^map$/i) ? $$phProperties{'RequiredMapMask'} : $$phProperties{'RequiredDigMask'};
+      if (!CompareMasks($sRequiredMask, $$phProperties{'ClientFieldMask'}))
       {
-        delete $suppliedHash{$field};
+        $$psError = "Field mask ($$phProperties{'ClientFieldMask'}) does not match required field mask ($sRequiredMask)";
+        return 460;
       }
+    }
+
+    ##################################################################
+    #
+    # If this is a link test, dump the data and return success.
+    #
+    ##################################################################
+
+    if ($$phProperties{'ClientRunType'} eq "linktest")
+    {
+      SysReadWrite(\*STDIN, undef, $$phProperties{'ContentLength'}, undef); # Slurp up data to prevent a broken pipe.
+      $$psError = "Success";
+      return 251;
+    }
+
+    ##################################################################
+    #
+    # Make output filenames.
+    #
+    ##################################################################
+
+    my ($sLogFile, $sOutFile, $sRdyFile);
+
+    $sLogFile = $$phProperties{'IncomingDirectory'} . "/" . $$phProperties{'ClientFilename'} . ".log";
+    $sOutFile = $$phProperties{'IncomingDirectory'} . "/" . $$phProperties{'ClientFilename'} . "." . $$phProperties{'ClientDataType'};
+    $sRdyFile = $$phProperties{'IncomingDirectory'} . "/" . $$phProperties{'ClientFilename'} . ".rdy";
+
+    ##################################################################
+    #
+    # Make sure that none of the output files exist.
+    #
+    ##################################################################
+
+    foreach my $sPutFile ($sOutFile, $sLogFile, $sRdyFile)
+    {
+      if (-e $sPutFile)
+      {
+        SysReadWrite(\*STDIN, undef, $$phProperties{'ContentLength'}, undef); # Slurp up data to prevent a broken pipe.
+        $$psError = "File ($sPutFile) already exists";
+        return 451;
+      }
+    }
+
+    ##################################################################
+    #
+    # Write output files (log, out, rdy) to disk.
+    #
+    ##################################################################
+
+    my (%hStreamLengths, $sLocalError);
+
+    $hStreamLengths{$sOutFile} = $sOutLength;
+    $hStreamLengths{$sLogFile} = $sLogLength;
+
+    foreach my $sPutFile ($sLogFile, $sOutFile, $sRdyFile)
+    {
+      if (!open(FH, ">$sPutFile"))
+      {
+        SysReadWrite(\*STDIN, undef, $$phProperties{'ContentLength'}, undef); # Slurp up data to prevent a broken pipe.
+        $$psError = "File ($sPutFile) could not be opened ($!)";
+        return 500;
+      }
+      binmode(FH);
+      if ($sPutFile eq $sRdyFile)
+      {
+        print FH "+", $$phProperties{'Newline'};
+      }
+      else
+      {
+        my $sByteCount = SysReadWrite(\*STDIN, \*FH, $hStreamLengths{$sPutFile}, \$sLocalError);
+        if (!defined($sByteCount))
+        {
+          close(FH);
+          $$psError = $sLocalError;
+          return 500;
+        }
+        if ($sByteCount != $hStreamLengths{$sPutFile})
+        {
+          close(FH);
+          $$psError = "Stream length ($hStreamLengths{$sPutFile}) does not equal number of bytes processed ($sByteCount) for output file ($sPutFile)";
+          return 456;
+        }
+      }
+      close(FH);
+    }
+
+    $$psError = "Success";
+    return 200;
+  }
+  else
+  {
+    $$psError = "Invalid query string ($$phProperties{'QueryString'})";
+    return 450;
+  }
+}
+
+
+######################################################################
+#
+# SendResponse
+#
+######################################################################
+
+sub SendResponse
+{
+  my ($phProperties) = @_;
+
+  ####################################################################
+  #
+  # Send response header.
+  #
+  ####################################################################
+
+  my ($sHandle, $sHeader, $sLength, $sReason, $sServer, $sStatus);
+
+  $sHandle = $$phProperties{'ReturnHandle'};
+  $sStatus = $$phProperties{'ReturnStatus'};
+  $sReason = $$phProperties{'ReturnReason'};
+  $sServer = $$phProperties{'ServerSoftware'};
+  $sLength = (defined($sHandle)) ? -s $sHandle : 0;
+
+  $sHeader  = "HTTP/1.1 $sStatus $sReason\r\n";
+  $sHeader .= "Server: $sServer\r\n";
+  $sHeader .= "Content-Type: application/octet-stream\r\n";
+  $sHeader .= "Content-Length: $sLength\r\n";
+  $sHeader .= "\r\n";
+
+  syswrite(STDOUT, $sHeader, length($sHeader));
+
+  ####################################################################
+  #
+  # Send content if any.
+  #
+  ####################################################################
+
+  if (defined($sHandle))
+  {
+    SysReadWrite($sHandle, \*STDOUT, $sLength, undef);
+    close($sHandle);
+  }
+
+  return $sLength;
+}
+
+
+######################################################################
+#
+# SysReadWrite
+#
+######################################################################
+
+sub SysReadWrite
+{
+  my ($sReadHandle, $sWriteHandle, $sLength, $psError) = @_;
+
+  ####################################################################
+  #
+  # Read/Write data, but discard data if write handle is undefined.
+  #
+  ####################################################################
+
+  my ($sData, $sEOF, $sNRead, $sNProcessed, $sNWritten);
+
+  for ($sEOF = $sNRead = $sNProcessed = 0; !$sEOF && $sLength > 0; $sLength -= $sNRead)
+  {
+    $sNRead = sysread($sReadHandle, $sData, ($sLength > 0x4000) ? 0x4000 : $sLength);
+    if (!defined($sNRead))
+    {
+      $$psError = "Error reading from input stream ($!)" if (defined($psError));
+      return undef;
+    }
+    elsif ($sNRead == 0)
+    {
+      $sEOF = 1;
+    }
+    else
+    {
+      if (defined($sWriteHandle))
+      {
+        $sNWritten = syswrite($sWriteHandle, $sData, $sNRead);
+        if (!defined($sNWritten))
+        {
+          $$psError = "Error writing to output stream ($!)" if (defined($psError));
+          return undef;
+        }
+      }
+      else
+      {
+        $sNWritten = $sNRead;
+      }
+      $sNProcessed += $sNWritten;
+    }
+  }
+
+  return $sNProcessed;
+}
+
+
+######################################################################
+#
+# URLDecode
+#
+######################################################################
+
+sub URLDecode
+{
+  my ($sData) = @_;
+
+  $sData =~ s/\+/ /sg;
+  $sData =~ s/%([0-9a-fA-F]{2})/pack('C', hex($1))/seg;
+
+  return $sData;
+}
+
+
+######################################################################
+#
+# VerifyRunTimeEnvironment
+#
+######################################################################
+
+sub VerifyRunTimeEnvironment
+{
+  my ($phProperties, $phRequiredProperties, $psError) = @_;
+
+  ####################################################################
+  #
+  # Make sure all required properties are defined and valid.
+  #
+  ####################################################################
+
+  foreach my $sProperty (keys(%$phRequiredProperties))
+  {
+    my $sValue = $$phProperties{$sProperty};
+    if (!defined($sValue) || $sValue !~ /$$phRequiredProperties{$sProperty}/)
+    {
+      $$psError = "$sProperty property ($sValue) is undefined or invalid";
+      return undef;
     }
   }
 
   ####################################################################
   #
-  # Compare the two normalized masks.
+  # Make sure the logfiles directory is readable.
   #
   ####################################################################
 
-  return ((join("|", sort keys %requiredHash)) eq (join("|", sort keys %suppliedHash)));
+  if (!-d $$phProperties{'LogfilesDirectory'} || !-R _)
+  {
+    $$psError = "Logfiles directory ($$phProperties{'LogfilesDirectory'}) does not exist or is not readable";
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Make sure the profiles directory is readable.
+  #
+  ####################################################################
+
+  if (!-d $$phProperties{'ProfilesDirectory'} || !-R _)
+  {
+    $$psError = "Profiles directory ($$phProperties{'ProfilesDirectory'}) does not exist or is not readable";
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Make sure the incoming directory is writable.
+  #
+  ####################################################################
+
+  if (!-d $$phProperties{'IncomingDirectory'} || !-W _)
+  {
+    $$psError = "Incoming directory ($$phProperties{'IncomingDirectory'}) does not exist or is not writeable";
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Make sure that the required dig/map masks pass a syntax check.
+  #
+  ####################################################################
+
+  if ($$phProperties{'RequireMask'} =~ /^[Yy]$/ && !defined(CompareMasks($$phProperties{'RequiredMapMask'}, $$phProperties{'RequiredMapMask'})))
+  {
+    $$psError = "Invalid mask ($$phProperties{'RequiredMapMask'})";
+    return undef;
+  }
+
+  if ($$phProperties{'RequireMask'} =~ /^[Yy]$/ && !defined(CompareMasks($$phProperties{'RequiredDigMask'}, $$phProperties{'RequiredDigMask'})))
+  {
+    $$psError = "Invalid mask ($$phProperties{'RequiredDigMask'})";
+    return undef;
+  }
+
+  1;
 }

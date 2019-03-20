@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: xmagic.h,v 1.6 2003/02/23 17:40:10 mavrik Exp $
+ * $Id: xmagic.h,v 1.11 2004/04/22 02:59:27 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -34,7 +33,7 @@
 #define XMAGIC_LSB                      0
 #define XMAGIC_MSB                      1
 #define XMAGIC_READ_BUFSIZE        0x4000
-#define XMAGIC_MAX_LINE_LENGTH       1024
+#define XMAGIC_MAX_LINE              8192
 #define XMAGIC_MAX_LEVEL               10
 #define XMAGIC_STRING_BUFSIZE          32
 #define XMAGIC_DESCRIPTION_BUFSIZE    128
@@ -82,7 +81,7 @@ typedef union _XMAGIC_VALUE
  * psParent           Pointer to parent magic
  * psSibling          Pointer to next magic
  * psChild            Pointer to subordinate magic
- * cDescription       Description to use on a match
+ * acDescription      Description to use on a match
  * cOperator          '<', '=', '>', '!', '&', '^', 'x'
  * ui32Flags          XMAGIC_{INDIRECT_OFFSET|RELATIVE_OFFSET|NO_SPACE}
  * ui32Level          Level of magic test (i.e. number of '>')
@@ -100,7 +99,7 @@ typedef struct _XMAGIC
   struct _XMAGIC     *psParent;
   struct _XMAGIC     *psSibling;
   struct _XMAGIC     *psChild;
-  char                cDescription[XMAGIC_DESCRIPTION_BUFSIZE];
+  char                acDescription[XMAGIC_DESCRIPTION_BUFSIZE];
   char                cOperator;
   K_UINT32            ui32Flags;
   K_UINT32            ui32Level;
@@ -111,7 +110,6 @@ typedef struct _XMAGIC
   XMAGIC_VALUE        sValue;
   int                 iStringLength;
 } XMAGIC;
-
 
 /*-
  ***********************************************************************
@@ -126,7 +124,7 @@ int                 XMagicCompareValues(unsigned char *pucBuffer, int iNRead, XM
 int                 XMagicConvert2charHex(char *pcSRC, char *pcDST);
 int                 XMagicConvert3charOct(char *pcSRC, char *pcDST);
 int                 XMagicConvertHexToInt(int iC);
-void                XMagicFormatDescription(K_UINT32 ui32Value, XMAGIC *psXMagic, char *pcDescription);
+void                XMagicFormatDescription(void *pvValue, XMAGIC *psXMagic, char *pcDescription);
 int                 XMagicGetDescription(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError);
 int                 XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError);
 int                 XMagicGetTestOperator(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError);
@@ -140,4 +138,4 @@ K_UINT16            XMagicSwapShort(K_UINT16 ui16Value, K_UINT32 ui32MagicType);
 int                 XMagicTestBuffer(unsigned char *pucBuffer, int iBufferLength, char *pcDescription, int iDescriptionLength, char *pcError);
 int                 XMagicTestFile(char *pcFilename, char *pcDescription, int iDescriptionLength, char *pcError);
 int                 XMagicTestMagic(unsigned char *pucBuffer, int iNRead, XMAGIC *psXMagic, char *pcDescription, int *iBytesUsed, int *iBytesLeft, char *pcError);
-int                 XMagicTestSpecial(char *pcFilename, struct stat *pStat, char *pcDescription, int iDescriptionLength, char *pcError);
+int                 XMagicTestSpecial(char *pcFilename, struct stat *psStatEntry, char *pcDescription, int iDescriptionLength, char *pcError);

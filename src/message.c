@@ -1,22 +1,21 @@
 /*-
  ***********************************************************************
  *
- * $Id: message.c,v 1.5 2003/02/24 19:36:00 mavrik Exp $
+ * $Id: message.c,v 1.7 2004/04/04 07:09:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
 
 #ifdef WIN32
-static char           gcNewLine[NEWLINE_LENGTH] = CRLF;
+static char           gacNewLine[NEWLINE_LENGTH] = CRLF;
 #endif
 #ifdef UNIX
-static char           gcNewLine[NEWLINE_LENGTH] = LF;
+static char           gacNewLine[NEWLINE_LENGTH] = LF;
 #endif
 static FILE          *gpFile;
 static int            giLevel = MESSAGE_DEBUGGER;
@@ -45,7 +44,7 @@ MessageSetLogLevel(int iLevel)
 void
 MessageSetNewLine(char *pcNewLine)
 {
-  strcpy(gcNewLine, (strcmp(pcNewLine, CRLF) == 0) ? CRLF : LF);
+  strcpy(gacNewLine, (strcmp(pcNewLine, CRLF) == 0) ? CRLF : LF);
 }
 
 
@@ -73,10 +72,10 @@ MessageSetOutputStream(FILE *pFile)
 void
 MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
 {
-  static char         ccMessageQueue[MESSAGE_QUEUE_LENGTH][MESSAGE_SIZE];
+  static char         aacMessageQueue[MESSAGE_QUEUE_LENGTH][MESSAGE_SIZE];
   static int          n = 0;
-  int                 i,
-                      iLength;
+  int                 i;
+  int                 iLength;
 
   /*-
    *********************************************************************
@@ -108,8 +107,8 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
     {
       if (n < MESSAGE_QUEUE_LENGTH)
       {
-        snprintf(ccMessageQueue[n], MESSAGE_SIZE, "%*.*s|%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage);
-        ccMessageQueue[n][MESSAGE_SIZE - 1] = 0; /* Force termination. */
+        snprintf(aacMessageQueue[n], MESSAGE_SIZE, "%*.*s|%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage);
+        aacMessageQueue[n][MESSAGE_SIZE - 1] = 0; /* Force termination. */
       }
       else
       {
@@ -117,19 +116,19 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
         {
           if (gpFile != NULL && gpFile != stderr)
           {
-            iLength = strlen(ccMessageQueue[i]);
+            iLength = strlen(aacMessageQueue[i]);
             if (iLength >= MESSAGE_SIZE - 3)
             {
-              snprintf(&ccMessageQueue[i][MESSAGE_SIZE - 3], 3, "%s", gcNewLine);
-              iLength = MESSAGE_SIZE - 3 + strlen(gcNewLine);
+              snprintf(&aacMessageQueue[i][MESSAGE_SIZE - 3], 3, "%s", gacNewLine);
+              iLength = MESSAGE_SIZE - 3 + strlen(gacNewLine);
             }
             else
             {
-              iLength += snprintf(&ccMessageQueue[i][iLength], 3, "%s", gcNewLine);
+              iLength += snprintf(&aacMessageQueue[i][iLength], 3, "%s", gacNewLine);
             }
-            fwrite(ccMessageQueue[i], iLength, 1, gpFile);
+            fwrite(aacMessageQueue[i], iLength, 1, gpFile);
           }
-          ccMessageQueue[i][0] = 0;
+          aacMessageQueue[i][0] = 0;
         }
         n = 0;
 
@@ -138,10 +137,10 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
           fflush(gpFile);
         }
 
-        snprintf(ccMessageQueue[n], MESSAGE_SIZE, "%*.*s|%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage);
-        ccMessageQueue[n][MESSAGE_SIZE - 1] = 0; /* Force termination. */
+        snprintf(aacMessageQueue[n], MESSAGE_SIZE, "%*.*s|%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage);
+        aacMessageQueue[n][MESSAGE_SIZE - 1] = 0; /* Force termination. */
       }
-      fprintf(stderr, "%*.*s|%s%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage, gcNewLine);
+      fprintf(stderr, "%*.*s|%s%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage, gacNewLine);
       n++;
     }
     return;
@@ -166,19 +165,19 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
         {
           if (gpFile != NULL && gpFile != stderr)
           {
-            iLength = strlen(ccMessageQueue[i]);
+            iLength = strlen(aacMessageQueue[i]);
             if (iLength >= MESSAGE_SIZE - 3)
             {
-              snprintf(&ccMessageQueue[i][MESSAGE_SIZE - 3], 3, "%s", gcNewLine);
-              iLength = MESSAGE_SIZE - 3 + strlen(gcNewLine);
+              snprintf(&aacMessageQueue[i][MESSAGE_SIZE - 3], 3, "%s", gacNewLine);
+              iLength = MESSAGE_SIZE - 3 + strlen(gacNewLine);
             }
             else
             {
-              iLength += snprintf(&ccMessageQueue[i][iLength], 3, "%s", gcNewLine);
+              iLength += snprintf(&aacMessageQueue[i][iLength], 3, "%s", gacNewLine);
             }
-            fwrite(ccMessageQueue[i], iLength, 1, gpFile);
+            fwrite(aacMessageQueue[i], iLength, 1, gpFile);
           }
-          ccMessageQueue[i][0] = 0;
+          aacMessageQueue[i][0] = 0;
         }
         n = 0;
       }
@@ -190,24 +189,24 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
        *
        *****************************************************************
        */
-      snprintf(ccMessageQueue[0], MESSAGE_SIZE, "%*.*s|%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage);
-      ccMessageQueue[0][MESSAGE_SIZE - 1] = 0; /* Force termination. */
+      snprintf(aacMessageQueue[0], MESSAGE_SIZE, "%*.*s|%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage);
+      aacMessageQueue[0][MESSAGE_SIZE - 1] = 0; /* Force termination. */
       if (gpFile != NULL && gpFile != stderr)
       {
-        iLength = strlen(ccMessageQueue[0]);
+        iLength = strlen(aacMessageQueue[0]);
         if (iLength >= MESSAGE_SIZE - 3)
         {
-          snprintf(&ccMessageQueue[0][MESSAGE_SIZE - 3], 3, "%s", gcNewLine);
-          iLength = MESSAGE_SIZE - 3 + strlen(gcNewLine);
+          snprintf(&aacMessageQueue[0][MESSAGE_SIZE - 3], 3, "%s", gacNewLine);
+          iLength = MESSAGE_SIZE - 3 + strlen(gacNewLine);
         }
         else
         {
-          iLength += snprintf(&ccMessageQueue[0][iLength], 3, "%s", gcNewLine);
+          iLength += snprintf(&aacMessageQueue[0][iLength], 3, "%s", gacNewLine);
         }
-        fwrite(ccMessageQueue[0], iLength, 1, gpFile);
+        fwrite(aacMessageQueue[0], iLength, 1, gpFile);
       }
-      ccMessageQueue[0][0] = 0;
-      fprintf(stderr, "%*.*s|%s%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage, gcNewLine);
+      aacMessageQueue[0][0] = 0;
+      fprintf(stderr, "%*.*s|%s%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage, gacNewLine);
     }
     else
     {
@@ -217,19 +216,19 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
         {
           if (gpFile != NULL && gpFile != stderr)
           {
-            iLength = strlen(ccMessageQueue[i]);
+            iLength = strlen(aacMessageQueue[i]);
             if (iLength >= MESSAGE_SIZE - 3)
             {
-              snprintf(&ccMessageQueue[i][MESSAGE_SIZE - 3], 3, "%s", gcNewLine);
-              iLength = MESSAGE_SIZE - 3 + strlen(gcNewLine);
+              snprintf(&aacMessageQueue[i][MESSAGE_SIZE - 3], 3, "%s", gacNewLine);
+              iLength = MESSAGE_SIZE - 3 + strlen(gacNewLine);
             }
             else
             {
-              iLength += snprintf(&ccMessageQueue[i][iLength], 3, "%s", gcNewLine);
+              iLength += snprintf(&aacMessageQueue[i][iLength], 3, "%s", gacNewLine);
             }
-            fwrite(ccMessageQueue[i], iLength, 1, gpFile);
+            fwrite(aacMessageQueue[i], iLength, 1, gpFile);
           }
-          ccMessageQueue[i][0] = 0;
+          aacMessageQueue[i][0] = 0;
         }
         n = 0;
       }

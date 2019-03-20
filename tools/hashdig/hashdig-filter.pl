@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-filter.pl,v 1.5 2003/08/02 14:59:21 mavrik Exp $
+# $Id: hashdig-filter.pl,v 1.9 2004/04/21 01:29:59 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -30,9 +30,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($program);
+  my ($sProgram);
 
-  $program = "hashdig-filter.pl";
+  $sProgram = basename(__FILE__);
 
   ####################################################################
   #
@@ -40,65 +40,68 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my @binDirs =
+  my @aBinDirs =
      (
-       "/bin",
-       "/kernel",
-       "/kvm",
-       "/opt/bin",
-       "/opt/local/bin",
-       "/opt/local/sbin",
-       "/opt/sbin",
-       "/platform",
-       "/sbin",
-       "/usr/bin",
-       "/usr/ccs",
-       "/usr/kernel",
-       "/usr/local/bin",
-       "/usr/local/sbin",
-       "/usr/sbin",
-       "/usr/ucb"
+       "/bin/",
+       "/kernel/",
+       "/kvm/",
+       "/opt/bin/",
+       "/opt/local/bin/",
+       "/opt/local/sbin/",
+       "/opt/sbin/",
+       "/platform/",
+       "/sbin/",
+       "/usr/bin/",
+       "/usr/ccs/bin/",
+       "/usr/kernel/",
+       "/usr/kvm/",
+       "/usr/local/bin/",
+       "/usr/local/sbin/",
+       "/usr/platform/",
+       "/usr/sbin/",
+       "/usr/ucb/"
      );
 
-  my @devDirs =
+  my @aDevDirs =
      (
-       "/dev",
-       "/devices"
+       "/dev/",
+       "/devices/"
      );
 
-  my @etcDirs =
+  my @aEtcDirs =
      (
-       "/etc",
-       "/opt/etc",
-       "/opt/local/etc",
-       "/usr/local/etc"
+       "/etc/",
+       "/opt/etc/",
+       "/opt/local/etc/",
+       "/usr/local/etc/"
      );
 
-  my @libDirs =
+  my @aLibDirs =
      (
-       "/lib",
-       "/libexec",
-       "/opt/lib",
-       "/opt/libexec",
-       "/opt/local/lib",
-       "/opt/local/libexec",
-       "/usr/lib",
-       "/usr/libexec",
-       "/usr/local/lib",
-       "/usr/local/libexec",
-       "/usr/ucblib"
+       "/lib/",
+       "/libexec/",
+       "/opt/lib/",
+       "/opt/libexec/",
+       "/opt/local/lib/",
+       "/opt/local/libexec/",
+       "/usr/ccs/lib/",
+       "/usr/lib/",
+       "/usr/libexec/",
+       "/usr/local/lib/",
+       "/usr/local/libexec/",
+       "/usr/ucblib/"
      );
 
-  my @manDirs =
+  my @aManDirs =
      (
-       "/opt/man",
-       "/opt/local/man",
-       "/opt/local/share/man",
-       "/opt/share/man",
-       "/usr/local/man",
-       "/usr/local/share/man",
-       "/usr/man",
-       "/usr/share/man"
+       "/opt/man/",
+       "/opt/local/man/",
+       "/opt/local/share/man/",
+       "/opt/share/man/",
+       "/usr/local/man/",
+       "/usr/local/share/man/",
+       "/usr/man/",
+       "/usr/share/man/"
      );
 
   ####################################################################
@@ -107,23 +110,23 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('p:', \%options))
+  if (!getopts('p:', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # The prefix flag, '-p', is optional. Default value is "".
+  # The Prefix flag, '-p', is optional. Default value is "".
   #
   ####################################################################
 
-  my ($prefix);
+  my ($sPrefix);
 
-  $prefix = (exists($options{'p'})) ? $options{'p'} : "";
-  $prefix =~ s/\/+$//;
+  $sPrefix = (exists($hOptions{'p'})) ? $hOptions{'p'} : "";
+  $sPrefix =~ s/\/+$//;
 
   ####################################################################
   #
@@ -133,7 +136,7 @@ use Getopt::Std;
 
   if (scalar(@ARGV) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
@@ -142,11 +145,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my $binRegex = '\|(?:' . $prefix . join('|' . $prefix, @binDirs) . ')';
-  my $devRegex = '\|(?:' . $prefix . join('|' . $prefix, @devDirs) . ')';
-  my $etcRegex = '\|(?:' . $prefix . join('|' . $prefix, @etcDirs) . ')';
-  my $libRegex = '\|(?:' . $prefix . join('|' . $prefix, @libDirs) . ')';
-  my $manRegex = '\|(?:' . $prefix . join('|' . $prefix, @manDirs) . ')';
+  my $sBinRegex = '\|(?:' . $sPrefix . join('|' . $sPrefix, @aBinDirs) . ')';
+  my $sDevRegex = '\|(?:' . $sPrefix . join('|' . $sPrefix, @aDevDirs) . ')';
+  my $sEtcRegex = '\|(?:' . $sPrefix . join('|' . $sPrefix, @aEtcDirs) . ')';
+  my $sLibRegex = '\|(?:' . $sPrefix . join('|' . $sPrefix, @aLibDirs) . ')';
+  my $sManRegex = '\|(?:' . $sPrefix . join('|' . $sPrefix, @aManDirs) . ')';
 
   ####################################################################
   #
@@ -154,11 +157,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (@handles, %handleList);
+  my (@aHandles, %hHandleList);
 
-  @handles = ("bin", "dev", "etc", "lib", "man", "other");
+  @aHandles = ("bin", "dev", "etc", "lib", "man", "other");
 
-  foreach my $inputFile (@ARGV)
+  foreach my $sInputFile (@ARGV)
   {
     ##################################################################
     #
@@ -166,15 +169,15 @@ use Getopt::Std;
     #
     ##################################################################
 
-    if (!open(FH, "<$inputFile"))
+    if (!open(FH, "<$sInputFile"))
     {
-      print STDERR "$program: File='$inputFile' Error='$!'\n";
+      print STDERR "$sProgram: File='$sInputFile' Error='$!'\n";
       next;
     }
 
-    if (!defined(OpenFileHandles($inputFile, \@handles, \%handleList)))
+    if (!defined(OpenFileHandles($sInputFile, \@aHandles, \%hHandleList)))
     {
-      print STDERR "$program: File='$inputFile' Error='Unable to create output files.'\n";
+      print STDERR "$sProgram: File='$sInputFile' Error='Unable to create output files.'\n";
       close(FH);
       next;
     }
@@ -185,55 +188,55 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my $handle;
-    my $binCounter = 0;
-    my $devCounter = 0;
-    my $etcCounter = 0;
-    my $libCounter = 0;
-    my $manCounter = 0;
-    my $otherCounter = 0;
-    my $allCounter = 0;
+    my $sHandle;
+    my $sBinCounter = 0;
+    my $sDevCounter = 0;
+    my $sEtcCounter = 0;
+    my $sLibCounter = 0;
+    my $sManCounter = 0;
+    my $sOtherCounter = 0;
+    my $sAllCounter = 0;
 
-    while(my $record = <FH>)
+    while (my $sRecord = <FH>)
     {
-      $record =~ s/[\r\n]+$//;
-      if ($record =~ /$binRegex/o)
+      $sRecord =~ s/[\r\n]+$//;
+      if ($sRecord =~ /$sBinRegex/o)
       {
-        $handle = $handleList{'bin'};
-        print $handle "$record\n";
-        $binCounter++;
+        $sHandle = $hHandleList{'bin'};
+        print $sHandle "$sRecord\n";
+        $sBinCounter++;
       }
-      elsif ($record =~ /$devRegex/o)
+      elsif ($sRecord =~ /$sDevRegex/o)
       {
-        $handle = $handleList{'dev'};
-        print $handle "$record\n";
-        $devCounter++;
+        $sHandle = $hHandleList{'dev'};
+        print $sHandle "$sRecord\n";
+        $sDevCounter++;
       }
-      elsif ($record =~ /$etcRegex/o)
+      elsif ($sRecord =~ /$sEtcRegex/o)
       {
-        $handle = $handleList{'etc'};
-        print $handle "$record\n";
-        $etcCounter++;
+        $sHandle = $hHandleList{'etc'};
+        print $sHandle "$sRecord\n";
+        $sEtcCounter++;
       }
-      elsif ($record =~ /$libRegex/o)
+      elsif ($sRecord =~ /$sLibRegex/o)
       {
-        $handle = $handleList{'lib'};
-        print $handle "$record\n";
-        $libCounter++;
+        $sHandle = $hHandleList{'lib'};
+        print $sHandle "$sRecord\n";
+        $sLibCounter++;
       }
-      elsif ($record =~ /$manRegex/o)
+      elsif ($sRecord =~ /$sManRegex/o)
       {
-        $handle = $handleList{'man'};
-        print $handle "$record\n";
-        $manCounter++;
+        $sHandle = $hHandleList{'man'};
+        print $sHandle "$sRecord\n";
+        $sManCounter++;
       }
       else
       {
-        $handle = $handleList{'other'};
-        print $handle "$record\n";
-        $otherCounter++;
+        $sHandle = $hHandleList{'other'};
+        print $sHandle "$sRecord\n";
+        $sOtherCounter++;
       }
-      $allCounter++;
+      $sAllCounter++;
     }
 
     ##################################################################
@@ -242,9 +245,9 @@ use Getopt::Std;
     #
     ##################################################################
 
-    foreach my $handle (keys(%handleList))
+    foreach my $sHandle (keys(%hHandleList))
     {
-      close($handleList{$handle});
+      close($hHandleList{$sHandle});
     }
     close(FH);
 
@@ -254,16 +257,16 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my (@counts);
+    my (@aCounts);
 
-    push(@counts, "all='$allCounter'");
-    push(@counts, "bin='$binCounter'");
-    push(@counts, "dev='$devCounter'");
-    push(@counts, "etc='$etcCounter'");
-    push(@counts, "lib='$libCounter'");
-    push(@counts, "man='$manCounter'");
-    push(@counts, "other='$otherCounter'");
-    print "File='$inputFile' ", join(' ', @counts), "\n";
+    push(@aCounts, "all='$sAllCounter'");
+    push(@aCounts, "bin='$sBinCounter'");
+    push(@aCounts, "dev='$sDevCounter'");
+    push(@aCounts, "etc='$sEtcCounter'");
+    push(@aCounts, "lib='$sLibCounter'");
+    push(@aCounts, "man='$sManCounter'");
+    push(@aCounts, "other='$sOtherCounter'");
+    print "File='$sInputFile' ", join(' ', @aCounts), "\n";
   }
 
   ####################################################################
@@ -283,30 +286,30 @@ use Getopt::Std;
 
 sub OpenFileHandles
 {
-  my ($inputFile, $pHandles, $pHandleList) = @_;
+  my ($sInputFile, $paHandles, $phHandleList) = @_;
 
-  my ($failures, $outBase);
+  my ($sFailures, $sOutBase);
 
-  my ($name, $path, $suffix) = fileparse($inputFile);
+  my ($sName, $sPath, $sSuffix) = fileparse($sInputFile);
 
-  $outBase = $name;
+  $sOutBase = $sName;
 
-  $failures = 0;
+  $sFailures = 0;
 
-  foreach my $extension (@$pHandles)
+  foreach my $sExtension (@$paHandles)
   {
-    $$pHandleList{$extension} = new FileHandle(">$outBase.$extension");
-    if (!defined($$pHandleList{$extension}))
+    $$phHandleList{$sExtension} = new FileHandle(">$sOutBase.$sExtension");
+    if (!defined($$phHandleList{$sExtension}))
     {
-      $failures++;
+      $sFailures++;
     }
   }
 
-  if ($failures)
+  if ($sFailures)
   {
-    foreach my $extension (@$pHandles)
+    foreach my $sExtension (@$paHandles)
     {
-      unlink("$outBase.$extension");
+      unlink("$sOutBase.$sExtension");
     }
     return undef;
   }
@@ -323,9 +326,9 @@ sub OpenFileHandles
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-p prefix] file [file ...]\n";
+  print STDERR "Usage: $sProgram [-p prefix] file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -376,7 +379,7 @@ Currently, this program is only useful for filtering UNIX filenames.
 
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 
 =head1 SEE ALSO
 

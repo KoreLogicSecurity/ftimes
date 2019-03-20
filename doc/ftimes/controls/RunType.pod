@@ -6,6 +6,6 @@ B<RunType> is optional.  This control sets a corresponding flag in
 the log file that classifies output data as baseline, snapshot, or
 linktest.  The value of this control does not affect the format or
 content of the output.  It simply classifies the data so that
-automated analysis applications can process it accordingly. The
+automated analysis applications can process it accordingly.  The
 default value is baseline.
 

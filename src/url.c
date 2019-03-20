@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: url.c,v 1.6 2003/08/13 21:39:49 mavrik Exp $
+ * $Id: url.c,v 1.11 2004/04/22 02:19:10 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -22,17 +21,15 @@
 int
 URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "URLGetRequest()";
-  char                cLocalError[ERRBUF_SIZE],
-                      cQuery[1024];
-  char               *pcEscaped[4];
-  int                 i,
-                      iEscaped,
-                      iError;
-  HTTP_URL           *ptURL;
+  const char          acRoutine[] = "URLGetRequest()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acQuery[1024];
+  char               *apcEscaped[4];
+  int                 i;
+  int                 iEscaped;
+  int                 iError;
+  HTTP_URL           *psURL;
   HTTP_RESPONSE_HDR   sResponseHeader;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -41,10 +38,10 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  ptURL = psProperties->ptGetURL;
-  if (ptURL == NULL)
+  psURL = psProperties->psGetURL;
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return ER;
   }
 
@@ -56,12 +53,12 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (ptURL->iScheme == HTTP_SCHEME_HTTPS && SSLInitializeCTX(psProperties->psSSLProperties, cLocalError) == NULL)
+  if (psURL->iScheme == HTTP_SCHEME_HTTPS && SSLInitializeCTX(psProperties->psSSLProperties, acLocalError) == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
-  ptURL->psSSLProperties = psProperties->psSSLProperties;
+  psURL->psSSLProperties = psProperties->psSSLProperties;
 #endif
 
   /*-
@@ -75,30 +72,30 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (psProperties->iURLAuthType == HTTP_AUTH_TYPE_BASIC)
   {
-    if (!ptURL->pcUser[0] || !ptURL->pcPass[0])
+    if (!psURL->pcUser[0] || !psURL->pcPass[0])
     {
-      if (!psProperties->cURLUsername[0] || !psProperties->cURLPassword[0])
+      if (!psProperties->acURLUsername[0] || !psProperties->acURLPassword[0])
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: Missing Username and/or Password.", cRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: Missing Username and/or Password.", acRoutine);
         return ER;
       }
       else
       {
-        iError = HTTPSetURLUser(ptURL, psProperties->cURLUsername, cLocalError);
+        iError = HTTPSetURLUser(psURL, psProperties->acURLUsername, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
           return ER;
         }
-        iError = HTTPSetURLPass(ptURL, psProperties->cURLPassword, cLocalError);
+        iError = HTTPSetURLPass(psURL, psProperties->acURLPassword, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
           return ER;
         }
       }
     }
-    ptURL->iAuthType = HTTP_AUTH_TYPE_BASIC;
+    psURL->iAuthType = HTTP_AUTH_TYPE_BASIC;
   }
 
   /*-
@@ -109,48 +106,48 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   iEscaped = 0;
-  pcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cBaseName, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acBaseName, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cURLGetRequest, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acURLGetRequest, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
 
-  sprintf(cQuery, "VERSION=%s&CLIENTID=%s&REQUEST=%s",
-           pcEscaped[0],
-           pcEscaped[1],
-           pcEscaped[2]
+  sprintf(acQuery, "VERSION=%s&CLIENTID=%s&REQUEST=%s",
+           apcEscaped[0],
+           apcEscaped[1],
+           apcEscaped[2]
          );
 
   for (i = 0; i < iEscaped; i++)
   {
-    HTTPFreeData(pcEscaped[i]);
+    HTTPFreeData(apcEscaped[i]);
   }
 
-  iError = HTTPSetURLQuery(ptURL, cQuery, cLocalError);
+  iError = HTTPSetURLQuery(psURL, acQuery, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
 
@@ -161,10 +158,10 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSetURLMeth(ptURL, "GET", cLocalError);
+  iError = HTTPSetURLMeth(psURL, "GET", acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
 
@@ -175,10 +172,10 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSubmitRequest(ptURL, HTTP_IGNORE_INPUT, NULL, HTTP_STREAM_OUTPUT, psProperties->pFileOut, &sResponseHeader, cLocalError);
+  iError = HTTPSubmitRequest(psURL, HTTP_IGNORE_INPUT, NULL, HTTP_STREAM_OUTPUT, psProperties->pFileOut, &sResponseHeader, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
 
@@ -191,7 +188,7 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (sResponseHeader.iStatusCode < 200 || sResponseHeader.iStatusCode > 299)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Status = [%d], Reason = [%s]", cRoutine, sResponseHeader.iStatusCode, sResponseHeader.acReasonPhrase);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Status = [%d], Reason = [%s]", acRoutine, sResponseHeader.iStatusCode, sResponseHeader.acReasonPhrase);
     return ER;
   }
 
@@ -209,17 +206,15 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "URLPingRequest()";
-  char                cLocalError[ERRBUF_SIZE],
-                      cQuery[1024];
-  char               *pcEscaped[5];
-  int                 i,
-                      iEscaped,
-                      iError;
-  HTTP_URL           *ptURL;
+  const char          acRoutine[] = "URLPingRequest()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acQuery[1024];
+  char               *apcEscaped[5];
+  int                 i;
+  int                 iEscaped;
+  int                 iError;
+  HTTP_URL           *psURL;
   HTTP_RESPONSE_HDR   sResponseHeader;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -228,10 +223,10 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  ptURL = psProperties->ptPutURL;
-  if (ptURL == NULL)
+  psURL = psProperties->psPutURL;
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return ER;
   }
 
@@ -243,12 +238,12 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (ptURL->iScheme == HTTP_SCHEME_HTTPS && SSLInitializeCTX(psProperties->psSSLProperties, cLocalError) == NULL)
+  if (psURL->iScheme == HTTP_SCHEME_HTTPS && SSLInitializeCTX(psProperties->psSSLProperties, acLocalError) == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
-  ptURL->psSSLProperties = psProperties->psSSLProperties;
+  psURL->psSSLProperties = psProperties->psSSLProperties;
 #endif
 
   /*-
@@ -262,30 +257,30 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (psProperties->iURLAuthType == HTTP_AUTH_TYPE_BASIC)
   {
-    if (!ptURL->pcUser[0] || !ptURL->pcPass[0])
+    if (!psURL->pcUser[0] || !psURL->pcPass[0])
     {
-      if (!psProperties->cURLUsername[0] || !psProperties->cURLPassword[0])
+      if (!psProperties->acURLUsername[0] || !psProperties->acURLPassword[0])
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: Missing Username and/or Password.", cRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: Missing Username and/or Password.", acRoutine);
         return ER;
       }
       else
       {
-        iError = HTTPSetURLUser(ptURL, psProperties->cURLUsername, cLocalError);
+        iError = HTTPSetURLUser(psURL, psProperties->acURLUsername, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
           return ER;
         }
-        iError = HTTPSetURLPass(ptURL, psProperties->cURLPassword, cLocalError);
+        iError = HTTPSetURLPass(psURL, psProperties->acURLPassword, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
           return ER;
         }
       }
     }
-    ptURL->iAuthType = HTTP_AUTH_TYPE_BASIC;
+    psURL->iAuthType = HTTP_AUTH_TYPE_BASIC;
   }
 
   /*-
@@ -296,59 +291,59 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   iEscaped = 0;
-  pcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cBaseName, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acBaseName, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cDataType, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acDataType, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cMaskString, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acMaskString, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
 
-  sprintf(cQuery, "VERSION=%s&CLIENTID=%s&DATATYPE=%s&FIELDMASK=%s",
-           pcEscaped[0],
-           pcEscaped[1],
-           pcEscaped[2],
-           pcEscaped[3]
+  sprintf(acQuery, "VERSION=%s&CLIENTID=%s&DATATYPE=%s&FIELDMASK=%s",
+           apcEscaped[0],
+           apcEscaped[1],
+           apcEscaped[2],
+           apcEscaped[3]
          );
 
   for (i = 0; i < iEscaped; i++)
   {
-    HTTPFreeData(pcEscaped[i]);
+    HTTPFreeData(apcEscaped[i]);
   }
 
-  iError = HTTPSetURLQuery(ptURL, cQuery, cLocalError);
+  iError = HTTPSetURLQuery(psURL, acQuery, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
 
@@ -359,10 +354,10 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSetURLMeth(ptURL, "PING", cLocalError);
+  iError = HTTPSetURLMeth(psURL, "PING", acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
 
@@ -373,10 +368,10 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSubmitRequest(ptURL, HTTP_IGNORE_INPUT, NULL, HTTP_IGNORE_OUTPUT, NULL, &sResponseHeader, cLocalError);
+  iError = HTTPSubmitRequest(psURL, HTTP_IGNORE_INPUT, NULL, HTTP_IGNORE_OUTPUT, NULL, &sResponseHeader, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
 
@@ -389,7 +384,7 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (sResponseHeader.iStatusCode < 200 || sResponseHeader.iStatusCode > 299)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Status = [%d], Reason = [%s]", cRoutine, sResponseHeader.iStatusCode, sResponseHeader.acReasonPhrase);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Status = [%d], Reason = [%s]", acRoutine, sResponseHeader.iStatusCode, sResponseHeader.acReasonPhrase);
     return ER;
   }
 
@@ -407,23 +402,21 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "URLPutRequest()";
-  char                cLocalError[ERRBUF_SIZE],
-                      cQuery[1024],
-                      cOutFileHash[FTIMEX_MAX_MD5_LENGTH];
-  char               *pcEscaped[8];
-  unsigned char       ucMD5[MD5_HASH_SIZE];
-  int                 i,
-                      n,
-                      iEscaped,
-                      iError,
-                      iLimit;
-  HTTP_URL           *ptURL;
+  const char          acRoutine[] = "URLPutRequest()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acQuery[1024];
+  char                acOutFileHash[FTIMEX_MAX_MD5_LENGTH];
+  char               *apcEscaped[8];
+  char               *apcFilenames[2];
+  unsigned char       uacMD5[MD5_HASH_SIZE];
+  int                 i;
+  int                 n;
+  int                 iEscaped;
+  int                 iError;
+  int                 iLimit;
+  HTTP_URL           *psURL;
   HTTP_STREAM_LIST    sStreamList[2];
-  char               *pcFilenames[2];
   HTTP_RESPONSE_HDR   sResponseHeader;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -432,25 +425,25 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  pcFilenames[0] = psProperties->cLogFileName;
-  pcFilenames[1] = psProperties->cOutFileName;
+  apcFilenames[0] = psProperties->acLogFileName;
+  apcFilenames[1] = psProperties->acOutFileName;
   for (i = 0, iLimit = 2; i < iLimit; i++)
   {
-    sStreamList[i].pFile = fopen(pcFilenames[i], "rb");
+    sStreamList[i].pFile = fopen(apcFilenames[i], "rb");
     if (sStreamList[i].pFile == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s]: %s", cRoutine, pcFilenames[i], strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
       return ER;
     }
     if (fseek(sStreamList[i].pFile, 0, SEEK_END) == ER)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s]: %s", cRoutine, pcFilenames[i], strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
       return ER;
     }
     sStreamList[i].ui32Size = (unsigned) ftell(sStreamList[i].pFile);
-    if (sStreamList[i].ui32Size == (long) ER)
+    if (sStreamList[i].ui32Size == ER)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s]: %s", cRoutine, pcFilenames[i], strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
       return ER;
     }
     rewind(sStreamList[i].pFile);
@@ -465,24 +458,24 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (MD5HashStream(sStreamList[1].pFile, ucMD5) != ER_OK)
+  if (MD5HashStream(sStreamList[1].pFile, uacMD5) != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Digest could not be computed.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Digest could not be computed.", acRoutine);
     return ER;
   }
   else
   {
     for (n = 0; n < MD5_HASH_SIZE; n++)
     {
-      sprintf(&cOutFileHash[n * 2], "%02x", ucMD5[n]);
-      cOutFileHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
+      sprintf(&acOutFileHash[n * 2], "%02x", uacMD5[n]);
+      acOutFileHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
     }
 
     for (n = 0; n < FTIMEX_MAX_MD5_LENGTH - 1; n++)
     {
-      if (cOutFileHash[n] != psProperties->cOutFileHash[n])
+      if (acOutFileHash[n] != psProperties->acOutFileHash[n])
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: Hash mismatch!: %s != %s", cRoutine, cOutFileHash, psProperties->cOutFileHash);
+        snprintf(pcError, MESSAGE_SIZE, "%s: Hash mismatch!: %s != %s", acRoutine, acOutFileHash, psProperties->acOutFileHash);
         return ER;
       }
     }
@@ -496,10 +489,10 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  ptURL = psProperties->ptPutURL;
-  if (ptURL == NULL)
+  psURL = psProperties->psPutURL;
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return ER;
   }
 
@@ -517,12 +510,12 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
  * *********************************************************************
  * *
  *
- * if (ptURL->iScheme == HTTP_SCHEME_HTTPS && SSLInitializeCTX(psProperties->psSSLProperties, cLocalError) == NULL)
+ * if (psURL->iScheme == HTTP_SCHEME_HTTPS && SSLInitializeCTX(psProperties->psSSLProperties, acLocalError) == NULL)
  * {
- *   snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+ *   snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
  *   return ER;
  * }
- * ptURL->psSSLProperties = psProperties->psSSLProperties;
+ * psURL->psSSLProperties = psProperties->psSSLProperties;
  *
  ***********************************************************************
  */
@@ -539,30 +532,30 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (psProperties->iURLAuthType == HTTP_AUTH_TYPE_BASIC)
   {
-    if (!ptURL->pcUser[0] || !ptURL->pcPass[0])
+    if (!psURL->pcUser[0] || !psURL->pcPass[0])
     {
-      if (!psProperties->cURLUsername[0] || !psProperties->cURLPassword[0])
+      if (!psProperties->acURLUsername[0] || !psProperties->acURLPassword[0])
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: Missing Username and/or Password.", cRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: Missing Username and/or Password.", acRoutine);
         return ER;
       }
       else
       {
-        iError = HTTPSetURLUser(ptURL, psProperties->cURLUsername, cLocalError);
+        iError = HTTPSetURLUser(psURL, psProperties->acURLUsername, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
           return ER;
         }
-        iError = HTTPSetURLPass(ptURL, psProperties->cURLPassword, cLocalError);
+        iError = HTTPSetURLPass(psURL, psProperties->acURLPassword, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
           return ER;
         }
       }
     }
-    ptURL->iAuthType = HTTP_AUTH_TYPE_BASIC;
+    psURL->iAuthType = HTTP_AUTH_TYPE_BASIC;
   }
 
   /*-
@@ -573,94 +566,94 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   iEscaped = 0;
-  pcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(SupportGetMyVersion(), acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cBaseName, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acBaseName, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cDataType, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acDataType, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cMaskString, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acMaskString, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cRunType, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acRunType, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cRunDateTime, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acRunDateTime, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
-  pcEscaped[iEscaped] = HTTPEscape(psProperties->cOutFileHash, cLocalError);
-  if (pcEscaped[iEscaped++] == NULL)
+  apcEscaped[iEscaped] = HTTPEscape(psProperties->acOutFileHash, acLocalError);
+  if (apcEscaped[iEscaped++] == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0; i < iEscaped; i++)
     {
-      HTTPFreeData(pcEscaped[i]);
+      HTTPFreeData(apcEscaped[i]);
     }
     return ER;
   }
 
-  sprintf(cQuery, "VERSION=%s&CLIENTID=%s&DATATYPE=%s&FIELDMASK=%s&RUNTYPE=%s&DATETIME=%s&LOGLENGTH=%lu&OUTLENGTH=%lu&MD5=%s",
-           pcEscaped[0],
-           pcEscaped[1],
-           pcEscaped[2],
-           pcEscaped[3],
-           pcEscaped[4],
-           pcEscaped[5],
+  sprintf(acQuery, "VERSION=%s&CLIENTID=%s&DATATYPE=%s&FIELDMASK=%s&RUNTYPE=%s&DATETIME=%s&LOGLENGTH=%u&OUTLENGTH=%u&MD5=%s",
+           apcEscaped[0],
+           apcEscaped[1],
+           apcEscaped[2],
+           apcEscaped[3],
+           apcEscaped[4],
+           apcEscaped[5],
            sStreamList[0].ui32Size,
            sStreamList[1].ui32Size,
-           pcEscaped[6]
+           apcEscaped[6]
          );
 
   for (i = 0; i < iEscaped; i++)
   {
-    HTTPFreeData(pcEscaped[i]);
+    HTTPFreeData(apcEscaped[i]);
   }
 
-  iError = HTTPSetURLQuery(ptURL, cQuery, cLocalError);
+  iError = HTTPSetURLQuery(psURL, acQuery, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
 
@@ -671,10 +664,10 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSetURLMeth(ptURL, "PUT", cLocalError);
+  iError = HTTPSetURLMeth(psURL, "PUT", acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
   }
 
@@ -685,10 +678,10 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSubmitRequest(ptURL, HTTP_STREAM_INPUT, sStreamList, HTTP_IGNORE_OUTPUT, NULL, &sResponseHeader, cLocalError);
+  iError = HTTPSubmitRequest(psURL, HTTP_STREAM_INPUT, sStreamList, HTTP_IGNORE_OUTPUT, NULL, &sResponseHeader, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     for (i = 0, iLimit = 2; i < iLimit; i++)
     {
       fclose(sStreamList[i].pFile);
@@ -717,7 +710,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (sResponseHeader.iStatusCode < 200 || sResponseHeader.iStatusCode > 299)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Status = [%d], Reason = [%s]", cRoutine, sResponseHeader.iStatusCode, sResponseHeader.acReasonPhrase);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Status = [%d], Reason = [%s]", acRoutine, sResponseHeader.iStatusCode, sResponseHeader.acReasonPhrase);
     return ER;
   }
 

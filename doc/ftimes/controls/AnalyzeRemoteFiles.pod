@@ -1,0 +1,13 @@
+=item B<AnalyzeRemoteFiles>: [Y|N]
+
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+
+B<AnalyzeRemoteFiles> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to ignore the fact that a given B<Include> does
+not reside on the local system.  The result is that B<FTimes> will
+attempt to analyze remote files.  The default value is 'N'.
+
+Note: Analyzing remote file systems can create large amounts of
+network traffic.  Just remember that you may be mapping an entire
+disk.
+

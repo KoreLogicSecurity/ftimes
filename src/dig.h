@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.h,v 1.3 2003/08/13 21:39:49 mavrik Exp $
+ * $Id: dig.h,v 1.5 2004/04/04 07:09:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -37,12 +36,12 @@ typedef struct _DIG_SEARCH_DATA
 
 typedef struct _DIG_SEARCH_LIST
 {
-  char                cEscString[DIG_MAX_STRING_SIZE];
-  char                cRawString[DIG_MAX_STRING_SIZE];
-  int                 iLength,
-                      iHitsPerFile,
-                      iHits;
-  struct _DIG_SEARCH_LIST *pNext;
+  char                acEscString[DIG_MAX_STRING_SIZE];
+  char                acRawString[DIG_MAX_STRING_SIZE];
+  int                 iLength;
+  int                 iHitsPerFile;
+  int                 iHits;
+  struct _DIG_SEARCH_LIST *psNext;
 } DIG_SEARCH_LIST;
 
 
@@ -55,7 +54,7 @@ typedef struct _DIG_SEARCH_LIST
  */
 int                 DigAddString(char *pcString, char *pcError);
 void                DigClearCounts(void);
-int                 DigDevelopOutput(DIG_SEARCH_DATA *pFTStringData, char *pcError);
+int                 DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError);
 int                 DigGetMatchLimit(void);
 int                 DigGetMaxStringLength(void);
 DIG_SEARCH_LIST    *DigGetSearchList(int iIndex);
@@ -63,7 +62,7 @@ int                 DigGetStringCount(void);
 int                 DigGetStringsMatched(void);
 K_UINT64            DigGetTotalMatches(void);
 int                 DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, K_UINT64 ui64AbsoluteOffset, char *pcFilename, char *pcError);
-void                DigSetHashBlock(MD5_CONTEXT *pMD5Context);
+void                DigSetHashBlock(MD5_CONTEXT *psMD5Context);
 void                DigSetMatchLimit(int iMatchLimit);
 void                DigSetNewLine(char *pcNewLine);
 void                DigSetOutputStream(FILE *pFile);

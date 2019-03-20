@@ -1,0 +1,8 @@
+=item B<FileSizeLimit>: <integer>
+
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+
+B<FileSizeLimit> is optional.  It instructs the analysis engine to
+skip files that are larger than the specified size limit.  The
+default value is zero, which means do not impose a limit.
+

@@ -6,19 +6,19 @@ generically described below.
 
 =over 5
 
-=item BaseName_YYYYMMDDHHMMSS.cfg
+=item BaseName(_BaseNameSuffix)?.cfg
 
 The upload config file.  This file is created automatically when
 B<URLCreateConfig> is enabled, and may be used in conjunction with
 put mode to upload a previously created snapshot.
 
-=item BaseName_YYYYMMDDHHMMSS.log
+=item BaseName(_BaseNameSuffix)?.log
 
 The main log file.  This file contains a record of the activities
 that took place during a dig or map run provided that B<LogLevel>
 was set at an appropriate level.
 
-=item BaseName_YYYYMMDDHHMMSS.out
+=item BaseName(_BaseNameSuffix)?.{dig,map}
 
 The main output file.  This file contains possibly compressed map
 or dig data collected during a scan.  The first line in this file

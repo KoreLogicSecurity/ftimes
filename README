@@ -4,13 +4,13 @@
   FTimes is a system baselining and evidence collection tool.  The
   primary purpose of FTimes is to gather and/or develop information
   about specified directories and files in a manner conducive to
-  intrusion analysis.
+  intrusion analysis.  FTimes is available at:
 
-  FTimes is available at: http://ftimes.sourceforge.net
+    http://ftimes.sourceforge.net
 
 1.1 Revision
 
-  $Id: README,v 1.5 2003/02/23 17:10:30 mavrik Exp $
+  $Id: README,v 1.6 2004/04/24 04:47:23 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -32,12 +32,13 @@
   baselining terminology, explains the mechanics of baselining,
   compares and contrasts different baselining techniques, and
   describes FTimes.  It also explores some of the criteria that
-  evidence collection tools and techniques must satisfy if they
-  are going to support prosecutions.  In closing, it presents a
-  pair of war stories that are typical of the times.  This paper,
-  written in LaTeX, is called baselining.tex and is located in
-  doc/baselining.  A PDF version of the same is available at:
-  http://ftimes.sourceforge.net/FTimes/Papers.shtml
+  evidence collection tools and techniques must satisfy if they are
+  going to support prosecutions.  In closing, it presents a pair
+  of war stories that are typical of the times.  This paper, written
+  in LaTeX, is called baselining.tex and is located in doc/baselining.
+  A PDF version of the same is available at:
+
+    http://ftimes.sourceforge.net/FTimes/Papers.shtml
 
 3 License
 

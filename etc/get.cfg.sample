@@ -2,7 +2,7 @@
 ######################################################################
 ######################################################################
 #
-# $Id: get.cfg.sample,v 1.2 2003/08/13 01:53:23 mavrik Exp $
+# $Id: get.cfg.sample,v 1.3 2004/04/23 22:14:07 mavrik Exp $
 #
 ######################################################################
 ######################################################################
@@ -10,7 +10,10 @@
 #
 # This config file contains a condensed list of controls specific
 # to get mode.  A full description for each control can be found
-# in the FTimes' documentation.
+# in the FTimes documentation.  All controls are commented out, and
+# controls that are set have been set to their default value.  To
+# override this behavior, uncomment the desired control and specify
+# a new value.
 #
 ######################################################################
 ######################################################################
@@ -25,27 +28,25 @@
 ######################################################################
 #
 #BaseName=                        # <name>
+#Import=                          # <file>
+#GetAndExec=N                     # [Y|N]
+#GetFileName=                     # <file>
 #
-#GetAndExec=Y                     # [Y|N]
-#GetFileName=remote.cfg           # <file>
-#
-#URLGetRequest=MapFullConfig      # [Dig{Full,Lean}Config|Map{Full,Lean}Config]
+#URLGetRequest=                   # [Dig{Full,Lean}Config|Map{Full,Lean}Config]
 #URLGetURL=                       # <url>
-#URLAuthType=basic                # [basic|none]
+#URLAuthType=none                 # [basic|none]
 #URLUsername=                     # <username>
 #URLPassword=                     # <password>
 #
-#SSLUseCertificate=Y              # [Y|N]
+#SSLUseCertificate=N              # [Y|N]
 #SSLPublicCertFile=               # <file>
 #SSLPrivateKeyFile=               # <file>
 #SSLPassPhrase=                   # <passphrase>
 #
-#SSLVerifyPeerCert=Y              # [Y|N]
+#SSLVerifyPeerCert=N              # [Y|N]
 #SSLBundledCAsFile=               # <file>
 #SSLExpectedPeerCN=               # <name>
-#SSLMaxChainLength=1              # [1,9]
-#
-#Import=                          # <file>
+#SSLMaxChainLength=1              # [1,10]
 #
 ######################################################################
 ######################################################################

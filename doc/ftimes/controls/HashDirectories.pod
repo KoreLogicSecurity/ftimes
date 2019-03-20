@@ -2,7 +2,7 @@
 
 Applies to B<mapfull> and B<maplean>.
 
-B<HashDirectories> is optional.  When enabled, (i.e. 'Y') it
+B<HashDirectories> is optional.  When enabled ('Y' or 'y'), it
 instructs B<FTimes> to compute digests for directories.  This is
 done by hashing the digests of all files and directories contained
 in a given directory in the order they are encountered.  Thus, if
@@ -23,6 +23,6 @@ following hashes:
   Hash(D1) = MD5(MD5(F1), Hash(D2))
 
 If an entry within the directory is a special file (e.g., a device)
-or cannot be opened/hashed, a 16 byte string consisting of all
-zeros is used for the computation.
+or cannot be opened/hashed, a 16 byte string consisting of all zeros
+is used for the computation.  The default value is 'N'.
 

@@ -1,11 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.8 2003/08/13 01:53:23 mavrik Exp $
+# $Id: Makefile.in,v 1.10 2004/04/23 21:32:13 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
-# All Rights Reserved.
+# Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
 #
 ########################################################################
 #
@@ -28,6 +27,7 @@ SRC_FILES		=\
 			get.cfg.sample\
 			mapfull.cfg.sample\
 			maplean.cfg.sample\
+			nph-ftimes.cfg.sample\
 			put.cfg.sample
 DST_FILES		=\
 			${etcdir}/digfull.cfg.sample\
@@ -35,6 +35,7 @@ DST_FILES		=\
 			${etcdir}/get.cfg.sample\
 			${etcdir}/mapfull.cfg.sample\
 			${etcdir}/maplean.cfg.sample\
+			${etcdir}/nph-ftimes.cfg.sample\
 			${etcdir}/put.cfg.sample
 
 all: ${SRC_FILES}

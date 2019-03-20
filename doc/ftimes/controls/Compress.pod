@@ -2,10 +2,10 @@
 
 Applies to B<mapfull> and B<maplean>.
 
-B<Compress> is optional.  When enabled, (i.e. 'Y') it activates a
-form of lossless ASCII compression.  This yields a compression
-ratio that can be as good as three to one.  The default value for
-this control is disabled (i.e 'N').
+B<Compress> is optional.  When enabled ('Y' or 'y'), it activates
+a form of lossless ASCII compression.  This yields a compression
+ratio that can be as good as three to one.  The default value is
+'N'.
 
 As a side note, compressing compressed snapshots with a program
 like gzip(1) yields better compression than if gzip(1) was used

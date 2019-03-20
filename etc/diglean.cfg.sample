@@ -2,7 +2,7 @@
 ######################################################################
 ######################################################################
 #
-# $Id: diglean.cfg.sample,v 1.1 2003/08/13 01:53:23 mavrik Exp $
+# $Id: diglean.cfg.sample,v 1.4 2004/04/23 22:14:06 mavrik Exp $
 #
 ######################################################################
 ######################################################################
@@ -10,7 +10,10 @@
 #
 # This config file contains a condensed list of controls specific
 # to diglean mode.  A full description for each control can be found
-# in the FTimes documentation.
+# in the FTimes documentation.  All controls are commented out, and
+# controls that are set have been set to their default value.  To
+# override this behavior, uncomment the desired control and specify
+# a new value.
 #
 ######################################################################
 ######################################################################
@@ -25,19 +28,22 @@
 ######################################################################
 #
 #BaseName=                        # <name|->
-#OutDir=                          # <directory>
+#BaseNameSuffix=none              # [datetime|none|pid]
 #LogDir=                          # <directory>
+#OutDir=                          # <directory>
+#Import=                          # <file>
 #Include=                         # [<file>|<directory>|<link>]
 #Exclude=                         # [<file>|<directory>|<link>]
 #
 #DigString=                       # <string>
 #
-#MapRemoteFiles=                  # [Y|N]
-#MatchLimit=1                     # <integer>
-#NewLine=LF                       # [LF|CRLF]
-#RequirePrivilege=Y               # [Y|N]
-#
-#Import=                          # <file>
+#AnalyzeDeviceFiles=N             # [Y|N]
+#AnalyzeRemoteFiles=N             # [Y|N]
+#EnableRecursion=Y                # [Y|N]
+#FileSizeLimit=0                  # <integer>
+#MatchLimit=0                     # <integer>
+#NewLine=                         # [LF|CRLF]
+#RequirePrivilege=N               # [Y|N]
 #
 ######################################################################
 ######################################################################

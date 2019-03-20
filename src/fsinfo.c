@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.9 2003/02/24 19:35:43 mavrik Exp $
+ * $Id: fsinfo.c,v 1.13 2004/04/22 02:19:10 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -19,7 +18,7 @@
  *
  ***********************************************************************
  */
-char                FSType[][FSINFO_MAX_STRING] =
+char                gaacFSType[][FSINFO_MAX_STRING] =
 {
   "UNSUPPORTED",
   "NA",
@@ -36,7 +35,8 @@ char                FSType[][FSINFO_MAX_STRING] =
   "NFS3",
   "FFS",
   "REISER",
-  "HFS"
+  "HFS",
+  "VXFS"
 };
 
 
@@ -52,17 +52,17 @@ char                FSType[][FSINFO_MAX_STRING] =
 int
 GetFileSystemType(char *pcPath, char *pcError)
 {
-  const char          cRoutine[] = "GetFileSystemType()";
-  struct statfs       statFS;
+  const char          acRoutine[] = "GetFileSystemType()";
+  struct statfs       sStatFS;
 
-  if (statfs(pcPath, &statFS) == ER)
+  if (statfs(pcPath, &sStatFS) == ER)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return ER;
   }
   else
   {
-    switch(statFS.f_vfstype)
+    switch(sStatFS.f_vfstype)
     {
     case MNT_AIX:
       return FSTYPE_AIX;
@@ -81,7 +81,7 @@ GetFileSystemType(char *pcPath, char *pcError)
     case MNT_CACHEFS:
     case MNT_AUTOFS:
     default:
-      snprintf(pcError, ERRBUF_SIZE, "%s: FileSystem = [0x%x]: Unsupported file system.", cRoutine, statFS.f_vfstype);
+      snprintf(pcError, MESSAGE_SIZE, "%s: FileSystem = [0x%x]: Unsupported file system.", acRoutine, sStatFS.f_vfstype);
       return FSTYPE_UNSUPPORTED;
       break;
     }
@@ -101,17 +101,17 @@ GetFileSystemType(char *pcPath, char *pcError)
 int
 GetFileSystemType(char *pcPath, char *pcError)
 {
-  const char          cRoutine[] = "GetFileSystemType()";
-  struct statfs       statFS;
+  const char          acRoutine[] = "GetFileSystemType()";
+  struct statfs       sStatFS;
 
-  if (statfs(pcPath, &statFS) == ER)
+  if (statfs(pcPath, &sStatFS) == ER)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return ER;
   }
   else
   {
-    switch(statFS.f_type)
+    switch(sStatFS.f_type)
     {
     case MSDOS_SUPER_MAGIC:
       return FSTYPE_FAT;
@@ -133,7 +133,7 @@ GetFileSystemType(char *pcPath, char *pcError)
       return FSTYPE_REISER;
       break;
     default:
-      snprintf(pcError, ERRBUF_SIZE, "%s: FileSystem = [0x%lx]: Unsupported file system.", cRoutine, (long) statFS.f_type);
+      snprintf(pcError, MESSAGE_SIZE, "%s: FileSystem = [0x%lx]: Unsupported file system.", acRoutine, (long) sStatFS.f_type);
       return FSTYPE_UNSUPPORTED;
       break;
     }
@@ -142,7 +142,7 @@ GetFileSystemType(char *pcPath, char *pcError)
 #endif /* FTimes_LINUX */
 
 
-#if defined(FTimes_SOLARIS) || defined(FTimes_BSD) || defined(FTimes_MACOS)
+#if defined(FTimes_SOLARIS) || defined(FTimes_BSD) || defined(FTimes_MACOS) || defined(FTimes_HPUX)
 /*-
  ***********************************************************************
  *
@@ -153,88 +153,90 @@ GetFileSystemType(char *pcPath, char *pcError)
 int
 GetFileSystemType(char *pcPath, char *pcError)
 {
-  const char          cRoutine[] = "GetFileSystemType()";
-  char                cFSName[FSINFO_MAX_STRING];
+  const char          acRoutine[] = "GetFileSystemType()";
+  char                acFSName[FSINFO_MAX_STRING];
   int                 i;
 
-#ifdef FTimes_SOLARIS
+#if defined(FTimes_SOLARIS) || defined(FTimes_HPUX)
   struct statvfs      statVFS;
 
   if (statvfs(pcPath, &statVFS) == ER)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return ER;
   }
   else
   {
     for (i = 0; i < strlen(statVFS.f_basetype); i++)
     {
-      cFSName[i] = toupper(statVFS.f_basetype[i]);
+      acFSName[i] = toupper(statVFS.f_basetype[i]);
     }
-    cFSName[i] = 0;
+    acFSName[i] = 0;
 #else
-  struct statfs       statFS;
+  struct statfs       sStatFS;
 
-  if (statfs(pcPath, &statFS) == ER)
+  if (statfs(pcPath, &sStatFS) == ER)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return ER;
   }
   else
   {
-    for (i = 0; i < strlen(statFS.f_fstypename); i++)
+    for (i = 0; i < strlen(sStatFS.f_fstypename); i++)
     {
-      cFSName[i] = toupper(statFS.f_fstypename[i]);
+      acFSName[i] = toupper(sStatFS.f_fstypename[i]);
     }
-    cFSName[i] = 0;
+    acFSName[i] = 0;
 #endif
 
-    if (strstr(cFSName, "NTFS") != NULL)
+    if (strstr(acFSName, "NTFS") != NULL)
     {
       return FSTYPE_NTFS;
     }
-    else if (strstr(cFSName, "DOS") != NULL)
+    else if (strstr(acFSName, "DOS") != NULL)
     {
       return FSTYPE_FAT;
     }
-    else if (strstr(cFSName, "FAT") != NULL)
+    else if (strstr(acFSName, "FAT") != NULL)
     {
       return FSTYPE_FAT;
     }
-    else if (strstr(cFSName, "UFS") != NULL)
+    else if (strstr(acFSName, "UFS") != NULL)
     {
       return FSTYPE_UFS;
     }
-    else if (strstr(cFSName, "EXT2") != NULL)
+    else if (strstr(acFSName, "EXT2") != NULL)
     {
       return FSTYPE_EXT2;
     }
-    else if (strstr(cFSName, "NFS") != NULL)
+    else if (strstr(acFSName, "NFS") != NULL)
     {
       return FSTYPE_NFS;
     }
-    else if (strstr(cFSName, "TMP") != NULL)
+    else if (strstr(acFSName, "TMP") != NULL)
     {
       return FSTYPE_TMP;
     }
-    else if (strstr(cFSName, "FFS") != NULL)
+    else if (strstr(acFSName, "FFS") != NULL)
     {
       return FSTYPE_FFS;
     }
-#ifdef FTimes_MACOS
-    else if (strstr(cFSName, "HFS") != NULL)
+    else if (strstr(acFSName, "HFS") != NULL)
     {
       return FSTYPE_HFS;
     }
-#endif
+    else if (strstr(acFSName, "VXFS") != NULL)
+    {
+      return FSTYPE_VXFS;
+    }
     else
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: FileSystem = [%s]: Unsupported file system.", cRoutine, cFSName);
+      snprintf(pcError, MESSAGE_SIZE, "%s: FileSystem = [%s]: Unsupported file system.", acRoutine, acFSName);
       return FSTYPE_UNSUPPORTED;
     }
   }
 }
-#endif /* FTimes_SOLARIS || FTimes_BSD || FTimes_MACOS */
+#endif /* FTimes_SOLARIS || FTimes_BSD || FTimes_MACOS || FTimes_HPUX */
 #endif /* UNIX */
 
 
@@ -255,29 +257,29 @@ GetFileSystemType(char *pcPath, char *pcError)
 int
 GetFileSystemType(char *pcPath, char *pcError)
 {
-  const char          cRoutine[] = "GetFileSystemType()";
-  char                cFSName[255];
-  char                cRootPath[4];
+  const char          acRoutine[] = "GetFileSystemType()";
+  char                acFSName[255];
+  char                acRootPath[4];
   char               *pcMessage;
   int                 i;
   unsigned int        uiDriveType;
 
-  cRootPath[0] = pcPath[0];
-  cRootPath[1] = pcPath[1];
-  cRootPath[2] = '\\';
-  cRootPath[3] = 0;
+  acRootPath[0] = pcPath[0];
+  acRootPath[1] = pcPath[1];
+  acRootPath[2] = '\\';
+  acRootPath[3] = 0;
 
-  cFSName[0] = 0;
+  acFSName[0] = 0;
 
-  uiDriveType = GetDriveType(cRootPath);
+  uiDriveType = GetDriveType(acRootPath);
   if (uiDriveType == DRIVE_UNKNOWN)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Drive = [DRIVE_UNKNOWN]: Unsupported drive.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Drive = [DRIVE_UNKNOWN]: Unsupported drive.", acRoutine);
     return ER;
   }
   else if (uiDriveType == DRIVE_NO_ROOT_DIR)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Path not recognized as a root directory.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Path not recognized as a root directory.", acRoutine);
     return ER;
   }
   else
@@ -285,41 +287,41 @@ GetFileSystemType(char *pcPath, char *pcError)
     if (GetFileAttributes(pcPath) == 0xffffffff)
     {
       ErrorFormatWin32Error(&pcMessage);
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, pcMessage);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, pcMessage);
       return ER;
     }
 
-    if (!GetVolumeInformation(cRootPath, NULL, 0, NULL, NULL, NULL, cFSName, sizeof(cFSName) - 1))
+    if (!GetVolumeInformation(acRootPath, NULL, 0, NULL, NULL, NULL, acFSName, sizeof(acFSName) - 1))
     {
       ErrorFormatWin32Error(&pcMessage);
-      snprintf(pcError, ERRBUF_SIZE, "%s: RootPath = [%s]: %s", cRoutine, cRootPath, pcMessage);
+      snprintf(pcError, MESSAGE_SIZE, "%s: RootPath = [%s]: %s", acRoutine, acRootPath, pcMessage);
       return ER;
     }
 
-    for (i = 0; i < (int) strlen(cFSName); i++)
+    for (i = 0; i < (int) strlen(acFSName); i++)
     {
-      cFSName[i] = toupper(cFSName[i]);
+      acFSName[i] = toupper(acFSName[i]);
     }
 
-    if (strstr(cFSName, "NTFS") != NULL && uiDriveType == DRIVE_REMOTE)
+    if (strstr(acFSName, "NTFS") != NULL && uiDriveType == DRIVE_REMOTE)
     {
       return FSTYPE_NTFS_REMOTE;
     }
-    else if (strstr(cFSName, "NTFS") != NULL && uiDriveType != DRIVE_REMOTE)
+    else if (strstr(acFSName, "NTFS") != NULL && uiDriveType != DRIVE_REMOTE)
     {
       return FSTYPE_NTFS;
     }
-    else if (strstr(cFSName, "FAT") != NULL && uiDriveType == DRIVE_REMOTE)
+    else if (strstr(acFSName, "FAT") != NULL && uiDriveType == DRIVE_REMOTE)
     {
       return FSTYPE_FAT_REMOTE;
     }
-    else if (strstr(cFSName, "FAT") != NULL && uiDriveType != DRIVE_REMOTE)
+    else if (strstr(acFSName, "FAT") != NULL && uiDriveType != DRIVE_REMOTE)
     {
       return FSTYPE_FAT;
     }
     else
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: FileSystem = [%s]: Unsupported file system.", cRoutine, cFSName);
+      snprintf(pcError, MESSAGE_SIZE, "%s: FileSystem = [%s]: Unsupported file system.", acRoutine, acFSName);
       return FSTYPE_UNSUPPORTED;
     }
   }

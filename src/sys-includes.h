@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sys-includes.h,v 1.6 2003/02/24 19:39:29 mavrik Exp $
+ * $Id: sys-includes.h,v 1.8 2004/04/04 07:09:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -53,6 +52,9 @@
 #include <sys/statvfs.h>
 #include <sys/sysmacros.h>
 #include <sys/vmount.h>
+#endif
+#ifdef FTimes_HPUX
+#include <sys/statvfs.h>
 #endif
 #ifdef FTimes_LINUX
 #include <sys/sysmacros.h>

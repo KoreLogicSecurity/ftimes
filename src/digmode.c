@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: digmode.c,v 1.9 2003/08/13 21:39:49 mavrik Exp $
+ * $Id: digmode.c,v 1.20 2004/04/25 15:49:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -22,11 +21,9 @@
 int
 DigModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError)
 {
-  const char          cRoutine[] = "DigModeProcessArguments()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "DigModeProcessArguments()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -39,20 +36,20 @@ DigModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
   {
     if (strcmp(ppcArgumentVector[0], "-") == 0)
     {
-      strcpy(psProperties->cConfigFile, "-");
+      strcpy(psProperties->acConfigFile, "-");
     }
     else
     {
-      iError = SupportExpandPath(ppcArgumentVector[0], psProperties->cConfigFile, FTIMES_MAX_PATH, 1, cLocalError);
+      iError = SupportExpandPath(ppcArgumentVector[0], psProperties->acConfigFile, FTIMES_MAX_PATH, 1, acLocalError);
       if (iError != ER_OK)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
         return iError;
       }
-      iError = SupportAddToList(psProperties->cConfigFile, &psProperties->ptExcludeList, cLocalError);
+      iError = SupportAddToList(psProperties->acConfigFile, &psProperties->psExcludeList, acLocalError);
       if (iError != ER_OK)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
         return iError;
       }
     }
@@ -62,10 +59,10 @@ DigModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
       {
         if (iArgumentCount >= 3)
         {
-          iError = SupportSetLogLevel(ppcArgumentVector[2], &psProperties->iLogLevel, cLocalError);
+          iError = SupportSetLogLevel(ppcArgumentVector[2], &psProperties->iLogLevel, acLocalError);
           if (iError != ER_OK)
           {
-            snprintf(pcError, ERRBUF_SIZE, "%s: Level = [%s]: %s", cRoutine, ppcArgumentVector[2], cLocalError);
+            snprintf(pcError, MESSAGE_SIZE, "%s: Level = [%s]: %s", acRoutine, ppcArgumentVector[2], acLocalError);
             return iError;
           }
           if (iArgumentCount >= 4)
@@ -102,13 +99,11 @@ DigModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
 int
 DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "DigModeInitialize()";
-  char                cLocalError[ERRBUF_SIZE],
-                      cMapItem[FTIMES_MAX_PATH];
-  int                 i,
-                      iError;
-
-  cLocalError[0] = 0;
+  const char          acRoutine[] = "DigModeInitialize()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acMapItem[FTIMES_MAX_PATH];
+  int                 i;
+  int                 iError;
 
   /*-
    *******************************************************************
@@ -121,10 +116,11 @@ DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
   psProperties->pFileOut = stdout;
   if (psProperties->iRunMode == FTIMES_DIGAUTO)
   {
-    psProperties->bMapRemoteFiles = TRUE;
+    psProperties->bAnalyzeDeviceFiles = TRUE;
+    psProperties->bAnalyzeRemoteFiles = TRUE;
   }
   psProperties->ulFieldMask = ~0;
-  strcpy(psProperties->cMaskString, "all"); /* Required by nph-ftimes.cgi */
+  strcpy(psProperties->acMaskString, "all"); /* Required by nph-ftimes.cgi */
 
   /*-
    *******************************************************************
@@ -133,10 +129,10 @@ DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  iError = PropertiesReadFile(psProperties->cConfigFile, psProperties, cLocalError);
+  iError = PropertiesReadFile(psProperties->acConfigFile, psProperties, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -149,17 +145,17 @@ DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   for (i = 0; psProperties->ppcMapList != NULL && psProperties->ppcMapList[i] != NULL; i++)
   {
-    iError = SupportExpandPath(psProperties->ppcMapList[i], cMapItem, FTIMES_MAX_PATH, 0, cLocalError);
+    iError = SupportExpandPath(psProperties->ppcMapList[i], acMapItem, FTIMES_MAX_PATH, 0, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return iError;
     }
 
-    iError = SupportAddToList(cMapItem, &psProperties->ptIncludeList, cLocalError);
+    iError = SupportAddToList(acMapItem, &psProperties->psIncludeList, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Item = [%s]: %s", cRoutine, cMapItem, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Item = [%s]: %s", acRoutine, acMapItem, acLocalError);
       return iError;
     }
   }
@@ -171,9 +167,9 @@ DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (psProperties->cLogDirName[0] == 0)
+  if (psProperties->acLogDirName[0] == 0)
   {
-    snprintf(psProperties->cLogDirName, FTIMES_MAX_PATH, "%s", psProperties->cOutDirName);
+    snprintf(psProperties->acLogDirName, FTIMES_MAX_PATH, "%s", psProperties->acOutDirName);
   }
 
   return ER_OK;
@@ -190,62 +186,62 @@ DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "DigModeCheckDependencies()";
+  const char          acRoutine[] = "DigModeCheckDependencies()";
 #ifdef USE_SSL
-  char                cLocalError[ERRBUF_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
 #endif
 
   if (DigGetStringCount() <= 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Need at least one DigString.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Need at least one DigString.", acRoutine);
     return ER_MissingControl;
   }
 
   if (psProperties->iRunMode == FTIMES_DIGFULL)
   {
-    if (psProperties->cBaseName[0] == 0)
+    if (psProperties->acBaseName[0] == 0)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Missing BaseName.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Missing BaseName.", acRoutine);
       return ER_MissingControl;
     }
 
-    if (psProperties->cOutDirName[0] == 0)
+    if (psProperties->acOutDirName[0] == 0)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Missing OutDir.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Missing OutDir.", acRoutine);
       return ER_MissingControl;
     }
 
-    if (psProperties->bURLPutSnapshot && psProperties->ptPutURL == NULL)
+    if (psProperties->bURLPutSnapshot && psProperties->psPutURL == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Missing URLPutURL.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Missing URLPutURL.", acRoutine);
       return ER_MissingControl;
     }
 
-    if (psProperties->bURLPutSnapshot && psProperties->ptPutURL->pcPath[0] == 0)
+    if (psProperties->bURLPutSnapshot && psProperties->psPutURL->pcPath[0] == 0)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Missing path in URLPutURL.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Missing path in URLPutURL.", acRoutine);
       return ER_MissingControl;
     }
 
 #ifdef USE_SSL
-    if (SSLCheckDependencies(psProperties->psSSLProperties, cLocalError) != ER_OK)
+    if (SSLCheckDependencies(psProperties->psSSLProperties, acLocalError) != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return ER_MissingControl;
     }
 #endif
   }
   else if (psProperties->iRunMode == FTIMES_DIGLEAN)
   {
-    if (psProperties->cBaseName[0] == 0)
+    if (psProperties->acBaseName[0] == 0)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Missing BaseName.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Missing BaseName.", acRoutine);
       return ER_MissingControl;
     }
 
-    if (psProperties->cOutDirName[0] == 0 && strcmp(psProperties->cBaseName, "-") != 0)
+    if (psProperties->acOutDirName[0] == 0 && strcmp(psProperties->acBaseName, "-") != 0)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Missing OutDir.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Missing OutDir.", acRoutine);
       return ER_MissingControl;
     }
   }
@@ -264,11 +260,9 @@ DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "DigModeFinalize()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "DigModeFinalize()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -279,10 +273,10 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (psProperties->bRequirePrivilege)
   {
-    iError = SupportRequirePrivilege(cLocalError);
+    iError = SupportRequirePrivilege(acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return iError;
     }
   }
@@ -296,10 +290,10 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (psProperties->bURLPutSnapshot)
   {
-    iError = URLPingRequest(psProperties, cLocalError);
+    iError = URLPingRequest(psProperties, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return ER_URLPingRequest;
     }
   }
@@ -320,12 +314,12 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (psProperties->ptIncludeList == NULL)
+  if (psProperties->psIncludeList == NULL)
   {
-    psProperties->ptIncludeList = SupportIncludeEverything(psProperties->bMapRemoteFiles, cLocalError);
-    if (psProperties->ptIncludeList == NULL)
+    psProperties->psIncludeList = SupportIncludeEverything(acLocalError);
+    if (psProperties->psIncludeList == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Failed to build a default Include list: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Failed to build a default Include list: %s", acRoutine, acLocalError);
       return ER_BadHandle;
     }
   }
@@ -337,12 +331,12 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  psProperties->ptExcludeList = SupportPruneList(psProperties->ptExcludeList, psProperties->bMapRemoteFiles);
+  psProperties->psExcludeList = SupportPruneList(psProperties->psExcludeList);
 
-  psProperties->ptIncludeList = SupportPruneList(psProperties->ptIncludeList, psProperties->bMapRemoteFiles);
-  if (psProperties->ptIncludeList == NULL)
+  psProperties->psIncludeList = SupportPruneList(psProperties->psIncludeList);
+  if (psProperties->psIncludeList == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: There's nothing left to process in the Include list.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: There's nothing left to process in the Include list.", acRoutine);
     return ER_NothingToDo;
   }
 
@@ -353,35 +347,37 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (psProperties->iRunMode == FTIMES_DIGFULL || (psProperties->iRunMode == FTIMES_DIGLEAN && strcmp(psProperties->cBaseName, "-") != 0))
+  if (psProperties->iRunMode == FTIMES_DIGFULL || (psProperties->iRunMode == FTIMES_DIGLEAN && strcmp(psProperties->acBaseName, "-") != 0))
   {
-    iError = SupportMakeName(psProperties->cLogDirName, psProperties->cBaseName, psProperties->cDateTime, ".log", psProperties->cLogFileName, cLocalError);
+    iError = SupportMakeName(psProperties->acLogDirName, psProperties->acBaseName, psProperties->acBaseNameSuffix, ".log", psProperties->acLogFileName, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Log File: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Log File: %s", acRoutine, acLocalError);
       return iError;
     }
 
-    iError = SupportAddToList(psProperties->cLogFileName, &psProperties->ptExcludeList, cLocalError);
+    iError = SupportAddToList(psProperties->acLogFileName, &psProperties->psExcludeList, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: LogFile = [%s]: %s", cRoutine, psProperties->cLogFileName, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: LogFile = [%s]: %s", acRoutine, psProperties->acLogFileName, acLocalError);
       return iError;
     }
 
-    if ((psProperties->pFileLog = fopen(psProperties->cLogFileName, "wb+")) == NULL)
+    psProperties->pFileLog = fopen(psProperties->acLogFileName, "wb+");
+    if (psProperties->pFileLog == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: LogFile = [%s]: %s", cRoutine, psProperties->cLogFileName, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: LogFile = [%s]: %s", acRoutine, psProperties->acLogFileName, strerror(errno));
       return ER_fopen;
     }
+    setvbuf(psProperties->pFileLog, NULL, _IOLBF, 0);
   }
   else
   {
-    strncpy(psProperties->cLogFileName, "stderr", FTIMES_MAX_PATH);
+    strncpy(psProperties->acLogFileName, "stderr", FTIMES_MAX_PATH);
     psProperties->pFileLog = stderr;
   }
 
-  MessageSetNewLine(psProperties->cNewLine);
+  MessageSetNewLine(psProperties->acNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
 
   /*-
@@ -391,31 +387,33 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *******************************************************************
    */
-  if (psProperties->iRunMode == FTIMES_DIGFULL || (psProperties->iRunMode == FTIMES_DIGLEAN && strcmp(psProperties->cBaseName, "-") != 0))
+  if (psProperties->iRunMode == FTIMES_DIGFULL || (psProperties->iRunMode == FTIMES_DIGLEAN && strcmp(psProperties->acBaseName, "-") != 0))
   {
-    iError = SupportMakeName(psProperties->cOutDirName, psProperties->cBaseName, psProperties->cDateTime, ".dig", psProperties->cOutFileName, cLocalError);
+    iError = SupportMakeName(psProperties->acOutDirName, psProperties->acBaseName, psProperties->acBaseNameSuffix, ".dig", psProperties->acOutFileName, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Out File: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Out File: %s", acRoutine, acLocalError);
       return iError;
     }
 
-    iError = SupportAddToList(psProperties->cOutFileName, &psProperties->ptExcludeList, cLocalError);
+    iError = SupportAddToList(psProperties->acOutFileName, &psProperties->psExcludeList, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: OutFile = [%s]: %s", cRoutine, psProperties->cOutFileName, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: OutFile = [%s]: %s", acRoutine, psProperties->acOutFileName, acLocalError);
       return iError;
     }
 
-    if ((psProperties->pFileOut = fopen(psProperties->cOutFileName, "wb+")) == NULL)
+    psProperties->pFileOut = fopen(psProperties->acOutFileName, "wb+");
+    if (psProperties->pFileOut == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: OutFile = [%s]: %s", cRoutine, psProperties->cOutFileName, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: OutFile = [%s]: %s", acRoutine, psProperties->acOutFileName, strerror(errno));
       return ER_fopen;
     }
+    setvbuf(psProperties->pFileOut, NULL, _IOLBF, 0);
   }
   else
   {
-    strncpy(psProperties->cOutFileName, "stdout", FTIMES_MAX_PATH);
+    strncpy(psProperties->acOutFileName, "stdout", FTIMES_MAX_PATH);
     psProperties->pFileOut = stdout;
   }
   DigSetOutputStream(psProperties->pFileOut);
@@ -427,12 +425,12 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  DigSetNewLine(psProperties->cNewLine);
+  DigSetNewLine(psProperties->acNewLine);
   DigSetHashBlock(&psProperties->sOutFileHashContext);
-  iError = DigWriteHeader(psProperties->pFileOut, psProperties->cNewLine, cLocalError);
+  iError = DigWriteHeader(psProperties->pFileOut, psProperties->acNewLine, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Dig Header: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Dig Header: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -445,10 +443,10 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (psProperties->iRunMode == FTIMES_DIGFULL && psProperties->bURLPutSnapshot && psProperties->bURLCreateConfig)
   {
-    iError = SupportMakeName(psProperties->cOutDirName, psProperties->cBaseName, psProperties->cDateTime, ".cfg", psProperties->cCfgFileName, cLocalError);
+    iError = SupportMakeName(psProperties->acOutDirName, psProperties->acBaseName, psProperties->acBaseNameSuffix, ".cfg", psProperties->acCfgFileName, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Cfg File: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Cfg File: %s", acRoutine, acLocalError);
       return iError;
     }
   }
@@ -476,10 +474,8 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 DigModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  char                cLocalError[ERRBUF_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   FILE_LIST           *pList;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -488,11 +484,11 @@ DigModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  for (pList = psProperties->ptIncludeList; pList != NULL; pList = pList->pNext)
+  for (pList = psProperties->psIncludeList; pList != NULL; pList = pList->psNext)
   {
-    if (SupportMatchExclude(psProperties->ptExcludeList, pList->cPath) == NULL)
+    if (SupportMatchExclude(psProperties->psExcludeList, pList->acPath) == NULL)
     {
-      MapFile(psProperties, pList->cPath, cLocalError);
+      MapFile(psProperties, pList->acPath, acLocalError);
     }
   }
 
@@ -510,14 +506,12 @@ DigModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  char                cLocalError[ERRBUF_SIZE];
-  char                cMessage[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  char                acMessage[MESSAGE_SIZE];
   int                 i;
   int                 iFirst;
   int                 iIndex;
   unsigned char       ucFileHash[MD5_HASH_SIZE];
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -537,9 +531,9 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   MD5Omega(&psProperties->sOutFileHashContext, ucFileHash);
   for (i = 0; i < MD5_HASH_SIZE; i++)
   {
-    sprintf(&psProperties->cOutFileHash[i * 2], "%02x", ucFileHash[i]);
+    sprintf(&psProperties->acOutFileHash[i * 2], "%02x", ucFileHash[i]);
   }
-  psProperties->cOutFileHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
+  psProperties->acOutFileHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
 
   /*-
    *********************************************************************
@@ -550,7 +544,7 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (psProperties->bURLCreateConfig && psProperties->iRunMode == FTIMES_DIGFULL)
   {
-    FTimesCreateConfigFile(psProperties, cLocalError);
+    FTimesCreateConfigFile(psProperties, acLocalError);
   }
 
   /*-
@@ -560,23 +554,23 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  snprintf(cMessage, MESSAGE_SIZE, "LogFileName=%s", psProperties->cLogFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "LogFileName=%s", psProperties->acLogFileName);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-  snprintf(cMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->cOutFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->acOutFileName);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
   if (psProperties->iRunMode == FTIMES_DIGFULL && psProperties->bURLPutSnapshot && psProperties->bURLCreateConfig)
   {
-    snprintf(cMessage, MESSAGE_SIZE, "CfgFileName=%s", psProperties->cCfgFileName);
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+    snprintf(acMessage, MESSAGE_SIZE, "CfgFileName=%s", psProperties->acCfgFileName);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
   }
 
-  snprintf(cMessage, MESSAGE_SIZE, "OutFileHash=%s", psProperties->cOutFileHash);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "OutFileHash=%s", psProperties->acOutFileHash);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-  snprintf(cMessage, MESSAGE_SIZE, "DataType=%s", psProperties->cDataType);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "DataType=%s", psProperties->acDataType);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
   /*-
    *********************************************************************
@@ -585,54 +579,54 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  snprintf(cMessage, MESSAGE_SIZE, "DirectoriesEncountered=%d", MapGetDirectoryCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "DirectoriesEncountered=%d", MapGetDirectoryCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-  snprintf(cMessage, MESSAGE_SIZE, "FilesEncountered=%d", MapGetFileCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "FilesEncountered=%d", MapGetFileCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
 #ifdef UNIX
-  snprintf(cMessage, MESSAGE_SIZE, "SpecialsEncountered=%d", MapGetSpecialCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "SpecialsEncountered=%d", MapGetSpecialCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 #endif
 
 #ifdef WINNT
-  snprintf(cMessage, MESSAGE_SIZE, "StreamsEncountered=%d", MapGetStreamCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "StreamsEncountered=%d", MapGetStreamCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 #endif
 
   iIndex = 0;
   if (psProperties->iLastAnalysisStage > 0)
   {
-    iIndex = sprintf(&cMessage[iIndex], "AnalysisStages=");
+    iIndex = sprintf(&acMessage[iIndex], "AnalysisStages=");
     for (i = 0, iFirst = 0; i < psProperties->iLastAnalysisStage; i++)
     {
-        iIndex += sprintf(&cMessage[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", psProperties->sAnalysisStages[i].cDescription);
+        iIndex += sprintf(&acMessage[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", psProperties->asAnalysisStages[i].acDescription);
     }
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-    snprintf(cMessage, MESSAGE_SIZE, "ObjectsAnalyzed=%lu", AnalyzeGetFileCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+    snprintf(acMessage, MESSAGE_SIZE, "ObjectsAnalyzed=%u", AnalyzeGetFileCount());
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
 #ifdef UNIX
 #ifdef USE_AP_SNPRINTF
-    snprintf(cMessage, MESSAGE_SIZE, "BytesAnalyzed=%qu", AnalyzeGetByteCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+    snprintf(acMessage, MESSAGE_SIZE, "BytesAnalyzed=%qu", (unsigned long long) AnalyzeGetByteCount());
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 #else
-    sprintf(cMessage, "BytesAnalyzed=%qu", AnalyzeGetByteCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+    snprintf(acMessage, MESSAGE_SIZE, "BytesAnalyzed=%llu", (unsigned long long) AnalyzeGetByteCount());
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 #endif
 #endif
 
 #ifdef WIN32
-    snprintf(cMessage, MESSAGE_SIZE, "BytesAnalyzed=%I64u", AnalyzeGetByteCount());
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+    snprintf(acMessage, MESSAGE_SIZE, "BytesAnalyzed=%I64u", AnalyzeGetByteCount());
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 #endif
   }
   else
   {
-    snprintf(cMessage, MESSAGE_SIZE, "AnalysisStages=None");
-    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+    snprintf(acMessage, MESSAGE_SIZE, "AnalysisStages=None");
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
   }
 
   /*-
@@ -642,8 +636,8 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  snprintf(cMessage, MESSAGE_SIZE, "DigStrings=%d", DigGetStringCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "DigStrings=%d", DigGetStringCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
   /*-
    *********************************************************************
@@ -652,8 +646,8 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  snprintf(cMessage, MESSAGE_SIZE, "DigStringsMatched=%d", DigGetStringsMatched());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "DigStringsMatched=%d", DigGetStringsMatched());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
   /*-
    *********************************************************************
@@ -664,30 +658,15 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
 #ifdef UNIX
 #ifdef USE_AP_SNPRINTF
-  /*-
-   *******************************************************************
-   *
-   * Support certain versions of Solaris that can't grok %q.
-   *
-   *******************************************************************
-   */
-  snprintf(cMessage, MESSAGE_SIZE, "TotalMatches=%qu", DigGetTotalMatches());
+  snprintf(acMessage, MESSAGE_SIZE, "TotalMatches=%qu", (unsigned long long) DigGetTotalMatches());
 #else
-  /*-
-   *******************************************************************
-   *
-   * Oddly, some versions of UNIX don't support %q in snprintf. So,
-   * we print it out with sprintf instead.
-   *
-   *******************************************************************
-   */
-  sprintf(cMessage, "TotalMatches=%qu", DigGetTotalMatches());
+  snprintf(acMessage, MESSAGE_SIZE, "TotalMatches=%llu", (unsigned long long) DigGetTotalMatches());
 #endif
 #endif
 #ifdef WIN32
-  snprintf(cMessage, MESSAGE_SIZE, "MatchCount=%I64u", DigGetTotalMatches());
+  snprintf(acMessage, MESSAGE_SIZE, "MatchCount=%I64u", DigGetTotalMatches());
 #endif
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
   SupportDisplayRunStatistics(psProperties);
 
@@ -705,8 +684,8 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 DigModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "DigModeFinalStage()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "DigModeFinalStage()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
 
   /*-
@@ -718,10 +697,10 @@ DigModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (psProperties->bURLPutSnapshot && psProperties->iRunMode == FTIMES_DIGFULL)
   {
-    iError = URLPutRequest(psProperties, cLocalError);
+    iError = URLPutRequest(psProperties, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return ER_URLPutRequest;
     }
 

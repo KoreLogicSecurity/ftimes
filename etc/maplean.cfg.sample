@@ -2,7 +2,7 @@
 ######################################################################
 ######################################################################
 #
-# $Id: maplean.cfg.sample,v 1.2 2003/08/13 18:25:47 mavrik Exp $
+# $Id: maplean.cfg.sample,v 1.5 2004/04/23 22:14:07 mavrik Exp $
 #
 ######################################################################
 ######################################################################
@@ -10,7 +10,10 @@
 #
 # This config file contains a condensed list of controls specific
 # to maplean mode.  A full description for each control can be found
-# in the FTimes documentation.
+# in the FTimes documentation.  All controls are commented out, and
+# controls that are set have been set to their default value.  To
+# override this behavior, uncomment the desired control and specify
+# a new value.
 #
 ######################################################################
 ######################################################################
@@ -25,21 +28,24 @@
 ######################################################################
 #
 #BaseName=                        # <name|->
-#OutDir=                          # <directory>
+#BaseNameSuffix=none              # [datetime|none|pid]
 #LogDir=                          # <directory>
+#OutDir=                          # <directory>
+#Import=                          # <file>
 #Include=                         # [<file>|<directory>|<link>]
 #Exclude=                         # [<file>|<directory>|<link>]
 #
-#Compress=Y                       # [Y|N]
-#FieldMask=ALL-magic              # <mask>
-#HashDirectories=Y                # [Y|N]
-#HashSymbolicLinks=Y              # [Y|N]
+#AnalyzeDeviceFiles=N             # [Y|N]
+#AnalyzeRemoteFiles=N             # [Y|N]
+#Compress=N                       # [Y|N]
+#EnableRecursion=Y                # [Y|N]
+#FieldMask=                       # <mask> (e.g., all-magic)
+#FileSizeLimit=0                  # <integer>
+#HashDirectories=N                # [Y|N]
+#HashSymbolicLinks=N              # [Y|N]
 #MagicFile=                       # <file>
-#MapRemoteFiles=Y                 # [Y|N]
-#NewLine=LF                       # [LF|CRLF]
-#RequirePrivilege=Y               # [Y|N]
-#
-#Import=                          # <file>
+#NewLine=                         # [LF|CRLF]
+#RequirePrivilege=N               # [Y|N]
 #
 ######################################################################
 ######################################################################

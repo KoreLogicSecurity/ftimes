@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.h,v 1.3 2003/02/23 17:40:08 mavrik Exp $
+ * $Id: compare.h,v 1.7 2004/04/22 02:59:27 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -28,7 +27,7 @@
 
 #define CMP_HASHC_SIZE                      32
 #define CMP_HASHB_SIZE                      16
-#define CMP_MAX_LINE_LENGTH               2048
+#define CMP_MAX_LINE                      8192
 #define CMP_MODULUS                     (1<<16)
 #define CMP_HASH_MASK         ((CMP_MODULUS)-1)
 #define CMP_NODE_REQUEST_COUNT          200000
@@ -109,7 +108,7 @@ typedef struct _CMP_PROPERTIES
  *
  ***********************************************************************
  */
-int                 CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields[][CMP_MAX_LINE_LENGTH], char *pcError);
+int                 CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields[][CMP_MAX_LINE], char *pcError);
 int                 CompareEnumerateChanges(char *pcFilename, char *pcError);
 void                CompareFreeProperties(CMP_PROPERTIES *psProperties);
 int                 CompareGetChangedCount(void);
@@ -123,7 +122,7 @@ int                 CompareGetUnknownCount(void);
 int                 CompareLoadBaselineData(char *pcFilename, char *pcError);
 CMP_PROPERTIES     *CompareNewProperties(char *pcError);
 /* This is declared in ftimes.h.
-int                 CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *pMaskTable, int iMaskTableLength, char *pcError);
+int                 CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *psMaskTable, int iMaskTableLength, char *pcError);
 */
 int                 ComparePreprocessLine(FILE *pFile, int iToLower, char *pcLine, int *piLength, unsigned char *pucHash, char *pcError);
 int                 CompareReadHeader(FILE *pFile, char *pcError);

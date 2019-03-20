@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-dig2ctx.pl,v 1.4 2003/03/26 21:39:17 mavrik Exp $
+# $Id: ftimes-dig2ctx.pl,v 1.9 2004/04/26 03:22:44 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2002-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2002-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -14,6 +14,7 @@
 ######################################################################
 
 use strict;
+use File::Basename;
 use Getopt::Std;
 
 ######################################################################
@@ -28,9 +29,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($program);
+  my ($sProgram);
 
-  $program = "ftimes-dig2ctx.pl";
+  $sProgram = basename(__FILE__);
 
   ####################################################################
   #
@@ -38,11 +39,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my $contextRegex = qq(^\\d+\$);
-  my $ignoreRegex  = qq(^\\d+\$);
-  my $lineRegex    = qq(^"(.+)"\\|(\\d+)\\|(.+)\$);
-  my $prefixRegex  = qq(^\\d+\$);
-  my $schemeRegex  = qq(^hex|url\$);
+  my $sContextRegex = qq(^\\d+\$);
+  my $sIgnoreRegex  = qq(^\\d+\$);
+  my $sLineRegex    = qq(^"(.+)"\\|(\\d+|0x[0-9A-Fa-f]+)\\|(.+)\$);
+  my $sPrefixRegex  = qq(^\\d+\$);
+  my $sSchemeRegex  = qq(^hex|url\$);
 
   ####################################################################
   #
@@ -50,11 +51,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('c:e:f:hi:l:p:r:', \%options))
+  if (!getopts('c:e:f:hi:l:p:r:', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
@@ -63,11 +64,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my $reqContextLength = (exists($options{'c'})) ? $options{'c'} : 64;
+  my $sReqContextLength = (exists($hOptions{'c'})) ? $hOptions{'c'} : 64;
 
-  if ($reqContextLength !~ /$contextRegex/ || $reqContextLength <= 0)
+  if ($sReqContextLength !~ /$sContextRegex/ || $sReqContextLength <= 0)
   {
-    print STDERR "$program: ContextLength='$reqContextLength' Error='Invalid context length.'\n";
+    print STDERR "$sProgram: ContextLength='$sReqContextLength' Error='Invalid context length.'\n";
     exit(2);
   }
 
@@ -77,36 +78,36 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($fileHandle, $filename);
+  my ($sFileHandle, $sFilename);
 
-  if (!exists($options{'f'}))
+  if (!exists($hOptions{'f'}))
   {
-    Usage($program);
+    Usage($sProgram);
   }
   else
   {
-    $filename = $options{'f'};
-    if (!defined($filename) || length($filename) < 1)
+    $sFilename = $hOptions{'f'};
+    if (!defined($sFilename) || length($sFilename) < 1)
     {
-      Usage($program);
+      Usage($sProgram);
     }
-    if (-f $filename)
+    if (-f $sFilename)
     {
-      if (!open(FH, $filename))
+      if (!open(FH, $sFilename))
       {
-        print STDERR "$program: File='$filename' Error='$!'\n";
+        print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
         exit(2);
       }
-      $fileHandle = \*FH;
+      $sFileHandle = \*FH;
     }
     else
     {
-      if ($filename ne '-')
+      if ($sFilename ne '-')
       {
-        print STDERR "$program: File='$filename' Error='File must be regular.'\n";
+        print STDERR "$sProgram: File='$sFilename' Error='File must be regular.'\n";
         exit(2);
       }
-      $fileHandle = \*STDIN;
+      $sFileHandle = \*STDIN;
     }
   }
 
@@ -116,13 +117,13 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my $encodingScheme = (exists($options{'e'})) ? $options{'e'} : "url";
+  my $sEncodingScheme = (exists($hOptions{'e'})) ? $hOptions{'e'} : "url";
 
-  $encodingScheme =~ tr/A-Z/a-z/;
+  $sEncodingScheme =~ tr/A-Z/a-z/;
 
-  if ($encodingScheme !~ /$schemeRegex/)
+  if ($sEncodingScheme !~ /$sSchemeRegex/)
   {
-    print STDERR "$program: EncodingScheme='$encodingScheme' Error='Invalid encoding scheme.'\n";
+    print STDERR "$sProgram: EncodingScheme='$sEncodingScheme' Error='Invalid encoding scheme.'\n";
     exit(2);
   }
 
@@ -132,7 +133,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my $printHeader = (exists($options{'h'})) ? 1 : 0;
+  my $sPrintHeader = (exists($hOptions{'h'})) ? 1 : 0;
 
   ####################################################################
   #
@@ -140,11 +141,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my $ignoreNLines = (exists($options{'i'})) ? $options{'i'} : 0;
+  my $sIgnoreNLines = (exists($hOptions{'i'})) ? $hOptions{'i'} : 0;
 
-  if ($ignoreNLines !~ /$ignoreRegex/)
+  if ($sIgnoreNLines !~ /$sIgnoreRegex/)
   {
-    print STDERR "$program: IgnoreNLines='$ignoreNLines' Error='Invalid ignore count.'\n";
+    print STDERR "$sProgram: IgnoreNLines='$sIgnoreNLines' Error='Invalid ignore count.'\n";
     exit(2);
   }
 
@@ -154,7 +155,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my $lhBoundary = (exists($options{'l'})) ? $options{'l'} : undef;
+  my $sLHBoundary = (exists($hOptions{'l'})) ? $hOptions{'l'} : undef;
 
   ####################################################################
   #
@@ -162,7 +163,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my $rhBoundary = (exists($options{'r'})) ? $options{'r'} : undef;
+  my $sRHBoundary = (exists($hOptions{'r'})) ? $hOptions{'r'} : undef;
 
   ####################################################################
   #
@@ -170,17 +171,17 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my $reqPrefixLength = (exists($options{'p'})) ? $options{'p'} : 0;
+  my $sReqPrefixLength = (exists($hOptions{'p'})) ? $hOptions{'p'} : 0;
 
-  if ($reqPrefixLength !~ /$prefixRegex/)
+  if ($sReqPrefixLength !~ /$sPrefixRegex/)
   {
-    print STDERR "$program: PrefixLength='$reqPrefixLength' Error='Invalid prefix length.'\n";
+    print STDERR "$sProgram: PrefixLength='$sReqPrefixLength' Error='Invalid prefix length.'\n";
     exit(2);
   }
 
-  if ($reqPrefixLength > $reqContextLength)
+  if ($sReqPrefixLength > $sReqContextLength)
   {
-    print STDERR "$program: PrefixLength='$reqPrefixLength' Error='PrefixLength must not exceed ContextLength.'\n";
+    print STDERR "$sProgram: PrefixLength='$sReqPrefixLength' Error='PrefixLength must not exceed ContextLength.'\n";
     exit(2);
   }
 
@@ -192,7 +193,7 @@ use Getopt::Std;
 
   if (scalar(@ARGV) > 0)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
@@ -201,11 +202,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($lineNumber);
+  my ($sLineNumber);
 
-  for ($lineNumber = 1; $lineNumber <= $ignoreNLines; $lineNumber++)
+  for ($sLineNumber = 1; $sLineNumber <= $sIgnoreNLines; $sLineNumber++)
   {
-    <$fileHandle>;
+    <$sFileHandle>;
   }
 
   ####################################################################
@@ -214,7 +215,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  if ($printHeader)
+  if ($sPrintHeader)
   {
     print "dig_name|dig_offset|dig_string|ctx_offset|lh_length|mh_length|rh_length|ctx_string\n";
   }
@@ -225,9 +226,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%blackListed, $rawHandle, $lastFile, $lastOffset, $line);
+  my (%hBlackListed, $sRawHandle, $sLastFile, $sLastOffset, $sLine);
 
-  for ($lastFile = '', $lastOffset = 0; $line = <$fileHandle>; $lineNumber++)
+  for ($sLastFile = '', $sLastOffset = 0; $sLine = <$sFileHandle>; $sLineNumber++)
   {
     ##################################################################
     #
@@ -235,21 +236,23 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my ($adjOffset, $digFile, $digOffset, $digString, $rawFile, $rawLength);
+    my ($sAdjOffset, $sDigFile, $sDigOffset, $sDigString, $sRawFile, $sRawLength);
 
-    $line =~ s/[\r\n]+$//;
-    if ($line !~ /$lineRegex/)
+    $sLine =~ s/[\r\n]+$//;
+    if ($sLine !~ /$sLineRegex/)
     {
-      print STDERR "$program: LineNumber='$lineNumber' Line='$line' Error='Line did not parse properly.'\n";
+      print STDERR "$sProgram: LineNumber='$sLineNumber' Line='$sLine' Error='Line did not parse properly.'\n";
       next;
     }
-    next if $blackListed{$1};
+    next if $hBlackListed{$1};
 
-    $digFile   = $1;
-    $rawFile   = URLDecode($digFile);
-    $digOffset = $2;
-    $digString = $3;
-    $rawLength = length(URLDecode($digString));
+    $sDigFile   = $1;
+    $sRawFile   = URLDecode($sDigFile);
+    $sDigOffset = $2;
+    $sDigString = $3;
+    $sRawLength = length(URLDecode($sDigString));
+
+    $sDigOffset = oct($sDigOffset) if ($sDigOffset =~ /^0x/);
 
     ##################################################################
     #
@@ -257,19 +260,19 @@ use Getopt::Std;
     #
     ##################################################################
 
-    if ($digFile ne $lastFile)
+    if ($sDigFile ne $sLastFile)
     {
-      close($rawHandle) if (defined($rawHandle));
-      if (!open(RAW, "<$rawFile"))
+      close($sRawHandle) if (defined($sRawHandle));
+      if (!open(RAW, "<$sRawFile"))
       {
-        print STDERR "$program: LineNumber='$lineNumber' URLFilename='$digFile' Error='$!'\n";
-        $blackListed{$digFile} = 1;
-        $lastFile = '';
+        print STDERR "$sProgram: LineNumber='$sLineNumber' URLFilename='$sDigFile' Error='$!'\n";
+        $hBlackListed{$sDigFile} = 1;
+        $sLastFile = '';
         next;
       }
-      $rawHandle = \*RAW;
-      $lastFile = $digFile;
-      $lastOffset = 0;
+      $sRawHandle = \*RAW;
+      $sLastFile = $sDigFile;
+      $sLastOffset = 0;
     }
 
     ##################################################################
@@ -278,21 +281,21 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my ($adjPrefixLength);
+    my ($sAdjPrefixLength);
 
-    $adjOffset = ($digOffset < $reqPrefixLength) ? 0 : $digOffset - $reqPrefixLength;
+    $sAdjOffset = ($sDigOffset < $sReqPrefixLength) ? 0 : $sDigOffset - $sReqPrefixLength;
 
-    $adjPrefixLength = $digOffset - $adjOffset;
+    $sAdjPrefixLength = $sDigOffset - $sAdjOffset;
 
-    if (!seek($rawHandle, $adjOffset - $lastOffset, 1))
+    if (!seek($sRawHandle, $sAdjOffset - $sLastOffset, 1))
     {
-      print STDERR "$program: LineNumber='$lineNumber' URLFilename='$digFile' Offset='$adjOffset' Error='$!'\n";
-      $blackListed{$digFile} = 1;
-      $lastFile = '';
-      close($rawHandle);
+      print STDERR "$sProgram: LineNumber='$sLineNumber' URLFilename='$sDigFile' Offset='$sAdjOffset' Error='$!'\n";
+      $hBlackListed{$sDigFile} = 1;
+      $sLastFile = '';
+      close($sRawHandle);
       next;
     }
-    $lastOffset = $adjOffset;
+    $sLastOffset = $sAdjOffset;
 
     ##################################################################
     #
@@ -300,24 +303,24 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my ($adjContextLength, $rawData, $nRead);
+    my ($sAdjContextLength, $sRawData, $sNRead);
 
-    $rawData = '';
-    $adjContextLength = ($adjPrefixLength < $reqPrefixLength) ? $reqContextLength - ($reqPrefixLength - $adjPrefixLength) : $reqContextLength;
-    $nRead = read($rawHandle, $rawData, $adjContextLength);
-    if (!defined($nRead))
+    $sRawData = '';
+    $sAdjContextLength = ($sAdjPrefixLength < $sReqPrefixLength) ? $sReqContextLength - ($sReqPrefixLength - $sAdjPrefixLength) : $sReqContextLength;
+    $sNRead = read($sRawHandle, $sRawData, $sAdjContextLength);
+    if (!defined($sNRead))
     {
-      print STDERR "$program: LineNumber='$lineNumber' URLFilename='$digFile' Offset='$adjOffset' Error='$!'\n";
-      $blackListed{$digFile} = 1;
-      $lastFile = '';
-      close($rawHandle);
+      print STDERR "$sProgram: LineNumber='$sLineNumber' URLFilename='$sDigFile' Offset='$sAdjOffset' Error='$!'\n";
+      $hBlackListed{$sDigFile} = 1;
+      $sLastFile = '';
+      close($sRawHandle);
       next;
     }
-    if ($nRead < $adjContextLength)
+    if ($sNRead < $sAdjContextLength)
     {
-      print STDERR "$program: LineNumber='$lineNumber' URLFilename='$digFile' Offset='$adjOffset' Error='Wanted $adjContextLength bytes, got $nRead.'\n";
+      print STDERR "$sProgram: LineNumber='$sLineNumber' URLFilename='$sDigFile' Offset='$sAdjOffset' Error='Wanted $sAdjContextLength bytes, got $sNRead.'\n";
     }
-    $lastOffset += $nRead;
+    $sLastOffset += $sNRead;
 
     ##################################################################
     #
@@ -325,27 +328,27 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my ($lhLength, $mhLength, $rhLength);
+    my ($sLHLength, $sMHLength, $sRHLength);
 
-    if ($nRead < $adjPrefixLength)
+    if ($sNRead < $sAdjPrefixLength)
     {
-      $lhLength = $nRead;
-      $mhLength = 0;
-      $rhLength = 0;
+      $sLHLength = $sNRead;
+      $sMHLength = 0;
+      $sRHLength = 0;
     }
     else
     {
-      if ($nRead < $adjPrefixLength + $rawLength)
+      if ($sNRead < $sAdjPrefixLength + $sRawLength)
       {
-        $lhLength = $adjPrefixLength;
-        $mhLength = $nRead - $lhLength;
-        $rhLength = 0;
+        $sLHLength = $sAdjPrefixLength;
+        $sMHLength = $sNRead - $sLHLength;
+        $sRHLength = 0;
       }
       else
       {
-        $lhLength = $adjPrefixLength;
-        $mhLength = $rawLength;
-        $rhLength = $nRead - $lhLength - $mhLength;
+        $sLHLength = $sAdjPrefixLength;
+        $sMHLength = $sRawLength;
+        $sRHLength = $sNRead - $sLHLength - $sMHLength;
       }
     }
 
@@ -355,18 +358,18 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my ($rawLHData, $rawMHData, $rawRHData);
+    my ($sRawLHData, $sRawMHData, $sRawRHData);
 
-    if ($lhLength > 0)
+    if ($sLHLength > 0)
     {
-      $rawLHData = substr($rawData, 0, $lhLength);
-      if (defined($lhBoundary))
+      $sRawLHData = substr($sRawData, 0, $sLHLength);
+      if (defined($sLHBoundary))
       {
-        $rawLHData = (reverse(split(/$lhBoundary/, $rawLHData, -1)))[0];
-        $adjOffset += ($lhLength - length($rawLHData));
+        $sRawLHData = (reverse(split(/$sLHBoundary/, $sRawLHData, -1)))[0];
+        $sAdjOffset += ($sLHLength - length($sRawLHData));
       }
     }
-    $rawLHData .= '';
+    $sRawLHData .= '';
 
     ##################################################################
     #
@@ -374,11 +377,11 @@ use Getopt::Std;
     #
     ##################################################################
 
-    if ($mhLength > 0)
+    if ($sMHLength > 0)
     {
-      $rawMHData = substr($rawData, $lhLength, $mhLength);
+      $sRawMHData = substr($sRawData, $sLHLength, $sMHLength);
     }
-    $rawMHData .= '';
+    $sRawMHData .= '';
 
     ##################################################################
     #
@@ -386,15 +389,15 @@ use Getopt::Std;
     #
     ##################################################################
 
-    if ($rhLength > 0)
+    if ($sRHLength > 0)
     {
-      $rawRHData = substr($rawData, $lhLength + $mhLength, $rhLength);
-      if (defined($rhBoundary))
+      $sRawRHData = substr($sRawData, $sLHLength + $sMHLength, $sRHLength);
+      if (defined($sRHBoundary))
       {
-        $rawRHData = (split(/$rhBoundary/, $rawRHData))[0];
+        $sRawRHData = (split(/$sRHBoundary/, $sRawRHData))[0];
       }
     }
-    $rawRHData .= '';
+    $sRawRHData .= '';
 
     ##################################################################
     #
@@ -402,17 +405,17 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my ($encodedData);
+    my ($sEncodedData);
 
-    if ($encodingScheme eq "hex")
+    if ($sEncodingScheme eq "hex")
     {
-      $encodedData = HexEncode($rawLHData . $rawMHData . $rawRHData);
+      $sEncodedData = HexEncode($sRawLHData . $sRawMHData . $sRawRHData);
     }
     else
     {
-      $encodedData = URLEncode($rawLHData . $rawMHData . $rawRHData);
+      $sEncodedData = URLEncode($sRawLHData . $sRawMHData . $sRawRHData);
     }
-    print "\"$digFile\"|$digOffset|$digString|$adjOffset|$lhLength|$mhLength|$rhLength|$encodedData\n";
+    print "\"$sDigFile\"|$sDigOffset|$sDigString|$sAdjOffset|$sLHLength|$sMHLength|$sRHLength|$sEncodedData\n";
   }
 
   ####################################################################
@@ -421,7 +424,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  close($fileHandle);
+  close($sFileHandle);
 
   1;
 
@@ -434,10 +437,10 @@ use Getopt::Std;
 
 sub HexEncode
 {
-  my ($hexString) = @_;
+  my ($sHexString) = @_;
 
-  $hexString =~ s/(.)/sprintf("%02x",unpack('C',$1))/seg;
-  return $hexString;
+  $sHexString =~ s/(.)/sprintf("%02x",unpack('C',$1))/seg;
+  return $sHexString;
 }
 
 
@@ -449,10 +452,10 @@ sub HexEncode
 
 sub URLDecode
 {
-  my ($rawString) = @_;
-  $rawString =~ s/\+/ /sg;
-  $rawString =~ s/%([0-9a-fA-F]{2})/pack('C', hex($1))/seg;
-  return $rawString;
+  my ($sRawString) = @_;
+  $sRawString =~ s/\+/ /sg;
+  $sRawString =~ s/%([0-9a-fA-F]{2})/pack('C', hex($1))/seg;
+  return $sRawString;
 }
 
 
@@ -464,11 +467,11 @@ sub URLDecode
 
 sub URLEncode
 {
-  my ($urlString) = @_;
+  my ($sURLString) = @_;
 
-  $urlString =~ s/([^!-\$&-*,-{}~ ])/sprintf("%%%02x",unpack('C',$1))/seg;
-  $urlString =~ s/ /+/sg;
-  return $urlString;
+  $sURLString =~ s/([^!-\$&-*,-{}~ ])/sprintf("%%%02x",unpack('C',$1))/seg;
+  $sURLString =~ s/ /+/sg;
+  return $sURLString;
 }
 
 
@@ -480,9 +483,9 @@ sub URLEncode
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-h] [-e {url|hex}] [-c max-length] [-p max-length] [-l regex] [-r regex] [-i count] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-h] [-e {url|hex}] [-c max-length] [-p max-length] [-l regex] [-r regex] [-i count] -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -555,7 +558,7 @@ that can be used to limit the amount of context returned.
 
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 
 =head1 SEE ALSO
 

@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-harvest-sunsolve.pl,v 1.3 2003/03/26 20:47:29 mavrik Exp $
+# $Id: hashdig-harvest-sunsolve.pl,v 1.8 2004/04/21 01:29:59 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -14,6 +14,7 @@
 ######################################################################
 
 use strict;
+use File::Basename;
 use Getopt::Std;
 
 ######################################################################
@@ -28,9 +29,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($program);
+  my ($sProgram);
 
-  $program = "hashdig-harvest-sunsolve.pl";
+  $sProgram = basename(__FILE__);
 
   ####################################################################
   #
@@ -38,26 +39,26 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('c:o:qs:T:', \%options))
+  if (!getopts('c:o:qs:T:', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # The category flag, '-c', is optional. Default value is "K".
+  # The Category flag, '-c', is optional. Default value is "K".
   #
   ####################################################################
 
-  my ($category);
+  my ($sCategory);
 
-  $category = (exists($options{'c'})) ? uc($options{'c'}) : "K";
+  $sCategory = (exists($hOptions{'c'})) ? uc($hOptions{'c'}) : "K";
 
-  if ($category !~ /^[AKU]$/)
+  if ($sCategory !~ /^[AKU]$/)
   {
-    print STDERR "$program: Category='$category' Error='Invalid category.'\n";
+    print STDERR "$sProgram: Category='$sCategory' Error='Invalid category.'\n";
     exit(2);
   }
 
@@ -67,44 +68,45 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($filename);
+  my ($sFilename);
 
-  $filename = (exists($options{'o'})) ? $options{'o'} : undef;
+  $sFilename = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
 
-  if (!defined($filename) || length($filename) < 1)
+  if (!defined($sFilename) || length($sFilename) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # The beQuiet flag, '-q', is optional. Default value is 0.
+  # The BeQuiet flag, '-q', is optional. Default value is 0.
   #
   ####################################################################
 
-  my ($beQuiet);
+  my ($sBeQuiet);
 
-  $beQuiet = (exists($options{'q'})) ? 1 : 0;
-
-  ####################################################################
-  #
-  # The sort flag, '-s', is optional. Default value is "sort".
-  #
-  ####################################################################
-
-  my ($sort);
-
-  $sort = (exists($options{'s'})) ? $options{'s'} : "sort";
+  $sBeQuiet = (exists($hOptions{'q'})) ? 1 : 0;
 
   ####################################################################
   #
-  # The tmpDir flag, '-T', is optional. Default value is "/tmp".
+  # The Sort flag, '-s', is optional. Default value is "sort".
   #
   ####################################################################
 
-  my ($tmpDir);
+  my ($sSort);
 
-  $tmpDir = (exists($options{'T'})) ? $options{'T'} : "/tmp";
+  $sSort = (exists($hOptions{'s'})) ? $hOptions{'s'} : "sort";
+
+  ####################################################################
+  #
+  # The TmpDir flag, '-T', is optional. Default value is $TMPDIR,
+  # or if that is not defined, fall back to "/tmp".
+  #
+  ####################################################################
+
+  my ($sTmpDir);
+
+  $sTmpDir = (exists($hOptions{'T'})) ? $hOptions{'T'} : (defined($ENV{'TMPDIR'})) ? $ENV{'TMPDIR'} : "/tmp";
 
   ####################################################################
   #
@@ -114,7 +116,7 @@ use Getopt::Std;
 
   if (scalar(@ARGV) != 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
@@ -123,9 +125,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  if ($filename ne "-" && -f $filename && !unlink($filename))
+  if ($sFilename ne "-" && -f $sFilename && !unlink($sFilename))
   {
-    print STDERR "$program: File='$filename' Error='$!'\n";
+    print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
     exit(2);
   }
 
@@ -135,16 +137,16 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($directory, @files);
+  my ($sDirectory, @aFiles);
 
-  $directory = shift;
-  $directory =~ s/\/*$//;
-  if (!opendir(DIR, $directory))
+  $sDirectory = shift;
+  $sDirectory =~ s/\/*$//;
+  if (!opendir(DIR, $sDirectory))
   {
-    print STDERR "$program: Directory='$directory' Error='$!'\n";
+    print STDERR "$sProgram: Directory='$sDirectory' Error='$!'\n";
     exit(2);
   }
-  @files = sort(grep(/^$directory\/hashdig-sunsolve.\d+$/, map("$directory/$_", readdir(DIR))));
+  @aFiles = sort(grep(/^$sDirectory\/hashdig-sunsolve.\d+$/, map("$sDirectory/$_", readdir(DIR))));
 
   ####################################################################
   #
@@ -152,16 +154,16 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($command);
+  my ($sCommand);
 
-  $command = "$sort -u -T $tmpDir";
-  if ($filename ne "-")
+  $sCommand = "$sSort -u -T $sTmpDir";
+  if ($sFilename ne "-")
   {
-    $command .= " -o $filename";
+    $sCommand .= " -o $sFilename";
   }
-  if (!open(SH, "|$command"))
+  if (!open(SH, "|$sCommand"))
   {
-    print STDERR "$program: Command='$command' Error='$!'\n";
+    print STDERR "$sProgram: Command='$sCommand' Error='$!'\n";
     exit(2);
   }
 
@@ -171,24 +173,24 @@ use Getopt::Std;
   #
   ####################################################################
 
-  foreach my $inputFile (@files)
+  foreach my $sInputFile (@aFiles)
   {
-    if (!open(FH, "<$inputFile"))
+    if (!open(FH, "<$sInputFile"))
     {
-      if (!$beQuiet)
+      if (!$sBeQuiet)
       {
-        print STDERR "$program: File='$inputFile' Error='$!'\n";
+        print STDERR "$sProgram: File='$sInputFile' Error='$!'\n";
       }
       next;
     }
-    while (my $record = <FH>)
+    while (my $sRecord = <FH>)
     {
-      if (my ($hash, $matches) = ($record =~ /^.*<TT>([0-9a-fA-F]{32})<\/TT>\s+-\s+<TT><\/TT>\s+-\s+(\d+)\smatch.*$/o))
+      if (my ($sHash, $sMatches) = ($sRecord =~ /^.*<TT>([0-9a-fA-F]{32})<\/TT>\s+-\s+<TT><\/TT>\s+-\s+(\d+)\smatch.*$/o))
       {
-        my $value = ($matches) ? "K" : "U";
-        if ($category eq "A" || ($value eq $category))
+        my $sValue = ($sMatches) ? "K" : "U";
+        if ($sCategory eq "A" || ($sValue eq $sCategory))
         {
-          print SH lc($hash), "|", $value, "\n";
+          print SH lc($sHash), "|", $sValue, "\n";
         }
       }
     }
@@ -214,9 +216,9 @@ use Getopt::Std;
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-c {A|K|U}] [-q] [-s file] [-T dir] -o {file|-} dir\n";
+  print STDERR "Usage: $sProgram [-c {A|K|U}] [-q] [-s file] [-T dir] -o {file|-} dir\n";
   print STDERR "\n";
   exit(1);
 }
@@ -282,13 +284,14 @@ designed to work with GNU sort.
 =item B<-T dir>
 
 Specifies the directory sort should use as a temporary work area.
-The default directory is /tmp.
+The default directory is that specified by the TMPDIR environment
+variable, or /tmp if TMPDIR is not set.
 
 =back
 
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 
 =head1 SEE ALSO
 

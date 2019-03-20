@@ -118,13 +118,18 @@ to the selected mode.
                       s  r  t  l  a  d  t  l  a  d  o
                       t  e  o  l  n  e  o  l  n  e  n
    ======   CONTROL   ===============================
+   AnalyzeDeviceFiles .  .  .  X  X  .  .  X  X  .  .
+   AnalyzeRemoteFiles .  .  .  X  X  .  .  X  X  .  .
    BaseName           .  .  .  X  X  X  .  X  X  X  .
+   BaseNameSuffix     .  .  .  X  X  .  .  X  X  .  .
    Compress           .  .  .  .  .  .  .  X  X  .  .
    DataType           .  .  .  .  .  .  .  .  .  X  .
    DateTime           .  .  .  .  .  .  .  .  .  X  .
    DigString          .  .  X  X  X  .  .  .  .  .  .
+   EnableRecursion    .  .  .  X  X  .  .  X  X  .  .
    Exclude            .  .  .  X  X  .  .  X  X  .  .
    FieldMask          .  X  .  .  .  .  X  X  X  X  .
+   FileSizeLimit      .  .  .  X  X  .  .  X  X  .  .
    GetAndExec         .  .  .  .  .  X  .  .  .  .  .
    GetFileName        .  .  .  .  .  X  .  .  .  .  .
    HashDirectories    .  .  .  .  .  .  .  X  X  .  .

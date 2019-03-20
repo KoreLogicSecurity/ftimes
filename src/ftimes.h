@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.17 2003/08/13 22:50:12 mavrik Exp $
+ * $Id: ftimes.h,v 1.30 2004/04/24 06:26:52 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -19,7 +18,7 @@
  ***********************************************************************
  */
 #define PROGRAM_NAME "ftimes"
-#define VERSION "3.3.0"
+#define VERSION "3.4.0"
 
 #define LF            "\n"
 #define CRLF        "\r\n"
@@ -30,9 +29,8 @@
 #define UNIX_LIMIT_IN_NT_TIME 0x01e9fcf4ebcfe180
 #define DEFAULT_STREAM_NAME_W L"::$DATA"
 #define FTIMES_STREAM_INFO_SIZE  0x8000
-#define FTIMES_EMPTY_STREAM_COUNT     0
-#define FTIMES_PARTIAL_STREAM_COUNT   1
-#define FTIMES_FULL_STREAM_COUNT      2
+#define FTIMES_MAX_STREAM_INFO_SIZE 0x00100000
+#define FTIMES_INVALID_STREAM_COUNT 0xffffffff
 #endif
 
 #ifdef UNIX
@@ -51,11 +49,15 @@ typedef enum _BOOL
 } BOOL;
 #endif
 
+#define FTIMES_MAX_32BIT_SIZE             36 /* (prefix [+-](0x|0|)) 3 + (binary string) 32 + (NULL) 1 */
+#define FTIMES_MAX_64BIT_SIZE             68 /* (prefix [+-](0x|0|)) 3 + (binary string) 64 + (NULL) 1 */
 #define FTIMES_DATETIME_SIZE              15
 #define FTIMES_TIME_SIZE                  20
+#define FTIMES_PID_SIZE                   11
 #define FTIMES_RUNTIME_FORMAT      "%H:%M:%S"
 #define FTIMES_RUNDATE_FORMAT      "%Y/%m/%d"
 #define FTIMES_RUNZONE_FORMAT            "%Z"
+#define FTIMES_SUFFIX_SIZE                64
 #define FTIMES_ZONE_SIZE                  64
 #ifdef UNIX
 #define FTIMES_TIME_FORMAT_SIZE           20
@@ -78,7 +80,7 @@ typedef enum _BOOL
 #define FTIMES_ROOT_PATH                  "/"
 #define FTIMES_SLASH                      "/"
 #define FTIMES_SLASHCHAR                  '/'
-#define FTIMES_MAX_PATH                  255
+#define FTIMES_MAX_PATH                 4096
 #endif
 #define FTIMES_DOT                        "."
 #define FTIMES_DOTCHAR                    '.'
@@ -92,7 +94,10 @@ typedef enum _BOOL
 #define FTIMES_MAX_USERNAME_LENGTH        32
 #define FTIMES_MAX_PASSWORD_LENGTH        32
 
-#define FTIMES_MAX_LINE                 1024
+#define FTIMES_MIN_FILE_SIZE_LIMIT         0
+#define FTIMES_MAX_FILE_SIZE_LIMIT        ~0
+
+#define FTIMES_MAX_LINE                 8192
 
 #define FTIMES_FILETYPE_ERROR              0
 #define FTIMES_FILETYPE_BLOCK              1
@@ -130,20 +135,20 @@ typedef struct _FTIMES_FILE_DATA
   char               *pcRawPath;
   char               *pcNeuteredPath;
   DWORD               dwVolumeSerialNumber;
-  DWORD               nFileIndexHigh;
-  DWORD               nFileIndexLow;
+  DWORD               dwFileIndexHigh;
+  DWORD               dwFileIndexLow;
   DWORD               dwFileAttributes;
-  FILETIME            ftLastAccessTime;
-  FILETIME            ftLastWriteTime;
-  FILETIME            ftCreationTime;
-  FILETIME            ftChangeTime;
-  DWORD               nFileSizeHigh;
-  DWORD               nFileSizeLow;
+  FILETIME            sFTATime;
+  FILETIME            sFTMTime;
+  FILETIME            sFTCTime;
+  FILETIME            sFTChTime;
+  DWORD               dwFileSizeHigh;
+  DWORD               dwFileSizeLow;
   int                 iStreamCount;
   int                 iFSType;
   int                 iFileFlags;
-  char                cType[FTIMES_FILETYPE_BUFSIZE];
-  unsigned char       ucFileMD5[MD5_HASH_SIZE];
+  char                acType[FTIMES_FILETYPE_BUFSIZE];
+  unsigned char       aucFileMD5[MD5_HASH_SIZE];
   unsigned char      *pucStreamInfo;
 } FTIMES_FILE_DATA;
 #endif
@@ -152,21 +157,19 @@ typedef struct _FTIMES_FILE_DATA
 {
   char               *pcRawPath;
   char               *pcNeuteredPath;
-  struct stat         statEntry;
+  struct stat         sStatEntry;
   int                 iFSType;
   int                 iFileFlags;
-  char                cType[FTIMES_FILETYPE_BUFSIZE];
-  unsigned char       ucFileMD5[MD5_HASH_SIZE];
+  char                acType[FTIMES_FILETYPE_BUFSIZE];
+  unsigned char       aucFileMD5[MD5_HASH_SIZE];
 } FTIMES_FILE_DATA;
 #endif
 
-
 typedef struct _FILE_LIST
 {
-  char                cPath[FTIMES_MAX_PATH];
-  struct _FILE_LIST  *pNext;
+  char                acPath[FTIMES_MAX_PATH];
+  struct _FILE_LIST  *psNext;
 } FILE_LIST;
-
 
 #ifdef WIN32
 #define VOLUME_SET     0x00000001
@@ -213,7 +216,6 @@ typedef struct _MASK_TABLE
   unsigned long       Mask;
 } MASK_TABLE;
 
-
 #define FTIMES_CMPDATA "cmp"
 #define FTIMES_DIGDATA "dig"
 #define FTIMES_MAPDATA "map"
@@ -232,13 +234,18 @@ typedef struct _MASK_TABLE
 #define FTIMES_PUTMODE 0x00000400
 #define FTIMES_VERSION 0x00000800
 
+#define MODES_AnalyzeDeviceFiles ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
+#define MODES_AnalyzeRemoteFiles ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_BaseName          ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
+#define MODES_BaseNameSuffix    ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_Compress          ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_DataType          ((FTIMES_PUTMODE))
 #define MODES_DateTime          ((FTIMES_PUTMODE))
 #define MODES_DigString         ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
+#define MODES_EnableRecursion   ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_Exclude           ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_FieldMask         ((FTIMES_CMPMODE) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_PUTMODE))
+#define MODES_FileSizeLimit     ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_GetAndExec        ((FTIMES_GETMODE))
 #define MODES_GetFileName       ((FTIMES_GETMODE))
 #define MODES_HashDirectories   ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
@@ -248,7 +255,6 @@ typedef struct _MASK_TABLE
 #define MODES_LogDir            ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_LogFileName       ((FTIMES_PUTMODE))
 #define MODES_MagicFile         ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
-#define MODES_MapRemoteFiles    ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_MatchLimit        ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
 #define MODES_NewLine           ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_OutDir            ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
@@ -276,13 +282,18 @@ typedef struct _MASK_TABLE
 #define MODES_SSLVerifyPeerCert ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
 #endif
 
+#define KEY_AnalyzeDeviceFiles  "AnalyzeDeviceFiles"
+#define KEY_AnalyzeRemoteFiles  "AnalyzeRemoteFiles"
 #define KEY_BaseName            "BaseName"
+#define KEY_BaseNameSuffix      "BaseNameSuffix"
 #define KEY_Compress            "Compress"
 #define KEY_DataType            "DataType"
 #define KEY_DateTime            "DateTime"
 #define KEY_DigString           "DigString"
+#define KEY_EnableRecursion     "EnableRecursion"
 #define KEY_Exclude             "Exclude"
 #define KEY_FieldMask           "FieldMask"
+#define KEY_FileSizeLimit       "FileSizeLimit"
 #define KEY_GetAndExec          "GetAndExec"
 #define KEY_GetFileName         "GetFileName"
 #define KEY_HashDirectories     "HashDirectories"
@@ -322,11 +333,16 @@ typedef struct _MASK_TABLE
 
 typedef struct _CONTROLS_FOUND
 {
+  BOOL                bAnalyzeDeviceFilesFound;
+  BOOL                bAnalyzeRemoteFilesFound;
   BOOL                bBaseNameFound;
+  BOOL                bBaseNameSuffixFound;
   BOOL                bCompressFound;
   BOOL                bDataTypeFound;
   BOOL                bDateTimeFound;
+  BOOL                bEnableRecursionFound;
   BOOL                bFieldMaskFound;
+  BOOL                bFileSizeLimitFound;
   BOOL                bGetAndExecFound;
   BOOL                bGetFileNameFound;
   BOOL                bHashDirectoriesFound;
@@ -334,7 +350,6 @@ typedef struct _CONTROLS_FOUND
   BOOL                bLogDirFound;
   BOOL                bLogFileNameFound;
   BOOL                bMagicFileFound;
-  BOOL                bMapRemoteFilesFound;
   BOOL                bMatchLimitFound;
   BOOL                bNewLineFound;
   BOOL                bOutDirFound;
@@ -363,62 +378,63 @@ typedef struct _CONTROLS_FOUND
 #endif
 } CONTROLS_FOUND;
 
-
 typedef struct _ANALYSIS_STAGES
 {
 #define STAGE_DESCRIPTION_SIZE 64
-  char                cDescription[STAGE_DESCRIPTION_SIZE];
+  char                acDescription[STAGE_DESCRIPTION_SIZE];
   int                 iError;
   int               (*piRoutine)();
 } ANALYSIS_STAGES;
 
-
 typedef struct _RUNMODE_STAGES
 {
-  char                cDescription[STAGE_DESCRIPTION_SIZE];
+  char                acDescription[STAGE_DESCRIPTION_SIZE];
   int                 iError;
   int               (*piRoutine)();
 } RUNMODE_STAGES;
 
-
 typedef struct _FTIMES_PROPERTIES
 {
 #define MAX_ANALYSIS_STAGES 32
-  ANALYSIS_STAGES     sAnalysisStages[MAX_ANALYSIS_STAGES];
+  ANALYSIS_STAGES     asAnalysisStages[MAX_ANALYSIS_STAGES];
+  BOOL                bAnalyzeDeviceFiles;
+  BOOL                bAnalyzeRemoteFiles;
   BOOL                bCompress;
+  BOOL                bEnableRecursion;
   BOOL                bGetAndExec;
   BOOL                bHashDirectories;
   BOOL                bHashSymbolicLinks;
-  BOOL                bMapRemoteFiles;
   BOOL                bRequirePrivilege;
   BOOL                bURLCreateConfig;
   BOOL                bURLPutSnapshot;
   BOOL                bURLUnlinkOutput;
-  char                cBaseName[FTIMES_MAX_PATH];
-  char                cCfgFileName[FTIMES_MAX_PATH];
-  char                cConfigFile[FTIMES_MAX_PATH];
-  char                cDataType[FTIMES_MAX_DATA_TYPE];
-  char                cDateTime[FTIMES_TIME_SIZE];
-  char                cGetFileName[FTIMES_MAX_PATH];
-  char                cLogDirName[FTIMES_MAX_PATH];
-  char                cLogFileName[FTIMES_MAX_PATH];
-  char                cMagicFileName[FTIMES_MAX_PATH];
-  char                cMagicHash[FTIMEX_MAX_MD5_LENGTH];
-  char                cMaskString[ALL_FIELDS_MASK_SIZE];
-  char                cNewLine[NEWLINE_LENGTH];
-  char                cOutDirName[FTIMES_MAX_PATH];
-  char                cOutFileName[FTIMES_MAX_PATH];
-  char                cOutFileHash[FTIMEX_MAX_MD5_LENGTH];
-  char                cRunDateTime[FTIMES_TIME_SIZE];
+  char                acBaseName[FTIMES_MAX_PATH];
+  char                acBaseNameSuffix[FTIMES_SUFFIX_SIZE];
+  char                acCfgFileName[FTIMES_MAX_PATH];
+  char                acConfigFile[FTIMES_MAX_PATH];
+  char                acDataType[FTIMES_MAX_DATA_TYPE];
+  char                acDateTime[FTIMES_TIME_SIZE];
+  char                acGetFileName[FTIMES_MAX_PATH];
+  char                acLogDirName[FTIMES_MAX_PATH];
+  char                acLogFileName[FTIMES_MAX_PATH];
+  char                acMagicFileName[FTIMES_MAX_PATH];
+  char                acMagicHash[FTIMEX_MAX_MD5_LENGTH];
+  char                acMaskString[ALL_FIELDS_MASK_SIZE];
+  char                acNewLine[NEWLINE_LENGTH];
+  char                acOutDirName[FTIMES_MAX_PATH];
+  char                acOutFileName[FTIMES_MAX_PATH];
+  char                acOutFileHash[FTIMEX_MAX_MD5_LENGTH];
+  char                acPid[FTIMES_PID_SIZE];
+  char                acRunDateTime[FTIMES_TIME_SIZE];
 #define RUNTYPE_BUFSIZE 16
-  char                cRunType[RUNTYPE_BUFSIZE];
-  char                cStartDate[FTIMES_TIME_SIZE];
-  char                cStartTime[FTIMES_TIME_SIZE];
-  char                cStartZone[FTIMES_ZONE_SIZE];
+  char                acRunType[RUNTYPE_BUFSIZE];
+  char                acStartDate[FTIMES_TIME_SIZE];
+  char                acStartTime[FTIMES_TIME_SIZE];
+  char                acStartZone[FTIMES_ZONE_SIZE];
 #define GET_REQUEST_BUFSIZE 16
-  char                cURLGetRequest[GET_REQUEST_BUFSIZE];
-  char                cURLPassword[FTIMES_MAX_PASSWORD_LENGTH];
-  char                cURLUsername[FTIMES_MAX_USERNAME_LENGTH];
+  char                acURLGetRequest[GET_REQUEST_BUFSIZE];
+  char                acURLPassword[FTIMES_MAX_PASSWORD_LENGTH];
+  char                acURLUsername[FTIMES_MAX_USERNAME_LENGTH];
   char               *pcBaselineFile;
   char               *pcProgram;
   char               *pcRunModeArgument;
@@ -427,12 +443,12 @@ typedef struct _FTIMES_PROPERTIES
   CONTROLS_FOUND      sFound;
   FILE               *pFileLog;
   FILE               *pFileOut;
-  FILE_LIST          *ptExcludeList;
-  FILE_LIST          *ptIncludeList;
+  FILE_LIST          *psExcludeList;
+  FILE_LIST          *psIncludeList;
 #define MAX_RUNMODE_STAGES 32
   RUNMODE_STAGES      sRunModeStages[MAX_RUNMODE_STAGES];
-  HTTP_URL           *ptGetURL;
-  HTTP_URL           *ptPutURL;
+  HTTP_URL           *psGetURL;
+  HTTP_URL           *psPutURL;
   int                 iImportRecursionLevel;
   int                 iLastAnalysisStage;
   int                 iLastRunModeStage;
@@ -448,13 +464,14 @@ typedef struct _FTIMES_PROPERTIES
   int               (*piDevelopMapOutput)();
   int               (*piRunModeFinalStage)();
   int               (*piRunModeProcessArguments)();
-  MASK_TABLE         *ptMaskTable;
+  MASK_TABLE         *psMaskTable;
 #ifdef USE_SSL
   SSL_PROPERTIES     *psSSLProperties;
 #endif
   MD5_CONTEXT         sOutFileHashContext;
   time_t              tStartTime;
   unsigned long       ulFieldMask;
+  unsigned long       ulFileSizeLimit;
 } FTIMES_PROPERTIES;
 
 /*-
@@ -482,7 +499,7 @@ K_UINT64            AnalyzeGetByteCount(void);
  *
  ***********************************************************************
  */
-int                 CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *pMaskTable, int iMaskTableLength, char *pcError);
+int                 CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *psMaskTable, int iMaskTableLength, char *pcError);
 
 /*-
  ***********************************************************************
@@ -491,10 +508,9 @@ int                 CompareParseStringMask(char *pcMask, unsigned long *ulMask, 
  *
  ***********************************************************************
  */
-int                 DevelopNoOutput(FTIMES_PROPERTIES *psProperties, char *outbuffer, int *write_count, FTIMES_FILE_DATA *pftdata, char *pcError);
-int                 DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *outbuffer, int *write_count, FTIMES_FILE_DATA *pftdata, char *pcError);
-int                 DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *outbuffer, int *write_count, FTIMES_FILE_DATA *pftdata, char *pcError);
-void                DevelopSetOutputRoutine(int (*iRoutine)());
+int                 DevelopNoOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError);
+int                 DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError);
+int                 DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError);
 int                 DevelopCompressHex(unsigned char *pcData, unsigned long ulHex, unsigned long ulOldHex);
 int                 DevelopCountHexDigits(unsigned long ulHex);
 
@@ -600,7 +616,7 @@ int                 MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_
 #ifdef WINNT
 int                 MapCountNamedStreams(HANDLE hFile, int *piStreamCount, unsigned char **ppucStreamInfo, char *pcError);
 int                 MapGetStreamCount();
-void                MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTEXT *pDirHashBlock, char *pcError);
+void                MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTEXT *psDirHashBlock, char *pcError);
 #endif
 #ifdef WIN32
 HANDLE              MapGetFileHandle(char *path);
@@ -625,14 +641,14 @@ int                 PropertiesTestFile(FTIMES_PROPERTIES *psProperties, char *pc
  *
  ***********************************************************************
  */
-FILE_LIST          *SupportAddListItem(char *pcPath, FILE_LIST *pHead, char *pcError);
+FILE_LIST          *SupportAddListItem(char *pcPath, FILE_LIST *psHead, char *pcError);
 int                 SupportAddToList(char *pcPath, FILE_LIST **ppList, char *pcError);
 #ifdef WIN32
 BOOL                SupportAdjustPrivileges(LPCTSTR lpcPrivilege);
 #endif
 int                 SupportChopEOLs(char *pcLine, int iStrict, char *pcError);
 void                SupportDisplayRunStatistics(FTIMES_PROPERTIES *psProperties);
-FILE_LIST          *SupportDropListItem(FILE_LIST *pHead, FILE_LIST *pDrop);
+FILE_LIST          *SupportDropListItem(FILE_LIST *psHead, FILE_LIST *psDrop);
 int                 SupportEraseFile(char *pcName, char *pcError);
 int                 SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, char *pcError);
 int                 SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceExpansion, char *pcError);
@@ -641,15 +657,15 @@ int                 SupportGetFileType(char *pcPath);
 char               *SupportGetHostname(void);
 char               *SupportGetMyVersion(void);
 char               *SupportGetSystemOS(void);
-FILE_LIST          *SupportIncludeEverything(BOOL allowremote, char *pcError);
-int                 SupportMakeName(char *pcPath, char *pcBaseName, char *pcDateTime, char *pcExtension, char *pcFilename, char *pcError);
-FILE_LIST          *SupportMatchExclude(FILE_LIST *pHead, char *pcPath);
-FILE_LIST          *SupportMatchSubTree(FILE_LIST *pHead, FILE_LIST *pTarget);
+FILE_LIST          *SupportIncludeEverything(char *pcError);
+int                 SupportMakeName(char *pcPath, char *pcBaseName, char *pcBaseNameSuffix, char *pcExtension, char *pcFilename, char *pcError);
+FILE_LIST          *SupportMatchExclude(FILE_LIST *psHead, char *pcPath);
+FILE_LIST          *SupportMatchSubTree(FILE_LIST *psHead, FILE_LIST *psTarget);
 char               *SupportNeuterString(char *pcData, int iLength, char *pcError);
 #ifdef WIN32
 char               *SupportNeuterStringW(unsigned short *pusData, int iLength, char *pcError);
 #endif
-FILE_LIST          *SupportPruneList(FILE_LIST *pList, BOOL bMapRemoteFiles);
+FILE_LIST          *SupportPruneList(FILE_LIST *psList);
 int                 SupportRequirePrivilege(char *pcError);
 int                 SupportSetLogLevel(char *pcLevel, int *piLevel, char *pcError);
 #ifdef WIN32
@@ -664,13 +680,13 @@ int                 SupportWriteData(FILE *pFile, char *pcData, int iLength, cha
  *
  ***********************************************************************
  */
-time_t              TimeGetTime(char *datebuf, char *timebuf, char *zonebuf, char *datetimebuf);
+time_t              TimeGetTime(char *pcDate, char *pcTime, char *pcZone, char *pcDateTime);
 #ifdef WIN32
-int                 TimeFormatTime(FILETIME *time, char *timestr);
-int                 TimeFormatOutOfBandTime(FILETIME *time, char *timestr);
+int                 TimeFormatTime(FILETIME *psFileTime, char *pcTime);
+int                 TimeFormatOutOfBandTime(FILETIME *psFileTime, char *pcTime);
 #endif
 #ifdef UNIX
-int                 TimeFormatTime(time_t *time, char *timestr);
+int                 TimeFormatTime(time_t *pTimeValue, char *pcTime);
 #endif
 
 /*-
@@ -700,6 +716,7 @@ int                 URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError
 
 #define PUTBIT(x, v, p) (x) = ((x) & ~(1 << (p))) | (((v) & 1)<< (p))
 #define GETBIT(x, p) ((x) & (1 << (p))) >> (p)
+#define MEMORY_FREE(pv) if (pv) { free(pv); }
 #define RUN_MODE_IS_SET(mask, mode) (((mask) & (mode)) == (mode))
 
 /*-

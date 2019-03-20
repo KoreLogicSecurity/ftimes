@@ -8,6 +8,6 @@ by this control applies to any requests involving B<URLGetURL> or
 B<URLPutURL>.  When B<URLAuthType> is set to basic, user credentials
 are base 64 encoded and incorporated into the request header.  User
 credentials specified in the URL take precedence over credentials
-specified in the B<URLUsername> and B<URLPassword> controls.  If
-not specified, B<URLAuthType> defaults to none.
+specified in the B<URLUsername> and B<URLPassword> controls.  The
+default value is none.
 

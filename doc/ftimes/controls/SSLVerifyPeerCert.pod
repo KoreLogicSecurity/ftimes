@@ -2,7 +2,7 @@
 
 Applies to B<digfull>, B<mapfull>, B<putmode>, and B<getmode>.
 
-B<SSLVerifyPeerCert> is optional.  When enabled, (i.e. 'Y') it
+B<SSLVerifyPeerCert> is optional.  When enabled ('Y' or 'y'), it
 instructs the application to verify the credentials of the peer
-server.
+server.  The default value is 'N'.
 

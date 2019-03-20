@@ -14,7 +14,7 @@
 
 1.1 Revision
 
-  $Id: README.INSTALL,v 1.4 2003/08/15 13:31:43 mavrik Exp $
+  $Id: README.INSTALL,v 1.6 2004/04/24 04:41:56 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -41,7 +41,7 @@
   Section 3.3 .................. Verify Client-Server Connectivity
   Section 3.3.1 ................ Server Configuration
   Section 3.3.2 ................ Client Configuration
-  Section 3.3.3 ................ Testing it Out
+  Section 3.3.3 ................ Test Client-Server Connectivity
 
 1.3 Background
 
@@ -76,21 +76,18 @@
   FTimes to do things such as examine evidence (e.g., a disk image
   or files from a compromised system), analyze snapshots for change,
   search for files that have specific attributes, verify file
-  integrity, and so on.  In the client-server environment, the
-  focus shifts from what the operator can do locally to how the
-  operator can efficiently monitor, manage, and aggregate snapshot
-  data for many hosts.  In the client-server environment, the
-  primary goal is to move collected data from the host to a
-  centralized system, known as an Integrity Server, in a secure
-  and authenticated fashion.  An Integrity Server is a hardened
-  system that has been configured to handle FTimes GET, PING, and
-  PUT HTTP/S requests.
+  integrity, and so on.  In the client-server environment, the focus
+  shifts from what the operator can do locally to how the operator
+  can efficiently monitor, manage, and aggregate snapshot data for
+  many hosts.  In the client-server environment, the primary goal
+  is to move collected data from the host to a centralized system,
+  known as an Integrity Server, in a secure and authenticated
+  fashion.  An Integrity Server is a hardened system that has been
+  configured to handle FTimes GET, PING, and PUT HTTP/S requests.
 
   The FTimes distribution contains a script called nph-ftimes.cgi
-  that may be used in conjunction with a Web server to implement
-  a public Integrity Server interface.  Deeper topics such as the
-  construction and internal mechanics of an Integrity Server are
-  not addressed in this document.
+  that may be used in conjunction with a Web server to implement a
+  public Integrity Server interface.
 
 1.4 Caveats
 
@@ -117,24 +114,24 @@
 
   The source archive needs to be unpacked in a suitable location
   before the build process can commence.  All commands presented
-  in this section attempt to unpack the source archive in the
-  current working directory.
+  in this section attempt to unpack the source archive in the current
+  working directory.
 
   On UNIX platforms this can be accomplished as follows:
 
-    tar -zxvf <archive>
+    $ tar -zxvf <archive>
 
-  If your version of tar doesn't support the 'z' flag, then try
-  the following command pipeline:
+  If your version of tar doesn't support the 'z' flag, then try the
+  following command pipeline:
 
-    gunzip -c <archive> | tar -xvf -
+    $ gunzip -c <archive> | tar -xvf -
 
   On Windows platforms WinZip may be used to unpack the archive.
   Since the source archive is actually a gzipped tar file, WinZip
   will ask if you wish to decompress and open it -- answer yes.
   The command line syntax for WinZip is given here:
 
-    winzip32.exe -min -e <archive>
+    > winzip32.exe -min -e <archive>
 
 2.3 Verify Installation of OpenSSL
 
@@ -145,13 +142,12 @@
 
 2.4 UNIX Build Instructions
 
-  Typically, the build process is simply a matter of running
-  configure and make.  In general, you are not required to specify
-  any extra options/arguments when invoking either command.  The
-  most basic build sequence is as follows:
+  Typically, the build process is simply a matter of running configure
+  and make.  In general, you are not required to specify any extra
+  options/arguments when invoking either command.  The most basic
+  build sequence is as follows:
 
-    ./configure
-    make
+    $ ./configure && make
 
   By default, SSL support is enabled.  This means that the configure
   script will attempt to locate OpenSSL on your system.  If OpenSSL
@@ -161,19 +157,15 @@
   copy of OpenSSL was installed in /usr/local/my_openssl, the build
   sequence would be as follows:
 
-    ./configure --with-ssl=/usr/local/my_openssl
-    make
+    $ ./configure --with-ssl=/usr/local/my_openssl && make
 
   To disable SSL support altogether, use the --without-ssl option
   as follows:
 
-    ./configure --without-ssl
-    make
+    $ ./configure --without-ssl && make
 
-  FTimes also supports file typing via XMagic and block/character
-  device includes.  If either of these capabilities is desired,
-  pass the appropriate flag to configure (either --enable-xmagic
-  or --enable-devices).
+  FTimes also supports file typing via XMagic.  If this capability
+  is desired, pass the --enable-xmagic flag to configure.
 
   FTimes' default installation directory is /usr/local/integrity.
   If you want to install in a different location, set the --prefix
@@ -181,18 +173,17 @@
   directory /usr/local/my_ftimes, the build sequence would be as
   follows:
 
-    ./configure --prefix=/usr/local/my_ftimes
-    make
+    $ ./configure --prefix=/usr/local/my_ftimes && make
 
   To see a listing of all available configure options execute the
   following command:
 
-    ./configure --help
+    $ ./configure --help
 
   When the software has been built to your satisfaction, it can be
   installed with the following command:
 
-    make install
+    # make install
 
 2.4.1 UNIX Build Gotchas
 
@@ -213,8 +204,8 @@
   the batch script VCVARS32.BAT to establish a build environment.
   One quick test is to check the LIB and INCLUDE variables with:
 
-    set LIB
-    set INCLUDE
+    > set LIB
+    > set INCLUDE
 
   If neither of those variables are defined or you are in doubt,
   run VCVARS32.BAT.  Usually, this script is kept in Visual Studio's
@@ -227,22 +218,22 @@
   version of OpenSSL was installed in C:\OpenSSL.  Adjust SSL_DIR
   as necessary, if this is not the case.
 
-  Assuming that 1) you do need to run VCVARS32.BAT and 2) the
-  OpenSSL libraries and header files are installed in C:\OpenSSL,
-  the build sequence would be as follows:
+  Assuming that 1) you do need to run VCVARS32.BAT and 2) the OpenSSL
+  libraries and header files are installed in C:\OpenSSL, the build
+  sequence would be as follows:
 
-    VCVARS32.BAT
-    nmake -f Makefile.vs
+    > VCVARS32.BAT
+    > nmake -f Makefile.vs
 
-  If you don't want SSL support, set the USE_SSL macro to 'N'.
-  This can be done from the command line as follows:
+  If you don't want SSL support, set the USE_SSL macro to 'N'.  This
+  can be done from the command line as follows:
 
-    nmake -f Makefile.vs USE_SSL=N
+    > nmake -f Makefile.vs USE_SSL=N
 
   If you want to turn on debugging, set the BUILD_TYPE macro to
   'DEBUG'.  This can be done from the command line as follows:
 
-    nmake -f Makefile.vs BUILD_TYPE=DEBUG
+    > nmake -f Makefile.vs BUILD_TYPE=DEBUG
 
   FTimes also supports file typing via XMagic.  To enable this
   capability, set the USE_XMAGIC macro to 'Y'.
@@ -251,12 +242,12 @@
   any given build.  For example, to build a debug release without
   SSL support, invoke nmake as follows:
 
-    nmake -f Makefile.vs BUILD_TYPE=DEBUG USE_SSL=N
+    > nmake -f Makefile.vs BUILD_TYPE=DEBUG USE_SSL=N
 
   When the software has been built to your satisfaction, it can be
   installed with the following command:
 
-    nmake -f Makefile.vs install
+    > nmake -f Makefile.vs install
 
   FTimes' default installation directory is C:\Integrity.  If you
   want to install in a different location, adjust the FTIMES_DIR
@@ -264,20 +255,19 @@
   line.  For example, to install FTimes in the 'Program Files'
   directory, invoke nmake as follows:
 
-    nmake -f Makefile.vs install FTIMES_DIR="C:\Program Files\FTimes"
+    > nmake -f Makefile.vs install FTIMES_DIR="C:\Program Files\FTimes"
 
 2.5.1 Windows NT/2K Build Gotchas
 
   You may have trouble compiling with nmake if your environment
-  settings aren't correct.  When this happens, try running the
-  batch file VCVARS32.BAT provided with Visual Studio.  If all else
-  fails, try creating a Visual Studio project and import the source
-  code.
+  settings aren't correct.  When this happens, try running the batch
+  file VCVARS32.BAT provided with Visual Studio.  If all else fails,
+  try creating a Visual Studio project and import the source code.
 
-  When experimenting with different build options (e.g. BUILD_TYPE,
+  When experimenting with different build options (e.g., BUILD_TYPE,
   USE_SSL, etc.), be sure to do a "make clean-all" between builds.
 
-    nmake -f Makefile.vs clean-all
+    > nmake -f Makefile.vs clean-all
 
   This will ensure that everything is rebuilt correctly.  In certain
   situations, build problems could arise if this is not done.
@@ -290,17 +280,9 @@
 
   Throughout this section, the terms username and clientid are used
   interchangeably.  By default, nph-ftimes.cgi expects a clientid
-  to conform to the following scheme:
+  to conform to the following regular expression:
 
-    CDDD_CCCC_DDDD_D
-
-  Where 'C' is [A-Z] and 'D' is [0-9].  The breakdown for each group
-  within the scheme is as follows:
-
-    CDDD - Server ID (e.g., S001)
-    CCCC - Company Abbreviation (e.g., EXDS)
-    DDDD - Host ID
-       D - Profile
+    ^[0-9A-Za-z_-]{1,64}$
 
 3.1 Requirements
 
@@ -355,7 +337,7 @@
   The logfiles directory is self-explanatory.
 
   The profiles directory contains one directory for each client
-  profile (i.e. clientid) that is managed by the server.  Each
+  profile (i.e., clientid) that is managed by the server.  Each
   clientid directory contains a cfgfiles directory.  This is where
   the dig and map config files are kept.  Clients may download
   either of these files by running FTimes in get mode.
@@ -369,34 +351,47 @@
 
 3.2.1 Environment Variables
 
-  The variable $APACHE_DIR refers to the location where Apache is
-  installed.  This document assumes that $APACHE_DIR is set to the
-  value "/usr/local/apache".  Set this variable on your system as
-  follows:
-
-  Bourne shell variants:
-
-    export APACHE_DIR=/usr/local/apache
-
-  C shell variants:
-
-    setenv APACHE_DIR /usr/local/apache
-
-  The variable $CGI_DIR refers to the location where nph-ftimes.cgi
-  will be installed.  This document assumes that $CGI_DIR is set
-  to the value "$APACHE_DIR/cgi-client".  Set this variable on your
+  The variable APACHE_DIR refers to the location where Apache is
+  installed.  This document assumes that APACHE_DIR is set to the
+  value "/usr/local/apache".  You may set this variable on your
   system as follows:
 
   Bourne shell variants:
 
-    export CGI_DIR=$APACHE_DIR/cgi-client
+    # export APACHE_DIR=/usr/local/apache
 
   C shell variants:
 
-    setenv CGI_DIR $APACHE_DIR/cgi-client
+    # setenv APACHE_DIR /usr/local/apache
 
-  For the remainder of this document, it is assumed that you have
-  set these variables.
+  The variable CGI_DIR refers to the location where nph-ftimes.cgi
+  will be installed.  This document assumes that CGI_DIR is set to
+  the value "${APACHE_DIR}/cgi-client".  You may set this variable
+  on your system as follows:
+
+  Bourne shell variants:
+
+    # export CGI_DIR=${APACHE_DIR}/cgi-client
+
+  C shell variants:
+
+    # setenv CGI_DIR ${APACHE_DIR}/cgi-client
+
+  The variable ETC_DIR refers to the location where nph-ftimes.cfg
+  will be installed.  This document assumes that ETC_DIR is set to
+  the value "${APACHE_DIR}/etc".  You may set this variable on your
+  system as follows:
+
+  Bourne shell variants:
+
+    # export ETC_DIR=${APACHE_DIR}/etc
+
+  C shell variants:
+
+    # setenv ETC_DIR ${APACHE_DIR}/etc
+
+  For the remainder of this document, it is assumed that these
+  variables have been set in your shell.
 
 3.2.2 CGI Directory Setup
 
@@ -410,8 +405,8 @@
   If your environment is set up as described in section 3.2.1, you
   may create a dedicated CGI directory as follows:
 
-    mkdir -m 755 $CGI_DIR
-    chown 0:0 $CGI_DIR
+    # mkdir -p -m 755 ${CGI_DIR} ${ETC_DIR}
+    # chown 0:0 ${CGI_DIR} ${ETC_DIR}
 
   Next, assuming that you have just created a script directory that
   Apache is not yet aware of, you will need to update httpd.conf.
@@ -419,12 +414,15 @@
   section.  The alias section may be located by searching for the
   following string: <IfModule mod_alias.c>
 
-  Note: make sure you replace $CGI_DIR with its literal value.
+  Note: You must manually replace ${CGI_DIR} and ${ETC_DIR} with
+  their literal values.
 
     --- snippet ---
-    ScriptAlias /cgi-client/ "$CGI_DIR/"
+    SetEnv FTIMES_PROPERTIES_FILE ${ETC_DIR}/nph-ftimes.cfg
 
-    <Directory "$CGI_DIR">
+    ScriptAlias /cgi-client/ "${CGI_DIR}/"
+
+    <Directory "${CGI_DIR}">
         AllowOverride AuthConfig
         Options None
         Order allow,deny
@@ -436,33 +434,41 @@
   that is successful, signal Apache to restart.  To verify syntax
   use the following command:
 
-    apachectl configtest
+    # apachectl configtest
 
   If necessary, correct syntax errors.  Otherwise, tell Apache to
   restart with:
 
-    apachectl restart
+    # apachectl restart
 
-  At this point, you are ready to install nph-ftimes.cgi.
+  At this point, you are ready to install nph-ftimes.{cgi,cfg}.
 
 3.2.3 Script Setup
 
   Locate nph-ftimes.cgi in the FTimes distribution tree.  It should
   be in the cgi directory.  Change to this directory, and install
-  the script in $CGI_DIR as follows:
+  the script in ${CGI_DIR} as follows:
 
-    cp nph-ftimes.cgi $CGI_DIR
-    chmod 755 $CGI_DIR/nph-ftimes.cgi
-    chown 0:0 $CGI_DIR/nph-ftimes.cgi
+    # cp nph-ftimes.cgi ${CGI_DIR}
+    # chmod 755 ${CGI_DIR}/nph-ftimes.cgi
+    # chown 0:0 ${CGI_DIR}/nph-ftimes.cgi
 
   Verify that your Perl interpreter is located at /usr/bin/perl.
-  If this is not the case, modify line one of the script to reflect
-  the true location of the interpreter.  Line one of the script
-  looks like this:
+  If this is not the case, modify the first line of the script to
+  reflect the true location of the interpreter.  Typically, that
+  line should look like this:
 
     --- snippet ---
     #!/usr/bin/perl
     --- snippet ---
+
+  Locate nph-ftimes.cfg.sample in the FTimes distribution tree.  It
+  should be in the etc directory.  Change to this directory, and
+  install the config file in ${ETC_DIR} as follows:
+
+    # cp nph-ftimes.cfg.sample ${ETC_DIR}/nph-ftimes.cfg
+    # chmod 644 ${ETC_DIR}/nph-ftimes.cfg
+    # chown 0:0 ${ETC_DIR}/nph-ftimes.cfg
 
   Next, you need to create the following tree structure:
 
@@ -474,27 +480,27 @@
     |
     - profiles
 
-  By default, nph-ftimes.cgi expects to find this tree in /integrity.
-  If you desire a different location, edit the script and modify
-  the $baseDirectory variable as appropriate.  Otherwise, use the
-  following command sequence to create the tree.  However, before
-  doing this, you need to determine the uid or username that Apache
-  uses.  This document assumes that Apache runs in the context of
-  the user nobody.  If your configuration is different, replace
-  nobody with the appropriate username as necessary.
+  By default, nph-ftimes.cgi expects to find this tree in the root
+  directory (i.e., /integrity).  If a different location is desired,
+  modify the BaseDirectory property in nph-ftimes.cfg as appropriate.
+  Otherwise, use the following command sequence to create the tree.
+  However, before doing this, you need to determine the uid and/or
+  username that Apache uses.  This document assumes that Apache
+  runs in the context of the www user.  If your configuration is
+  different, replace www with the appropriate username as necessary.
 
-    mkdir -m 755 /integrity
-    chown 0:0 /integrity
-    cd /integrity
-    mkdir -m 755 incoming logfiles profiles
-    chown nobody:0 incoming
+    # mkdir -m 755 /integrity
+    # chown 0:0 /integrity
+    # cd /integrity
+    # mkdir -m 755 incoming logfiles profiles
+    # chown www:0 incoming
 
   Finally, you need to create the nph-ftimes log file.  This is
   done as follows:
 
-    touch /integrity/logfiles/nph-ftimes.log
-    chown nobody:0 /integrity/logfiles/nph-ftimes.log
-    chmod 644 /integrity/logfiles/nph-ftimes.log
+    # touch /integrity/logfiles/nph-ftimes.log
+    # chown www:0 /integrity/logfiles/nph-ftimes.log
+    # chmod 644 /integrity/logfiles/nph-ftimes.log
 
   The final configuration objective to establish an access control
   mechanism.
@@ -503,46 +509,45 @@
 
   By default, nph-ftimes.cgi expects Apache's basic authentication
   to be enabled.  Therefore, you'll need to create and install an
-  access file in $CGI_DIR.  To determine the name of access files
+  access file in ${CGI_DIR}.  To determine the name of access files
   on your system, check the AccessFileName directive in httpd.conf.
   Typically, this directive contains the value .htaccess.  The
   following snippet may be used to create a suitable access file.
 
-  Note: Be sure to replace $APACHE_DIR with its literal value.
+  Note: Be sure to replace ${APACHE_DIR} with its literal value.
 
     --- snippet ---
     AuthType Basic
-    AuthName "FTimes Realm"
-    AuthUserFile $APACHE_DIR/htusers
+    AuthName "FTimes Client Realm"
+    AuthUserFile ${APACHE_DIR}/htusers
     require valid-user
     --- snippet ---
 
-  Assuming that Apache's AccessFileName directive contains the
-  value .htaccess,  the following command sequence may be used to
-  create and install a suitable access file in $CGI_DIR.
+  Assuming that Apache's AccessFileName directive contains the value
+  .htaccess,  the following command sequence may be used to create
+  and install a suitable access file in ${CGI_DIR}.
 
-    echo "AuthType Basic" > $CGI_DIR/.htaccess
-    echo "AuthName 'FTimes Realm'" >> $CGI_DIR/.htaccess
-    echo "AuthUserFile $APACHE_DIR/htusers" >> $CGI_DIR/.htaccess
-    echo "require valid-user" >> $CGI_DIR/.htaccess
-    chmod 644 $CGI_DIR/.htaccess
-    chown 0:0 $CGI_DIR/.htaccess
+    # echo "AuthType Basic" > ${CGI_DIR}/.htaccess
+    # echo "AuthName 'FTimes Client Realm'" >> ${CGI_DIR}/.htaccess
+    # echo "AuthUserFile ${APACHE_DIR}/htusers" >> ${CGI_DIR}/.htaccess
+    # echo "require valid-user" >> ${CGI_DIR}/.htaccess
+    # chmod 644 ${CGI_DIR}/.htaccess
+    # chown 0:0 ${CGI_DIR}/.htaccess
 
-  To complete access control setup, you must create a new password
-  file and insert a user.  The purpose of the AuthUserFile directive
-  is to bind a particular access file to a particular password
-  file.  Therefore, be sure to use the filename assigned to
-  AuthUserFile when creating the password file.  The following
-  command will create a new password file and insert an entry for
-  the user S001_TEST_0001_1.  You will be prompted to enter the
-  user's password.
+  To complete access control setup, you must create a password file
+  and insert a new user.  The purpose of the AuthUserFile directive
+  is to bind a particular access file to a particular password file.
+  Therefore, be sure to use the filename assigned to AuthUserFile
+  when creating the password file.  The following command will
+  create a password file and insert an entry for the client_1 user.
+  You will be prompted to enter the user's password.
 
-    htpasswd -c $APACHE_DIR/htusers S001_TEST_0001_1
+    # htpasswd -c ${APACHE_DIR}/htusers client_1
 
   Set the permissions and ownership on this file as follows:
 
-    chmod 644 $APACHE_DIR/htusers
-    chown 0:0 $APACHE_DIR/htusers
+    # chmod 644 ${APACHE_DIR}/htusers
+    # chown 0:0 ${APACHE_DIR}/htusers
 
   Finally, verify that the password file is not accessible to remote
   Web browsers.
@@ -553,37 +558,37 @@
 3.3 Verify Client-Server Connectivity
 
   Before tackling this section, read the FTimes man page.  Pay
-  particular attention to information regarding get mode.
+  particular attention to Example 5.
 
   The purpose of this section is to test connectivity.  This will
   be done by configuring FTimes to run in get mode and request a
   config file from the server.  In section 3.2.4 you created an
-  access file on the server and inserted the user S001_TEST_0001_1.
-  Get the password for that user handy.  You will need it in the
-  coming sections to complete the verification process.
+  access file on the server and inserted the user client_1.  Get
+  the password for that user handy.  You will need it in the coming
+  sections to complete the verification process.
 
 3.3.1 Server Configuration
 
-  On the server you need to create directories for S001_TEST_0001_1
-  and insert the following config file as mapfull.cfg.
+  On the server you need to create directories for client_1 and
+  insert the following config file as mapfull.cfg.
 
   The directories may be created as follows:
 
-    umask 22
-    cd /integrity/profiles
-    mkdir -p -m 755 S001_TEST_0001_1/cfgfiles
-    chown -R 0:0 S001_TEST_0001_1
+    # umask 22
+    # cd /integrity/profiles
+    # mkdir -p -m 755 client_1/cfgfiles
+    # chown -R 0:0 client_1
 
-  Goto /integrity/profiles/S001_TEST_0001_1/cfgfiles, and create
-  mapfull.cfg.  Make sure you replace <password> with its real
-  value.  Also, don't forget to modify URLPutURL as appropriate.
+  Go to /integrity/profiles/client_1/cfgfiles and create mapfull.cfg.
+  Make sure you replace <password> with its real value.  Also, don't
+  forget to modify URLPutURL as appropriate.
 
     --- mapfull.cfg ---
-    BaseName=S001_TEST_0001_1
+    BaseName=client_1
     OutDir=.
     URLPutSnapshot=Y
     URLPutURL=http://web.server.net/cgi-client/nph-ftimes.cgi
-    URLUsername=S001_TEST_0001_1
+    URLUsername=client_1
     URLPassword=<password>
     URLAuthType=basic
     URLCreateConfig=Y
@@ -598,15 +603,15 @@
   on how to install FTimes.
 
   Goto /tmp or some other suitable location, and create get.cfg.
-  Make sure you replace <password> with its real value.  Also,
-  don't forget to modify URLGetURL as appropriate.
+  Make sure you replace <password> with its real value.  Also, don't
+  forget to modify URLGetURL as appropriate.
 
     --- get.cfg ---
-    BaseName=S001_TEST_0001_1
+    BaseName=client_1
     GetAndExec=N
     GetFileName=remote.cfg
     URLGetURL=http://web.server.net/cgi-client/nph-ftimes.cgi
-    URLUsername=S001_TEST_0001_1
+    URLUsername=client_1
     URLPassword=<password>
     URLAuthType=basic
     URLGetRequest=MapFullConfig
@@ -615,17 +620,21 @@
   To avoid having to type a long path each time you invoke FTimes,
   you may want to add /usr/local/integrity/bin to your path.
 
-3.3.3 Testing it Out
+3.3.3 Test Client-Server Connectivity
 
   At this point you are ready to test client-server connectivity.
   Run the following command from the client.  It should produce a
   file named remote.cfg in the current directory.
 
-    ftimes --getmode get.cfg
+    $ ftimes --getmode get.cfg
+
+  or (for NT/2K)
+
+    > ftimes --getmode get.cfg
 
   If that worked, your almost there.  Enable the GetAndExec control
   in get.cfg, and rerun FTimes.  This should produce three files
-  in the client's current working directory and four files in the
+  in the client's current working directory and three files in the
   server's incoming directory.  If these files don't exist, double
   check FTimes' return status.  Also, check Apache's log files and
   nph-ftimes.log for any signs of trouble.

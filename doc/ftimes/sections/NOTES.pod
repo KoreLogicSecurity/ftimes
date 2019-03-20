@@ -5,7 +5,7 @@ special characters.  Special characters are defined as C<[`'"|%+]>
 or any non-printable character.  If a name contains Unicode
 characters, the high byte is always encoded, and the low byte is
 encoded as described above.  To decode an encoded name, first
-convert all pluses to spaces (i.e. '+' -> ' ').  Then, moving from
+convert all pluses to spaces (i.e., '+' -> ' ').  Then, moving from
 left to right, convert each %HH sequence, to its byte value.  Here
 'H' denotes a hex digit.
 
@@ -57,7 +57,7 @@ quite large.  Obviously, both files can still be altered by a
 skilled attacker positioned to take advantage of the situation.
 
 Manage dig and map config files on your Integrity Server, and
-use B<FTimes'> get mode (i.e. B<--getmode>) to automatically retrieve
+use B<FTimes'> get mode (i.e., B<--getmode>) to automatically retrieve
 them at runtime.  This facilitates centralized management and helps
 to protect potentially sensitive configuration information.
 

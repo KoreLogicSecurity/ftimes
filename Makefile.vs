@@ -1,11 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.9 2003/08/13 01:53:22 mavrik Exp $
+# $Id: Makefile.vs,v 1.11 2004/04/23 21:32:11 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2003 Klayton Monroe, Cable & Wireless
-# All Rights Reserved.
+# Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
 #
 ########################################################################
 #
@@ -170,6 +169,9 @@ install: "$(EXECUTEABLE)"
 	copy etc\get.cfg.sample "$(INSTALL_DIR)\etc"
 	copy etc\mapfull.cfg.sample "$(INSTALL_DIR)\etc"
 	copy etc\maplean.cfg.sample "$(INSTALL_DIR)\etc"
+!IF "$(USE_CGI)" == "Y" || "$(USE_CGI)" == "y"
+	copy etc\nph-ftimes.cfg.sample "$(INSTALL_DIR)\etc"
+!ENDIF
 	copy etc\put.cfg.sample "$(INSTALL_DIR)\etc"
 !IF ("$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y") && ("$(USE_STATIC_SSL_LIBS)" == "N" || "$(USE_STATIC_SSL_LIBS)" == "n")
 	copy "$(SSL_DLL1)" "$(INSTALL_DIR)\bin"

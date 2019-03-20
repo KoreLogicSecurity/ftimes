@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: error.h,v 1.5 2003/02/24 19:35:37 mavrik Exp $
+ * $Id: error.h,v 1.7 2004/04/22 02:19:10 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -18,7 +17,7 @@
  *
  ***********************************************************************
  */
-#define ERRBUF_SIZE                   1024
+#define MESSAGE_SIZE                  1024
 
 #define XER_OK                           0
 #define XER_Abort                        1

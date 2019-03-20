@@ -1,0 +1,11 @@
+=item B<BaseNameSuffix>: [datetime|none|pid]
+
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+
+B<BaseNameSuffix> is optional.  It specifies the type of suffix
+that will be attached to the B<BaseName>.  If B<BaseNameSuffix> is
+set to datetime, a suffix of the following format will be appended
+to the B<BaseName>: YYYYMMDDHHMMSS.  If it is set to none, no suffix
+will be appended, and if it is set to pid, the value of the current
+process ID will be appended.  The default value is none.
+

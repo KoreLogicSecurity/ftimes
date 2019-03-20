@@ -1,18 +1,18 @@
 /*-
  ***********************************************************************
  *
- * $Id: http.c,v 1.7 2003/08/13 16:06:31 mavrik Exp $
+ * $Id: http.c,v 1.9 2004/04/17 19:50:32 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2001-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
 
-static unsigned char ucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static unsigned char gaucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static unsigned char gaucBase16[] = "0123456789abcdef";
 
 /*-
  ***********************************************************************
@@ -25,12 +25,10 @@ char *
 HTTPBuildRequest(HTTP_URL *psURL, char *pcError)
 {
   const char          acRoutine[] = "HTTPBuildRequest()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcBasicEncoding;
   char               *pcRequest;
   int                 iRequestLength;
-
-  acLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -87,25 +85,27 @@ HTTPBuildRequest(HTTP_URL *psURL, char *pcError)
     return NULL;
   }
 
+  if (psURL->pcJobId == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL Job-Id.", acRoutine);
+    return NULL;
+  }
+
   /*-
    *********************************************************************
    *
-   * Figure out how much memory we would need with everything enabled.
-   * Then, tack on an extra Kbyte.
+   * Calculate the amount of memory that would required with everything
+   * enabled. Then, tack on an extra 1024 bytes.
    *
    *********************************************************************
    */
   iRequestLength = 0;
-  iRequestLength += strlen(psURL->pcMeth);
-  iRequestLength += strlen(psURL->pcPath);
-  iRequestLength += strlen(psURL->pcQuery);
-  iRequestLength += strlen("HTTP/1.1\r\n");
-  iRequestLength += strlen("Host: \r\n");
-  iRequestLength += strlen(psURL->pcHost);
-  iRequestLength += strlen("Content-type: text/plain\r\n");
+  iRequestLength += strlen(psURL->pcMeth) + strlen(" ") + strlen(psURL->pcPath) + strlen("?") + strlen(psURL->pcQuery) + strlen(" HTTP/1.1\r\n");
+  iRequestLength += strlen("Host: ") + strlen(psURL->pcHost) + strlen(":65535\r\n");
+  iRequestLength += strlen("Content-Type: application/octet-stream\r\n");
   iRequestLength += strlen("Content-Length: 4294967295\r\n");
-  iRequestLength += strlen("Authorization: Basic\r\n");
-  iRequestLength += 4 * (strlen(psURL->pcUser) + strlen(psURL->pcPass));
+  iRequestLength += strlen("Job-Id: ") + strlen(psURL->pcJobId) + strlen("\r\n");
+  iRequestLength += strlen("Authorization: Basic ") + (4 * (strlen(psURL->pcUser) + strlen(psURL->pcPass))) + strlen("\r\n");
   iRequestLength += strlen("\r\n");
   iRequestLength += 1024;
 
@@ -141,45 +141,45 @@ HTTPBuildRequest(HTTP_URL *psURL, char *pcError)
       HTTPFreeData(pcRequest);
       return NULL;
     }
-    sprintf(pcRequest, "%s %s%s%s HTTP/1.1\r\n"
-                       "Host: %s:%d\r\n"
-                       "Content-Type: application/octet-stream\r\n"
-#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
-                       "Content-Length: %u\r\n"
-#else
-                       "Content-Length: %lu\r\n"
-#endif
-                       "Authorization: Basic %s\r\n"
-                       "\r\n",
-                       psURL->pcMeth,
-                       psURL->pcPath,
-                       (psURL->pcQuery[0]) ? "?" : "",
-                       (psURL->pcQuery[0]) ? psURL->pcQuery : "",
-                       psURL->pcHost,
-                       psURL->ui16Port,
-                       psURL->ui32ContentLength,
-                       pcBasicEncoding
-           );
+    snprintf(pcRequest, iRequestLength, "%s %s%s%s HTTP/1.1\r\n"
+      "Host: %s:%d\r\n"
+      "Content-Type: application/octet-stream\r\n"
+      "Content-Length: %u\r\n"
+      "Authorization: Basic %s\r\n"
+      "%s%s%s"
+      "\r\n",
+      psURL->pcMeth,
+      psURL->pcPath,
+      (psURL->pcQuery[0]) ? "?" : "",
+      (psURL->pcQuery[0]) ? psURL->pcQuery : "",
+      psURL->pcHost,
+      psURL->ui16Port,
+      psURL->ui32ContentLength,
+      pcBasicEncoding,
+      (psURL->pcJobId[0]) ? "Job-Id: " : "",
+      (psURL->pcJobId[0]) ? psURL->pcJobId : "",
+      (psURL->pcJobId[0]) ? "\r\n" : ""
+      );
     HTTPFreeData(pcBasicEncoding);
     break;
   default:
-    sprintf(pcRequest, "%s %s%s%s HTTP/1.1\r\n"
-                       "Host: %s:%d\r\n"
-                       "Content-Type: application/octet-stream\r\n"
-#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
-                       "Content-Length: %u\r\n"
-#else
-                       "Content-Length: %lu\r\n"
-#endif
-                       "\r\n",
-                       psURL->pcMeth,
-                       psURL->pcPath,
-                       (psURL->pcQuery[0]) ? "?" : "",
-                       (psURL->pcQuery[0]) ? psURL->pcQuery : "",
-                       psURL->pcHost,
-                       psURL->ui16Port,
-                       psURL->ui32ContentLength
-           );
+    snprintf(pcRequest, iRequestLength, "%s %s%s%s HTTP/1.1\r\n"
+      "Host: %s:%d\r\n"
+      "Content-Type: application/octet-stream\r\n"
+      "Content-Length: %u\r\n"
+      "%s%s%s"
+      "\r\n",
+      psURL->pcMeth,
+      psURL->pcPath,
+      (psURL->pcQuery[0]) ? "?" : "",
+      (psURL->pcQuery[0]) ? psURL->pcQuery : "",
+      psURL->pcHost,
+      psURL->ui16Port,
+      psURL->ui32ContentLength,
+      (psURL->pcJobId[0]) ? "Job-Id: " : "",
+      (psURL->pcJobId[0]) ? psURL->pcJobId : "",
+      (psURL->pcJobId[0]) ? "\r\n" : ""
+      );
     break;
   }
 
@@ -267,13 +267,13 @@ HTTPEncodeBasic(char *pcUsername, char *pcPassword, char *pcError)
     ulLeft += 8;
     while (ulLeft > 6)
     {
-      pcBasicEncoding[n++] = ucBase64[(x >> (ulLeft - 6)) & 0x3f];
+      pcBasicEncoding[n++] = gaucBase64[(x >> (ulLeft - 6)) & 0x3f];
       ulLeft -= 6;
     }
   }
   if (ulLeft != 0)
   {
-    pcBasicEncoding[n++] = ucBase64[(x << (6 - ulLeft)) & 0x3f];
+    pcBasicEncoding[n++] = gaucBase64[(x << (6 - ulLeft)) & 0x3f];
     pcBasicEncoding[n++] = '=';
   }
   if (ulLeft == 2)
@@ -302,6 +302,7 @@ HTTPEscape(char *pcUnEscaped, char *pcError)
   char               *pcEscaped;
   char               *pc;
   int                 i;
+  int                 iLength;
 
   /*-
    *********************************************************************
@@ -318,7 +319,8 @@ HTTPEscape(char *pcUnEscaped, char *pcError)
    *
    *********************************************************************
    */
-  pcEscaped = malloc((3 * strlen(pcUnEscaped)) + 1);
+  iLength = strlen(pcUnEscaped) * 3;
+  pcEscaped = malloc(iLength + 1);
   if (pcEscaped == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
@@ -338,7 +340,9 @@ HTTPEscape(char *pcUnEscaped, char *pcError)
     }
     else
     {
-      i += sprintf(&pcEscaped[i], "%%%02x", (unsigned char) *pc);
+      pcEscaped[i++] = '%';
+      pcEscaped[i++] = gaucBase16[((*pc >> 4) & 0x0f)];
+      pcEscaped[i++] = gaucBase16[((*pc >> 0) & 0x0f)];
     }
   }
   pcEscaped[i] = 0;
@@ -404,6 +408,10 @@ HTTPFreeURL(HTTP_URL *psURL)
     {
       free(psURL->pcMeth);
     }
+    if (psURL->pcJobId != NULL)
+    {
+      free(psURL->pcJobId);
+    }
     free(psURL);
   }
 }
@@ -449,7 +457,7 @@ HTTP_URL *
 HTTPNewURL(char *pcError)
 {
   const char          acRoutine[] = "HTTPNewURL()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
   HTTP_URL           *psURL;
 
@@ -486,6 +494,21 @@ HTTPNewURL(char *pcError)
   /*-
    *********************************************************************
    *
+   * Set the default job id.
+   *
+   *********************************************************************
+   */
+  iError = HTTPSetURLJobId(psURL, HTTP_DEFAULT_JOB_ID, acLocalError);
+  if (iError == -1)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    HTTPFreeURL(psURL);
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
    * Set the default download limit.
    *
    *********************************************************************
@@ -507,16 +530,18 @@ int
 HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *psURL, char *pcError)
 {
   const char          acRoutine[] = "HTTPParseAddress()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcHostPort;
   char               *pcT;
   char               *pcUserPass;
+  int                 iLength;
 
   if (pcUserPassHostPort == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Undefined UserPassHostPort.", acRoutine);
     return -1;
   }
+  iLength = strlen(pcUserPassHostPort);
 
   /*-
    *********************************************************************
@@ -525,7 +550,7 @@ HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *psURL, char *pcError)
    *
    *********************************************************************
    */
-  pcUserPass = malloc(strlen(pcUserPassHostPort) + 1);
+  pcUserPass = malloc(iLength + 1);
   if (pcUserPass == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
@@ -533,7 +558,7 @@ HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *psURL, char *pcError)
   }
   pcUserPass[0] = 0;
 
-  pcHostPort = malloc(strlen(pcUserPassHostPort) + 1);
+  pcHostPort = malloc(iLength + 1);
   if (pcHostPort == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
@@ -555,12 +580,12 @@ HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *psURL, char *pcError)
   if (pcT != NULL)
   {
     *pcT++ = 0;
-    strcpy(pcUserPass, pcUserPassHostPort);
-    strcpy(pcHostPort, pcT);
+    strncpy(pcUserPass, pcUserPassHostPort, iLength + 1);
+    strncpy(pcHostPort, pcT, iLength + 1);
   }
   else
   {
-    strcpy(pcHostPort, pcUserPassHostPort);
+    strncpy(pcHostPort, pcUserPassHostPort, iLength + 1);
   }
 
   if (HTTPParseUserPass(pcUserPass, psURL, acLocalError) == -1)
@@ -620,7 +645,7 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcErro
       snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
       return -1;
     }
-    strcpy(pcTempLine, pcLine);
+    strncpy(pcTempLine, pcLine, iLength + 1);
   }
   else
   {
@@ -650,7 +675,7 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcErro
    *
    *********************************************************************
    */
-  while (isspace((int) *pcFieldValue))
+  while (*pcFieldValue != 0 && isspace((int) *pcFieldValue))
   {
     pcFieldValue++;
   }
@@ -663,11 +688,14 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcErro
    *********************************************************************
    */
   iLength = strlen(pcFieldValue);
-  pcEnd = &pcFieldValue[iLength - 1];
-  while (isspace((int) *pcEnd))
+  if (iLength > 0)
   {
-    *pcEnd-- = 0;
-    iLength--;
+    pcEnd = &pcFieldValue[iLength - 1];
+    while (iLength > 0 && isspace((int) *pcEnd))
+    {
+      *pcEnd-- = 0;
+      iLength--;
+    }
   }
 
   /*-
@@ -704,6 +732,24 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcErro
     psResponseHeader->iContentLengthFound = 1;
   }
 
+  else if (strcasecmp(pcFieldName, FIELD_JobId) == 0)
+  {
+    if (psResponseHeader->iJobIdFound)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Job-Id = [%s]: Field already defined.", acRoutine, pcFieldValue);
+      HTTPFreeData(pcTempLine);
+      return -1;
+    }
+    if (iLength < 1 || iLength > HTTP_JOB_ID_SIZE - 1)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Job-Id = [%s]: Value has invalid length (%d).", acRoutine, pcFieldValue, iLength);
+      HTTPFreeData(pcTempLine);
+      return -1;
+    }
+    strncpy(psResponseHeader->acJobId, pcFieldValue, HTTP_JOB_ID_SIZE);
+    psResponseHeader->iJobIdFound = 1;
+  }
+
   else if (strcasecmp(pcFieldName, FIELD_TransferEncoding) == 0)
   {
 /* FIXME Add support for chunked transfers. */
@@ -728,7 +774,7 @@ int
 HTTPParseHeader(char *pcResponseHeader, int iResponseHeaderLength, HTTP_RESPONSE_HDR *psResponseHeader, char *pcError)
 {
   const char          acRoutine[] = "HTTPParseHeader()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcE;
   char               *pcS;
   int                 iError;
@@ -776,7 +822,7 @@ int
 HTTPParseHostPort(char *pcHostPort, HTTP_URL *psURL, char *pcError)
 {
   const char          acRoutine[] = "HTTPParseHostPort()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcT;
   int                 iError;
 
@@ -845,7 +891,7 @@ int
 HTTPParsePathQuery(char *pcPathQuery, HTTP_URL *psURL, char *pcError)
 {
   const char          acRoutine[] = "HTTPParsePathQuery()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcT;
   int                 iError;
 
@@ -1035,7 +1081,7 @@ HTTP_URL *
 HTTPParseURL(char *pcURL, char *pcError)
 {
   const char          acRoutine[] = "HTTPParseURL()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcS;
   char               *pcT;
   char               *pcTempURL;
@@ -1091,7 +1137,7 @@ HTTPParseURL(char *pcURL, char *pcError)
     HTTPFreeURL(psURL);
     return NULL;
   }
-  strcpy(pcTempURL, pcURL);
+  strncpy(pcTempURL, pcURL, iLength + 1);
 
   /*-
    *********************************************************************
@@ -1190,7 +1236,7 @@ int
 HTTPParseUserPass(char *pcUserPass, HTTP_URL *psURL, char *pcError)
 {
   const char          acRoutine[] = "HTTPParseUserPass()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pcT;
   int                 iError;
 
@@ -1263,7 +1309,7 @@ int
 HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, void **ppvData, K_UINT32 ui32ContentLength, char *pcError)
 {
   const char          acRoutine[] = "HTTPReadDataIntoMemory()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char              **ppcData;
   int                 iNRead;
   int                 iZRead;
@@ -1283,11 +1329,7 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, void **ppvData, K_UINT32 ui3
    */
   if (ui32ContentLength > (K_UINT32) HTTP_MAX_MEMORY_SIZE)
   {
-#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
     snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%u] > [%u]: Length exceeds internally defined limit.",
-#else
-    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds internally defined limit.",
-#endif
       acRoutine,
       ui32ContentLength,
       (K_UINT32) HTTP_MAX_MEMORY_SIZE
@@ -1339,11 +1381,7 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, void **ppvData, K_UINT32 ui3
   }
   if (ui32Offset != ui32ContentLength)
   {
-#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
     snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%u] != [%u]: Actual-Length vs Content-Length Mismatch.",
-#else
-    snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%lu] != [%lu]: Actual-Length vs Content-Length Mismatch.",
-#endif
       acRoutine,
       ui32Offset,
       ui32ContentLength
@@ -1367,7 +1405,7 @@ HTTPReadDataIntoStream(SOCKET_CONTEXT *psSocketCTX, FILE *pFile, K_UINT32 ui32Co
 {
   const char          acRoutine[] = "HTTPReadDataIntoStream()";
   char                acData[HTTP_IO_BUFSIZE];
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iNRead;
   int                 iZRead;
   K_UINT32            ui32Offset;
@@ -1409,11 +1447,7 @@ HTTPReadDataIntoStream(SOCKET_CONTEXT *psSocketCTX, FILE *pFile, K_UINT32 ui32Co
   }
   if (ui32Offset != ui32ContentLength)
   {
-#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
     snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%u] != [%u]: Actual-Length vs Content-Length Mismatch.",
-#else
-    snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%lu] != [%lu]: Actual-Length vs Content-Length Mismatch.",
-#endif
       acRoutine,
       ui32Offset,
       ui32ContentLength
@@ -1435,7 +1469,7 @@ int
 HTTPReadHeader(SOCKET_CONTEXT *psSocketCTX, char *pcResponseHeader, int iMaxResponseLength, char *pcError)
 {
   const char          acRoutine[] = "HTTPReadHeader()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iHdrOk;
   int                 iIndex;
   int                 iNRead;
@@ -1502,6 +1536,7 @@ HTTPSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
 {
   const char          acRoutine[] = "HTTPSetDynamicString()";
   char               *pcTempValue;
+  int                 iLength;
 
   /*-
    *********************************************************************
@@ -1510,7 +1545,8 @@ HTTPSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
    *
    *********************************************************************
    */
-  pcTempValue = realloc(*ppcValue, strlen(pcNewValue) + 1);
+  iLength = strlen(pcNewValue);
+  pcTempValue = realloc(*ppcValue, iLength + 1);
   {
     if (pcTempValue == NULL)
     {
@@ -1519,7 +1555,7 @@ HTTPSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
     }
     *ppcValue = pcTempValue;
   }
-  strcpy(*ppcValue, pcNewValue);
+  strncpy(*ppcValue, pcNewValue, iLength + 1);
 
   return 0;
 }
@@ -1550,7 +1586,7 @@ int
 HTTPSetURLHost(HTTP_URL *psURL, char *pcHost, char *pcError)
 {
   const char          acRoutine[] = "HTTPSetURLHost()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
   struct hostent     *psHostEntry;
 #ifdef WIN32
@@ -1558,8 +1594,6 @@ HTTPSetURLHost(HTTP_URL *psURL, char *pcHost, char *pcError)
   WORD                wVersion;
   WSADATA             wsaData;
 #endif
-
-  acLocalError[0] = 0;
 
   if (psURL == NULL)
   {
@@ -1630,6 +1664,37 @@ HTTPSetURLHost(HTTP_URL *psURL, char *pcHost, char *pcError)
 /*-
  ***********************************************************************
  *
+ * HTTPSetURLJobId
+ *
+ ***********************************************************************
+ */
+int
+HTTPSetURLJobId(HTTP_URL *psURL, char *pcJobId, char *pcError)
+{
+  const char          acRoutine[] = "HTTPSetURLJobId()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  int                 iError;
+
+  if (psURL == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
+    return -1;
+  }
+
+  iError = HTTPSetDynamicString(&psURL->pcJobId, pcJobId, acLocalError);
+  if (iError == -1)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return -1;
+  }
+
+  return 0;
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * HTTPSetURLMeth
  *
  ***********************************************************************
@@ -1638,10 +1703,8 @@ int
 HTTPSetURLMeth(HTTP_URL *psURL, char *pcMeth, char *pcError)
 {
   const char          acRoutine[] = "HTTPSetURLMeth()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
-
-  acLocalError[0] = 0;
 
   if (psURL == NULL)
   {
@@ -1671,10 +1734,8 @@ int
 HTTPSetURLPass(HTTP_URL *psURL, char *pcPass, char *pcError)
 {
   const char          acRoutine[] = "HTTPSetURLPass()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
-
-  acLocalError[0] = 0;
 
   if (psURL == NULL)
   {
@@ -1704,10 +1765,8 @@ int
 HTTPSetURLPath(HTTP_URL *psURL, char *pcPath, char *pcError)
 {
   const char          acRoutine[] = "HTTPSetURLPath()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
-
-  acLocalError[0] = 0;
 
   if (psURL == NULL)
   {
@@ -1737,12 +1796,10 @@ int
 HTTPSetURLPort(HTTP_URL *psURL, char *pcPort, char *pcError)
 {
   const char          acRoutine[] = "HTTPSetURLPort()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char               *pc;
   int                 iError;
   int                 iPort;
-
-  acLocalError[0] = 0;
 
   if (psURL == NULL)
   {
@@ -1805,10 +1862,8 @@ int
 HTTPSetURLQuery(HTTP_URL *psURL, char *pcQuery, char *pcError)
 {
   const char          acRoutine[] = "HTTPSetURLQuery()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
-
-  acLocalError[0] = 0;
 
   if (psURL == NULL)
   {
@@ -1838,10 +1893,8 @@ int
 HTTPSetURLUser(HTTP_URL *psURL, char *pcUser, char *pcError)
 {
   const char          acRoutine[] = "HTTPSetURLUser()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
-
-  acLocalError[0] = 0;
 
   if (psURL == NULL)
   {
@@ -1871,7 +1924,7 @@ int
 HTTPSubmitRequest(HTTP_URL *psURL, int iInputType, void *pInput, int iOutputType, void *pOutput, HTTP_RESPONSE_HDR *psResponseHeader, char *pcError)
 {
   const char          acRoutine[] = "HTTPSubmitRequest()";
-  char                acLocalError[MESSAGE_SIZE];
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   char                acFileData[HTTP_IO_BUFSIZE];
   char                acSockData[HTTP_IO_BUFSIZE];
   char               *pcRequest;
@@ -1885,8 +1938,6 @@ HTTPSubmitRequest(HTTP_URL *psURL, int iInputType, void *pInput, int iOutputType
   HTTP_MEMORY_LIST   *pMList;
   HTTP_STREAM_LIST   *pSList;
   SOCKET_CONTEXT     *psSocketCTX;
-
-  acLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -2164,11 +2215,7 @@ HTTPSubmitRequest(HTTP_URL *psURL, int iInputType, void *pInput, int iOutputType
    */
   if (psURL->ui32DownloadLimit != 0 && psResponseHeader->ui32ContentLength > psURL->ui32DownloadLimit)
   {
-#if defined(K_CPU_ALPHA) || defined(K_CPU_IA64)
     snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%u] > [%u]: Length exceeds user defined limit.",
-#else
-    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds user defined limit.",
-#endif
       acRoutine,
       psResponseHeader->ui32ContentLength,
       psURL->ui32DownloadLimit

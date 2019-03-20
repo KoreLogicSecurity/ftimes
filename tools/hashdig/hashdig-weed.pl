@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-weed.pl,v 1.3 2003/03/26 20:47:31 mavrik Exp $
+# $Id: hashdig-weed.pl,v 1.8 2004/04/21 01:29:59 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -15,6 +15,7 @@
 
 use strict;
 use DB_File;
+use File::Basename;
 use Getopt::Std;
 
 ######################################################################
@@ -29,9 +30,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($program);
+  my ($sProgram);
 
-  $program = "hashdig-weed.pl";
+  $sProgram = basename(__FILE__);
 
   ####################################################################
   #
@@ -39,11 +40,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('d:f:q', \%options))
+  if (!getopts('d:f:q', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
@@ -52,20 +53,13 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($dbFile);
+  my ($sDBFile);
 
-  if (!exists($options{'d'}))
+  if (!exists($hOptions{'d'}) || !defined($hOptions{'d'}) || length($hOptions{'d'}) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
-  else
-  {
-    $dbFile = $options{'d'};
-    if (!defined($dbFile) || length($dbFile) < 1)
-    {
-      Usage($program);
-    }
-  }
+  $sDBFile = $hOptions{'d'};
 
   ####################################################################
   #
@@ -73,48 +67,42 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($fileHandle, $filename);
+  my ($sFileHandle, $sFilename);
 
-  if (!exists($options{'f'}))
+  if (!exists($hOptions{'f'}) || !defined($hOptions{'f'}) || length($hOptions{'f'}) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
+  }
+  $sFilename = $hOptions{'f'};
+
+  if ($sFilename eq '-')
+  {
+    $sFileHandle = \*STDIN;
   }
   else
   {
-    $filename = $options{'f'};
-    if (!defined($filename) || length($filename) < 1)
+    if (!-f $sFilename)
     {
-      Usage($program);
+      print STDERR "$sProgram: File='$sFilename' Error='File must exist and be regular.'\n";
+      exit(2);
     }
-    if (-f $filename)
+    if (!open(FH, "<$sFilename"))
     {
-      if (!open(FH, $filename))
-      {
-        print STDERR "$program: File='$filename' Error='$!'\n";
-        exit(2);
-      }
-      $fileHandle = \*FH;
+      print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
+      exit(2);
     }
-    else
-    {
-      if ($filename ne '-')
-      {
-        print STDERR "$program: File='$filename' Error='File must be regular.'\n";
-        exit(2);
-      }
-      $fileHandle = \*STDIN;
-    }
+    $sFileHandle = \*FH;
   }
 
   ####################################################################
   #
-  # The beQuiet flag, '-q', is optional. Default value is 0.
+  # The BeQuiet flag, '-q', is optional. Default value is 0.
   #
   ####################################################################
 
-  my ($beQuiet);
+  my ($sBeQuiet);
 
-  $beQuiet = (exists($options{'q'})) ? 1 : 0;
+  $sBeQuiet = (exists($hOptions{'q'})) ? 1 : 0;
 
   ####################################################################
   #
@@ -124,20 +112,20 @@ use Getopt::Std;
 
   if (scalar(@ARGV) > 0)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
   #
-  # Tie onDiskList to the db.
+  # Tie OnDiskList to the db.
   #
   ####################################################################
 
-  my (%onDiskList);
+  my (%hOnDiskList);
 
-  if (!tie(%onDiskList, "DB_File", $dbFile, O_RDWR, 0644, $DB_BTREE))
+  if (!tie(%hOnDiskList, "DB_File", $sDBFile, O_RDWR, 0644, $DB_BTREE))
   {
-    print STDERR "$program: File='$dbFile' Error='$!'\n";
+    print STDERR "$sProgram: File='$sDBFile' Error='$!'\n";
     exit(2);
   }
 
@@ -147,28 +135,28 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($accepted, $deleted, $rejected) = (0, 0, 0);
+  my ($sAccepted, $sDeleted, $sRejected) = (0, 0, 0);
 
-  while (my $record = <$fileHandle>)
+  while (my $sRecord = <$sFileHandle>)
   {
-    if (my ($hash) = $record =~ /^([0-9a-fA-F]{32})$/)
+    if (my ($sHash) = $sRecord =~ /^([0-9a-fA-F]{32})$/)
     {
-      $hash = lc($hash);
-      if (exists($onDiskList{$hash}))
+      $sHash = lc($sHash);
+      if (exists($hOnDiskList{$sHash}))
       {
-        delete($onDiskList{$hash});
-        $deleted++;
+        delete($hOnDiskList{$sHash});
+        $sDeleted++;
       }
-      $accepted++;
+      $sAccepted++;
     }
     else
     {
-      if (!$beQuiet)
+      if (!$sBeQuiet)
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$program: File='$filename' Record='$record' Error='Record did not parse properly.'\n";
+        $sRecord =~ s/[\r\n]+$//;
+        print STDERR "$sProgram: File='$sFilename' Record='$sRecord' Error='Record did not parse properly.'\n";
       }
-      $rejected++;
+      $sRejected++;
     }
   }
 
@@ -178,12 +166,12 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (@counts);
+  my (@aCounts);
 
-  push(@counts, "Accepted='$accepted'");
-  push(@counts, "Rejected='$rejected'");
-  push(@counts, "Deleted='$deleted'");
-  print join(' ', @counts), "\n";
+  push(@aCounts, "Accepted='$sAccepted'");
+  push(@aCounts, "Rejected='$sRejected'");
+  push(@aCounts, "Deleted='$sDeleted'");
+  print join(' ', @aCounts), "\n";
 
   ####################################################################
   #
@@ -191,7 +179,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  untie(%onDiskList);
+  untie(%hOnDiskList);
 
   1;
 
@@ -204,9 +192,9 @@ use Getopt::Std;
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-q] -d db -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-q] -d db -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -255,7 +243,7 @@ Don't report errors (i.e. be quiet) while processing input.
 
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 
 =head1 SEE ALSO
 

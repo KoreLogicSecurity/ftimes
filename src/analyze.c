@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.10 2003/08/13 21:39:49 mavrik Exp $
+ * $Id: analyze.c,v 1.14 2004/04/22 02:19:09 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -97,8 +96,8 @@ AnalyzeGetFileCount(void)
 int
 AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
-  const char          cRoutine[] = "AnalyzeFile()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "AnalyzeFile()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 i;
   int                 iBufferType;
   int                 iError;
@@ -111,6 +110,18 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
 #else
   FILE               *pFile;
 #endif
+  K_UINT64            ui64FileSize;
+
+#ifdef WINNT
+  ui64FileSize = (((K_UINT64) psFTData->dwFileSizeHigh) << 32) | psFTData->dwFileSizeLow;
+#else
+  ui64FileSize = (K_UINT64) psFTData->sStatEntry.st_size;
+#endif
+  if (psProperties->ulFileSizeLimit != 0 && ui64FileSize > (K_UINT64) psProperties->ulFileSizeLimit)
+  {
+    memset(psFTData->aucFileMD5, 0xff, MD5_HASH_SIZE);
+    return ER_OK;
+  }
 
   memset(ucBuffer, 0, 3 * ANALYZE_READ_BUFSIZE);
 
@@ -128,14 +139,14 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
   if (hFile == INVALID_HANDLE_VALUE)
   {
     ErrorFormatWin32Error(&pcMessage);
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, pcMessage);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, pcMessage);
     return ER_CreateFile;
   }
 #else
   pFile = fopen(psFTData->pcRawPath, "rb");
   if (pFile == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return ER_fopen;
   }
 #endif
@@ -194,14 +205,14 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
     if (!bResult)
     {
       ErrorFormatWin32Error(&pcMessage);
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, pcMessage);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, pcMessage);
       CloseHandle(hFile);
       return ER_ReadFile;
     }
 #else
     if (ferror(pFile))
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
       fclose(pFile);
       return ER_fread;
     }
@@ -236,11 +247,11 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
      */
     for (i = 0; i < psProperties->iLastAnalysisStage; i++)
     {
-      iError = psProperties->sAnalysisStages[i].piRoutine(&ucBuffer[ANALYZE_READ_BUFSIZE], iNRead, iBufferType, ANALYZE_READ_BUFSIZE, psFTData, cLocalError);
+      iError = psProperties->asAnalysisStages[i].piRoutine(&ucBuffer[ANALYZE_READ_BUFSIZE], iNRead, iBufferType, ANALYZE_READ_BUFSIZE, psFTData, acLocalError);
       if (iError != ER_OK)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-        ErrorHandler(psProperties->sAnalysisStages[i].iError, pcError, ERROR_FAILURE);
+        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+        ErrorHandler(psProperties->asAnalysisStages[i].iError, pcError, ERROR_FAILURE);
       }
     }
 
@@ -276,9 +287,9 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
 void
 AnalyzeEnableDigestEngine(FTIMES_PROPERTIES *psProperties)
 {
-  strcpy(psProperties->sAnalysisStages[psProperties->iLastAnalysisStage].cDescription, "Digest");
-  psProperties->sAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoDigest;
-  psProperties->sAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoDigest;
+  strcpy(psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].acDescription, "Digest");
+  psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoDigest;
+  psProperties->asAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoDigest;
 }
 
 
@@ -303,7 +314,7 @@ AnalyzeDoDigest(unsigned char *pucBuffer, int iBufferLength, int iBufferType, in
 
   if ((iBufferType & ANALYZE_FINAL_BUFFER) == ANALYZE_FINAL_BUFFER)
   {
-    MD5Omega(&sFileMD5Context, psFTData->ucFileMD5);
+    MD5Omega(&sFileMD5Context, psFTData->aucFileMD5);
   }
 
   return ER_OK;
@@ -320,9 +331,9 @@ AnalyzeDoDigest(unsigned char *pucBuffer, int iBufferLength, int iBufferType, in
 void
 AnalyzeEnableDigEngine(FTIMES_PROPERTIES *psProperties)
 {
-  strcpy(psProperties->sAnalysisStages[psProperties->iLastAnalysisStage].cDescription, "Search");
-  psProperties->sAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoDig;
-  psProperties->sAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoDig;
+  strcpy(psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].acDescription, "Search");
+  psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoDig;
+  psProperties->asAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoDig;
 }
 
 
@@ -336,19 +347,17 @@ AnalyzeEnableDigEngine(FTIMES_PROPERTIES *psProperties)
 int
 AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
-  const char          cRoutine[] = "AnalyzeDoDig()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "AnalyzeDoDig()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   unsigned char      *pucToSearch;
   int                 iError;
   int                 iStopShort;
   int                 iMaxStringLength;
   int                 iNToSearch;
-  static unsigned char ucSave[ANALYZE_READ_BUFSIZE];
+  static unsigned char aucSave[ANALYZE_READ_BUFSIZE];
   static int          iNToSave;
   static int          iSaveOffset;
   static K_UINT64     ui64AbsoluteOffset;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -366,7 +375,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
   {
     if (iBufferLength == 0)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: A zero length buffer is illegal unless it is marked as the final buffer.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: A zero length buffer is illegal unless it is marked as the final buffer.", acRoutine);
       return ER_Length;
     }
     iStopShort = 1;
@@ -409,7 +418,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
     }
     else
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Not enough overhead to perform analysis.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Not enough overhead to perform analysis.", acRoutine);
       return ER_Overflow;
     }
     ui64AbsoluteOffset = 0;
@@ -419,7 +428,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
   else
   {
     pucToSearch = pucBuffer - iNToSave;
-    memcpy(pucToSearch, ucSave, iNToSave);
+    memcpy(pucToSearch, aucSave, iNToSave);
     iNToSearch = iBufferLength + iNToSave;
   }
 
@@ -430,10 +439,10 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
    *
    *********************************************************************
    */
-  iError = DigSearchData(pucToSearch, iNToSearch, iStopShort, ui64AbsoluteOffset, psFTData->pcNeuteredPath, cLocalError);
+  iError = DigSearchData(pucToSearch, iNToSearch, iStopShort, ui64AbsoluteOffset, psFTData->pcNeuteredPath, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -446,7 +455,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
    *********************************************************************
    */
   iSaveOffset = iNToSearch - iNToSave;
-  memcpy(ucSave, &pucToSearch[iSaveOffset], iNToSave);
+  memcpy(aucSave, &pucToSearch[iSaveOffset], iNToSave);
 
   /*-
    *********************************************************************
@@ -482,12 +491,12 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
 int
 AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "AnalyzeEnableXMagicEngine()";
-  char                cLocalError[ERRBUF_SIZE];
-  unsigned char       ucMD5[MD5_HASH_SIZE];
-  int                 i,
-                      iError,
-                      iIndex;
+  const char          acRoutine[] = "AnalyzeEnableXMagicEngine()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  unsigned char       aucMD5[MD5_HASH_SIZE];
+  int                 i;
+  int                 iError;
+  int                 iIndex;
   FILE               *pFile;
 
   /*-
@@ -497,9 +506,9 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  strcpy(psProperties->sAnalysisStages[psProperties->iLastAnalysisStage].cDescription, "XMagic");
-  psProperties->sAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoXMagic;
-  psProperties->sAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoXMagic;
+  strcpy(psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].acDescription, "XMagic");
+  psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoXMagic;
+  psProperties->asAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoXMagic;
 
   /*-
    *********************************************************************
@@ -513,9 +522,9 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
     switch (i)
     {
     case 0:
-      if (psProperties->cMagicFileName[0])
+      if (psProperties->acMagicFileName[0])
       {
-        iError = SupportExpandPath(psProperties->cMagicFileName, psProperties->cMagicFileName, FTIMES_MAX_PATH, 1, cLocalError);
+        iError = SupportExpandPath(psProperties->acMagicFileName, psProperties->acMagicFileName, FTIMES_MAX_PATH, 1, acLocalError);
       }
       else
       {
@@ -523,49 +532,49 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
       }
       break;
     case 1:
-      iError = SupportExpandPath(XMAGIC_DEFAULT_LOCATION, psProperties->cMagicFileName, FTIMES_MAX_PATH, 1, cLocalError);
+      iError = SupportExpandPath(XMAGIC_DEFAULT_LOCATION, psProperties->acMagicFileName, FTIMES_MAX_PATH, 1, acLocalError);
       break;
     case 2:
-      iError = SupportExpandPath(XMAGIC_CURRENT_LOCATION, psProperties->cMagicFileName, FTIMES_MAX_PATH, 1, cLocalError);
+      iError = SupportExpandPath(XMAGIC_CURRENT_LOCATION, psProperties->acMagicFileName, FTIMES_MAX_PATH, 1, acLocalError);
       break;
     default:
       iError = ER_BadValue;
-      snprintf(cLocalError, ERRBUF_SIZE, "bad loop index");
+      snprintf(acLocalError, MESSAGE_SIZE, "bad loop index");
       break;
     }
     if (iError == ER_OK)
     {
-      iError = XMagicLoadMagic(psProperties->cMagicFileName, cLocalError);
+      iError = XMagicLoadMagic(psProperties->acMagicFileName, acLocalError);
       if (iError == ER_OK)
       {
-        if ((pFile = fopen(psProperties->cMagicFileName, "rb")) != NULL && MD5HashStream(pFile, ucMD5) == ER_OK)
+        if ((pFile = fopen(psProperties->acMagicFileName, "rb")) != NULL && MD5HashStream(pFile, aucMD5) == ER_OK)
         {
           for (iIndex = 0; iIndex < MD5_HASH_SIZE; iIndex++)
           {
-            sprintf(&psProperties->cMagicHash[iIndex * 2], "%02x", ucMD5[iIndex]);
+            sprintf(&psProperties->acMagicHash[iIndex * 2], "%02x", aucMD5[iIndex]);
           }
-          psProperties->cMagicHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
+          psProperties->acMagicHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
           fclose(pFile);
         }
         else
         {
-          strcpy(psProperties->cMagicHash, "NONE");
+          strcpy(psProperties->acMagicHash, "NONE");
         }
         break; /* Very important. This get's us out of the for loop. */
       }
       else
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
         return iError;
       }
     }
-    psProperties->cMagicFileName[0] = 0;
+    psProperties->acMagicFileName[0] = 0;
   }
 
-  if (psProperties->cMagicFileName[0] == 0)
+  if (psProperties->acMagicFileName[0] == 0)
   {
-    strcpy(psProperties->cMagicFileName, "NA");
-    strcpy(psProperties->cMagicHash, "NA");
+    strcpy(psProperties->acMagicFileName, "NA");
+    strcpy(psProperties->acMagicHash, "NA");
   }
 
   return ER_OK;
@@ -582,11 +591,9 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
-  const char          cRoutine[] = "AnalyzeDoXMagic()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "AnalyzeDoXMagic()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
-
-  cLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -597,10 +604,10 @@ AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBufferType, in
    */
   if ((iBufferType & ANALYZE_FIRST_BUFFER) == ANALYZE_FIRST_BUFFER)
   {
-    iError = XMagicTestBuffer(pucBuffer, iBufferLength, psFTData->cType, FTIMES_FILETYPE_BUFSIZE, cLocalError);
+    iError = XMagicTestBuffer(pucBuffer, iBufferLength, psFTData->acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
     if (iError == ER)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return ER_XMagic;
     }
   }

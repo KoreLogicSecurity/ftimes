@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ssl.h,v 1.3 2003/02/23 17:40:09 mavrik Exp $
+ * $Id: ssl.h,v 1.5 2004/04/17 19:38:49 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2001-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -37,7 +36,6 @@
 #define SSL_READ_BUFSIZE             0x4000
 #define SSL_RETRY_LIMIT                  20
 
-
 /*-
  ***********************************************************************
  *
@@ -57,7 +55,6 @@ typedef struct _SSL_PROPERTIES
   int                 iVerifyPeerCert;
   SSL_CTX            *psslCTX;
 } SSL_PROPERTIES;
-
 
 /*-
  ***********************************************************************

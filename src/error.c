@@ -1,12 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: error.c,v 1.3 2003/02/24 19:35:34 mavrik Exp $
+ * $Id: error.c,v 1.6 2004/04/22 02:19:10 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2003 Klayton Monroe, Cable & Wireless
- * All Rights Reserved.
+ * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -85,15 +84,13 @@ ErrorHandler(int iError, char *pcError, int iSeverity)
 void
 ErrorFormatWin32Error(char **ppcMessage)
 {
-  static char         cMessage[ERRBUF_SIZE / 2];
+  static char         acMessage[MESSAGE_SIZE / 2] = { 0 };
   char               *pc;
-  int                 i,
-                      j;
+  int                 i;
+  int                 j;
   LPVOID              lpvMessage;
 
-  cMessage[0] = 0;
-
-  *ppcMessage = cMessage;
+  *ppcMessage = acMessage;
 
   FormatMessage(
                 FORMAT_MESSAGE_ALLOCATE_BUFFER |
@@ -110,11 +107,11 @@ ErrorFormatWin32Error(char **ppcMessage)
   /*
    * Replace linefeeds with spaces. Eliminate carriage returns.
    */
-  for (i = 0, j = 0, pc = (char *) lpvMessage; (i < (int) strlen(lpvMessage)) && (i < (ERRBUF_SIZE / 2)); i++, j++)
+  for (i = 0, j = 0, pc = (char *) lpvMessage; (i < (int) strlen(lpvMessage)) && (i < (MESSAGE_SIZE / 2)); i++, j++)
   {
     if (pc[i] == '\n')
     {
-      cMessage[j] = ' ';
+      acMessage[j] = ' ';
     }
     else if (pc[i] == '\r')
     {
@@ -123,10 +120,10 @@ ErrorFormatWin32Error(char **ppcMessage)
     }
     else
     {
-      cMessage[j] = pc[i];
+      acMessage[j] = pc[i];
     }
   }
-  cMessage[j] = 0;
+  acMessage[j] = 0;
 
   LocalFree(lpvMessage);
 }

@@ -1,15 +1,15 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-bind.pl,v 1.4 2003/03/25 21:15:33 mavrik Exp $
+# $Id: hashdig-bind.pl,v 1.15 2004/04/26 03:13:52 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2003 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
-# Purpose: Bind HashDig hashes to filenames.
+# Purpose: Bind resolved hashes to filenames.
 #
 ######################################################################
 
@@ -30,9 +30,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($program, %properties);
+  my ($sProgram, %hProperties);
 
-  $program = $properties{'program'} = "hashdig-bind.pl";
+  $sProgram = $hProperties{'program'} = basename(__FILE__);
 
   ####################################################################
   #
@@ -40,11 +40,11 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%options);
+  my (%hOptions);
 
-  if (!getopts('f:qrt:', \%options))
+  if (!getopts('f:qrt:', \%hOptions))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
@@ -53,108 +53,98 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($fileHandle, $filename);
+  my ($sFileHandle, $sFilename);
 
-  if (!exists($options{'f'}))
+  if (!exists($hOptions{'f'}) || !defined($hOptions{'f'}) || length($hOptions{'f'}) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
+  }
+  $sFilename = $hOptions{'f'};
+
+  if ($sFilename eq '-')
+  {
+    $sFileHandle = \*STDIN;
   }
   else
   {
-    $filename = $options{'f'};
-    if (!defined($filename) || length($filename) < 1)
+    if (!-f $sFilename)
     {
-      Usage($program);
+      print STDERR "$sProgram: File='$sFilename' Error='File must exist and be regular.'\n";
+      exit(2);
     }
-    if (-f $filename)
+    if (!open(FH, "<$sFilename"))
     {
-      if (!open(FH, $filename))
-      {
-        print STDERR "$program: File='$filename' Error='$!'\n";
-        exit(2);
-      }
-      $fileHandle = \*FH;
+      print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
+      exit(2);
     }
-    else
-    {
-      if ($filename ne '-')
-      {
-        print STDERR "$program: File='$filename' Error='File must be regular.'\n";
-        exit(2);
-      }
-      $fileHandle = \*STDIN;
-    }
+    $sFileHandle = \*FH;
   }
 
   ####################################################################
   #
-  # The beQuiet flag, '-q', is optional. Default value is 0.
+  # The BeQuiet flag, '-q', is optional. Default value is 0.
   #
   ####################################################################
 
-  $properties{'beQuiet'} = (exists($options{'q'})) ? 1 : 0;
+  $hProperties{'BeQuiet'} = (exists($hOptions{'q'})) ? 1 : 0;
 
   ####################################################################
   #
-  # The reverseFormat flag, '-r', is optional. Default value is 0.
+  # The ReverseFormat flag, '-r', is optional. Default value is 0.
   #
   ####################################################################
 
-  my ($cIndex, $hIndex, $recordRegex, $reverseFormat);
+  my ($sCIndex, $sHIndex, $sRecordRegex, $sReverseFormat);
 
-  $reverseFormat = (exists($options{'r'})) ? 1 : 0;
+  $sReverseFormat = (exists($hOptions{'r'})) ? 1 : 0;
 
-  if ($reverseFormat)
+  if ($sReverseFormat)
   {
-    $recordRegex = qq(^([KU])\\|([0-9a-fA-F]{32})\$);
-    $cIndex = 0;
-    $hIndex = 1;
+    $sRecordRegex = qq(^([KU])\\|([0-9a-fA-F]{32})\$);
+    $sCIndex = 0;
+    $sHIndex = 1;
   }
   else
   {
-    $recordRegex = qq(^([0-9a-fA-F]{32})\\|([KU])\$);
-    $cIndex = 1;
-    $hIndex = 0;
+    $sRecordRegex = qq(^([0-9a-fA-F]{32})\\|([KU])\$);
+    $sCIndex = 1;
+    $sHIndex = 0;
   }
 
   ####################################################################
   #
-  # The fileType flag, '-t', is required.
+  # The FileType flag, '-t', is required.
   #
   ####################################################################
 
-  my ($bindFile, $fileType);
+  my ($sBindFile, $sFileType);
 
-  $fileType = (exists($options{'t'})) ? uc($options{'t'}) : undef;
+  $sFileType = (exists($hOptions{'t'})) ? $hOptions{'t'} : undef;
 
-  if (!defined($fileType))
+  if (!defined($sFileType))
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
-  if ($fileType =~ /^FTIMES$/)
+  if ($sFileType =~ /^FTIMES$/i)
   {
-    $bindFile = \&BindFTimesFile;
+    $sBindFile = \&BindFTimesFile;
   }
-  elsif ($fileType =~ /^(KG|KNOWNGOODS)$/)
+  elsif ($sFileType =~ /^(KG|KNOWNGOODS)$/i)
   {
-    $bindFile = \&BindKnownGoodsFile;
+    $sBindFile = \&BindKnownGoodsFile;
   }
-  elsif ($fileType =~ /^MD5$/)
+  elsif ($sFileType =~ /^(MD5|OPENSSL)$/i)
   {
-    $bindFile = \&BindMD5File;
+    $sBindFile = \&BindMD5File;
   }
-  elsif ($fileType =~ /^MD5DEEP$/)
+  elsif ($sFileType =~ /^(MD5SUM|MD5DEEP)$/i)
   {
-    $bindFile = \&BindMD5SumFile;
-  }
-  elsif ($fileType =~ /^MD5SUM$/)
-  {
-    $bindFile = \&BindMD5SumFile;
+    $sBindFile = \&BindMD5SumFile;
   }
   else
   {
-    print STDERR "$program: FileType='$fileType' Error='Invalid file type.'\n";
+    print STDERR "$sProgram: FileType='$sFileType' Error='Invalid file type.'\n";
     exit(2);
   }
 
@@ -166,7 +156,7 @@ use Getopt::Std;
 
   if (scalar(@ARGV) < 1)
   {
-    Usage($program);
+    Usage($sProgram);
   }
 
   ####################################################################
@@ -175,30 +165,30 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (%hashKList, %hashUList);
+  my (%hHashKList, %hHashUList);
 
-  while (my $record = <$fileHandle>)
+  while (my $sRecord = <$sFileHandle>)
   {
-    $record =~ s/[\r\n]+$//;
-    if (my @fields = $record =~ /$recordRegex/o)
+    $sRecord =~ s/[\r\n]+$//;
+    if (my @aFields = $sRecord =~ /$sRecordRegex/o)
     {
-      $fields[$hIndex] = lc($fields[$hIndex]);
-      if ($fields[$cIndex] eq "K")
+      $aFields[$sHIndex] = lc($aFields[$sHIndex]);
+      if ($aFields[$sCIndex] eq "K")
       {
-        $hashKList{$fields[$hIndex]}++;
+        $hHashKList{$aFields[$sHIndex]}++;
       }
       else
       {
-        $hashUList{$fields[$hIndex]}++;
+        $hHashUList{$aFields[$sHIndex]}++;
       }
     }
     else
     {
-      print STDERR "$program: File='$filename' Record='$record' Error='Record did not parse properly.'\n";
+      print STDERR "$sProgram: File='$sFilename' Record='$sRecord' Error='Record did not parse properly.'\n";
       exit(2);
     }
   }
-  close($fileHandle);
+  close($sFileHandle);
 
   ####################################################################
   #
@@ -206,9 +196,9 @@ use Getopt::Std;
   #
   ####################################################################
 
-  foreach my $inputFile (@ARGV)
+  foreach my $sInputFile (@ARGV)
   {
-    &$bindFile($inputFile, \%properties);
+    &$sBindFile($sInputFile, \%hProperties);
   }
 
   ####################################################################
@@ -228,7 +218,7 @@ use Getopt::Std;
 
 sub BindFTimesFile
 {
-  my ($filename, $pProperties) = @_;
+  my ($sFilename, $phProperties) = @_;
 
   ####################################################################
   #
@@ -236,11 +226,11 @@ sub BindFTimesFile
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -251,46 +241,46 @@ sub BindFTimesFile
   #
   ####################################################################
 
-  my (@fields, $hashIndex, $header, $modeIndex, $nameIndex);
+  my (@aFields, $sHashIndex, $sHeader, $sModeIndex, $sNameIndex);
 
-  $header = <FH>;
-  $header =~ s/[\r\n]+$//;
-
-  if (!defined($header))
+  $sHeader = <FH>;
+  if (defined($sHeader))
   {
-    if (!$$pProperties{'beQuiet'})
+    $sHeader =~ s/[\r\n]+$//;
+    @aFields = split(/\|/, $sHeader, -1);
+    for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
     {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
+      if ($aFields[$sIndex] =~ /^mode$/o)
+      {
+        $sModeIndex = $sIndex;
+      }
+      elsif ($aFields[$sIndex] =~ /^md5$/o)
+      {
+        $sHashIndex = $sIndex;
+      }
+      elsif ($aFields[$sIndex] =~ /^name$/o)
+      {
+        $sNameIndex = $sIndex;
+      }
     }
-    return undef;
+
+    if (!defined($sHashIndex) || !defined($sNameIndex))
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
+      }
+      close(FH);
+      return undef;
+    }
   }
-
-  @fields = split(/\|/, $header, -1);
-
-  for (my $i = 0; $i < scalar(@fields); $i++)
+  else
   {
-    if ($fields[$i] =~ /^mode$/o)
+    if (!$$phProperties{'BeQuiet'})
     {
-      $modeIndex = $i;
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='' Error='Header did not parse properly.'\n";
     }
-    elsif ($fields[$i] =~ /^md5$/o)
-    {
-      $hashIndex = $i;
-    }
-    elsif ($fields[$i] =~ /^name$/o)
-    {
-      $nameIndex = $i;
-    }
-  }
-
-  if (!defined($hashIndex) || !defined($nameIndex))
-  {
-    if (!$$pProperties{'beQuiet'})
-    {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
-    }
+    close(FH);
     return undef;
   }
 
@@ -300,16 +290,17 @@ sub BindFTimesFile
   #
   ####################################################################
 
-  my (@handles, %handleList);
+  my (@aHandles, %hHandleList);
 
-  @handles = ("a", "d", "i", "k", "s", "u");
+  @aHandles = ("a", "d", "i", "k", "l", "s", "u");
 
-  if (!defined(OpenFileHandles($filename, \@handles, \%handleList)))
+  if (!defined(OpenFileHandles($sFilename, \@aHandles, \%hHandleList)))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='Unable to create output files.'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='Unable to create one or more output files.'\n";
     }
+    close(FH);
     return undef;
   }
 
@@ -319,63 +310,67 @@ sub BindFTimesFile
   #
   ####################################################################
 
-  my ($category, $categoryHandle, $combinedHandle, $hash);
+  my ($sCategory, $sCategoryHandle, $sCombinedHandle, $sHash);
 
-  $combinedHandle = $handleList{'a'};
+  $sCombinedHandle = $hHandleList{'a'};
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    $record =~ s/[\r\n]+$//;
-    @fields = split(/\|/, $record, -1);
-
-    if (defined($fields[$hashIndex]) && defined($fields[$nameIndex]))
+    $sRecord =~ s/[\r\n]+$//;
+    @aFields = split(/\|/, $sRecord, -1);
+    if (defined($aFields[$sHashIndex]) && defined($aFields[$sNameIndex]))
     {
-      $hash = lc($fields[$hashIndex]);
+      $sHash = lc($aFields[$sHashIndex]);
 
-      if ($hashUList{$hash})
+      if ($hHashUList{$sHash})
       {
-        $category = "U";
-        $categoryHandle = $handleList{'u'};
+        $sCategory = "U";
+        $sCategoryHandle = $hHandleList{'u'};
       }
-      elsif ($hashKList{$hash})
+      elsif ($hHashKList{$sHash})
       {
-        $category = "K";
-        $categoryHandle = $handleList{'k'};
+        $sCategory = "K";
+        $sCategoryHandle = $hHandleList{'k'};
       }
-      elsif ($hash =~ /^DIRECTORY$/oi)
+      elsif ($sHash =~ /^directory$/o)
       {
-        $category = "D";
-        $categoryHandle = $handleList{'d'};
-        $hash = "DIRECTORY";
+        $sCategory = "D";
+        $sCategoryHandle = $hHandleList{'d'};
+        $sHash = uc($sHash);
       }
-      elsif (defined($modeIndex) && $fields[$modeIndex] =~ /^12[0-7]{4}$/o)
+      elsif ($sHash =~ /^symlink$/o)
       {
-        $category = "S";
-        $categoryHandle = $handleList{'s'};
+        $sCategory = "L";
+        $sCategoryHandle = $hHandleList{'l'};
+        $sHash = uc($sHash);
       }
-      elsif ($hash =~ /^SPECIAL$/oi)
+      elsif (defined($sModeIndex) && $aFields[$sModeIndex] =~ /^12[0-7]{4}$/o)
       {
-        $category = "S";
-        $categoryHandle = $handleList{'s'};
-        $hash = "SPECIAL";
+        $sCategory = "L";
+        $sCategoryHandle = $hHandleList{'l'};
+      }
+      elsif ($sHash =~ /^special$/o)
+      {
+        $sCategory = "S";
+        $sCategoryHandle = $hHandleList{'s'};
+        $sHash = uc($sHash);
       }
       else
       {
-        $category = "I";
-        $categoryHandle = $handleList{'i'};
+        $sCategory = "I";
+        $sCategoryHandle = $hHandleList{'i'};
       }
 
-      $fields[$nameIndex] =~ s/^"(.*)"$/$1/; # Remove double quotes around the name.
+      $aFields[$sNameIndex] =~ s/^"(.*)"$/$1/; # Remove double quotes around the name.
 
-      print $combinedHandle "$category|$hash|$fields[$nameIndex]\n";
-      print $categoryHandle "$category|$hash|$fields[$nameIndex]\n";
+      print $sCombinedHandle "$sCategory|$sHash|$aFields[$sNameIndex]\n";
+      print $sCategoryHandle "$sCategory|$sHash|$aFields[$sNameIndex]\n";
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
@@ -386,9 +381,9 @@ sub BindFTimesFile
   #
   ####################################################################
 
-  foreach my $handle (keys(%handleList))
+  foreach my $sHandle (keys(%hHandleList))
   {
-    close($handleList{$handle});
+    close($hHandleList{$sHandle});
   }
   close(FH);
 
@@ -404,7 +399,7 @@ sub BindFTimesFile
 
 sub BindKnownGoodsFile
 {
-  my ($filename, $pProperties) = @_;
+  my ($sFilename, $phProperties) = @_;
 
   ####################################################################
   #
@@ -412,11 +407,11 @@ sub BindKnownGoodsFile
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -427,42 +422,43 @@ sub BindKnownGoodsFile
   #
   ####################################################################
 
-  my ($fieldCount, @fields, $hashIndex, $header, $nameIndex);
+  my ($sFieldCount, @aFields, $sHashIndex, $sHeader, $sNameIndex);
 
-  $header = "ID,FILENAME,MD5,SHA-1,SIZE,TYPE,PLATFORM,PACKAGE";
-
-  if (!defined($header))
+  $sHeader = "ID,FILENAME,MD5,SHA-1,SIZE,TYPE,PLATFORM,PACKAGE";
+  if (defined($sHeader))
   {
-    if (!$$pProperties{'beQuiet'})
+    $sHeader =~ s/[\r\n]+$//;
+    @aFields = split(/,/, $sHeader, -1);
+    for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
     {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
+      if ($aFields[$sIndex] =~ /^FILENAME$/o)
+      {
+        $sNameIndex = $sIndex;
+      }
+      elsif ($aFields[$sIndex] =~ /^MD5$/o)
+      {
+        $sHashIndex = $sIndex;
+      }
     }
-    return undef;
+    $sFieldCount = scalar(@aFields);
+
+    if (!defined($sHashIndex) || !defined($sNameIndex))
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
+      }
+      close(FH);
+      return undef;
+    }
   }
-
-  @fields = split(/,/, $header, -1);
-
-  for (my $i = 0; $i < scalar(@fields); $i++)
+  else
   {
-    if ($fields[$i] =~ /^FILENAME$/o)
+    if (!$$phProperties{'BeQuiet'})
     {
-      $nameIndex = $i;
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='' Error='Header did not parse properly.'\n";
     }
-    elsif ($fields[$i] =~ /^MD5$/o)
-    {
-      $hashIndex = $i;
-    }
-  }
-  $fieldCount = scalar(@fields);
-
-  if (!defined($hashIndex) || !defined($nameIndex))
-  {
-    if (!$$pProperties{'beQuiet'})
-    {
-      $header =~ s/[\r\n]+$//;
-      print STDERR "$$pProperties{'program'}: File='$filename' Header='$header' Error='Header did not parse properly.'\n";
-    }
+    close(FH);
     return undef;
   }
 
@@ -472,16 +468,17 @@ sub BindKnownGoodsFile
   #
   ####################################################################
 
-  my (@handles, %handleList);
+  my (@aHandles, %hHandleList);
 
-  @handles = ("a", "i", "k", "u");
+  @aHandles = ("a", "i", "k", "u");
 
-  if (!defined(OpenFileHandles($filename, \@handles, \%handleList)))
+  if (!defined(OpenFileHandles($sFilename, \@aHandles, \%hHandleList)))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='Unable to create output files.'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='Unable to create one or more output files.'\n";
     }
+    close(FH);
     return undef;
   }
 
@@ -491,55 +488,54 @@ sub BindKnownGoodsFile
   #
   ####################################################################
 
-  my ($category, $categoryHandle, $combinedHandle, $count, $hash, $name);
+  my ($sCategory, $sCategoryHandle, $sCombinedHandle, $sCount, $sHash, $sName);
 
-  $combinedHandle = $handleList{'a'};
+  $sCombinedHandle = $hHandleList{'a'};
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    @fields = split(/,/, $record, -1);
-    $count = scalar(@fields);
-
-    if (defined($fields[$hashIndex]) && defined($fields[$nameIndex]) && $count >= $fieldCount)
+    $sRecord =~ s/[\r\n]+$//;
+    @aFields = split(/,/, $sRecord, -1);
+    $sCount = scalar(@aFields);
+    if (defined($aFields[$sHashIndex]) && defined($aFields[$sNameIndex]) && $sCount >= $sFieldCount)
     {
-      if ($count > $fieldCount)
+      if ($sCount > $sFieldCount)
       {
-        my $lIndex = $nameIndex;
-        my $hIndex = $count - $fieldCount + $hashIndex - 1;
-        $name = join(',', @fields[$lIndex..$hIndex]);
-        $hash = lc($fields[$hIndex + 1]);
+        my $sLIndex = $sNameIndex;
+        my $sHIndex = $sCount - $sFieldCount + $sHashIndex - 1;
+        $sName = join(',', @aFields[$sLIndex..$sHIndex]);
+        $sHash = lc($aFields[$sHIndex + 1]);
       }
       else
       {
-        $name = $fields[$nameIndex];
-        $hash = lc($fields[$hashIndex]);
+        $sName = $aFields[$sNameIndex];
+        $sHash = lc($aFields[$sHashIndex]);
       }
 
-      if ($hashKList{$hash})
+      if ($hHashKList{$sHash})
       {
-        $category = "K";
-        $categoryHandle = $handleList{'k'};
+        $sCategory = "K";
+        $sCategoryHandle = $hHandleList{'k'};
       }
-      elsif ($hashUList{$hash})
+      elsif ($hHashUList{$sHash})
       {
-        $category = "U";
-        $categoryHandle = $handleList{'u'};
+        $sCategory = "U";
+        $sCategoryHandle = $hHandleList{'u'};
       }
       else
       {
-        $category = "I";
-        $categoryHandle = $handleList{'i'};
+        $sCategory = "I";
+        $sCategoryHandle = $hHandleList{'i'};
       }
 
-      print $combinedHandle "$category|$hash|$name\n";
-      print $categoryHandle "$category|$hash|$name\n";
+      print $sCombinedHandle "$sCategory|$sHash|$sName\n";
+      print $sCategoryHandle "$sCategory|$sHash|$sName\n";
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
@@ -550,9 +546,9 @@ sub BindKnownGoodsFile
   #
   ####################################################################
 
-  foreach my $handle (keys(%handleList))
+  foreach my $sHandle (keys(%hHandleList))
   {
-    close($handleList{$handle});
+    close($hHandleList{$sHandle});
   }
   close(FH);
 
@@ -568,7 +564,7 @@ sub BindKnownGoodsFile
 
 sub BindMD5File
 {
-  my ($filename, $pProperties) = @_;
+  my ($sFilename, $phProperties) = @_;
 
   ####################################################################
   #
@@ -576,11 +572,11 @@ sub BindMD5File
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -599,16 +595,17 @@ sub BindMD5File
   #
   ####################################################################
 
-  my (@handles, %handleList);
+  my (@aHandles, %hHandleList);
 
-  @handles = ("a", "i", "k", "u");
+  @aHandles = ("a", "i", "k", "u");
 
-  if (!defined(OpenFileHandles($filename, \@handles, \%handleList)))
+  if (!defined(OpenFileHandles($sFilename, \@aHandles, \%hHandleList)))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='Unable to create output files.'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='Unable to create one or more output files.'\n";
     }
+    close(FH);
     return undef;
   }
 
@@ -618,44 +615,56 @@ sub BindMD5File
   #
   ####################################################################
 
-  my ($category, $categoryHandle, $combinedHandle, $hash, $name);
+  my ($sCategory, $sCategoryHandle, $sCombinedHandle, $sHash, $sName);
 
-  $combinedHandle = $handleList{'a'};
+  $sCombinedHandle = $hHandleList{'a'};
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    if (($name, $hash) = $record =~ /^MD5\s+\((.*)\)\s+=\s+([0-9a-fA-F]{32})$/o)
+    $sRecord =~ s/[\r\n]+$//;
+    if (($sName, $sHash) = $sRecord =~ /^MD5\s*\((.*)\)\s*=\s+([0-9a-fA-F]{32})$/o)
     {
-      $hash = lc($hash);
+      $sHash = lc($sHash);
 
-      if ($hashKList{$hash})
+      if ($hHashKList{$sHash})
       {
-        $category = "K";
-        $categoryHandle = $handleList{'k'};
+        $sCategory = "K";
+        $sCategoryHandle = $hHandleList{'k'};
       }
-      elsif ($hashUList{$hash})
+      elsif ($hHashUList{$sHash})
       {
-        $category = "U";
-        $categoryHandle = $handleList{'u'};
+        $sCategory = "U";
+        $sCategoryHandle = $hHandleList{'u'};
       }
       else
       {
-        $category = "I";
-        $categoryHandle = $handleList{'i'};
+        $sCategory = "I";
+        $sCategoryHandle = $hHandleList{'i'};
       }
 
-      print $combinedHandle "$category|$hash|$name\n";
-      print $categoryHandle "$category|$hash|$name\n";
+      print $sCombinedHandle "$sCategory|$sHash|$sName\n";
+      print $sCategoryHandle "$sCategory|$sHash|$sName\n";
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
+
+  ####################################################################
+  #
+  # Cleanup.
+  #
+  ####################################################################
+
+  foreach my $sHandle (keys(%hHandleList))
+  {
+    close($hHandleList{$sHandle});
+  }
+  close(FH);
 
   return 1;
 }
@@ -669,7 +678,7 @@ sub BindMD5File
 
 sub BindMD5SumFile
 {
-  my ($filename, $pProperties) = @_;
+  my ($sFilename, $phProperties) = @_;
 
   ####################################################################
   #
@@ -677,11 +686,11 @@ sub BindMD5SumFile
   #
   ####################################################################
 
-  if (!open(FH, "<$filename"))
+  if (!open(FH, "<$sFilename"))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='$!'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
     }
     return undef;
   }
@@ -700,16 +709,17 @@ sub BindMD5SumFile
   #
   ####################################################################
 
-  my (@handles, %handleList);
+  my (@aHandles, %hHandleList);
 
-  @handles = ("a", "i", "k", "u");
+  @aHandles = ("a", "i", "k", "u");
 
-  if (!defined(OpenFileHandles($filename, \@handles, \%handleList)))
+  if (!defined(OpenFileHandles($sFilename, \@aHandles, \%hHandleList)))
   {
-    if (!$$pProperties{'beQuiet'})
+    if (!$$phProperties{'BeQuiet'})
     {
-      print STDERR "$$pProperties{'program'}: File='$filename' Error='Unable to create output files.'\n";
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='Unable to create one or more output files.'\n";
     }
+    close(FH);
     return undef;
   }
 
@@ -719,44 +729,56 @@ sub BindMD5SumFile
   #
   ####################################################################
 
-  my ($category, $categoryHandle, $combinedHandle, $hash, $name);
+  my ($sCategory, $sCategoryHandle, $sCombinedHandle, $sHash, $sName);
 
-  $combinedHandle = $handleList{'a'};
+  $sCombinedHandle = $hHandleList{'a'};
 
-  while(my $record = <FH>)
+  while (my $sRecord = <FH>)
   {
-    if (($hash, $name) = $record =~ /^([0-9a-fA-F]{32})\s+(.*)\s*$/o)
+    $sRecord =~ s/[\r\n]+$//;
+    if (($sHash, $sName) = $sRecord =~ /^([0-9a-fA-F]{32})\s+(.*)\s*$/o)
     {
-      $hash = lc($hash);
+      $sHash = lc($sHash);
 
-      if ($hashKList{$hash})
+      if ($hHashKList{$sHash})
       {
-        $category = "K";
-        $categoryHandle = $handleList{'k'};
+        $sCategory = "K";
+        $sCategoryHandle = $hHandleList{'k'};
       }
-      elsif ($hashUList{$hash})
+      elsif ($hHashUList{$sHash})
       {
-        $category = "U";
-        $categoryHandle = $handleList{'u'};
+        $sCategory = "U";
+        $sCategoryHandle = $hHandleList{'u'};
       }
       else
       {
-        $category = "I";
-        $categoryHandle = $handleList{'i'};
+        $sCategory = "I";
+        $sCategoryHandle = $hHandleList{'i'};
       }
 
-      print $combinedHandle "$category|$hash|$name\n";
-      print $categoryHandle "$category|$hash|$name\n";
+      print $sCombinedHandle "$sCategory|$sHash|$sName\n";
+      print $sCategoryHandle "$sCategory|$sHash|$sName\n";
     }
     else
     {
-      if (!$$pProperties{'beQuiet'})
+      if (!$$phProperties{'BeQuiet'})
       {
-        $record =~ s/[\r\n]+$//;
-        print STDERR "$$pProperties{'program'}: Record='$record' Error='Record did not parse properly.'\n";
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
   }
+
+  ####################################################################
+  #
+  # Cleanup.
+  #
+  ####################################################################
+
+  foreach my $sHandle (keys(%hHandleList))
+  {
+    close($hHandleList{$sHandle});
+  }
+  close(FH);
 
   return 1;
 }
@@ -770,30 +792,34 @@ sub BindMD5SumFile
 
 sub OpenFileHandles
 {
-  my ($inputFile, $pHandles, $pHandleList) = @_;
+  my ($sInputFile, $paHandles, $phHandleList) = @_;
 
-  my ($failures, $outBase);
+  my ($sFailures, $sOutBase);
 
-  my ($name, $path, $suffix) = fileparse($inputFile);
+  my ($sName, $sPath, $sSuffix) = fileparse($sInputFile);
 
-  $outBase = $name . ".bound";
+  $sOutBase = $sName . ".bound";
 
-  $failures = 0;
+  $sFailures = 0;
 
-  foreach my $extension (@$pHandles)
+  foreach my $sExtension (@$paHandles)
   {
-    $$pHandleList{$extension} = new FileHandle(">$outBase.$extension");
-    if (!defined($$pHandleList{$extension}))
+    $$phHandleList{$sExtension} = new FileHandle(">$sOutBase.$sExtension");
+    if (!defined($$phHandleList{$sExtension}))
     {
-      $failures++;
+      $sFailures++;
     }
   }
 
-  if ($failures)
+  if ($sFailures)
   {
-    foreach my $extension (@$pHandles)
+    foreach my $sExtension (@$paHandles)
     {
-      unlink("$outBase.$extension");
+      if (exists($$phHandleList{$sExtension}) && defined($$phHandleList{$sExtension}))
+      {
+        close($$phHandleList{$sExtension});
+      }
+      unlink("$sOutBase.$sExtension");
     }
     return undef;
   }
@@ -810,9 +836,9 @@ sub OpenFileHandles
 
 sub Usage
 {
-  my ($program) = @_;
+  my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $program [-q] [-r] -t type -f {file|-} file [file ...]\n";
+  print STDERR "Usage: $sProgram [-q] [-r] -t type -f {hashdig-file|-} file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -822,21 +848,24 @@ sub Usage
 
 =head1 NAME
 
-hashdig-bind.pl - Bind HashDig hashes to filenames
+hashdig-bind.pl - Bind resolved hashes to filenames
 
 =head1 SYNOPSIS
 
-B<hashdig-bind.pl> B<[-q]> B<[-r]> B<-t type> B<-f {file|-}> B<file [file ...]>
+B<hashdig-bind.pl> B<[-q]> B<[-r]> B<-t type> B<-f {hashdig-file|-}> B<file [file ...]>
 
 =head1 DESCRIPTION
 
-This utility binds HashDig hashes to filenames in subject data.
-Depending on the file format (see B<-t> option), one or more of the
-following output files will be created in the current working
-directory: all, directory, indeterminate, known, special, and
-unknown. These files will have the following format:
+This utility binds resolved hashes to filenames. The source of
+resolved hashes is a HashDig file or stdin, and the source of
+filenames is one or more subject files. Depending on the type of
+subject files (see B<-t> option), one or more of the following
+output files will be created in the current working directory:
+(a)ll, (d)irectory, (i)ndeterminate, (k)nown, symbolic (l)ink,
+(s)pecial, and (u)nknown. These files will have the following
+format:
 
-    <filename>.bound.{a|d|i|k|s|u}
+    <filename>.bound.{a|d|i|k|l|s|u}
 
 The 'all' file is the sum of the other output files.
 
@@ -844,10 +873,13 @@ The 'all' file is the sum of the other output files.
 
 =over 4
 
-=item B<-f {file|-}>
+=item B<-f {hashdig-file|-}>
 
-Specifies the name of a HashDig hash file to use. A value of '-'
-will cause the program to read from stdin.
+Specifies the name of a HashDig file to use as the source of hashes.
+A value of '-' will cause the program to read from stdin. HashDig
+files have the following format:
+
+    hash|category
 
 =item B<-q>
 
@@ -855,30 +887,32 @@ Don't report errors (i.e. be quiet) while processing files.
 
 =item B<-r>
 
-Accept records in the reverse HashDig format (i.e. category|hash).
+Accept HashDig records in reverse format (i.e. category|hash).
 
 =item B<-t type>
 
-Specifies the type of files that are to be processed. All files
-processed in a given invocation must be of the same type. Currently,
-the following types are supported: FTIMES, KG|KNOWNGOODS, MD5,
-MD5DEEP, and MD5SUM. The value for this option is not case sensitive.
+Specifies the type of subject files that are to be processed. All
+files processed in a given invocation must be of the same type.
+Currently, the following types are supported: FTIMES, KG|KNOWNGOODS,
+MD5, MD5DEEP, MD5SUM, and OPENSSL. The value for this option is not
+case sensitive.
 
 =back
 
 =head1 CAVEATS
 
-This script attempts to keep all hash/category information in memory.
-When all available memory has been exhausted, Perl will probably
-force the script to abort. In some cases, it can create a core file.
+This utility attempts to load all hash/category information into a
+pair associative arrays. When all available memory has been exhausted,
+Perl will probably force the script to abort. In extreme cases,
+this can produce a core file.
 
 =head1 AUTHOR
 
-Klayton Monroe, klm@ir.exodus.net
+Klayton Monroe
 
 =head1 SEE ALSO
 
-hashdig-dump.pl
+ftimes(1), hashdig-dump.pl, hashdig-harvest.pl, hashdig-harvest-sunsolve.pl, md5(1), md5sum(1), md5deep, openssl(1)
 
 =head1 LICENSE
 

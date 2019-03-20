@@ -1,0 +1,17 @@
+=item B<AnalyzeDeviceFiles>: [Y|N]
+
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+
+B<AnalyzeDeviceFiles> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to analyze block/character device files that
+have been specifically included by name on the command line or
+through an B<Include> (e.g., Include=/dev/ad0).  Device files that
+reside in an included directory (e.g., Include=/dev) are not analyzed
+simply because their parent was included -- you must specifically
+call them out.  Also, any device files that were specifically
+included will be pruned if their parent or any higher level directory
+was included too.  The default value is 'N'.
+
+Note: Analyzing block/character device files can take a very long
+time or forever (e.g., /dev/zero).
+
