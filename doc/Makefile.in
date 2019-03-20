@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.1.1.1 2002/01/18 03:16:26 mavrik Exp $
+# $Id: Makefile.in,v 1.3 2002/05/20 18:54:37 mavrik Exp $
 #
 ########################################################################
 #
@@ -18,30 +18,55 @@
 prefix			= @prefix@
 exec_prefix		= @exec_prefix@
 docdir			= @docdir@
+mandir			= @mandir@
+man1dir			= ${mandir}/man1
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
 
 INSTALL			= @INSTALL@
 SUBS			= ftimes
 ALL_HTML_FILES		= ftimes.html
 ALL_MAN1_FILES		= ftimes.1
-ALL_TEXT_FILES		=
-ALL_FILES		= ${ALL_HTML_FILES} ${ALL_MAN1_FILES} ${ALL_TEXT_FILES}
 
 all:
 
-install: ${DST_FILES}
+install: ${ALL_HTML_FILES} ${ALL_MAN1_FILES}
 	umask 22; if [ ! -d ${docdir} ]; then mkdir ${docdir}; fi
-	for i in ${ALL_FILES}; do ${INSTALL} -m 644 $$i ${docdir}; done
+	for i in ${ALL_HTML_FILES}; do\
+		if [ -f ${srcdir}/$${i} ]; then file=${srcdir}/$${i}; else file=$${i}; fi;\
+		${INSTALL} -m 644 $${file} ${docdir};\
+	done
+	umask 22; if [ ! -d ${man1dir} ]; then mkdir -p ${man1dir}; fi
+	for i in ${ALL_MAN1_FILES}; do\
+		if [ -f ${srcdir}/$${i} ]; then file=${srcdir}/$${i}; else file=$${i}; fi;\
+		${INSTALL} -m 644 $${file} ${man1dir};\
+	done
 
 clean:
 
-clean-auto: clean
+clean-all: clean
 	rm -f Makefile
 
-clean-all: clean-auto
-
 dist:
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $$i '>>>'; cd $$cwd/$$i; make $@; done
+	@if [ "${srcdir}" != `echo "@""srcdir""@"` ]; then\
+		echo "";\
+		echo "ERROR: The 'dist' target is for release building, and is not VPATH";\
+		echo "       aware. To exercise this target, get into the project's doc";\
+		echo "       directory and run: 'make -f Makefile.in dist'";\
+		echo "";\
+		exit 1;\
+	fi
+	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make install; echo '<<<' $${i} '>>> Status=Done'; done
 
-dist-clean: clean-all
-	rm -f ${ALL_FILES}
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $$i '>>>'; cd $$cwd/$$i; make $@; done
+dist-clean:
+	@if [ "${srcdir}" != `echo "@""srcdir""@"` ]; then\
+		echo "";\
+		echo "ERROR: The 'dist-clean' target is for release building, and is not";\
+		echo "       VPATH aware. To exercise this target, get into the project's";\
+		echo "       doc directory and run: 'make -f Makefile.in dist-clean'";\
+		echo "";\
+		exit 1;\
+	fi
+	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make clean-all; echo '<<<' $${i} '>>> Status=Done'; done
+	rm -f Makefile ${ALL_HTML_FILES} ${ALL_MAN1_FILES}
+

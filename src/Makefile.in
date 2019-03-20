@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.2 2002/01/18 15:54:07 mavrik Exp $
+# $Id: Makefile.in,v 1.3 2002/05/20 18:54:37 mavrik Exp $
 #
 ########################################################################
 #
@@ -18,6 +18,8 @@
 prefix			= @prefix@
 exec_prefix		= @exec_prefix@
 bindir			= @bindir@
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
 
 INSTALL			= @INSTALL@
 
@@ -34,10 +36,12 @@ XMAGIC_INCLUDES		= @xmagic_incs@
 XMAGIC_SOURCES		= @xmagic_srcs@
 
 FTIMES_LFLAGS		= ${LIBS} ${SSL_LFLAGS}
-FTIMES_IFLAGS		= ${SSL_IFLAGS}
+FTIMES_IFLAGS		= -I. ${SSL_IFLAGS}
+
 FTIMES_INCLUDES		=\
 			all-includes.h\
 			${AP_INCLUDES}\
+			app-includes.h\
 			compare.h\
 			config.h\
 			decode.h\
@@ -48,8 +52,10 @@ FTIMES_INCLUDES		=\
 			http.h\
 			ktypes.h\
 			md5.h\
+			message.h\
 			socket.h\
 			${SSL_INCLUDES}\
+			sys-includes.h\
 			${XMAGIC_INCLUDES}
 FTIMES_SOURCES		=\
 			analyze.c\
@@ -82,7 +88,6 @@ FTIMES_SOURCES		=\
 FTIMES_OBJECTS		= ${FTIMES_SOURCES:.c=.o}
 FTIMES_EXECUTEABLE	= ftimes
 
-IFLAGS			= ${FTIMES_IFLAGS}
 DEFS			= @DEFS@
 LIBS			= @LIBS@
 CFLAGS			= @CFLAGS@ -DUNIX
@@ -92,12 +97,6 @@ BIN_FILES		= ${FTIMES_EXECUTEABLE}
 
 all: ${FTIMES_EXECUTEABLE}
 
-${FTIMES_EXECUTEABLE}: ${FTIMES_INCLUDES} ${FTIMES_OBJECTS}
-	${CC} ${FTIMES_OBJECTS} ${CFLAGS} -o ${FTIMES_EXECUTEABLE} ${IFLAGS} ${FTIMES_IFLAGS} ${FTIMES_LFLAGS}
-
-.c.o:
-	${CC} ${CFLAGS} ${IFLAGS} -c $< 
-
 install: ${BIN_FILES}
 	umask 22; if [ ! -d ${bindir} ]; then mkdir ${bindir}; fi
 	for i in ${BIN_FILES}; do\
@@ -105,12 +104,14 @@ install: ${BIN_FILES}
 	done
 
 clean:
-	rm -f ${FTIMES_EXECUTEABLE} ${FTIMES_OBJECTS} ./*.core core
+	rm -f ${FTIMES_EXECUTEABLE} ${FTIMES_OBJECTS} ${FTIMES_EXECUTEABLE}.core core
 
-clean-auto: clean
-	rm -f config.h Makefile
+clean-all: clean
+	rm -f Makefile config.h
 
-clean-all: clean-auto
+${FTIMES_EXECUTEABLE}: ${FTIMES_INCLUDES} ${FTIMES_OBJECTS}
+	${CC} ${FTIMES_OBJECTS} ${CFLAGS} -o ${FTIMES_EXECUTEABLE} ${FTIMES_IFLAGS} ${FTIMES_LFLAGS}
 
-dist-clean: clean-all
-	rm -f config.h.in
+.c.o:
+	${CC} ${CFLAGS} ${FTIMES_IFLAGS} -c $< 
+

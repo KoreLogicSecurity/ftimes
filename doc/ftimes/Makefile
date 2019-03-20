@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile,v 1.1.1.1 2002/01/18 03:16:26 mavrik Exp $
+# $Id: Makefile,v 1.2 2002/05/20 18:54:37 mavrik Exp $
 #
 ########################################################################
 #
@@ -41,23 +41,21 @@ DST_FILES		=\
 
 all: ${POD_FILE}
 
+install: ${DST_FILES} clean
+
 clean:
 	rm -f pod2html-dircache pod2html-itemcache
 
 clean-all: clean
 	rm -f ${POD_FILE}
 
-dist: ${DST_FILES} clean
-
-dist-clean: clean-all
-
 ${POD_FILE}: ${SRC_FILES}
 	umask 22; cat ${SRC_FILES} > ${POD_FILE}
 
 .pod.1:
 	version=`grep VERSION ${VERSION_FILE} | sed '1d' | awk '{print $$3}' | sed 's/"//g'`;\
-	umask 22; pod2man --center="${POD_NAME} Documentation" --release="${POD_NAME} $$version" $< > ../$@
+	umask 22; pod2man --center="${POD_NAME} Documentation" --release="${POD_NAME} $${version}" $< > ../$@
 
 .pod.html:
 	title=`echo $< | sed 's/\.pod//' | sed 's/_/ /g'`;\
-	umask 22; pod2html --infile=$< --outfile=../$@ --noindex --title="$$title"
+	umask 22; pod2html --infile=$< --outfile=../$@ --noindex --title="$${title}"

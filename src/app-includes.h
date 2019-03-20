@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: app-includes.h,v 1.1.1.1 2002/01/18 03:17:19 mavrik Exp $
+ * $Id: app-includes.h,v 1.3 2002/09/20 17:46:02 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -15,9 +15,10 @@
 
 #ifdef USE_SSL
 #include "ssl.h"
-#define VERSION "3.0.0 ssl"
+#include "ssl-pool.h"
+#define VERSION "3.1.0 ssl"
 #else
-#define VERSION "3.0.0"
+#define VERSION "3.1.0"
 #endif
 
 #ifdef USE_AP_SNPRINTF

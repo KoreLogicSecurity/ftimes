@@ -68,7 +68,7 @@ for the B<FieldMask> control.
 
 Decode a compressed B<snapshot>.  A compressed snapshot can be
 created by running B<FTimes> in map mode (i.e. B<mapfull>) with
-B<Compress> enabled.  Output is written written stdout.
+B<Compress> enabled.  Output is written to stdout.
 
 =item B<--digauto> B<file> B<[-l level]> B<[list]>
 

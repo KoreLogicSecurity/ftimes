@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: fsinfo.h,v 1.1.1.1 2002/01/18 03:17:32 mavrik Exp $
+ * $Id: fsinfo.h,v 1.3 2002/09/20 22:17:46 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -35,7 +35,9 @@ enum eFSTypes
   FSTYPE_AIX,
   FSTYPE_JFS,
   FSTYPE_NFS3,
-  FSTYPE_FFS
+  FSTYPE_FFS,
+  FSTYPE_REISER,
+  FSTYPE_HFS
 };
 
 
@@ -94,6 +96,9 @@ enum eFSTypes
 #endif
 #ifndef UFS_MAGIC
 #define UFS_MAGIC         0x00011954
+#endif
+#ifndef REISERFS_SUPER_MAGIC
+#define REISERFS_SUPER_MAGIC 0x52654973
 #endif
 #endif
 

@@ -1,11 +1,11 @@
 /*
  ***********************************************************************
  *
- * $Id: ssl.c,v 1.1.1.1 2002/01/18 03:17:46 mavrik Exp $
+ * $Id: ssl.c,v 1.3 2002/09/20 17:46:03 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2001-2002 Klayton Monroe, Exodus Communications, Inc.
  * All Rights Reserved.
  *
  ***********************************************************************
@@ -23,7 +23,7 @@
 void
 SSLBoot(void)
 {
-  unsigned char       ucSeed[SSL_SEED_LENGTH];
+  unsigned char       aucSeed[SSL_SEED_LENGTH];
 
   /*-
    *********************************************************************
@@ -34,7 +34,7 @@ SSLBoot(void)
    */
   SSL_library_init();
   SSL_load_error_strings();
-  RAND_seed(SSLGenerateSeed(ucSeed, SSL_SEED_LENGTH), SSL_SEED_LENGTH);
+  RAND_seed(SSLGenerateSeed(aucSeed, SSL_SEED_LENGTH), SSL_SEED_LENGTH);
 }
 
 
@@ -48,24 +48,24 @@ SSLBoot(void)
 SSL *
 SSLConnect(int iSocket, SSL_CTX *psslCTX, char *pcError)
 {
-  const char          cRoutine[] = "SSLConnect()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "SSLConnect()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
   SSL                 *pssl;
 
   pssl = SSL_new(psslCTX);
   if (pssl == NULL)
   {
-    ERR_error_string(ERR_get_error(), cLocalError);
-    snprintf(pcError, ERRBUF_SIZE, "%s: SSL_new(): %s", cRoutine, cLocalError);
+    ERR_error_string(ERR_get_error(), acLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: SSL_new(): %s", acRoutine, acLocalError);
     return NULL;
   }
 
   iError = SSL_set_fd(pssl, iSocket);
   if (iError == 0)
   {
-    ERR_error_string(ERR_get_error(), cLocalError);
-    snprintf(pcError, ERRBUF_SIZE, "%s: SSL_connect(): %s", cRoutine, cLocalError);
+    ERR_error_string(ERR_get_error(), acLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: SSL_connect(): %s", acRoutine, acLocalError);
     SSL_free(pssl);
     return NULL;
   }
@@ -73,8 +73,8 @@ SSLConnect(int iSocket, SSL_CTX *psslCTX, char *pcError)
   iError = SSL_connect(pssl);
   if (iError <= 0)
   {
-    ERR_error_string(ERR_get_error(), cLocalError);
-    snprintf(pcError, ERRBUF_SIZE, "%s: SSL_connect(): %s", cRoutine, cLocalError);
+    ERR_error_string(ERR_get_error(), acLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: SSL_connect(): %s", acRoutine, acLocalError);
     SSL_free(pssl);
     return NULL;
   }
@@ -132,11 +132,11 @@ SSLFreeProperties(SSL_PROPERTIES *psSSLProperties)
  ***********************************************************************
  */
 unsigned char *
-SSLGenerateSeed(unsigned char *ucSeed, unsigned long iLength)
+SSLGenerateSeed(unsigned char *pucSeed, unsigned long iLength)
 {
-  unsigned long       i,
-                      j,
-                      ulLRS32b;
+  unsigned long       i;
+  unsigned long       j;
+  unsigned long       ulLRS32b;
 
 #ifdef WIN32
   ulLRS32b = (unsigned long) GetTickCount() ^ (unsigned long) time(NULL);
@@ -145,13 +145,13 @@ SSLGenerateSeed(unsigned char *ucSeed, unsigned long iLength)
 #endif
   for (i = 0; i < iLength; i++)
   {
-    for (j = 0, ucSeed[i] = 0; j < 8; j++)
+    for (j = 0, pucSeed[i] = 0; j < 8; j++)
     {
-      ucSeed[i] |= (ulLRS32b & 1) << j;
+      pucSeed[i] |= (ulLRS32b & 1) << j;
       ulLRS32b = ((((ulLRS32b >> 7) ^ (ulLRS32b >> 6) ^ (ulLRS32b >> 2) ^ (ulLRS32b >> 0)) & 1) << 31) | (ulLRS32b >> 1);
     }
   }
-  return ucSeed;
+  return pucSeed;
 }
 
 
@@ -165,8 +165,8 @@ SSLGenerateSeed(unsigned char *ucSeed, unsigned long iLength)
 SSL_CTX *
 SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "SSLInitializeCTX()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "SSLInitializeCTX()";
+  char                acLocalError[MESSAGE_SIZE];
 
   /*-
    *********************************************************************
@@ -178,8 +178,8 @@ SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
   psProperties->psslCTX = SSL_CTX_new(SSLv3_client_method());
   if (psProperties->psslCTX == NULL)
   {
-    ERR_error_string(ERR_get_error(), cLocalError);
-    snprintf(pcError, ERRBUF_SIZE, "%s: SSL_CTX_new(): %s", cRoutine, cLocalError);
+    ERR_error_string(ERR_get_error(), acLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: SSL_CTX_new(): %s", acRoutine, acLocalError);
     return NULL;
   }
 
@@ -198,19 +198,19 @@ SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
   {
     if(psProperties->pcExpectedPeerCN == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Undefined Expected Peer Common Name.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Undefined Expected Peer Common Name.", acRoutine);
       SSL_CTX_free(psProperties->psslCTX);
       return NULL;
     }
     if(psProperties->pcBundledCAsFile == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Undefined Bundled Certificate Authorities File.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Undefined Bundled Certificate Authorities File.", acRoutine);
       SSL_CTX_free(psProperties->psslCTX);
       return NULL;
     }
     if(psProperties->iMaxChainLength < 1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: MaxChainLength must be greater than one.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: MaxChainLength must be greater than one.", acRoutine);
       SSL_CTX_free(psProperties->psslCTX);
       return NULL;
     }
@@ -221,8 +221,8 @@ SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
 
     if (!SSL_CTX_load_verify_locations(psProperties->psslCTX, psProperties->pcBundledCAsFile, NULL))
     {
-      ERR_error_string(ERR_get_error(), cLocalError);
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_CTX_load_verify_locations(): %s", cRoutine, cLocalError);
+      ERR_error_string(ERR_get_error(), acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_CTX_load_verify_locations(): %s", acRoutine, acLocalError);
       SSL_CTX_free(psProperties->psslCTX);
       return NULL;
     }
@@ -239,6 +239,16 @@ SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
+  if (SSL_POOL_SEED && SSL_POOL_TAPS > 1)
+  {
+    static unsigned char aucPool[SSL_POOL_SIZE];
+    static unsigned char aucTaps[SSL_POOL_TAPS];
+    SSL_NEW_POOL(aucPool, SSL_POOL_SIZE, SSL_POOL_SEED);
+    SSL_TAP_POOL(aucTaps, aucPool);
+    SSL_CTX_set_default_passwd_cb(psProperties->psslCTX, SSLPassPhraseHandler);
+    SSL_CTX_set_default_passwd_cb_userdata(psProperties->psslCTX, (void *) aucTaps);
+  }
+
   if (psProperties->pcPassPhrase != NULL && psProperties->pcPassPhrase[0])
   {
     SSL_CTX_set_default_passwd_cb(psProperties->psslCTX, SSLPassPhraseHandler);
@@ -256,28 +266,28 @@ SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
   {
     if (psProperties->pcPublicCertFile == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Undefined Public Certificate File.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Undefined Public Certificate File.", acRoutine);
       SSL_CTX_free(psProperties->psslCTX);
       return NULL;
     }
     if (psProperties->pcPrivateKeyFile == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Undefined Private Key File.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Undefined Private Key File.", acRoutine);
       SSL_CTX_free(psProperties->psslCTX);
       return NULL;
     }
 
     if (!SSL_CTX_use_certificate_file(psProperties->psslCTX, psProperties->pcPublicCertFile, SSL_FILETYPE_PEM))
     {
-      ERR_error_string(ERR_get_error(), cLocalError);
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_CTX_use_certificate_file(): %s", cRoutine, cLocalError);
+      ERR_error_string(ERR_get_error(), acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_CTX_use_certificate_file(): %s", acRoutine, acLocalError);
       SSL_CTX_free(psProperties->psslCTX);
       return NULL;
     }
     if (!SSL_CTX_use_PrivateKey_file(psProperties->psslCTX, psProperties->pcPrivateKeyFile, SSL_FILETYPE_PEM))
     {
-      ERR_error_string(ERR_get_error(), cLocalError);
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_CTX_use_PrivateKey_file(): %s", cRoutine, cLocalError);
+      ERR_error_string(ERR_get_error(), acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_CTX_use_PrivateKey_file(): %s", acRoutine, acLocalError);
       SSL_CTX_free(psProperties->psslCTX);
       return NULL;
     }
@@ -297,51 +307,51 @@ SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError)
 SSL_PROPERTIES *
 SSLNewProperties(char *pcError)
 {
-  const char          cRoutine[] = "SSLNewProperties()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "SSLNewProperties()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
   SSL_PROPERTIES     *psSSLProperties;
 
   psSSLProperties = (SSL_PROPERTIES *) malloc(sizeof(SSL_PROPERTIES));
   if (psSSLProperties == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return NULL;
   }
   memset(psSSLProperties, 0, sizeof(SSL_PROPERTIES));
 
-  iError = SSLSetPublicCertFile(psSSLProperties, "", cLocalError);
+  iError = SSLSetPublicCertFile(psSSLProperties, "", acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     SSLFreeProperties(psSSLProperties);
     return NULL;
   }
-  iError = SSLSetPrivateKeyFile(psSSLProperties, "", cLocalError);
+  iError = SSLSetPrivateKeyFile(psSSLProperties, "", acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     SSLFreeProperties(psSSLProperties);
     return NULL;
   }
-  iError = SSLSetPassPhrase(psSSLProperties, "", cLocalError);
+  iError = SSLSetPassPhrase(psSSLProperties, "", acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     SSLFreeProperties(psSSLProperties);
     return NULL;
   }
-  iError = SSLSetBundledCAsFile(psSSLProperties, "", cLocalError);
+  iError = SSLSetBundledCAsFile(psSSLProperties, "", acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     SSLFreeProperties(psSSLProperties);
     return NULL;
   }
-  iError = SSLSetExpectedPeerCN(psSSLProperties, "", cLocalError);
+  iError = SSLSetExpectedPeerCN(psSSLProperties, "", acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     SSLFreeProperties(psSSLProperties);
     return NULL;
   }
@@ -388,11 +398,11 @@ SSLPassPhraseHandler(char *pcPassPhrase, int iSize, int iRWFlag, void *pUserData
 int
 SSLRead(SSL *ssl, char *pcData, int iLength, char *pcError)
 {
-  const char          cRoutine[] = "SSLRead()";
-  char                cLocalError[ERRBUF_SIZE];
-  int                 iDone,
-                      iNRead,
-                      iRRetries;
+  const char          acRoutine[] = "SSLRead()";
+  char                acLocalError[MESSAGE_SIZE];
+  int                 iDone;
+  int                 iNRead;
+  int                 iRRetries;
 
   iDone = iRRetries = 0;
 
@@ -408,59 +418,59 @@ SSLRead(SSL *ssl, char *pcData, int iLength, char *pcError)
       break;
 
     case SSL_ERROR_SSL:
-      ERR_error_string(ERR_get_error(), cLocalError);
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_read(): SSL_ERROR_SSL: %s", cRoutine, cLocalError);
+      ERR_error_string(ERR_get_error(), acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_read(): SSL_ERROR_SSL: %s", acRoutine, acLocalError);
       return -1;
       break;
 
     case SSL_ERROR_WANT_READ:
       if (++iRRetries < SSL_RETRY_LIMIT)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: SSL_read(): SSL_ERROR_WANT_READ", cRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: SSL_read(): SSL_ERROR_WANT_READ", acRoutine);
         iNRead = SSL_read(ssl, pcData, iLength);
         iDone = 0;
       }
       else
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: SSL_read(): SSL_ERROR_WANT_READ: Retry limit reached!", cRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: SSL_read(): SSL_ERROR_WANT_READ: Retry limit reached!", acRoutine);
         return -1;
       }
       break;
 
     case SSL_ERROR_WANT_WRITE:
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_read(): SSL_ERROR_WANT_WRITE", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_read(): SSL_ERROR_WANT_WRITE", acRoutine);
       return -1;
       break;
 
     case SSL_ERROR_WANT_X509_LOOKUP:
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_read(): SSL_ERROR_WANT_X509_LOOKUP", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_read(): SSL_ERROR_WANT_X509_LOOKUP", acRoutine);
       return -1;
       break;
 
     case SSL_ERROR_SYSCALL:
       if (ERR_peek_error())
       {
-        ERR_error_string(ERR_get_error(), cLocalError);
+        ERR_error_string(ERR_get_error(), acLocalError);
       }
       if (iNRead == -1)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: SSL_read(): SSL_ERROR_SYSCALL: Underlying I/O error: %s", cRoutine, strerror(errno));
+        snprintf(pcError, MESSAGE_SIZE, "%s: SSL_read(): SSL_ERROR_SYSCALL: Underlying I/O error: %s", acRoutine, strerror(errno));
         return -1;
       }
       else
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: SSL_read(): SSL_ERROR_SYSCALL: Unexpected EOF.", cRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: SSL_read(): SSL_ERROR_SYSCALL: Unexpected EOF.", acRoutine);
         return -1;
       }
       break;
 
     case SSL_ERROR_ZERO_RETURN:
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_read(): SSL_ERROR_ZERO_RETURN: The SSL connection has been closed.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_read(): SSL_ERROR_ZERO_RETURN: The SSL connection has been closed.", acRoutine);
       return 0;
       break;
 
     default:
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_read(): Undefined error.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_read(): Undefined error.", acRoutine);
       return -1;
       break;
     }
@@ -497,22 +507,22 @@ SSLSessionCleanup(SSL *ssl)
 int
 SSLSetBundledCAsFile(SSL_PROPERTIES *psProperties, char *pcBundledCAsFile, char *pcError)
 {
-  const char          cRoutine[] = "SSLSetBundledCAsFile()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "SSLSetBundledCAsFile()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   if (psProperties == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined SSLProperties.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSLProperties.", acRoutine);
     return -1;
   }
 
-  iError = SSLSetDynamicString(&psProperties->pcBundledCAsFile, pcBundledCAsFile, cLocalError);
+  iError = SSLSetDynamicString(&psProperties->pcBundledCAsFile, pcBundledCAsFile, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -530,7 +540,7 @@ SSLSetBundledCAsFile(SSL_PROPERTIES *psProperties, char *pcBundledCAsFile, char 
 int
 SSLSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
 {
-  const char          cRoutine[] = "SSLSetDynamicString()";
+  const char          acRoutine[] = "SSLSetDynamicString()";
   char               *pcTempValue;
 
   if (*ppcValue == NULL || strlen(pcNewValue) > strlen(*ppcValue))
@@ -545,7 +555,7 @@ SSLSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
     pcTempValue = malloc(strlen(pcNewValue) + 1);
     if (pcTempValue == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
       return -1;
     }
     if (*ppcValue != NULL)
@@ -570,22 +580,22 @@ SSLSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
 int
 SSLSetExpectedPeerCN(SSL_PROPERTIES *psProperties, char *pcExpectedPeerCN, char *pcError)
 {
-  const char          cRoutine[] = "SSLSetExpectedPeerCN()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "SSLSetExpectedPeerCN()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   if (psProperties == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined SSLProperties.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSLProperties.", acRoutine);
     return -1;
   }
 
-  iError = SSLSetDynamicString(&psProperties->pcExpectedPeerCN, pcExpectedPeerCN, cLocalError);
+  iError = SSLSetDynamicString(&psProperties->pcExpectedPeerCN, pcExpectedPeerCN, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -603,22 +613,22 @@ SSLSetExpectedPeerCN(SSL_PROPERTIES *psProperties, char *pcExpectedPeerCN, char 
 int
 SSLSetPassPhrase(SSL_PROPERTIES *psProperties, char *pcPassPhrase, char *pcError)
 {
-  const char          cRoutine[] = "SSLSetPassPhrase()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "SSLSetPassPhrase()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   if (psProperties == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined SSLProperties.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSLProperties.", acRoutine);
     return -1;
   }
 
-  iError = SSLSetDynamicString(&psProperties->pcPassPhrase, pcPassPhrase, cLocalError);
+  iError = SSLSetDynamicString(&psProperties->pcPassPhrase, pcPassPhrase, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -636,22 +646,22 @@ SSLSetPassPhrase(SSL_PROPERTIES *psProperties, char *pcPassPhrase, char *pcError
 int
 SSLSetPrivateKeyFile(SSL_PROPERTIES *psProperties, char *pcPrivateKeyFile, char *pcError)
 {
-  const char          cRoutine[] = "SSLSetPrivateKeyFile()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "SSLSetPrivateKeyFile()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   if (psProperties == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined SSLProperties.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSLProperties.", acRoutine);
     return -1;
   }
 
-  iError = SSLSetDynamicString(&psProperties->pcPrivateKeyFile, pcPrivateKeyFile, cLocalError);
+  iError = SSLSetDynamicString(&psProperties->pcPrivateKeyFile, pcPrivateKeyFile, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -669,22 +679,22 @@ SSLSetPrivateKeyFile(SSL_PROPERTIES *psProperties, char *pcPrivateKeyFile, char 
 int
 SSLSetPublicCertFile(SSL_PROPERTIES *psProperties, char *pcPublicCertFile, char *pcError)
 {
-  const char          cRoutine[] = "SSLSetPublicCertFile()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "SSLSetPublicCertFile()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   if (psProperties == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined SSLProperties.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSLProperties.", acRoutine);
     return -1;
   }
 
-  iError = SSLSetDynamicString(&psProperties->pcPublicCertFile, pcPublicCertFile, cLocalError);
+  iError = SSLSetDynamicString(&psProperties->pcPublicCertFile, pcPublicCertFile, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -702,30 +712,30 @@ SSLSetPublicCertFile(SSL_PROPERTIES *psProperties, char *pcPublicCertFile, char 
 int
 SSLVerifyCN(SSL *ssl, char *pcCN, char *pcError)
 {
-  const char          cRoutine[] = "SSLVerifyCN()";
-  char                cPeerCN[SSL_MAX_COMMON_NAME_LENGTH];
-  X509               *x509Cert;
+  const char          acRoutine[] = "SSLVerifyCN()";
+  char                acPeerCN[SSL_MAX_COMMON_NAME_LENGTH];
+  X509               *psX509Cert;
 
   if (SSL_get_verify_result(ssl) != X509_V_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Invalid Certificate.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Invalid Certificate.", acRoutine);
     return -1;
   }
 
-  x509Cert = SSL_get_peer_certificate(ssl);
-  if (x509Cert == NULL)
+  psX509Cert = SSL_get_peer_certificate(ssl);
+  if (psX509Cert == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing Certificate.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing Certificate.", acRoutine);
     return -1;
   }
 
-  X509_NAME_get_text_by_NID(X509_get_subject_name(x509Cert), NID_commonName, cPeerCN, SSL_MAX_COMMON_NAME_LENGTH);
+  X509_NAME_get_text_by_NID(X509_get_subject_name(psX509Cert), NID_commonName, acPeerCN, SSL_MAX_COMMON_NAME_LENGTH);
 
-  X509_free(x509Cert);
+  X509_free(psX509Cert);
 
-  if (strcmp(cPeerCN, pcCN) != 0)
+  if (strcmp(acPeerCN, pcCN) != 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: CN = [%s] != [%s]: Common Name Mismatch.", cRoutine, cPeerCN, pcCN);
+    snprintf(pcError, MESSAGE_SIZE, "%s: CN = [%s] != [%s]: Common Name Mismatch.", acRoutine, acPeerCN, pcCN);
     return -1;
   }
 
@@ -743,12 +753,12 @@ SSLVerifyCN(SSL *ssl, char *pcCN, char *pcError)
 int
 SSLWrite(SSL *ssl, char *pcData, int iLength, char *pcError)
 {
-  const char          cRoutine[] = "SSLWrite()";
-  char                cLocalError[ERRBUF_SIZE];
-  int                 iNSent,
-                      iOffset,
-                      iToSend,
-                      iWRetries;
+  const char          acRoutine[] = "SSLWrite()";
+  char                acLocalError[MESSAGE_SIZE];
+  int                 iNSent;
+  int                 iOffset;
+  int                 iToSend;
+  int                 iWRetries;
 
   iToSend = iLength;
 
@@ -766,12 +776,12 @@ SSLWrite(SSL *ssl, char *pcData, int iLength, char *pcError)
       break;
 
     case SSL_ERROR_SSL:
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_write(): SSL_ERROR_SSL", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_write(): SSL_ERROR_SSL", acRoutine);
       return -1;
       break;
 
     case SSL_ERROR_WANT_READ:
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_write(): SSL_ERROR_WANT_READ", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_write(): SSL_ERROR_WANT_READ", acRoutine);
       return -1;
       break;
 
@@ -786,39 +796,39 @@ SSLWrite(SSL *ssl, char *pcData, int iLength, char *pcError)
        */
       if (++iWRetries >= SSL_RETRY_LIMIT)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: SSL_write(): SSL_ERROR_WANT_WRITE: Retry limit reached!", cRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: SSL_write(): SSL_ERROR_WANT_WRITE: Retry limit reached!", acRoutine);
         return -1;
       }
       break;
 
     case SSL_ERROR_WANT_X509_LOOKUP:
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_write(): SSL_ERROR_WANT_X509_LOOKUP", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_write(): SSL_ERROR_WANT_X509_LOOKUP", acRoutine);
       return -1;
       break;
 
     case SSL_ERROR_SYSCALL:
       if (ERR_peek_error())
       {
-        ERR_error_string(ERR_get_error(), cLocalError);
+        ERR_error_string(ERR_get_error(), acLocalError);
       }
       if (iNSent == -1)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: SSL_write(): SSL_ERROR_SYSCALL: Underlying I/O error: %s", cRoutine, strerror(errno));
+        snprintf(pcError, MESSAGE_SIZE, "%s: SSL_write(): SSL_ERROR_SYSCALL: Underlying I/O error: %s", acRoutine, strerror(errno));
       }
       else
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: SSL_write(): SSL_ERROR_SYSCALL: Unexpected EOF.", cRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: SSL_write(): SSL_ERROR_SYSCALL: Unexpected EOF.", acRoutine);
       }
       return -1;
       break;
 
     case SSL_ERROR_ZERO_RETURN:
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_write(): SSL_ERROR_ZERO_RETURN: The SSL connection has been closed.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_write(): SSL_ERROR_ZERO_RETURN: The SSL connection has been closed.", acRoutine);
       return -1;
       break;
 
     default:
-      snprintf(pcError, ERRBUF_SIZE, "%s: SSL_write(): Undefined error.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: SSL_write(): Undefined error.", acRoutine);
       return -1;
       break;
     }

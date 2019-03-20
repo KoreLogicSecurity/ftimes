@@ -1,11 +1,11 @@
 /*
  ***********************************************************************
  *
- * $Id: socket.c,v 1.1.1.1 2002/01/18 03:17:47 mavrik Exp $
+ * $Id: socket.c,v 1.2 2002/08/21 20:27:38 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2001-2002 Klayton Monroe, Exodus Communications, Inc.
  * All Rights Reserved.
  *
  ***********************************************************************
@@ -21,27 +21,27 @@
  ***********************************************************************
  */
 void
-SocketCleanup(SOCKET_CONTEXT *psockCTX)
+SocketCleanup(SOCKET_CONTEXT *psSocketCTX)
 {
-  if (psockCTX != NULL)
+  if (psSocketCTX != NULL)
   {
-    if (psockCTX->iSocket != -1)
+    if (psSocketCTX->iSocket != -1)
     {
 #ifdef WIN32
-      closesocket(psockCTX->iSocket);
+      closesocket(psSocketCTX->iSocket);
       WSACleanup();
 #endif
 #ifdef UNIX
-      close(psockCTX->iSocket);
+      close(psSocketCTX->iSocket);
 #endif
     }
 #ifdef USE_SSL
-    if (psockCTX->iType == SOCKET_TYPE_SSL)
+    if (psSocketCTX->iType == SOCKET_TYPE_SSL)
     {
-      SSLSessionCleanup(psockCTX->pssl);
+      SSLSessionCleanup(psSocketCTX->pssl);
     }
 #endif
-    free(psockCTX);
+    free(psSocketCTX);
   }
 }
 
@@ -56,10 +56,10 @@ SocketCleanup(SOCKET_CONTEXT *psockCTX)
 SOCKET_CONTEXT
 *SocketConnect(unsigned long ulIP, unsigned short usPort, int iType, void *psslCTX, char *pcError)
 {
-  const char          cRoutine[] = "SocketConnect()";
-  char                cLocalError[ERRBUF_SIZE];
-  struct sockaddr_in  saServer;
-  SOCKET_CONTEXT     *psockCTX;
+  const char          acRoutine[] = "SocketConnect()";
+  char                acLocalError[MESSAGE_SIZE];
+  struct sockaddr_in  sServerAddr;
+  SOCKET_CONTEXT     *psSocketCTX;
 
 #ifdef WIN32
   DWORD               dwStatus;
@@ -67,7 +67,7 @@ SOCKET_CONTEXT
   WSADATA             wsaData;
 #endif
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -76,14 +76,14 @@ SOCKET_CONTEXT
    *
    *********************************************************************
    */
-  psockCTX = malloc(sizeof(SOCKET_CONTEXT));
-  if (psockCTX == NULL)
+  psSocketCTX = malloc(sizeof(SOCKET_CONTEXT));
+  if (psSocketCTX == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return NULL;
   }
-  memset(psockCTX, 0, sizeof(SOCKET_CONTEXT));
-  psockCTX->iSocket = -1;
+  memset(psSocketCTX, 0, sizeof(SOCKET_CONTEXT));
+  psSocketCTX->iSocket = -1;
 
   /*-
    ***********************************************************************
@@ -92,48 +92,48 @@ SOCKET_CONTEXT
    *
    ***********************************************************************
    */
-  saServer.sin_family = AF_INET;
-  saServer.sin_addr.s_addr = ulIP;
-  saServer.sin_port = htons(usPort);
+  sServerAddr.sin_family = AF_INET;
+  sServerAddr.sin_addr.s_addr = ulIP;
+  sServerAddr.sin_port = htons(usPort);
 
 #ifdef WIN32
   wVersion = (WORD)(1) | ((WORD)(1) << 8); /* MAKEWORD(1, 1) */
   if ((dwStatus = WSAStartup(wVersion, &wsaData)) != 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: WSAStartup(): %u", cRoutine, dwStatus);
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: WSAStartup(): %u", acRoutine, dwStatus);
+    SocketCleanup(psSocketCTX);
     return NULL;
   }
 
-  psockCTX->iSocket = socket(PF_INET, SOCK_STREAM, 0);
-  if (psockCTX->iSocket == INVALID_SOCKET)
+  psSocketCTX->iSocket = socket(PF_INET, SOCK_STREAM, 0);
+  if (psSocketCTX->iSocket == INVALID_SOCKET)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: socket(): %u", cRoutine, WSAGetLastError());
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: socket(): %u", acRoutine, WSAGetLastError());
+    SocketCleanup(psSocketCTX);
     return NULL;
   }
 
-  if (connect(psockCTX->iSocket, (struct sockaddr *) & saServer, sizeof(saServer)) == SOCKET_ERROR)
+  if (connect(psSocketCTX->iSocket, (struct sockaddr *) & sServerAddr, sizeof(sServerAddr)) == SOCKET_ERROR)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: connect(): %u", cRoutine, WSAGetLastError());
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: connect(): %u", acRoutine, WSAGetLastError());
+    SocketCleanup(psSocketCTX);
     return NULL;
   }
 #endif
 
 #ifdef UNIX
-  psockCTX->iSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (psockCTX->iSocket == -1)
+  psSocketCTX->iSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (psSocketCTX->iSocket == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: socket(): %s", cRoutine, strerror(errno));
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: socket(): %s", acRoutine, strerror(errno));
+    SocketCleanup(psSocketCTX);
     return NULL;
   }
 
-  if (connect(psockCTX->iSocket, (struct sockaddr *) & saServer, sizeof(saServer)) == -1)
+  if (connect(psSocketCTX->iSocket, (struct sockaddr *) & sServerAddr, sizeof(sServerAddr)) == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: connect(): %s", cRoutine, strerror(errno));
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: connect(): %s", acRoutine, strerror(errno));
+    SocketCleanup(psSocketCTX);
     return NULL;
   }
 #endif
@@ -150,27 +150,27 @@ SOCKET_CONTEXT
   {
     if (psslCTX != NULL)
     {
-      psockCTX->psslCTX = (SSL_CTX *) psslCTX;
-      psockCTX->pssl = SSLConnect(psockCTX->iSocket, psockCTX->psslCTX, cLocalError);
-      if (psockCTX->pssl == NULL)
+      psSocketCTX->psslCTX = (SSL_CTX *) psslCTX;
+      psSocketCTX->pssl = SSLConnect(psSocketCTX->iSocket, psSocketCTX->psslCTX, acLocalError);
+      if (psSocketCTX->pssl == NULL)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-        SocketCleanup(psockCTX);
+        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+        SocketCleanup(psSocketCTX);
         return NULL;
       }
     }
     else
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Undefined SSL_CTX.", cRoutine);
-      SocketCleanup(psockCTX);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Undefined SSL_CTX.", acRoutine);
+      SocketCleanup(psSocketCTX);
       return NULL;
     }
   }
 #endif
 
-  psockCTX->iType = iType;
+  psSocketCTX->iType = iType;
 
-  return psockCTX;
+  return psSocketCTX;
 }
 
 
@@ -182,30 +182,30 @@ SOCKET_CONTEXT
  ***********************************************************************
  */
 int
-SocketRead(SOCKET_CONTEXT *psockCTX, char *pcData, int iToRead, char *pcError)
+SocketRead(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToRead, char *pcError)
 {
-  const char          cRoutine[] = "SocketRead()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "SocketRead()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iNRead;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
-  switch (psockCTX->iType)
+  switch (psSocketCTX->iType)
   {
 #ifdef USE_SSL
   case SOCKET_TYPE_SSL:
-    iNRead = SSLRead(psockCTX->pssl, pcData, iToRead, cLocalError);
+    iNRead = SSLRead(psSocketCTX->pssl, pcData, iToRead, acLocalError);
     if (iNRead == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     }
     break;
 #endif
   default:
-    iNRead = recv(psockCTX->iSocket, pcData, iToRead, 0);
+    iNRead = recv(psSocketCTX->iSocket, pcData, iToRead, 0);
     if (iNRead == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     }
     break;
   }
@@ -222,35 +222,35 @@ SocketRead(SOCKET_CONTEXT *psockCTX, char *pcData, int iToRead, char *pcError)
  ***********************************************************************
  */
 int
-SocketWrite(SOCKET_CONTEXT *psockCTX, char *pcData, int iToSend, char *pcError)
+SocketWrite(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToSend, char *pcError)
 {
-  const char          cRoutine[] = "SocketWrite()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "SocketWrite()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iNSent;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   if (iToSend == 0)
   {
     return 0;
   }
 
-  switch (psockCTX->iType)
+  switch (psSocketCTX->iType)
   {
 #ifdef USE_SSL
   case SOCKET_TYPE_SSL:
-    iNSent = SSLWrite(psockCTX->pssl, pcData, iToSend, cLocalError);
+    iNSent = SSLWrite(psSocketCTX->pssl, pcData, iToSend, acLocalError);
     if (iNSent == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     }
     break;
 #endif
   default:
-    iNSent = send(psockCTX->iSocket, pcData, iToSend, 0);
+    iNSent = send(psSocketCTX->iSocket, pcData, iToSend, 0);
     if (iNSent == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     }
     break;
   }

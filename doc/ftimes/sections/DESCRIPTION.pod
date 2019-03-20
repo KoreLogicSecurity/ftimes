@@ -1,13 +1,14 @@
 =head1 DESCRIPTION
 
-B<FTimes> (a.k.a B<ftimes>) is a system baselining and evidence
-collection tool.  The primary purpose of B<FTimes> is to gather
-and/or develop information about specified directories and files
-in a manner conducive to intrusion analysis.
+B<FTimes> is a system baselining and evidence collection tool.
+The primary purpose of B<FTimes> is to gather and/or develop
+information about specified directories and files in a manner
+conducive to intrusion analysis.
 
-B<FTimes> is a lightweight tool in the sense that it generally
-doesn't need to be installed on the target system, is small enough
-to fit on a single floppy, and provides only a command line interface.
+B<FTimes> is a lightweight tool in the sense that it doesn't need
+to be "installed" on a given system to work on that system, it is
+small enough to fit on a single floppy, and it provides only a
+command line interface.
 
 Preserving records of all activity that occurs during a snapshot
 is important for intrusion analysis and evidence admissibility.
@@ -37,11 +38,13 @@ the client-server environment, the primary goal is to move collected
 data from the host to a centralized system, known as an Integrity
 Server, in a secure and authenticated fashion.  An Integrity Server
 is a hardened system that has been configured to handle B<FTimes>
-GET, PING, and PUT HTTP/S requests.  The B<FTimes> distribution
-contains a script called nph-ftimes.cgi that may be used in
-conjunction with a web server to implement a public Integrity Server
-interface.  Deeper topics such as the construction and internal
-mechanics of an Integrity Server are not addressed in this document.
+GET, PING, and PUT HTTP/S requests.
+
+The B<FTimes> distribution contains a script called nph-ftimes.cgi
+that may be used in conjunction with a Web server to implement a
+public Integrity Server interface.  Deeper topics such as the
+construction and internal mechanics of an Integrity Server are not
+addressed in this document.
 
 B<FTimes> provides several modes of operation that either implement
 its basic capabilities or support them in some way.  These modes

@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: sys-includes.h,v 1.1.1.1 2002/01/18 03:17:47 mavrik Exp $
+ * $Id: sys-includes.h,v 1.2 2002/09/09 02:27:27 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -63,7 +63,7 @@
 #include <sys/sysmacros.h>
 #include <sys/statvfs.h>
 #endif
-#ifdef FTimes_BSD
+#if defined(FTimes_BSD) || defined(FTimes_MACOS)
 #include <sys/param.h>
 #include <sys/mount.h>
 #endif

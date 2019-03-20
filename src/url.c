@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: url.c,v 1.1.1.1 2002/01/18 03:17:18 mavrik Exp $
+ * $Id: url.c,v 1.2 2002/08/21 20:30:50 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -203,7 +203,7 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (sResponseHeader.iStatusCode < 200 || sResponseHeader.iStatusCode > 299)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Status = [%d], Reason = [%s]", cRoutine, sResponseHeader.iStatusCode, sResponseHeader.cReasonPhrase);
+    snprintf(pcError, ERRBUF_SIZE, "%s: Status = [%d], Reason = [%s]", cRoutine, sResponseHeader.iStatusCode, sResponseHeader.acReasonPhrase);
     return ER;
   }
 
@@ -412,7 +412,7 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (sResponseHeader.iStatusCode < 200 || sResponseHeader.iStatusCode > 299)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Status = [%d], Reason = [%s]", cRoutine, sResponseHeader.iStatusCode, sResponseHeader.cReasonPhrase);
+    snprintf(pcError, ERRBUF_SIZE, "%s: Status = [%d], Reason = [%s]", cRoutine, sResponseHeader.iStatusCode, sResponseHeader.acReasonPhrase);
     return ER;
   }
 
@@ -477,7 +477,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
       return ER;
     }
     rewind(sStreamList[i].pFile);
-    sStreamList[i].pNext = (i < iLimit - 1) ? &sStreamList[i + 1] : NULL;
+    sStreamList[i].psNext = (i < iLimit - 1) ? &sStreamList[i + 1] : NULL;
   }
 
   /*-
@@ -751,7 +751,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   if (sResponseHeader.iStatusCode < 200 || sResponseHeader.iStatusCode > 299)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Status = [%d], Reason = [%s]", cRoutine, sResponseHeader.iStatusCode, sResponseHeader.cReasonPhrase);
+    snprintf(pcError, ERRBUF_SIZE, "%s: Status = [%d], Reason = [%s]", cRoutine, sResponseHeader.iStatusCode, sResponseHeader.acReasonPhrase);
     return ER;
   }
 

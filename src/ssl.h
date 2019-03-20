@@ -1,11 +1,11 @@
 /*
  ***********************************************************************
  *
- * $Id: ssl.h,v 1.1.1.1 2002/01/18 03:17:45 mavrik Exp $
+ * $Id: ssl.h,v 1.2 2002/08/21 20:27:38 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2001-2002 Klayton Monroe, Exodus Communications, Inc.
  * All Rights Reserved.
  *
  ***********************************************************************
@@ -25,18 +25,18 @@
  *
  ***********************************************************************
  */
-#ifndef ERRBUF_SIZE
-#define ERRBUF_SIZE 1024
+#ifndef MESSAGE_SIZE
+#define MESSAGE_SIZE 1024
 #endif
 
-#define SSL_DEFAULT_CHAIN_LENGTH 1
-#define SSL_MAX_CHAIN_LENGTH 10
-#define SSL_MAX_COMMON_NAME_LENGTH 256
-#define SSL_MAX_ERROR_MESSAGE_LENGTH 1024
-#define SSL_MAX_PASSWORD_LENGTH 32
-#define SSL_SEED_LENGTH 1024
-#define SSL_READ_BUFSIZE 0x4000
-#define SSL_RETRY_LIMIT 20
+#define SSL_DEFAULT_CHAIN_LENGTH          1
+#define SSL_MAX_CHAIN_LENGTH             10
+#define SSL_MAX_COMMON_NAME_LENGTH      256
+#define SSL_MAX_ERROR_MESSAGE_LENGTH   1024
+#define SSL_MAX_PASSWORD_LENGTH          32
+#define SSL_SEED_LENGTH                1024
+#define SSL_READ_BUFSIZE             0x4000
+#define SSL_RETRY_LIMIT                  20
 
 
 /*-
@@ -48,14 +48,14 @@
  */
 typedef struct _SSL_PROPERTIES
 {
-  char               *pcPublicCertFile,
-                     *pcPrivateKeyFile,
-                     *pcPassPhrase,
-                     *pcBundledCAsFile,
-                     *pcExpectedPeerCN;
-  int                 iMaxChainLength,
-                      iUseCertificate,
-                      iVerifyPeerCert;
+  char               *pcPublicCertFile;
+  char               *pcPrivateKeyFile;
+  char               *pcPassPhrase;
+  char               *pcBundledCAsFile;
+  char               *pcExpectedPeerCN;
+  int                 iMaxChainLength;
+  int                 iUseCertificate;
+  int                 iVerifyPeerCert;
   SSL_CTX            *psslCTX;
 } SSL_PROPERTIES;
 
@@ -70,7 +70,7 @@ typedef struct _SSL_PROPERTIES
 void                  SSLBoot(void);
 SSL                  *SSLConnect(int iSocket, SSL_CTX *psslCTX, char *pcError);
 void                  SSLFreeProperties(SSL_PROPERTIES *psSSLProperties);
-unsigned char        *SSLGenerateSeed(unsigned char *ucSeed, unsigned long iLength);
+unsigned char        *SSLGenerateSeed(unsigned char *pucSeed, unsigned long iLength);
 SSL_CTX              *SSLInitializeCTX(SSL_PROPERTIES *psProperties, char *pcError);
 SSL_PROPERTIES       *SSLNewProperties(char *pcError);
 int                   SSLPassPhraseHandler(char *pcPassPhrase, int iSize, int iRWFlag, void *pUserData);

@@ -1,11 +1,11 @@
 /*
  ***********************************************************************
  *
- * $Id: http.c,v 1.1.1.1 2002/01/18 03:17:37 mavrik Exp $
+ * $Id: http.c,v 1.3 2002/08/21 20:27:38 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+ * Copyright 2001-2002 Klayton Monroe, Exodus Communications, Inc.
  * All Rights Reserved.
  *
  ***********************************************************************
@@ -23,15 +23,15 @@ static unsigned char ucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrs
  ***********************************************************************
  */
 char *
-HTTPBuildRequest(HTTP_URL *ptURL, char *pcError)
+HTTPBuildRequest(HTTP_URL *psURL, char *pcError)
 {
-  const char          cRoutine[] = "HTTPBuildRequest()";
-  char                cLocalError[ERRBUF_SIZE],
-                     *pcBasicEncoding,
-                     *pcRequest;
+  const char          acRoutine[] = "HTTPBuildRequest()";
+  char                acLocalError[MESSAGE_SIZE];
+  char               *pcBasicEncoding;
+  char               *pcRequest;
   int                 iRequestLength;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -40,51 +40,51 @@ HTTPBuildRequest(HTTP_URL *ptURL, char *pcError)
    *
    *********************************************************************
    */
-  if (ptURL == NULL)
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return NULL;
   }
 
-  if (ptURL->pcUser == NULL)
+  if (psURL->pcUser == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL Username.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL Username.", acRoutine);
     return NULL;
   }
 
-  if (ptURL->pcPass == NULL)
+  if (psURL->pcPass == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL Password.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL Password.", acRoutine);
     return NULL;
   }
 
-  if (ptURL->pcHost == NULL)
+  if (psURL->pcHost == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL Host.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL Host.", acRoutine);
     return NULL;
   }
 
-  if (ptURL->pcPort == NULL)
+  if (psURL->pcPort == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL Port.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL Port.", acRoutine);
     return NULL;
   }
 
-  if (ptURL->pcPath == NULL)
+  if (psURL->pcPath == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL Path.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL Path.", acRoutine);
     return NULL;
   }
 
-  if (ptURL->pcQuery == NULL)
+  if (psURL->pcQuery == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL Query.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL Query.", acRoutine);
     return NULL;
   }
 
-  if (ptURL->pcMeth == NULL)
+  if (psURL->pcMeth == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL Method.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL Method.", acRoutine);
     return NULL;
   }
 
@@ -97,16 +97,16 @@ HTTPBuildRequest(HTTP_URL *ptURL, char *pcError)
    *********************************************************************
    */
   iRequestLength = 0;
-  iRequestLength += strlen(ptURL->pcMeth);
-  iRequestLength += strlen(ptURL->pcPath);
-  iRequestLength += strlen(ptURL->pcQuery);
+  iRequestLength += strlen(psURL->pcMeth);
+  iRequestLength += strlen(psURL->pcPath);
+  iRequestLength += strlen(psURL->pcQuery);
   iRequestLength += strlen("HTTP/1.1\r\n");
   iRequestLength += strlen("Host: \r\n");
-  iRequestLength += strlen(ptURL->pcHost);
+  iRequestLength += strlen(psURL->pcHost);
   iRequestLength += strlen("Content-type: text/plain\r\n");
   iRequestLength += strlen("Content-Length: 4294967295\r\n");
   iRequestLength += strlen("Authorization: Basic\r\n");
-  iRequestLength += 4 * (strlen(ptURL->pcUser) + strlen(ptURL->pcPass));
+  iRequestLength += 4 * (strlen(psURL->pcUser) + strlen(psURL->pcPass));
   iRequestLength += strlen("\r\n");
   iRequestLength += 1024;
 
@@ -120,7 +120,7 @@ HTTPBuildRequest(HTTP_URL *ptURL, char *pcError)
   pcRequest = malloc(iRequestLength);
   if (pcRequest == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return NULL;
   }
   pcRequest[0] = 0;
@@ -132,13 +132,13 @@ HTTPBuildRequest(HTTP_URL *ptURL, char *pcError)
    *
    *********************************************************************
    */
-  switch (ptURL->iAuthType)
+  switch (psURL->iAuthType)
   {
   case HTTP_AUTH_TYPE_BASIC:
-    pcBasicEncoding = HTTPEncodeBasic(ptURL->pcUser, ptURL->pcPass, cLocalError);
+    pcBasicEncoding = HTTPEncodeBasic(psURL->pcUser, psURL->pcPass, acLocalError);
     if (pcBasicEncoding == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       HTTPFreeData(pcRequest);
       return NULL;
     }
@@ -148,13 +148,13 @@ HTTPBuildRequest(HTTP_URL *ptURL, char *pcError)
                        "Content-Length: %lu\r\n"
                        "Authorization: Basic %s\r\n"
                        "\r\n",
-                       ptURL->pcMeth,
-                       ptURL->pcPath,
-                       (ptURL->pcQuery[0]) ? "?" : "",
-                       (ptURL->pcQuery[0]) ? ptURL->pcQuery : "",
-                       ptURL->pcHost,
-                       ptURL->ui16Port,
-                       ptURL->ui32ContentLength,
+                       psURL->pcMeth,
+                       psURL->pcPath,
+                       (psURL->pcQuery[0]) ? "?" : "",
+                       (psURL->pcQuery[0]) ? psURL->pcQuery : "",
+                       psURL->pcHost,
+                       psURL->ui16Port,
+                       psURL->ui32ContentLength,
                        pcBasicEncoding
            );
     HTTPFreeData(pcBasicEncoding);
@@ -165,13 +165,13 @@ HTTPBuildRequest(HTTP_URL *ptURL, char *pcError)
                        "Content-Type: application/octet-stream\r\n"
                        "Content-Length: %lu\r\n"
                        "\r\n",
-                       ptURL->pcMeth,
-                       ptURL->pcPath,
-                       (ptURL->pcQuery[0]) ? "?" : "",
-                       (ptURL->pcQuery[0]) ? ptURL->pcQuery : "",
-                       ptURL->pcHost,
-                       ptURL->ui16Port,
-                       ptURL->ui32ContentLength
+                       psURL->pcMeth,
+                       psURL->pcPath,
+                       (psURL->pcQuery[0]) ? "?" : "",
+                       (psURL->pcQuery[0]) ? psURL->pcQuery : "",
+                       psURL->pcHost,
+                       psURL->ui16Port,
+                       psURL->ui32ContentLength
            );
     break;
   }
@@ -190,29 +190,29 @@ HTTPBuildRequest(HTTP_URL *ptURL, char *pcError)
 char *
 HTTPEncodeBasic(char *pcUsername, char *pcPassword, char *pcError)
 {
-  const char          cRoutine[] = "HTTPEncodeBasic()";
-  char               *pcBasicEncoding,
-                     *pcCredentials;
-  int                 i,
-                      iLength,
-                      iPassLength,
-                      iUserLength,
-                      n;
-  unsigned long       x,
-                      ulLeft;
+  const char          acRoutine[] = "HTTPEncodeBasic()";
+  char               *pcBasicEncoding;
+  char               *pcCredentials;
+  int                 i;
+  int                 iLength;
+  int                 iPassLength;
+  int                 iUserLength;
+  int                 n;
+  unsigned long       x;
+  unsigned long       ulLeft;
 
 
   iUserLength = strlen(pcUsername);
   if (iUserLength == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined Username.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined Username.", acRoutine);
     return NULL;
   }
 
   iPassLength = strlen(pcPassword);
   if (iPassLength == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined Password.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined Password.", acRoutine);
     return NULL;
   }
 
@@ -228,7 +228,7 @@ HTTPEncodeBasic(char *pcUsername, char *pcPassword, char *pcError)
   pcBasicEncoding = malloc((iLength * 4) + 1);
   if (pcBasicEncoding == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return NULL;
   }
   memset(pcBasicEncoding, 0, (iLength * 4) + 1);
@@ -248,7 +248,7 @@ HTTPEncodeBasic(char *pcUsername, char *pcPassword, char *pcError)
   pcCredentials = malloc(iLength + 1);
   if (pcCredentials == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     HTTPFreeData(pcBasicEncoding);
     return NULL;
   }
@@ -291,15 +291,15 @@ HTTPEncodeBasic(char *pcUsername, char *pcPassword, char *pcError)
 char *
 HTTPEscape(char *pcUnEscaped, char *pcError)
 {
-  const char          cRoutine[] = "HTTPEscape()";
-  char               *pcEscaped,
-                     *pc;
+  const char          acRoutine[] = "HTTPEscape()";
+  char               *pcEscaped;
+  char               *pc;
   int                 i;
 
   /*-
    *********************************************************************
    *
-   * Escape everything but [a-zA-Z0-9_.-]. Convert spaces to '+'.
+   * Escape everything but [a-zA-Z0-9_.-/\]. Convert spaces to '+'.
    *
    *********************************************************************
    */
@@ -314,7 +314,7 @@ HTTPEscape(char *pcUnEscaped, char *pcError)
   pcEscaped = malloc((3 * strlen(pcUnEscaped)) + 1);
   if (pcEscaped == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return NULL;
   }
   pcEscaped[0] = 0;
@@ -365,39 +365,39 @@ HTTPFreeData(char *pcData)
  ***********************************************************************
  */
 void
-HTTPFreeURL(HTTP_URL *ptURL)
+HTTPFreeURL(HTTP_URL *psURL)
 {
-  if (ptURL != NULL)
+  if (psURL != NULL)
   {
-    if (ptURL->pcUser != NULL)
+    if (psURL->pcUser != NULL)
     {
-      free(ptURL->pcUser);
+      free(psURL->pcUser);
     }
-    if (ptURL->pcPass != NULL)
+    if (psURL->pcPass != NULL)
     {
-      free(ptURL->pcPass);
+      free(psURL->pcPass);
     }
-    if (ptURL->pcHost != NULL)
+    if (psURL->pcHost != NULL)
     {
-      free(ptURL->pcHost);
+      free(psURL->pcHost);
     }
-    if (ptURL->pcPort != NULL)
+    if (psURL->pcPort != NULL)
     {
-      free(ptURL->pcPort);
+      free(psURL->pcPort);
     }
-    if (ptURL->pcPath != NULL)
+    if (psURL->pcPath != NULL)
     {
-      free(ptURL->pcPath);
+      free(psURL->pcPath);
     }
-    if (ptURL->pcQuery != NULL)
+    if (psURL->pcQuery != NULL)
     {
-      free(ptURL->pcQuery);
+      free(psURL->pcQuery);
     }
-    if (ptURL->pcMeth != NULL)
+    if (psURL->pcMeth != NULL)
     {
-      free(ptURL->pcMeth);
+      free(psURL->pcMeth);
     }
-    free(ptURL);
+    free(psURL);
   }
 }
 
@@ -441,10 +441,10 @@ HTTPHexToInt(int i)
 HTTP_URL *
 HTTPNewURL(char *pcError)
 {
-  const char          cRoutine[] = "HTTPNewURL()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "HTTPNewURL()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
-  HTTP_URL           *ptURL;
+  HTTP_URL           *psURL;
 
   /*-
    *********************************************************************
@@ -453,13 +453,13 @@ HTTPNewURL(char *pcError)
    *
    *********************************************************************
    */
-  ptURL = malloc(sizeof(HTTP_URL));
-  if (ptURL == NULL)
+  psURL = malloc(sizeof(HTTP_URL));
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return NULL;
   }
-  memset(ptURL, 0, sizeof(HTTP_URL));
+  memset(psURL, 0, sizeof(HTTP_URL));
 
   /*-
    *********************************************************************
@@ -468,11 +468,11 @@ HTTPNewURL(char *pcError)
    *
    *********************************************************************
    */
-  iError = HTTPSetURLMeth(ptURL, HTTP_DEFAULT_HTTP_METHOD, cLocalError);
+  iError = HTTPSetURLMeth(psURL, HTTP_DEFAULT_HTTP_METHOD, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-    HTTPFreeURL(ptURL);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    HTTPFreeURL(psURL);
     return NULL;
   }
 
@@ -483,9 +483,9 @@ HTTPNewURL(char *pcError)
    *
    *********************************************************************
    */
-  HTTPSetURLDownloadLimit(ptURL, HTTP_MAX_MEMORY_SIZE);
+  HTTPSetURLDownloadLimit(psURL, HTTP_MAX_MEMORY_SIZE);
 
-  return ptURL;
+  return psURL;
 }
 
 
@@ -497,17 +497,17 @@ HTTPNewURL(char *pcError)
  ***********************************************************************
  */
 int
-HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *ptURL, char *pcError)
+HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *psURL, char *pcError)
 {
-  const char          cRoutine[] = "HTTPParseAddress()";
-  char                cLocalError[ERRBUF_SIZE],
-                     *pcHostPort,
-                     *pcT,
-                     *pcUserPass;
+  const char          acRoutine[] = "HTTPParseAddress()";
+  char                acLocalError[MESSAGE_SIZE];
+  char               *pcHostPort;
+  char               *pcT;
+  char               *pcUserPass;
 
   if (pcUserPassHostPort == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined UserPassHostPort.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined UserPassHostPort.", acRoutine);
     return -1;
   }
 
@@ -521,7 +521,7 @@ HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *ptURL, char *pcError)
   pcUserPass = malloc(strlen(pcUserPassHostPort) + 1);
   if (pcUserPass == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return -1;
   }
   pcUserPass[0] = 0;
@@ -529,7 +529,7 @@ HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *ptURL, char *pcError)
   pcHostPort = malloc(strlen(pcUserPassHostPort) + 1);
   if (pcHostPort == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     HTTPFreeData(pcUserPass);
     return -1;
   }
@@ -556,17 +556,17 @@ HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *ptURL, char *pcError)
     strcpy(pcHostPort, pcUserPassHostPort);
   }
 
-  if (HTTPParseUserPass(pcUserPass, ptURL, cLocalError) == -1)
+  if (HTTPParseUserPass(pcUserPass, psURL, acLocalError) == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     HTTPFreeData(pcUserPass);
     HTTPFreeData(pcHostPort);
     return -1;
   }
 
-  if (HTTPParseHostPort(pcHostPort, ptURL, cLocalError) == -1)
+  if (HTTPParseHostPort(pcHostPort, psURL, acLocalError) == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     HTTPFreeData(pcUserPass);
     HTTPFreeData(pcHostPort);
     return -1;
@@ -587,14 +587,14 @@ HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *ptURL, char *pcError)
  ***********************************************************************
  */
 int
-HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcError)
+HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcError)
 {
-  const char          cRoutine[] = "HTTPParseGRELine()";
-  char               *pc,
-                     *pcEnd,
-                     *pcFieldName,
-                     *pcFieldValue,
-                     *pcTempLine;
+  const char          acRoutine[] = "HTTPParseGRELine()";
+  char               *pc;
+  char               *pcEnd;
+  char               *pcFieldName;
+  char               *pcFieldValue;
+  char               *pcTempLine;
   int                 iLength;
 
   /*-
@@ -610,7 +610,7 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcErro
     pcTempLine = malloc(iLength + 1);
     if (pcTempLine == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
       return -1;
     }
     strcpy(pcTempLine, pcLine);
@@ -629,7 +629,7 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcErro
    */
   if ((pcFieldValue = strstr(pcTempLine, ":")) == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Message-Header = [%s]: Invalid header.", cRoutine, pcTempLine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Message-Header = [%s]: Invalid header.", acRoutine, pcTempLine);
     HTTPFreeData(pcTempLine);
     return -1;
   }
@@ -670,7 +670,7 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcErro
    *
    *********************************************************************
    */
-  ptResponseHeader->iContentLengthFound = 0;
+  psResponseHeader->iContentLengthFound = 0;
 
   /*-
    *********************************************************************
@@ -681,13 +681,13 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcErro
    */
   if (strcasecmp(pcFieldName, FIELD_ContentLength) == 0)
   {
-    ptResponseHeader->iContentLengthFound = 0;
+    psResponseHeader->iContentLengthFound = 0;
     pc = pcFieldValue;
     while (*pc)
     {
       if (!isdigit((int) *pc))
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: Content-Length = [%s]: Value must contain all digits.", cRoutine, pcFieldValue);
+        snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%s]: Value must contain all digits.", acRoutine, pcFieldValue);
         HTTPFreeData(pcTempLine);
         return -1;
       }
@@ -695,12 +695,12 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcErro
     }
     if (strlen(pcFieldValue) > strlen("4294967295"))
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Content-Length = [%s]: Value too large to be converted to a 32 bit integer.", cRoutine, pcFieldValue);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%s]: Value too large to be converted to a 32 bit integer.", acRoutine, pcFieldValue);
       HTTPFreeData(pcTempLine);
       return -1;
     }
-    ptResponseHeader->ui32ContentLength = strtol(pcFieldValue, NULL, 10);
-    ptResponseHeader->iContentLengthFound = 1;
+    psResponseHeader->ui32ContentLength = strtol(pcFieldValue, NULL, 10);
+    psResponseHeader->iContentLengthFound = 1;
   }
 
   else if (strcasecmp(pcFieldName, FIELD_TransferEncoding) == 0)
@@ -724,27 +724,27 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcErro
  ***********************************************************************
  */
 int
-HTTPParseHeader(char *pcResponseHeader, int iResponseHeaderLength, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcError)
+HTTPParseHeader(char *pcResponseHeader, int iResponseHeaderLength, HTTP_RESPONSE_HDR *psResponseHeader, char *pcError)
 {
-  const char          cRoutine[] = "HTTPParseHeader()";
-  char                cLocalError[ERRBUF_SIZE];
-  char               *pcE,
-                     *pcS;
-  int                 iError,
-                      iLength;
+  const char          acRoutine[] = "HTTPParseHeader()";
+  char                acLocalError[MESSAGE_SIZE];
+  char               *pcE;
+  char               *pcS;
+  int                 iError;
+  int                 iLength;
 
   iLength = iResponseHeaderLength;
 
   pcS = pcE = pcResponseHeader;
 
-  memset(ptResponseHeader, 0, sizeof(HTTP_RESPONSE_HDR));
+  memset(psResponseHeader, 0, sizeof(HTTP_RESPONSE_HDR));
 
   HTTP_TERMINATE_LINE(pcE);
 
-  iError = HTTPParseStatusLine(pcS, ptResponseHeader, cLocalError);
+  iError = HTTPParseStatusLine(pcS, psResponseHeader, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -752,10 +752,10 @@ HTTPParseHeader(char *pcResponseHeader, int iResponseHeaderLength, HTTP_RESPONSE
   {
     pcS = pcE;
     HTTP_TERMINATE_LINE(pcE);
-    iError = HTTPParseGRELine(pcS, ptResponseHeader, cLocalError);
+    iError = HTTPParseGRELine(pcS, psResponseHeader, acLocalError);
     if (iError == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return -1;
     }
   }
@@ -772,15 +772,16 @@ HTTPParseHeader(char *pcResponseHeader, int iResponseHeaderLength, HTTP_RESPONSE
  ***********************************************************************
  */
 int
-HTTPParseHostPort(char *pcHostPort, HTTP_URL *ptURL, char *pcError)
+HTTPParseHostPort(char *pcHostPort, HTTP_URL *psURL, char *pcError)
 {
-  const char          cRoutine[] = "HTTPParseHostPort()";
-  char                cLocalError[ERRBUF_SIZE],
-                     *pcT;
+  const char          acRoutine[] = "HTTPParseHostPort()";
+  char                acLocalError[MESSAGE_SIZE];
+  char               *pcT;
   int                 iError;
+
   if (pcHostPort == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined HostPort.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined HostPort.", acRoutine);
     return -1;
   }
 
@@ -796,35 +797,35 @@ HTTPParseHostPort(char *pcHostPort, HTTP_URL *ptURL, char *pcError)
   if (pcT != NULL)
   {
     *pcT++ = 0;
-    iError = HTTPSetURLPort(ptURL, pcT, cLocalError);
+    iError = HTTPSetURLPort(psURL, pcT, acLocalError);
     if (iError == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return -1;
     }
   }
   else /* We still need to allocate some memory for this member, and set its default value. */
   {
-    switch (ptURL->iScheme)
+    switch (psURL->iScheme)
     {
     case HTTP_SCHEME_HTTPS:
-      iError = HTTPSetURLPort(ptURL, "443", cLocalError);
+      iError = HTTPSetURLPort(psURL, "443", acLocalError);
       break;
     default:
-      iError = HTTPSetURLPort(ptURL, "80", cLocalError);
+      iError = HTTPSetURLPort(psURL, "80", acLocalError);
       break;
     }
     if (iError == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return -1;
     }
   }
 
-  iError = HTTPSetURLHost(ptURL, pcHostPort, cLocalError);
+  iError = HTTPSetURLHost(psURL, pcHostPort, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -840,16 +841,16 @@ HTTPParseHostPort(char *pcHostPort, HTTP_URL *ptURL, char *pcError)
  ***********************************************************************
  */
 int
-HTTPParsePathQuery(char *pcPathQuery, HTTP_URL *ptURL, char *pcError)
+HTTPParsePathQuery(char *pcPathQuery, HTTP_URL *psURL, char *pcError)
 {
-  const char          cRoutine[] = "HTTPParsePathQuery()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "HTTPParsePathQuery()";
+  char                acLocalError[MESSAGE_SIZE];
   char               *pcT;
   int                 iError;
 
   if (pcPathQuery == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined PathQuery.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined PathQuery.", acRoutine);
     return -1;
   }
 
@@ -866,26 +867,26 @@ HTTPParsePathQuery(char *pcPathQuery, HTTP_URL *ptURL, char *pcError)
   if (pcT != NULL)
   {
     *pcT++ = 0;
-    iError = HTTPSetURLQuery(ptURL, pcT, cLocalError);
+    iError = HTTPSetURLQuery(psURL, pcT, acLocalError);
     if (iError == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return -1;
     }
   }
   else /* We still need to allocate some memory for this member. */
   {
-    iError = HTTPSetURLQuery(ptURL, "", cLocalError);
+    iError = HTTPSetURLQuery(psURL, "", acLocalError);
     if (iError == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return -1;
     }
   }
-  iError = HTTPSetURLPath(ptURL, pcPathQuery, cLocalError);
+  iError = HTTPSetURLPath(psURL, pcPathQuery, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -901,12 +902,12 @@ HTTPParsePathQuery(char *pcPathQuery, HTTP_URL *ptURL, char *pcError)
  ***********************************************************************
  */
 int
-HTTPParseStatusLine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcError)
+HTTPParseStatusLine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcError)
 {
-  const char          cRoutine[] = "HTTPParseStatusLine()";
-  char               *pcE,
-                     *pcS,
-                     *pcT;
+  const char          acRoutine[] = "HTTPParseStatusLine()";
+  char               *pcE;
+  char               *pcS;
+  char               *pcT;
 
   pcS = pcE = pcLine;
 
@@ -934,34 +935,34 @@ HTTPParseStatusLine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcE
       {
         if (!isdigit((int) *pcT))
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: Major Version = [%s]: Invalid Version.", cRoutine, pcS);
+          snprintf(pcError, MESSAGE_SIZE, "%s: Major Version = [%s]: Invalid Version.", acRoutine, pcS);
           return -1;
         }
         pcT++;
       }
-      ptResponseHeader->iMajorVersion = atoi(pcS);
+      psResponseHeader->iMajorVersion = atoi(pcS);
       pcT++;
       pcS = pcT;
       while (*pcT)
       {
         if (!isdigit((int) *pcT))
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: Minor Version = [%s]: Invalid Version.", cRoutine, pcS);
+          snprintf(pcError, MESSAGE_SIZE, "%s: Minor Version = [%s]: Invalid Version.", acRoutine, pcS);
           return -1;
         }
         pcT++;
       }
-      ptResponseHeader->iMinorVersion = atoi(pcS);
+      psResponseHeader->iMinorVersion = atoi(pcS);
     }
     else
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Major/Minor Version = [%s]: Invalid Version.", cRoutine, pcS);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Major/Minor Version = [%s]: Invalid Version.", acRoutine, pcS);
       return -1;
     }
   }
   else
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Status Line = [%s]: Invalid Status.", cRoutine, pcS);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Status Line = [%s]: Invalid Status.", acRoutine, pcS);
     return -1;
   }
 
@@ -996,11 +997,11 @@ HTTPParseStatusLine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcE
    */
   if (strlen(pcS) == 3 && isdigit((int) (*(pcS))) && isdigit((int) (*(pcS+1))) && isdigit((int) (*(pcS+2))))
   {
-    ptResponseHeader->iStatusCode = atoi(pcS);
+    psResponseHeader->iStatusCode = atoi(pcS);
   }
   else
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Status-Code = [%s]: Invalid Code.", cRoutine, pcS);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Status-Code = [%s]: Invalid Code.", acRoutine, pcS);
     return -1;
   }
 
@@ -1016,7 +1017,7 @@ HTTPParseStatusLine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcE
   pcS = pcE;
 
 /* FIXME Bounds check this. */
-  strncpy(ptResponseHeader->cReasonPhrase, pcS, sizeof(ptResponseHeader->cReasonPhrase));
+  strncpy(psResponseHeader->acReasonPhrase, pcS, sizeof(psResponseHeader->acReasonPhrase));
 
   return 0;
 }
@@ -1032,13 +1033,13 @@ HTTPParseStatusLine(char *pcLine, HTTP_RESPONSE_HDR *ptResponseHeader, char *pcE
 HTTP_URL *
 HTTPParseURL(char *pcURL, char *pcError)
 {
-  const char          cRoutine[] = "HTTPParseURL()";
-  char                cLocalError[ERRBUF_SIZE],
-                     *pcS,
-                     *pcT,
-                     *pcTempURL;
+  const char          acRoutine[] = "HTTPParseURL()";
+  char                acLocalError[MESSAGE_SIZE];
+  char               *pcS;
+  char               *pcT;
+  char               *pcTempURL;
   int                 iLength;
-  HTTP_URL           *ptURL;
+  HTTP_URL           *psURL;
 
   /*-
    *********************************************************************
@@ -1057,7 +1058,7 @@ HTTPParseURL(char *pcURL, char *pcError)
    */
   if (pcURL == NULL || (iLength = strlen(pcURL)) < 1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Invalid/Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Invalid/Undefined URL.", acRoutine);
     return NULL;
   }
 
@@ -1068,10 +1069,10 @@ HTTPParseURL(char *pcURL, char *pcError)
    *
    *********************************************************************
    */
-  ptURL = HTTPNewURL(cLocalError);
-  if (ptURL == NULL)
+  psURL = HTTPNewURL(acLocalError);
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return NULL;
   }
 
@@ -1085,8 +1086,8 @@ HTTPParseURL(char *pcURL, char *pcError)
   pcTempURL = malloc(iLength + 1);
   if (pcTempURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
-    HTTPFreeURL(ptURL);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    HTTPFreeURL(psURL);
     return NULL;
   }
   strcpy(pcTempURL, pcURL);
@@ -1101,23 +1102,23 @@ HTTPParseURL(char *pcURL, char *pcError)
   pcS = pcTempURL;
   if (strncasecmp("file://", pcS, 7) == 0)
   {
-    ptURL->iScheme = HTTP_SCHEME_FILE;
+    psURL->iScheme = HTTP_SCHEME_FILE;
     pcS += 7;
   }
   else if (strncasecmp("http://", pcS, 7) == 0)
   {
-    ptURL->iScheme = HTTP_SCHEME_HTTP;
+    psURL->iScheme = HTTP_SCHEME_HTTP;
     pcS += 7;
   }
   else if (strncasecmp("https://", pcS, 8) == 0)
   {
-    ptURL->iScheme = HTTP_SCHEME_HTTPS;
+    psURL->iScheme = HTTP_SCHEME_HTTPS;
     pcS += 8;
   }
   else
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Unknown/Unsupported URL Scheme.", cRoutine);
-    HTTPFreeURL(ptURL);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Unknown/Unsupported URL Scheme.", acRoutine);
+    HTTPFreeURL(psURL);
     HTTPFreeData(pcTempURL);
     return NULL;
   }
@@ -1140,10 +1141,10 @@ HTTPParseURL(char *pcURL, char *pcError)
      *
      *******************************************************************
      */
-    if (HTTPParsePathQuery(pcT, ptURL, cLocalError) == -1)
+    if (HTTPParsePathQuery(pcT, psURL, acLocalError) == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-      HTTPFreeURL(ptURL);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      HTTPFreeURL(psURL);
       HTTPFreeData(pcTempURL);
       return NULL;
     }
@@ -1156,24 +1157,24 @@ HTTPParseURL(char *pcURL, char *pcError)
      *
      *******************************************************************
      */
-    if (HTTPParseAddress(pcS, ptURL, cLocalError) == -1)
+    if (HTTPParseAddress(pcS, psURL, acLocalError) == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-      HTTPFreeURL(ptURL);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      HTTPFreeURL(psURL);
       HTTPFreeData(pcTempURL);
       return NULL;
     }
   }
   else
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Invalid URL, Absolute URL Required.", cRoutine);
-    HTTPFreeURL(ptURL);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Invalid URL, Absolute URL Required.", acRoutine);
+    HTTPFreeURL(psURL);
     HTTPFreeData(pcTempURL);
     return NULL;
   }
 
   HTTPFreeData(pcTempURL);
-  return ptURL;
+  return psURL;
 }
 
 
@@ -1185,16 +1186,16 @@ HTTPParseURL(char *pcURL, char *pcError)
  ***********************************************************************
  */
 int
-HTTPParseUserPass(char *pcUserPass, HTTP_URL *ptURL, char *pcError)
+HTTPParseUserPass(char *pcUserPass, HTTP_URL *psURL, char *pcError)
 {
-  const char          cRoutine[] = "HTTPParseUserPass()";
-  char                cLocalError[ERRBUF_SIZE],
-                     *pcT;
+  const char          acRoutine[] = "HTTPParseUserPass()";
+  char                acLocalError[MESSAGE_SIZE];
+  char               *pcT;
   int                 iError;
 
   if (pcUserPass == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined UserPass.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined UserPass.", acRoutine);
     return -1;
   }
 
@@ -1210,26 +1211,26 @@ HTTPParseUserPass(char *pcUserPass, HTTP_URL *ptURL, char *pcError)
   if (pcT != NULL)
   {
     *pcT++ = 0;
-    iError = HTTPSetURLPass(ptURL, pcT, cLocalError);
+    iError = HTTPSetURLPass(psURL, pcT, acLocalError);
     if (iError == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return -1;
     }
   }
   else /* We still need to allocate some memory for this member. */
   {
-    iError = HTTPSetURLPass(ptURL, "", cLocalError);
+    iError = HTTPSetURLPass(psURL, "", acLocalError);
     if (iError == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return -1;
     }
   }
-  iError = HTTPSetURLUser(ptURL, pcUserPass, cLocalError);
+  iError = HTTPSetURLUser(psURL, pcUserPass, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -1240,9 +1241,9 @@ HTTPParseUserPass(char *pcUserPass, HTTP_URL *ptURL, char *pcError)
    *
    *********************************************************************
    */
-  if (ptURL->pcPass[0] != 0 && ptURL->pcUser[0] == 0)
+  if (psURL->pcPass[0] != 0 && psURL->pcUser[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined Username.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined Username.", acRoutine);
     return -1;
   }
 
@@ -1258,13 +1259,13 @@ HTTPParseUserPass(char *pcUserPass, HTTP_URL *ptURL, char *pcError)
  ***********************************************************************
  */
 int
-HTTPReadDataIntoMemory(SOCKET_CONTEXT *psockCTX, char **ppcData, K_UINT32 ui32ContentLength, char *pcError)
+HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, char **ppcData, K_UINT32 ui32ContentLength, char *pcError)
 {
-  const char          cRoutine[] = "HTTPReadDataIntoMemory()";
-  char                cLocalError[ERRBUF_SIZE];
-  int                 iNRead,
-                      iZRead,
-                      iToRead;
+  const char          acRoutine[] = "HTTPReadDataIntoMemory()";
+  char                acLocalError[MESSAGE_SIZE];
+  int                 iNRead;
+  int                 iZRead;
+  int                 iToRead;
   K_UINT32            ui32Offset;
 
   ui32Offset = iZRead = 0;
@@ -1278,7 +1279,7 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psockCTX, char **ppcData, K_UINT32 ui32Co
    */
   if (ui32ContentLength > (K_UINT32) HTTP_MAX_MEMORY_SIZE)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Content-Length = [%lu] > [%d]: Length exceeds internally defined limit.", cRoutine, ui32ContentLength, HTTP_MAX_MEMORY_SIZE);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%d]: Length exceeds internally defined limit.", acRoutine, ui32ContentLength, HTTP_MAX_MEMORY_SIZE);
     return -1;
   }
 
@@ -1294,7 +1295,7 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psockCTX, char **ppcData, K_UINT32 ui32Co
   *ppcData = malloc(iToRead);
   if (*ppcData == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return -1;
   }
 
@@ -1307,14 +1308,14 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psockCTX, char **ppcData, K_UINT32 ui32Co
    */
   while (iToRead > 0 && !iZRead)
   {
-    iNRead = SocketRead(psockCTX, &(*ppcData)[ui32Offset], iToRead, cLocalError);
+    iNRead = SocketRead(psSocketCTX, &(*ppcData)[ui32Offset], iToRead, acLocalError);
     switch (iNRead)
     {
     case 0:
       iZRead = 1;
       break;
     case -1:
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       HTTPFreeData(*ppcData);
       return -1;
       break;
@@ -1326,7 +1327,7 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psockCTX, char **ppcData, K_UINT32 ui32Co
   }
   if (ui32Offset != ui32ContentLength)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Actual-Length = [%lu] != [%lu]: Actual-Length vs Content-Length Mismatch.", cRoutine, ui32Offset, ui32ContentLength);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%lu] != [%lu]: Actual-Length vs Content-Length Mismatch.", acRoutine, ui32Offset, ui32ContentLength);
     HTTPFreeData(*ppcData);
     return -1;
   }
@@ -1342,16 +1343,15 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psockCTX, char **ppcData, K_UINT32 ui32Co
  ***********************************************************************
  */
 int
-HTTPReadDataIntoStream(SOCKET_CONTEXT *psockCTX, FILE *pFile, K_UINT32 ui32ContentLength, char *pcError)
+HTTPReadDataIntoStream(SOCKET_CONTEXT *psSocketCTX, FILE *pFile, K_UINT32 ui32ContentLength, char *pcError)
 {
-  const char          cRoutine[] = "HTTPReadDataIntoStream()";
-  char                cData[HTTP_IO_BUFSIZE],
-                      cLocalError[ERRBUF_SIZE];
-  int                 iNRead,
-                      iZRead;
-  K_UINT32            ui32Offset,
-                      ui32ToRead;
-
+  const char          acRoutine[] = "HTTPReadDataIntoStream()";
+  char                acData[HTTP_IO_BUFSIZE];
+  char                acLocalError[MESSAGE_SIZE];
+  int                 iNRead;
+  int                 iZRead;
+  K_UINT32            ui32Offset;
+  K_UINT32            ui32ToRead;
 
   ui32Offset = iZRead = 0;
 
@@ -1366,21 +1366,21 @@ HTTPReadDataIntoStream(SOCKET_CONTEXT *psockCTX, FILE *pFile, K_UINT32 ui32Conte
    */
   while (ui32ToRead > 0 && !iZRead)
   {
-    iNRead = SocketRead(psockCTX, cData, HTTP_IO_BUFSIZE, cLocalError);
+    iNRead = SocketRead(psSocketCTX, acData, HTTP_IO_BUFSIZE, acLocalError);
     switch (iNRead)
     {
     case 0:
       iZRead = 1;
       break;
     case -1:
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return -1;
       break;
     default:
-      ui32Offset += fwrite(cData, 1, iNRead, pFile);
+      ui32Offset += fwrite(acData, 1, iNRead, pFile);
       if (ferror(pFile))
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: fwrite(): %s", cRoutine, strerror(errno));
+        snprintf(pcError, MESSAGE_SIZE, "%s: fwrite(): %s", acRoutine, strerror(errno));
         return -1;
       }
       ui32ToRead -= iNRead;
@@ -1389,7 +1389,7 @@ HTTPReadDataIntoStream(SOCKET_CONTEXT *psockCTX, FILE *pFile, K_UINT32 ui32Conte
   }
   if (ui32Offset != ui32ContentLength)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Actual-Length = [%lu] != [%lu]: Actual-Length vs Content-Length Mismatch.", cRoutine, ui32Offset, ui32ContentLength);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Actual-Length = [%lu] != [%lu]: Actual-Length vs Content-Length Mismatch.", acRoutine, ui32Offset, ui32ContentLength);
     return -1;
   }
   return 0;
@@ -1404,17 +1404,17 @@ HTTPReadDataIntoStream(SOCKET_CONTEXT *psockCTX, FILE *pFile, K_UINT32 ui32Conte
  ***********************************************************************
  */
 int
-HTTPReadHeader(SOCKET_CONTEXT *psockCTX, char *pcResponseHeader, int iMaxResponseLength, char *pcError)
+HTTPReadHeader(SOCKET_CONTEXT *psSocketCTX, char *pcResponseHeader, int iMaxResponseLength, char *pcError)
 {
-  const char          cRoutine[] = "HTTPReadHeader()";
-  char                cLocalError[ERRBUF_SIZE];
-  int                 iHdrOk,
-                      iIndex,
-                      iNRead;
+  const char          acRoutine[] = "HTTPReadHeader()";
+  char                acLocalError[MESSAGE_SIZE];
+  int                 iHdrOk;
+  int                 iIndex;
+  int                 iNRead;
 
   for (iIndex = iHdrOk = 0; iIndex < iMaxResponseLength && !iHdrOk; iIndex++)
   {
-    iNRead = SocketRead(psockCTX, &pcResponseHeader[iIndex], 1, cLocalError);
+    iNRead = SocketRead(psSocketCTX, &pcResponseHeader[iIndex], 1, acLocalError);
     switch (iNRead)
     {
     case 0:
@@ -1445,17 +1445,17 @@ HTTPReadHeader(SOCKET_CONTEXT *psockCTX, char *pcResponseHeader, int iMaxRespons
       }
       break;
     case -1:
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return -1;
       break;
     default:
-      snprintf(pcError, ERRBUF_SIZE, "%s: Read Count = [%d] != [1]: Invalid Count.", cRoutine, iNRead);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Read Count = [%d] != [1]: Invalid Count.", acRoutine, iNRead);
       break;
     }
   }
   if (!iHdrOk)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Unterminated header or size exceeds %d bytes.", cRoutine, iMaxResponseLength);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Unterminated header or size exceeds %d bytes.", acRoutine, iMaxResponseLength);
     return -1;
   }
   return iIndex;
@@ -1472,7 +1472,7 @@ HTTPReadHeader(SOCKET_CONTEXT *psockCTX, char *pcResponseHeader, int iMaxRespons
 int
 HTTPSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
 {
-  const char          cRoutine[] = "HTTPSetDynamicString()";
+  const char          acRoutine[] = "HTTPSetDynamicString()";
   char               *pcTempValue;
 
   if (*ppcValue == NULL || strlen(pcNewValue) > strlen(*ppcValue))
@@ -1487,7 +1487,7 @@ HTTPSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
     pcTempValue = malloc(strlen(pcNewValue) + 1);
     if (pcTempValue == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
       return -1;
     }
     if (*ppcValue != NULL)
@@ -1510,9 +1510,9 @@ HTTPSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
  ***********************************************************************
  */
 void
-HTTPSetURLDownloadLimit(HTTP_URL *ptURL, K_UINT32 ui32Limit)
+HTTPSetURLDownloadLimit(HTTP_URL *psURL, K_UINT32 ui32Limit)
 {
-  ptURL->ui32DownloadLimit = ui32Limit;
+  psURL->ui32DownloadLimit = ui32Limit;
 }
 
 
@@ -1524,12 +1524,12 @@ HTTPSetURLDownloadLimit(HTTP_URL *ptURL, K_UINT32 ui32Limit)
  ***********************************************************************
  */
 int
-HTTPSetURLHost(HTTP_URL *ptURL, char *pcHost, char *pcError)
+HTTPSetURLHost(HTTP_URL *psURL, char *pcHost, char *pcError)
 {
-  const char          cRoutine[] = "HTTPSetURLHost()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "HTTPSetURLHost()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
-  struct hostent     *pHostEntry;
+  struct hostent     *psHostEntry;
 #ifdef WIN32
   DWORD               dwStatus;
   WORD                wVersion;
@@ -1537,18 +1537,18 @@ HTTPSetURLHost(HTTP_URL *ptURL, char *pcHost, char *pcError)
 #endif
 
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
-  if (ptURL == NULL)
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return -1;
   }
 
-  iError = HTTPSetDynamicString(&ptURL->pcHost, pcHost, cLocalError);
+  iError = HTTPSetDynamicString(&psURL->pcHost, pcHost, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -1559,11 +1559,11 @@ HTTPSetURLHost(HTTP_URL *ptURL, char *pcHost, char *pcError)
    *
    *********************************************************************
    */
-  if (ptURL->pcHost[0] == 0)
+  if (psURL->pcHost[0] == 0)
   {
-    if (ptURL->iScheme != HTTP_SCHEME_FILE)
+    if (psURL->iScheme != HTTP_SCHEME_FILE)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Undefined Hostname or IP address.", cRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Undefined Hostname or IP address.", acRoutine);
       return -1;
     }
   }
@@ -1572,28 +1572,28 @@ HTTPSetURLHost(HTTP_URL *ptURL, char *pcHost, char *pcError)
 #ifndef INADDR_NONE
 #define INADDR_NONE 0xffffffff
 #endif
-    ptURL->ui32IP = inet_addr(ptURL->pcHost);
-    if (ptURL->ui32IP == INADDR_NONE)
+    psURL->ui32IP = inet_addr(psURL->pcHost);
+    if (psURL->ui32IP == INADDR_NONE)
     {
 #ifdef WIN32
       wVersion = (WORD)(1) | ((WORD)(1) << 8); /* MAKEWORD(1, 1) */
       dwStatus = WSAStartup(wVersion, &wsaData);
       if (dwStatus != 0)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: WSAStartup(): %u", cRoutine, dwStatus);
+        snprintf(pcError, MESSAGE_SIZE, "%s: WSAStartup(): %u", acRoutine, dwStatus);
         return -1;
       }
 #endif
-      pHostEntry = gethostbyname(ptURL->pcHost);
-      if (pHostEntry == NULL)
+      psHostEntry = gethostbyname(psURL->pcHost);
+      if (psHostEntry == NULL)
       {
 /* FIXME Add hstrerror() for UNIX and WSAGetLastError() for Windows. */
-        snprintf(pcError, ERRBUF_SIZE, "%s: DNS Lookup Failed.", cRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: DNS Lookup Failed.", acRoutine);
         return -1;
       }
       else
       {
-        ptURL->ui32IP = ((struct in_addr *)(pHostEntry->h_addr))->s_addr;
+        psURL->ui32IP = ((struct in_addr *)(psHostEntry->h_addr))->s_addr;
       }
 #ifdef WIN32
       WSACleanup();
@@ -1613,24 +1613,24 @@ HTTPSetURLHost(HTTP_URL *ptURL, char *pcHost, char *pcError)
  ***********************************************************************
  */
 int
-HTTPSetURLMeth(HTTP_URL *ptURL, char *pcMeth, char *pcError)
+HTTPSetURLMeth(HTTP_URL *psURL, char *pcMeth, char *pcError)
 {
-  const char          cRoutine[] = "HTTPSetURLMeth()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "HTTPSetURLMeth()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
-  if (ptURL == NULL)
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return -1;
   }
 
-  iError = HTTPSetDynamicString(&ptURL->pcMeth, pcMeth, cLocalError);
+  iError = HTTPSetDynamicString(&psURL->pcMeth, pcMeth, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -1646,24 +1646,24 @@ HTTPSetURLMeth(HTTP_URL *ptURL, char *pcMeth, char *pcError)
  ***********************************************************************
  */
 int
-HTTPSetURLPass(HTTP_URL *ptURL, char *pcPass, char *pcError)
+HTTPSetURLPass(HTTP_URL *psURL, char *pcPass, char *pcError)
 {
-  const char          cRoutine[] = "HTTPSetURLPass()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "HTTPSetURLPass()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
-  if (ptURL == NULL)
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return -1;
   }
 
-  iError = HTTPSetDynamicString(&ptURL->pcPass, pcPass, cLocalError);
+  iError = HTTPSetDynamicString(&psURL->pcPass, pcPass, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -1679,24 +1679,24 @@ HTTPSetURLPass(HTTP_URL *ptURL, char *pcPass, char *pcError)
  ***********************************************************************
  */
 int
-HTTPSetURLPath(HTTP_URL *ptURL, char *pcPath, char *pcError)
+HTTPSetURLPath(HTTP_URL *psURL, char *pcPath, char *pcError)
 {
-  const char          cRoutine[] = "HTTPSetURLPath()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "HTTPSetURLPath()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
-  if (ptURL == NULL)
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return -1;
   }
 
-  iError = HTTPSetDynamicString(&ptURL->pcPath, pcPath, cLocalError);
+  iError = HTTPSetDynamicString(&psURL->pcPath, pcPath, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -1712,25 +1712,25 @@ HTTPSetURLPath(HTTP_URL *ptURL, char *pcPath, char *pcError)
  ***********************************************************************
  */
 int
-HTTPSetURLPort(HTTP_URL *ptURL, char *pcPort, char *pcError)
+HTTPSetURLPort(HTTP_URL *psURL, char *pcPort, char *pcError)
 {
-  const char          cRoutine[] = "HTTPSetURLPort()";
-  char                cLocalError[ERRBUF_SIZE],
-                     *pc;
+  const char          acRoutine[] = "HTTPSetURLPort()";
+  char                acLocalError[MESSAGE_SIZE];
+  char               *pc;
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
-  if (ptURL == NULL)
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return -1;
   }
 
-  iError = HTTPSetDynamicString(&ptURL->pcPort, pcPort, cLocalError);
+  iError = HTTPSetDynamicString(&psURL->pcPort, pcPort, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -1741,28 +1741,28 @@ HTTPSetURLPort(HTTP_URL *ptURL, char *pcPort, char *pcError)
    *
    *********************************************************************
    */
-  if (ptURL->pcPort[0] && strlen(ptURL->pcPort) <= 5)
+  if (psURL->pcPort[0] && strlen(psURL->pcPort) <= 5)
   {
-    pc = ptURL->pcPort;
+    pc = psURL->pcPort;
     while (*pc)
     {
       if (!isdigit((int) *pc))
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: Port = [%s]: Value must contain all digits.", cRoutine, ptURL->pcPort);
+        snprintf(pcError, MESSAGE_SIZE, "%s: Port = [%s]: Value must contain all digits.", acRoutine, psURL->pcPort);
         return -1;
       }
       pc++;
     }
-    ptURL->ui16Port = atoi(ptURL->pcPort);
-    if (ptURL->ui16Port < 1 || ptURL->ui16Port > 65535)
+    psURL->ui16Port = atoi(psURL->pcPort);
+    if (psURL->ui16Port < 1 || psURL->ui16Port > 65535)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Port = [%s]: Value must be 1-65535.", cRoutine, ptURL->pcPort);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Port = [%s]: Value must be 1-65535.", acRoutine, psURL->pcPort);
       return -1;
     }
   }
   else
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Port = [%s]: Value could not be converted.", cRoutine, ptURL->pcPort);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Port = [%s]: Value could not be converted.", acRoutine, psURL->pcPort);
     return -1;
   }
 
@@ -1778,24 +1778,24 @@ HTTPSetURLPort(HTTP_URL *ptURL, char *pcPort, char *pcError)
  ***********************************************************************
  */
 int
-HTTPSetURLQuery(HTTP_URL *ptURL, char *pcQuery, char *pcError)
+HTTPSetURLQuery(HTTP_URL *psURL, char *pcQuery, char *pcError)
 {
-  const char          cRoutine[] = "HTTPSetURLQuery()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "HTTPSetURLQuery()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
-  if (ptURL == NULL)
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return -1;
   }
 
-  iError = HTTPSetDynamicString(&ptURL->pcQuery, pcQuery, cLocalError);
+  iError = HTTPSetDynamicString(&psURL->pcQuery, pcQuery, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -1811,24 +1811,24 @@ HTTPSetURLQuery(HTTP_URL *ptURL, char *pcQuery, char *pcError)
  ***********************************************************************
  */
 int
-HTTPSetURLUser(HTTP_URL *ptURL, char *pcUser, char *pcError)
+HTTPSetURLUser(HTTP_URL *psURL, char *pcUser, char *pcError)
 {
-  const char          cRoutine[] = "HTTPSetURLUser()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "HTTPSetURLUser()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
-  if (ptURL == NULL)
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return -1;
   }
 
-  iError = HTTPSetDynamicString(&ptURL->pcUser, pcUser, cLocalError);
+  iError = HTTPSetDynamicString(&psURL->pcUser, pcUser, acLocalError);
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -1844,36 +1844,36 @@ HTTPSetURLUser(HTTP_URL *ptURL, char *pcUser, char *pcError)
  ***********************************************************************
  */
 int
-HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType, void *pOutput, HTTP_RESPONSE_HDR *psResponseHeader, char *pcError)
+HTTPSubmitRequest(HTTP_URL *psURL, int iInputType, void *pInput, int iOutputType, void *pOutput, HTTP_RESPONSE_HDR *psResponseHeader, char *pcError)
 {
-  const char          cRoutine[] = "HTTPSubmitRequest()";
-  char                cLocalError[ERRBUF_SIZE],
-                      cFileData[HTTP_IO_BUFSIZE],
-                      cSockData[HTTP_IO_BUFSIZE],
-                     *pcRequest;
-  int                 iError,
-                      iNRead,
-                      iNSent,
-                      iRequestLength,
-                      iSocketType;
+  const char          acRoutine[] = "HTTPSubmitRequest()";
+  char                acLocalError[MESSAGE_SIZE];
+  char                acFileData[HTTP_IO_BUFSIZE];
+  char                acSockData[HTTP_IO_BUFSIZE];
+  char               *pcRequest;
+  int                 iError;
+  int                 iNRead;
+  int                 iNSent;
+  int                 iRequestLength;
+  int                 iSocketType;
   K_UINT32            ui32Size;
   K_UINT64            ui64ContentLength;
   HTTP_MEMORY_LIST   *pMList;
   HTTP_STREAM_LIST   *pSList;
-  SOCKET_CONTEXT     *psockCTX;
+  SOCKET_CONTEXT     *psSocketCTX;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   /*-
    *********************************************************************
    *
-   * If ptURL is not defined, abort.
+   * If psURL is not defined, abort.
    *
    *********************************************************************
    */
-  if (ptURL == NULL)
+  if (psURL == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Undefined URL.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Undefined URL.", acRoutine);
     return -1;
   }
 
@@ -1884,7 +1884,7 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
    *
    *********************************************************************
    */
-  switch (ptURL->iScheme)
+  switch (psURL->iScheme)
   {
   case HTTP_SCHEME_HTTP:
     iSocketType = SOCKET_TYPE_REGULAR;
@@ -1896,7 +1896,7 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
 #endif
   default:
     iSocketType = -1;
-    snprintf(pcError, ERRBUF_SIZE, "%s: Scheme = [%d]: Unsupported Scheme.", cRoutine, ptURL->iScheme);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Scheme = [%d]: Unsupported Scheme.", acRoutine, psURL->iScheme);
     return -1;
     break;
   }
@@ -1914,31 +1914,31 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
   case HTTP_IGNORE_INPUT:
     break;
   case HTTP_MEMORY_INPUT:
-    for (pMList = (HTTP_MEMORY_LIST *)pInput; pMList != NULL; pMList = pMList->pNext)
+    for (pMList = (HTTP_MEMORY_LIST *)pInput; pMList != NULL; pMList = pMList->psNext)
     {
       ui64ContentLength += (K_UINT64) pMList->ui32Size;
     }
     break;
   case HTTP_STREAM_INPUT:
-    for (pSList = (HTTP_STREAM_LIST *)pInput; pSList != NULL; pSList = pSList->pNext)
+    for (pSList = (HTTP_STREAM_LIST *)pInput; pSList != NULL; pSList = pSList->psNext)
     {
       ui64ContentLength += (K_UINT64) pSList->ui32Size;
     }
     break;
   default:
-    snprintf(pcError, ERRBUF_SIZE, "%s: Input Type = [%d]: Invalid Type.", cRoutine, iInputType);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Input Type = [%d]: Invalid Type.", acRoutine, iInputType);
     return -1;
     break;
   }
 
   if (((ui64ContentLength >> 32) & 0xffffff))
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Unsupported URL Scheme.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Unsupported URL Scheme.", acRoutine);
     return -1;
   }
   else
   {
-    ptURL->ui32ContentLength = (unsigned long) ui64ContentLength;
+    psURL->ui32ContentLength = (unsigned long) ui64ContentLength;
   }
 
   /*-
@@ -1948,10 +1948,10 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
    *
    *********************************************************************
    */
-  pcRequest = HTTPBuildRequest(ptURL, cLocalError);
+  pcRequest = HTTPBuildRequest(psURL, acLocalError);
   if (pcRequest == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
   iRequestLength = strlen(pcRequest);
@@ -1964,13 +1964,13 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
    *********************************************************************
    */
 #ifdef USE_SSL
-  psockCTX = SocketConnect(ptURL->ui32IP, ptURL->ui16Port, iSocketType, (iSocketType == SOCKET_TYPE_SSL) ? ptURL->psSSLProperties->psslCTX : NULL, cLocalError);
+  psSocketCTX = SocketConnect(psURL->ui32IP, psURL->ui16Port, iSocketType, (iSocketType == SOCKET_TYPE_SSL) ? psURL->psSSLProperties->psslCTX : NULL, acLocalError);
 #else
-  psockCTX = SocketConnect(ptURL->ui32IP, ptURL->ui16Port, iSocketType, NULL, cLocalError);
+  psSocketCTX = SocketConnect(psURL->ui32IP, psURL->ui16Port, iSocketType, NULL, acLocalError);
 #endif
-  if (psockCTX == NULL)
+  if (psSocketCTX == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return -1;
   }
 
@@ -1982,13 +1982,13 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
    *
    *********************************************************************
    */
-  if (iSocketType == SOCKET_TYPE_SSL && ptURL->psSSLProperties->iVerifyPeerCert)
+  if (iSocketType == SOCKET_TYPE_SSL && psURL->psSSLProperties->iVerifyPeerCert)
   {
-    iError = SSLVerifyCN(psockCTX->pssl, ptURL->psSSLProperties->pcExpectedPeerCN, cLocalError);
+    iError = SSLVerifyCN(psSocketCTX->pssl, psURL->psSSLProperties->pcExpectedPeerCN, acLocalError);
     if (iError == -1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-      SocketCleanup(psockCTX);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      SocketCleanup(psSocketCTX);
       return -1;
     }
   }
@@ -2001,12 +2001,12 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
    *
    *********************************************************************
    */
-  iNSent = SocketWrite(psockCTX, pcRequest, iRequestLength, cLocalError);
+  iNSent = SocketWrite(psSocketCTX, pcRequest, iRequestLength, acLocalError);
   if (iNSent != iRequestLength)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Sent = [%d] != [%d]: Transmission Error: %s", cRoutine, iNSent, iRequestLength, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Sent = [%d] != [%d]: Transmission Error: %s", acRoutine, iNSent, iRequestLength, acLocalError);
     HTTPFreeData(pcRequest);
-    SocketCleanup(psockCTX);
+    SocketCleanup(psSocketCTX);
     return -1;
   }
   HTTPFreeData(pcRequest);
@@ -2023,17 +2023,17 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
   case HTTP_IGNORE_INPUT:
     break;
   case HTTP_MEMORY_INPUT:
-    for (pMList = (HTTP_MEMORY_LIST *)pInput; pMList != NULL; pMList = pMList->pNext)
+    for (pMList = (HTTP_MEMORY_LIST *)pInput; pMList != NULL; pMList = pMList->psNext)
     {
       ui32Size = pMList->ui32Size;
       do
       {
         iNRead = (ui32Size > 0x7fffffff) ? 0x7fffffff : (int) ui32Size;
-        iNSent = SocketWrite(psockCTX, pMList->pcData, iNRead, cLocalError);
+        iNSent = SocketWrite(psSocketCTX, pMList->pcData, iNRead, acLocalError);
         if (iNSent != iNRead)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: Sent = [%d] != [%d]: Transmission Error: %s", cRoutine, iNSent, iNRead, cLocalError);
-          SocketCleanup(psockCTX);
+          snprintf(pcError, MESSAGE_SIZE, "%s: Sent = [%d] != [%d]: Transmission Error: %s", acRoutine, iNSent, iNRead, acLocalError);
+          SocketCleanup(psSocketCTX);
           return -1;
         }
         ui32Size -= iNSent;
@@ -2041,30 +2041,30 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
     }
     break;
   case HTTP_STREAM_INPUT:
-    for (pSList = (HTTP_STREAM_LIST *)pInput; pSList != NULL; pSList = pSList->pNext)
+    for (pSList = (HTTP_STREAM_LIST *)pInput; pSList != NULL; pSList = pSList->psNext)
     {
       do
       {
-        iNRead = fread(cFileData, 1, HTTP_IO_BUFSIZE, pSList->pFile);
+        iNRead = fread(acFileData, 1, HTTP_IO_BUFSIZE, pSList->pFile);
         if (ferror(pSList->pFile))
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: fread(): %s", cRoutine, strerror(errno));
-          SocketCleanup(psockCTX);
+          snprintf(pcError, MESSAGE_SIZE, "%s: fread(): %s", acRoutine, strerror(errno));
+          SocketCleanup(psSocketCTX);
           return -1;
         }
-        iNSent = SocketWrite(psockCTX, cFileData, iNRead, cLocalError);
+        iNSent = SocketWrite(psSocketCTX, acFileData, iNRead, acLocalError);
         if (iNSent != iNRead)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: Sent = [%d] != [%d]: Transmission Error: %s", cRoutine, iNSent, iNRead, cLocalError);
-          SocketCleanup(psockCTX);
+          snprintf(pcError, MESSAGE_SIZE, "%s: Sent = [%d] != [%d]: Transmission Error: %s", acRoutine, iNSent, iNRead, acLocalError);
+          SocketCleanup(psSocketCTX);
           return -1;
         }
       } while (!feof(pSList->pFile));
     }
     break;
   default:
-    snprintf(pcError, ERRBUF_SIZE, "%s: Input Type = [%d]: Invalid Type.", cRoutine, iInputType);
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Input Type = [%d]: Invalid Type.", acRoutine, iInputType);
+    SocketCleanup(psSocketCTX);
     return -1;
     break;
   }
@@ -2076,16 +2076,16 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
    *
    *********************************************************************
    */
-  memset(cSockData, 0, HTTP_IO_BUFSIZE);
+  memset(acSockData, 0, HTTP_IO_BUFSIZE);
 
-  iNRead = HTTPReadHeader(psockCTX, cSockData, HTTP_IO_BUFSIZE - 1, cLocalError);
+  iNRead = HTTPReadHeader(psSocketCTX, acSockData, HTTP_IO_BUFSIZE - 1, acLocalError);
   if (iNRead == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    SocketCleanup(psSocketCTX);
     return -1;
   }
-  cSockData[iNRead] = 0;
+  acSockData[iNRead] = 0;
 
   /*-
    *********************************************************************
@@ -2094,11 +2094,11 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
    *
    *********************************************************************
    */
-  iError = HTTPParseHeader(cSockData, iNRead, psResponseHeader, cLocalError);
+  iError = HTTPParseHeader(acSockData, iNRead, psResponseHeader, acLocalError);
   if (iError != 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    SocketCleanup(psSocketCTX);
     return -1;
   }
 
@@ -2111,7 +2111,7 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
    */
   if (psResponseHeader->iStatusCode < 200 || psResponseHeader->iStatusCode > 299)
   {
-    SocketCleanup(psockCTX);
+    SocketCleanup(psSocketCTX);
     return 0;
   }
 
@@ -2126,8 +2126,8 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
    */
   if (!psResponseHeader->iContentLengthFound)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: The server's response did not include a Content-Length.", cRoutine);
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: The server's response did not include a Content-Length.", acRoutine);
+    SocketCleanup(psSocketCTX);
     return -1;
   }
 
@@ -2138,10 +2138,10 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
    *
    *********************************************************************
    */
-  if (ptURL->ui32DownloadLimit != 0 && psResponseHeader->ui32ContentLength > ptURL->ui32DownloadLimit)
+  if (psURL->ui32DownloadLimit != 0 && psResponseHeader->ui32ContentLength > psURL->ui32DownloadLimit)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds defined download limit.", cRoutine, psResponseHeader->ui32ContentLength, ptURL->ui32DownloadLimit);
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds defined download limit.", acRoutine, psResponseHeader->ui32ContentLength, psURL->ui32DownloadLimit);
+    SocketCleanup(psSocketCTX);
     return -1;
   }
 
@@ -2158,25 +2158,25 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
     iError = 0;
     break;
   case HTTP_MEMORY_OUTPUT:
-    iError = HTTPReadDataIntoMemory(psockCTX, (char **) &pOutput, psResponseHeader->ui32ContentLength, cLocalError);
+    iError = HTTPReadDataIntoMemory(psSocketCTX, (char **) &pOutput, psResponseHeader->ui32ContentLength, acLocalError);
     break;
   case HTTP_STREAM_OUTPUT:
-    iError = HTTPReadDataIntoStream(psockCTX, (FILE *) pOutput, psResponseHeader->ui32ContentLength, cLocalError);
+    iError = HTTPReadDataIntoStream(psSocketCTX, (FILE *) pOutput, psResponseHeader->ui32ContentLength, acLocalError);
     break;
   default:
-    snprintf(pcError, ERRBUF_SIZE, "%s: Output Type = [%d]: Invalid Type.", cRoutine, iOutputType);
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Output Type = [%d]: Invalid Type.", acRoutine, iOutputType);
+    SocketCleanup(psSocketCTX);
     return -1;
     break;
   }
   if (iError == -1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-    SocketCleanup(psockCTX);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    SocketCleanup(psSocketCTX);
     return -1;
   }
 
-  SocketCleanup(psockCTX);
+  SocketCleanup(psSocketCTX);
 
   return 0;
 }
@@ -2192,12 +2192,12 @@ HTTPSubmitRequest(HTTP_URL *ptURL, int iInputType, void *pInput, int iOutputType
 char *
 HTTPUnEscape(char *pcEscaped, int *piUnEscapedLength, char *pcError)
 {
-  const char          cRoutine[] = "HTTPUnEscape()";
-  char               *pc,
-                     *pcUnEscaped;
-  int                 i,
-                      iHexDigit1,
-                      iHexDigit2;
+  const char          acRoutine[] = "HTTPUnEscape()";
+  char               *pc;
+  char               *pcUnEscaped;
+  int                 i;
+  int                 iHexDigit1;
+  int                 iHexDigit2;
 
   /*-
    *********************************************************************
@@ -2209,7 +2209,7 @@ HTTPUnEscape(char *pcEscaped, int *piUnEscapedLength, char *pcError)
   pcUnEscaped = malloc(strlen(pcEscaped));
   if (pcUnEscaped == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
     return NULL;
   }
   pcUnEscaped[0] = 0;
@@ -2222,7 +2222,7 @@ HTTPUnEscape(char *pcEscaped, int *piUnEscapedLength, char *pcError)
       iHexDigit2 = HTTPHexToInt(*(pc + 2));
       if (iHexDigit1 == -1 || iHexDigit2 == -1)
       {
-        snprintf(pcError, ERRBUF_SIZE, "%s: Malformed Hex Value.", cRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: Malformed Hex Value.", acRoutine);
         HTTPFreeData(pcUnEscaped);
         return NULL;
       }

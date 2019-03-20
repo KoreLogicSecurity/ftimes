@@ -1,31 +1,36 @@
 
 1 Overview
 
-  FTimes (a.k.a ftimes) is a system baselining and evidence
-  collection tool.  The primary purpose of FTimes is to gather
-  and/or develop information about specified directories and
-  files in a manner conducive to intrusion analysis.
+  FTimes is a system baselining and evidence collection tool.  The
+  primary purpose of FTimes is to gather and/or develop information
+  about specified directories and files in a manner conducive to
+  intrusion analysis.
 
   This document explains how to build FTimes, configure an Apache
-  web server to handle FTimes requests, and perform basic client-server
+  Web server to handle FTimes requests, and perform basic client-server
   functionality tests.
 
   FTimes is available at: http://ftimes.sourceforge.net
 
-1.1 Table of Contents
+1.1 Revision
+
+  $Id: INSTALL,v 1.7 2002/09/11 00:41:34 mavrik Exp $
+
+1.2 Table of Contents
 
   Section 1 .................... Overview
-  Section 1.1 .................. Table of Contents
-  Section 1.2 .................. Version
-  Section 1.3 .................. Caveats
-  Section 2 .................... FTimes Installation
+  Section 1.1 .................. Revision
+  Section 1.2 .................. Table of Contents
+  Section 1.3 .................. Background
+  Section 1.4 .................. Caveats
+  Section 2 .................... Building FTimes
   Section 2.1 .................. Requirements
   Section 2.2 .................. Unpack the Source Archive
   Section 2.3 .................. Verify Installation of OpenSSL
   Section 2.4 .................. UNIX Build Instructions
   Section 2.4.1 ................ UNIX Build Gotchas
-  Section 2.6 .................. Windows Build Instructions
-  Section 2.6.1 ................ Windows Build Gotchas
+  Section 2.5 .................. Windows NT/2K Build Instructions
+  Section 2.5.1 ................ Windows NT/2K Build Gotchas
   Section 3 .................... Web Server Configuration
   Section 3.1 .................. Requirements
   Section 3.2 .................. CGI Script Setup
@@ -36,94 +41,151 @@
   Section 3.3 .................. Verify Client-Server Connectivity
   Section 3.3.1 ................ Server Configuration
   Section 3.3.2 ................ Client Configuration
-  Section 3.3.3 ................ Test it out
+  Section 3.3.3 ................ Testing it Out
 
-1.2 Version
+1.3 Background
 
-  $Id: INSTALL,v 1.4 2002/01/29 18:37:16 mavrik Exp $
+  FTimes is a system baselining and evidence collection tool.  The
+  primary purpose of FTimes is to gather and/or develop information
+  about specified directories and files in a manner conducive to
+  intrusion analysis.
 
-1.3 Caveats
+  FTimes is a lightweight tool in the sense that it doesn't need
+  to be "installed" on a given system to work on that system, it
+  is small enough to fit on a single floppy, and it provides only
+  a command line interface.
 
-  The system and application commands referenced throughout this
-  document are generally specified using relative paths.  It is
-  your responsibility to ensure that your PATH environment variable
-  is properly configured or to provide full paths when necessary.
+  Preserving records of all activity that occurs during a snapshot
+  is important for intrusion analysis and evidence admissibility.
+  For this reason, FTimes was designed to log four types of
+  information: configuration settings, progress indicators, metrics,
+  and errors.  Output produced by FTimes is delimited text, and
+  therefore, is easily assimilated by a wide variety of existing
+  tools.
 
-2 FTimes Installation
+  FTimes basically implements two general capabilities: file
+  topography and string search.  File topography is the process of
+  mapping key attributes of directories and files on a given file
+  system.  String search is the process of digging through directories
+  and files on a given file system while looking for a specific
+  sequence of bytes.  Respectively, these capabilities are referred
+  to as map mode and dig mode.
+
+  FTimes supports two operating environments: workbench and
+  client-server.  In the workbench environment, the operator uses
+  FTimes to do things such as examine evidence (e.g., a disk image
+  or files from a compromised system), analyze snapshots for change,
+  search for files that have specific attributes, verify file
+  integrity, and so on.  In the client-server environment, the
+  focus shifts from what the operator can do locally to how the
+  operator can efficiently monitor, manage, and aggregate snapshot
+  data for many hosts.  In the client-server environment, the
+  primary goal is to move collected data from the host to a
+  centralized system, known as an Integrity Server, in a secure
+  and authenticated fashion.  An Integrity Server is a hardened
+  system that has been configured to handle FTimes GET, PING, and
+  PUT HTTP/S requests.
+
+  The FTimes distribution contains a script called nph-ftimes.cgi
+  that may be used in conjunction with a Web server to implement
+  a public Integrity Server interface.  Deeper topics such as the
+  construction and internal mechanics of an Integrity Server are
+  not addressed in this document.
+
+1.4 Caveats
+
+  The various programs and scripts referenced throughout this
+  document are generally specified using relative paths.  To avoid
+  potential complications, you can either make sure that your PATH
+  environment variable is configured properly or provide full path
+  information as needed.
+
+2 Building FTimes
 
   This section describes the process for building and installing
   FTimes.
 
 2.1 Requirements
 
-  To build FTimes in a UNIX environment you will need the source
-  code, make, and gcc.  In a Windows environment you will need the
-  source code and Visual Studio.  If you desire SSL support, then
-  you will also need OpenSSL.  OpenSSL is available at
-  http://www.openssl.org.
+  Building FTimes in a UNIX environments requires at least the
+  following tools: make, gcc, and possibly autoconf.  For Windows
+  NT/2K environments Visual Studio is required.  By default, SSL
+  support is enabled in FTimes.  This means that OpenSSL must be
+  be installed and/or available on the build system.
 
 2.2 Unpack the Source Archive
 
   The source archive needs to be unpacked in a suitable location
-  before you can begin the build process.
+  before the build process can commence.  All commands presented
+  in this section attempt to unpack the source archive in the
+  current working directory.
 
   On UNIX platforms this can be accomplished as follows:
 
-      tar zxf <archive>
+    tar -zxvf <archive>
 
   If your version of tar doesn't support the 'z' flag, then try
-  the following:
+  the following command pipeline:
 
-      gunzip -c <archive> | tar xf -
+    gunzip -c <archive> | tar -xvf -
 
-  On Windows platforms you may use WinZip to unpack the archive.
+  On Windows platforms WinZip may be used to unpack the archive.
+  Since the source archive is actually a gzipped tar file, WinZip
+  will ask if you wish to decompress and open it -- answer yes.
+  The command line syntax for WinZip is given here:
+
+    winzip32.exe -min -e <archive>
 
 2.3 Verify Installation of OpenSSL
 
-  To compile FTimes with SSL support, you need OpenSSL.  Refer to
-  the OpenSSL documentation for information on how to install
-  OpenSSL on your system.
+  By default, SSL support is enabled in FTimes.  This means that
+  OpenSSL must be installed and/or available on the build system.
+  The OpenSSL Web site is located at http://www.openssl.org.  Refer
+  to OpenSSL's documentation for details on how to do this.
 
 2.4 UNIX Build Instructions
 
   Typically, the build process is simply a matter of running
   configure and make.  In general, you are not required to specify
-  any arguments when invoking either of these commands.  The most
-  basic build sequence is as follows:
+  any extra options/arguments when invoking either command.  The
+  most basic build sequence is as follows:
 
     ./configure
     make
 
-  The default install directory is /usr/local/integrity.  If you
-  want to install in another location, you may set the prefix flag.
-  For example, if you wanted to install in /usr/local/xyz, run
-  configure as follows:
+  By default, SSL support is enabled.  This means that the configure
+  script will attempt to locate OpenSSL on your system.  If OpenSSL
+  is not found in one of several common locations, the script will
+  abort.  To override this behavior and explicitly specify OpenSSL's
+  location, use the --with-ssl=DIR option.  For example, if your
+  copy of OpenSSL was installed in /usr/local/my_openssl, the build
+  sequence would be as follows:
 
-    ./configure --prefix=/usr/local/xyz
+    ./configure --with-ssl=/usr/local/my_openssl
+    make
 
-  To build FTimes with SSL support, you need OpenSSL.  Refer to
-  the OpenSSL documentation for information on how to build and/or
-  install OpenSSL on your system.  Assuming that OpenSSL was
-  installed in its default location, the build sequence is as
+  To disable SSL support altogether, use the --without-ssl option
+  as follows:
+
+    ./configure --without-ssl
+    make
+
+  FTimes also supports file typing via XMagic and block/character
+  device includes.  If either of these capabilities is desired,
+  pass the appropriate flag to configure (either --enable-xmagic
+  or --enable-devices).
+
+  FTimes' default installation directory is /usr/local/integrity.
+  If you want to install in a different location, set the --prefix
+  configure option.  For example, if you wanted to install in the
+  directory /usr/local/my_ftimes, the build sequence would be as
   follows:
 
-    ./configure --enable-ssl
+    ./configure --prefix=/usr/local/my_ftimes
     make
 
-  FTimes will support file typing via XMagic.  To build FTimes with
-  this support, pass the --enable-xmagic flag to configure.
-
-    ./configure --enable-xmagic
-    make
-
-  Here's an example of how to build a version of FTimes that has
-  SSL and XMagic support and installs in /home/xyz:
-
-    ./configure --enable-ssl --enable-xmagic --prefix=/home/xyz
-    make
-
-  When you are satisfied with the build, you may install FTimes as
-  follows:
+  When the software has been built to your satisfaction, it can be
+  installed with the following command:
 
     make install
 
@@ -131,59 +193,75 @@
 
   When experimenting with different build/configure options, be
   sure to do a "make clean-all" between builds.  This ensures that
-  any intermediate files are removed.  In certain situations, you
-  may encounter build problems if this is not done.
+  any intermediate files are removed.  In certain situations, build
+  problems could arise if this is not done.
 
-2.6 Windows Build Instructions
+2.5 Windows NT/2K Build Instructions
 
-  FTimes has compiled successfully on Windows 98/ME/NT/2K using
-  Microsoft's Visual C++.  The build process is simply a matter of
-  setting up your build environment and running nmake.  The makefile
-  for Windows platforms is named Makefile.vc.
+  FTimes has compiled successfully on Windows NT/2K using Microsoft's
+  Visual Studio.  The build process is simply a matter of setting
+  up a build environment and running nmake.  Windows NT/2K binaries
+  are built using the following Makefile: Makefile.vs.  Note that
+  there is no equivalent configure process for NT/2K builds.
 
-  If you are building FTimes using a command line interface as
-  described below, you may need to set up your build environment
-  using the batch script VCVARS32.BAT.  Usually, this script can
-  be found in the bin directory of the Microsoft Visual Studio
-  distribution.  Once you have located this script, simply execute
-  it within your shell.  Note: a full path may be required.
+  When building FTimes from the command line, you may need to run
+  the batch script VCVARS32.BAT to establish a build environment.
+  One quick test is to check the LIB and INCLUDE variables with:
 
-  Assuming that you do need to run VCVARS32.BAT, the build sequence
-  would be as follows:
+    set LIB
+    set INCLUDE
 
-    cd src
+  If neither of those variables are defined or you are in doubt,
+  run VCVARS32.BAT.  Usually, this script is kept in Visual Studio's
+  bin directory.  Once you have located the script, simply execute
+  it.
+
+  Because SSL support is enabled by default, you need to make sure
+  that the SSL_DIR macro in Makefile.vs has an appropriate value.
+  Basically, Makefile.vs was written with the assumption that your
+  version of OpenSSL was installed in C:\OpenSSL.  Adjust SSL_DIR
+  as necessary, if this is not the case.
+
+  Assuming that 1) you do need to run VCVARS32.BAT and 2) the
+  OpenSSL libraries and header files are installed in C:\OpenSSL,
+  the build sequence would be as follows:
+
     VCVARS32.BAT
+    nmake -f Makefile.vs
 
-  followed by one of the following:
+  If you don't want SSL support, set the USE_SSL macro to 'N'.
+  This can be done from the command line as follows:
 
-    nmake -f Makefile.vc PLATFORM=FTimes_WIN98
+    nmake -f Makefile.vs USE_SSL=N
 
-  or
+  If you want to turn on debugging, set the BUILD_TYPE macro to
+  'DEBUG'.  This can be done from the command line as follows:
 
-    nmake -f Makefile.vc PLATFORM=FTimes_WINNT
+    nmake -f Makefile.vs BUILD_TYPE=DEBUG
 
-  Compiling with SSL requires two OpenSSL libraries, namely,
-  libeay32.lib and ssleay32.lib.  You will also need the corresponding
-  DLL files.  Inspect the values for SSL_LIBS and SSL_DLLS in
-  Makefile.vc to ensure that they are correct for your system.
+  FTimes also supports file typing via XMagic.  To enable this
+  capability, set the USE_XMAGIC macro to 'Y'.
 
-  Compiling with SSL also requires the OpenSSL include files to be
-  present on your system.  If you built OpenSSL, then there should
-  be a directory named openssl that contains these files.  You can
-  either edit Makefile.vc to reflect the location of this
-  directory or copy the entire directory to the include directory
-  for your compiler.
+  The various macros described in this section may be combined in
+  any given build.  For example, to build a debug release without
+  SSL support, invoke nmake as follows:
 
-  When that's all set up, you may compile with SSL support by
-  specifying USE_SSL=1 as follows:
+    nmake -f Makefile.vs BUILD_TYPE=DEBUG USE_SSL=N
 
-    nmake -f Makefile.vc PLATFORM=FTimes_WINNT USE_SSL=1
+  When the software has been built to your satisfaction, it can be
+  installed with the following command:
 
-  To compile with XMagic support, specify USE_MAGIC=1 as follows:
+    nmake -f Makefile.vs install
 
-    nmake -f Makefile.vc PLATFORM=FTimes_WINNT USE_SSL=1
+  FTimes' default installation directory is C:\Integrity.  If you
+  want to install in a different location, adjust the FTIMES_DIR
+  macro as appropriate -- either in the makefile or on the command
+  line.  For example, to install FTimes in the 'Program Files'
+  directory, invoke nmake as follows:
 
-2.6.1 Windows Build Gotchas
+    nmake -f Makefile.vs install FTIMES_DIR="C:\Program Files\FTimes"
+
+2.5.1 Windows NT/2K Build Gotchas
 
   You may have trouble compiling with nmake if your environment
   settings aren't correct.  When this happens, try running the
@@ -191,20 +269,17 @@
   fails, try creating a Visual Studio project and import the source
   code.
 
-  If you plan to experiment with different build options (i.e. SSL
-  and/or XMagic support), then you should execute the appropriate
-  command listed below before rebuilding.
+  When experimenting with different build options (e.g. BUILD_TYPE,
+  USE_SSL, etc.), be sure to do a "make clean-all" between builds.
 
-    nmake -f Makefile.vc PLATFORM=FTimes_WIN98 clean-all
-    nmake -f Makefile.vc PLATFORM=FTimes_WINNT clean-all
-    nmake -f Makefile.vc PLATFORM=FTimes_WIN98 USE_SSL=1 clean-all   
-    nmake -f Makefile.vc PLATFORM=FTimes_WINNT USE_SSL=1 clean-all 
-  
-  This will ensure that everything is rebuilt correctly.
+    nmake -f Makefile.vs clean-all
+
+  This will ensure that everything is rebuilt correctly.  In certain
+  situations, build problems could arise if this is not done.
 
 3 Web Server Configuration
 
-  This section describes how to configure an Apache web server
+  This section describes how to configure an Apache Web server
   running on a UNIX platform to handle FTimes requests.  It is
   assumed that Apache is installed and running correctly.
 
@@ -224,19 +299,19 @@
 
 3.1 Requirements
 
-  To configure a UNIX based Apache web server to handle FTimes
+  To configure a UNIX based Apache Web server to handle FTimes
   requests you will need nph-ftimes.cgi, Apache, and Perl.
 
   The name of the FTimes CGI script must begin with the string
   "nph-".  This naming convention, which stands for Non Parsed
-  Headers, informs the web server that the CGI application is
+  Headers, informs the Web server that the CGI application is
   responsible for generating the entire HTTP response.  Non Parsed
   Headers are used by this application because they allow it to
-  take full advantage of HTTP status codes extensions.  This
-  simplifies client-side error checking without giving up the
-  ability to generate application specific responses.
+  take full advantage of HTTP status code extensions.  This simplifies
+  client-side error checking without giving up the ability to
+  generate application specific responses.
 
-  The tree structure depicted below must be created on the web
+  The tree structure depicted below must be created on the Web
   server to support processing of FTimes requests.
 
   integrity
@@ -255,14 +330,14 @@
     |
     - profiles
         |
-        - <clientid1>
+        - <clientid-1>
         |   |
         |   - cfgfiles
         |       |
         |       - dig.cfg
         |       - map.cfg
         |
-        - <clientid2>
+        - <clientid-2>
         - ...
 
   The incoming directory is where uploaded snapshots are stored.
@@ -304,7 +379,7 @@
   to the value "$APACHE_DIR/cgi-ftimes".  Set this variable on your
   system as follows:
 
-  Bourne shell variants: 
+  Bourne shell variants:
 
     export CGI_DIR=$APACHE_DIR/cgi-ftimes
 
@@ -372,7 +447,7 @@
     chmod 755 $CGI_DIR/nph-ftimes.cgi
     chown 0:0 $CGI_DIR/nph-ftimes.cgi
 
-  Verify that your perl interpreter is located at /usr/bin/perl.
+  Verify that your Perl interpreter is located at /usr/bin/perl.
   If this is not the case, modify line one of the script to reflect
   the true location of the interpreter.  Line one of the script
   looks like this:
@@ -409,10 +484,9 @@
   Finally, you need to create the nph-ftimes log file.  This is
   done as follows:
 
-    cd /integrity/logfiles
-    touch nph-ftimes.log
-    chown nobody:0 nph-ftimes.log
-    chmod 644 nph-ftimes.log
+    touch /integrity/logfiles/nph-ftimes.log
+    chown nobody:0 /integrity/logfiles/nph-ftimes.log
+    chmod 644 /integrity/logfiles/nph-ftimes.log
 
   The final configuration objective to establish an access control
   mechanism.
@@ -457,13 +531,13 @@
 
     htpasswd -c $APACHE_DIR/htusers S001_TEST_0001_1
 
-  Set the permissions and owership on this file as follows:
+  Set the permissions and ownership on this file as follows:
 
     chmod 644 $APACHE_DIR/htusers
     chown 0:0 $APACHE_DIR/htusers
 
   Finally, verify that the password file is not accessible to remote
-  web browsers.
+  Web browsers.
 
   Once you have established a working authentication scheme, you
   are ready to begin testing client-server connectivity.
@@ -483,7 +557,7 @@
 3.3.1 Server Configuration
 
   On the server you need to create directories for S001_TEST_0001_1
-  and in insert the following config file as map.cfg.
+  and insert the following config file as map.cfg.
 
   The directories may be created as follows:
 
@@ -533,7 +607,7 @@
   To avoid having to type a long path each time you invoke FTimes,
   you may want to add /usr/local/integrity/bin to your path.
 
-3.3.3 Test it out
+3.3.3 Testing it Out
 
   At this point you are ready to test client-server connectivity.
   Run the following command from the client.  It should produce a

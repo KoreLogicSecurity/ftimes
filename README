@@ -1,26 +1,45 @@
 
-1 Version
+1 Overview
 
-  $Id: README,v 1.2 2002/01/29 18:35:59 mavrik Exp $
-
-2 General
-
-  FTimes (a.k.a ftimes) is a system baselining and evidence
-  collection tool.  The primary purpose of FTimes is to gather
-  and/or develop information about specified directories and
-  files in a manner conducive to intrusion analysis.
+  FTimes is a system baselining and evidence collection tool.  The
+  primary purpose of FTimes is to gather and/or develop information
+  about specified directories and files in a manner conducive to
+  intrusion analysis.
 
   FTimes is available at: http://ftimes.sourceforge.net
 
-3 Documentation
+1.1 Revision
+
+  $Id: README,v 1.4 2002/09/11 00:41:34 mavrik Exp $
+
+1.2 Table of Contents
+
+  Section 1 .................... Overview
+  Section 1.1 .................. Revision
+  Section 1.2 .................. Table of Contents
+  Section 2 .................... Documentation
+  Section 3 .................... License
+
+2 Documentation
 
   General documentation is located in the doc directory.  This is
-  where the man page, ftimes.html, lives.  The INSTALL file, located
-  in the project's root directory, explains how to build FTimes,
-  configure an Apache web server to handle FTimes requests, and
-  perform basic client-server functionality tests.
+  where the man page lives -- i.e. ftimes.html.  The INSTALL file,
+  located in the project's root directory, explains how to build
+  FTimes, configure an Apache Web server to handle FTimes requests,
+  and perform basic client-server functionality tests.
 
-4 License
+  The paper, "System Baselining -- A Forensic Perspective", defines
+  baselining terminology, explains the mechanics of baselining,
+  compares and contrasts different baselining techniques, and
+  describes FTimes.  It also explores some of the criteria that
+  evidence collection tools and techniques must satisfy if they
+  are going to support prosecutions.  In closing, it presents a
+  pair of war stories that are typical of the times.  This paper,
+  written in LaTeX, is called baselining.tex and is located in
+  doc/baselining.  A PDF version of the same is available at:
+  http://ftimes.sourceforge.net/FTimes/Papers.shtml
+
+3 License
 
   The terms and conditions under which this software is released
   are set forth in the project's LICENSE file.

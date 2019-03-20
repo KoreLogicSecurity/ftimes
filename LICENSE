@@ -5,18 +5,18 @@
   ("Project").  Unless specifically excluded, all files in the
   Project fall under the terms and conditions of the new BSD license.
 
-1.1 Table of Contents
+1.1 Revision
+
+  $Id: LICENSE,v 1.2 2002/09/11 00:41:34 mavrik Exp $
+
+1.2 Table of Contents
 
   Section 1 .................... Overview
-  Section 1.1 .................. Table of Contents
-  Section 1.2 .................. Version
+  Section 1.1 .................. Revision
+  Section 1.2 .................. Table of Contents
   Section 2 .................... The New BSD License
   Section 3 .................... The Apache License
   Section 4 .................... The MIT License
-
-1.2 Version
-
-  $Id: LICENSE,v 1.1.1.1 2002/01/18 03:16:22 mavrik Exp $
 
 2 The New BSD License
 

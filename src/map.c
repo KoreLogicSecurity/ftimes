@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: map.c,v 1.7 2002/01/29 15:20:06 mavrik Exp $
+ * $Id: map.c,v 1.8 2002/09/09 05:38:58 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -1669,7 +1669,11 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
 #endif
     MapTree(psProperties, pcPath, iFSType, sFTFileData.ucFileMD5, cLocalError);
   }
+#ifdef ENABLE_BLK_CHR_DEVICE_INCLUDES
+  else if (S_ISREG(sFTFileData.statEntry.st_mode) || S_ISBLK(sFTFileData.statEntry.st_mode) || S_ISCHR(sFTFileData.statEntry.st_mode))
+#else
   else if (S_ISREG(sFTFileData.statEntry.st_mode))
+#endif
   {
     giFiles++;
     if (psProperties->iLastAnalysisStage > 0)

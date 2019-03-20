@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.2 2002/01/18 15:54:07 mavrik Exp $
+# $Id: Makefile.in,v 1.4 2002/08/21 18:28:13 mavrik Exp $
 #
 ########################################################################
 #
@@ -17,42 +17,51 @@
 
 prefix			= @prefix@
 exec_prefix		= @exec_prefix@
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
 
 INSTALL			= @INSTALL@
-RM			= rm -f
-
 SUBS			=\
 			cgi\
 			doc\
 			etc\
 			src
+CONFIGURE_FILES		=\
+			Makefile\
+			config.cache\
+			config.log\
+			config.status
 
 all:
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $$i '>>>'; cd $$cwd/$$i; make $@; done
+	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make $@; echo '<<<' $${i} '>>> Status=Done'; done
 
 install:
 	umask 22; if [ ! -d ${prefix} ]; then mkdir ${prefix}; fi
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $$i '>>>'; cd $$cwd/$$i; make $@; done
+	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make $@; echo '<<<' $${i} '>>> Status=Done'; done
 
 clean:
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $$i '>>>'; cd $$cwd/$$i; make $@; done
+	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make $@; echo '<<<' $${i} '>>> Status=Done'; done
 
-clean-all: clean-auto
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $$i '>>>'; cd $$cwd/$$i; make $@; done
+clean-all:
+	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make $@; echo '<<<' $${i} '>>> Status=Done'; done
+	rm -f ${CONFIGURE_FILES}
 
-clean-auto:
-	${RM} config.cache config.status config.log Makefile
+auto:
+	@if [ "${srcdir}" != `echo "@""srcdir""@"` ]; then\
+		echo "";\
+		echo "ERROR: The 'auto' target is for release building, and is not VPATH";\
+		echo "       aware. To exercise this target, get into the project's root";\
+		echo "       directory and run: 'make -f Makefile.in auto'";\
+		echo "";\
+		exit 1;\
+	fi
+	autoconf; autoheader --localdir=src configure.in > src/config.h.in
 
-dist-clean: clean-auto
-	${RM} configure
-	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $$i '>>>'; cd $$cwd/$$i; make $@; done
-
-auto: configure.in Makefile.in src/Makefile.in
-	autoconf
-	autoheader --localdir=src configure.in > src/config.h.in
+atar: ctar dtar
 
 ctar:
 	@cwd=`pwd`; dir=`basename $$cwd`; tar -C ../ -zcf "../$$dir-current.tgz" $$dir
 
 dtar:
 	@cwd=`pwd`; dir=`basename $$cwd`; ts=`date "+%Y-%m-%d"`; tar -C ../ -zcf "../$$dir-$$ts.tgz" $$dir
+

@@ -14,7 +14,7 @@ by a colon and the target path (e.g., "c:\temp").  For UNIX file
 systems this control value must begin with a "/" (e.g., "/tmp").
 
 Note: You should take care not to include file systems that reside
-remote shares as B<FTimes> may attempt to map them.  To prevent
+on remote shares as B<FTimes> may attempt to map them.  To prevent
 this from happening, you can either exclude the remote file system
 or disable B<MapRemoteFiles>.
 

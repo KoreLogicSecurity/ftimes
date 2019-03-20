@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: md5.c,v 1.1.1.1 2002/01/18 03:17:44 mavrik Exp $
+ * $Id: md5.c,v 1.2 2002/09/18 18:05:24 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -11,7 +11,7 @@
  ***********************************************************************
  */
 
-#include "md5.h"
+#include "all-includes.h" /* Use <stdio.h> and "md5.h" if not available. */
 
 int 
 md5_file(FILE *fp, unsigned char *message_digest)
@@ -75,7 +75,7 @@ md5_begin(struct hash_block *x)
 }
 
 void 
-md5_middle(struct hash_block *x, unsigned char *text, unsigned long len)
+md5_middle(struct hash_block *x, unsigned char *text, MD5_UINT32 len)
 {
   unsigned char      *tmp_ptr;
   int                 n;
@@ -196,7 +196,7 @@ md5_end(struct hash_block *x, unsigned char *message_digest)
 #define H(X,Y,Z) ((X)^(Y)^(Z))
 #define I(X,Y,Z) ((Y)^((X)|(~(Z))))
 
-#define CIRC_LSHIFT(x,n) (((x)<<(n))|(((unsigned long)(x))>>(32-(n))))
+#define CIRC_LSHIFT(x,n) (((x)<<(n))|(((MD5_UINT32)(x))>>(32-(n))))
 
 #define FF(a,b,c,d,M,s,t) { (a)+=F(b,c,d)+(M)+(t); a=(b)+CIRC_LSHIFT((a),s); }
 #define GG(a,b,c,d,M,s,t) { (a)+=G(b,c,d)+(M)+(t); a=(b)+CIRC_LSHIFT((a),s); }
@@ -206,12 +206,12 @@ md5_end(struct hash_block *x, unsigned char *message_digest)
 void 
 md5_main_loop(struct hash_block *x, unsigned char *text)
 {
-  unsigned long       a,
-                      b,
-                      c,
-                      d;
-  unsigned long       M[16],
-                     *Mptr;
+  MD5_UINT32          a;
+  MD5_UINT32          b;
+  MD5_UINT32          c;
+  MD5_UINT32          d;
+  MD5_UINT32          M[16];
+  MD5_UINT32         *Mptr;
   int                 i;
 
   Mptr = M;

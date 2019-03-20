@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.2 2002/01/29 14:58:04 mavrik Exp $
+ * $Id: fsinfo.c,v 1.5 2002/09/20 22:17:46 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -35,7 +35,9 @@ char                FSType[][FSINFO_MAX_STRING] =
   "AIX",
   "JFS",
   "NFS3",
-  "FFS"
+  "FFS",
+  "REISER",
+  "HFS"
 };
 
 
@@ -125,6 +127,9 @@ GetFileSystemType(char *pcPath, char *pcError)
     case NFS_SUPER_MAGIC:
       return FSTYPE_NFS;
       break;
+    case REISERFS_SUPER_MAGIC:
+      return FSTYPE_REISER;
+      break;
     default:
       snprintf(pcError, ERRBUF_SIZE, "%s: FileSystem = [0x%lx]: Unsupported file system.", cRoutine, (long) statFS.f_type);
       return FSTYPE_UNSUPPORTED;
@@ -135,11 +140,11 @@ GetFileSystemType(char *pcPath, char *pcError)
 #endif /* FTimes_LINUX */
 
 
-#if defined(FTimes_SOLARIS) || defined(FTimes_BSD)
+#if defined(FTimes_SOLARIS) || defined(FTimes_BSD) || defined(FTimes_MACOS)
 /*-
  ***********************************************************************
  *
- * GetFileSystemType (BSD or SOLARIS)
+ * GetFileSystemType (SOLARIS, BSD, and MACOS)
  *
  ***********************************************************************
  */
@@ -214,6 +219,12 @@ GetFileSystemType(char *pcPath, char *pcError)
     {
       return FSTYPE_FFS;
     }
+#ifdef FTimes_MACOS
+    else if (strstr(cFSName, "HFS") != NULL)
+    {
+      return FSTYPE_HFS;
+    }
+#endif
     else
     {
       snprintf(pcError, ERRBUF_SIZE, "%s: FileSystem = [%s]: Unsupported file system.", cRoutine, cFSName);
@@ -221,7 +232,7 @@ GetFileSystemType(char *pcPath, char *pcError)
     }
   }
 }
-#endif /* FTimes_BSD || FTimes_SOLARIS */
+#endif /* FTimes_SOLARIS || FTimes_BSD || FTimes_MACOS */
 #endif /* FTimes_UNIX */
 
 

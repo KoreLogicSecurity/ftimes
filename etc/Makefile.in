@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.2 2002/01/18 15:54:07 mavrik Exp $
+# $Id: Makefile.in,v 1.3 2002/05/20 18:54:37 mavrik Exp $
 #
 ########################################################################
 #
@@ -18,15 +18,15 @@
 prefix			= @prefix@
 exec_prefix		= @exec_prefix@
 etcdir			= @etcdir@
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
 
 INSTALL			= @INSTALL@
-
 SRC_FILES		=\
 			dig.cfg\
 			get.cfg\
 			map.cfg\
 			put.cfg
-
 DST_FILES		=\
 			${etcdir}/dig.cfg\
 			${etcdir}/get.cfg\
@@ -37,16 +37,15 @@ all: ${SRC_FILES}
 
 install: ${DST_FILES}
 	umask 22; if [ ! -d ${etcdir} ]; then mkdir ${etcdir}; fi
-	for i in ${SRC_FILES}; do ${INSTALL} -m 644 $$i ${etcdir}; done
+	for i in ${SRC_FILES}; do\
+		if test -f ${srcdir}/$$i; then file=${srcdir}/$$i; else file=$$i; fi;\
+		${INSTALL} -m 644 $$file ${etcdir};\
+	done
 
 clean:
 
-clean-auto: clean
+clean-all: clean
 	rm -f Makefile
-
-clean-all: clean-auto
-
-dist-clean: clean-all
 
 ${DST_FILES}: ${SRC_FILES}
 

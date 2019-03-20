@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.2 2002/01/18 15:54:07 mavrik Exp $
+# $Id: Makefile.in,v 1.3 2002/05/20 18:54:37 mavrik Exp $
 #
 ########################################################################
 #
@@ -18,27 +18,26 @@
 prefix			= @prefix@
 exec_prefix		= @exec_prefix@
 cgidir			= @cgidir@
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
 
 INSTALL			= @INSTALL@
-RM			= rm -f
-
 SRC_FILES		= nph-ftimes.cgi
-
 DST_FILES		= ${cgidir}/nph-ftimes.cgi
 
 all:
 
 install: ${DST_FILES}
 	umask 22; if [ ! -d ${cgidir} ]; then mkdir ${cgidir}; fi
-	for i in ${SRC_FILES}; do ${INSTALL} -m 755 $$i ${cgidir}; done
+	for i in ${SRC_FILES}; do\
+		if [ -f ${srcdir}/$$i ]; then file=${srcdir}/$$i; else file=$$i; fi;\
+		${INSTALL} -m 755 $$file ${cgidir};\
+	done
 
 clean:
 
-clean-all: clean clean-auto
-
-clean-auto:
-	${RM} Makefile
-
-dist-clean: clean-all
+clean-all: clean
+	rm -f Makefile
 
 ${DST_FILES}: ${SRC_FILES}
+

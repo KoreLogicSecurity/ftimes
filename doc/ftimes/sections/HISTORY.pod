@@ -7,7 +7,7 @@ B<Times>.  This was because its primary purpose was to collect
 timestamp information from systems suspected of having been
 compromised.
 
-The first version of B<FTimes> was written in the Spring of 1999
+The first version of B<FTimes> was written in the Spring of 1998
 to support a forensic examination of a compromised system.  At that
 time, B<FTimes> was primarily a workbench tool for the forensic
 practitioner.  As time passed, its audience expanded to include
@@ -16,7 +16,7 @@ tools to monitor the integrity of their systems.  Eventually, it
 became a core component in Exodus' Content Integrity Monitoring
 Service (CIMS).
 
-In the Fall of 2001, Exodus Communication, Inc. approved my request
+In the Fall of 2001, Exodus Communications, Inc. approved my request
 to make B<FTimes> Open Source.  At that time version two was very
 stable, but I was in the throws of creating version three which
 was a major restructuring of the code base.  Consequently, I decided
@@ -38,11 +38,11 @@ The original design objectives for B<FTimes> were to build a tool that:
 
 =item *
 
-does one thing extremely well,
+does one thing extremely well (i.e. collect file attributes),
 
 =item *
 
-utilizes a simple yet effective algorithm that can be applied equally well to different operating systems,
+utilizes a simple, effective, and well understood algorithm that can be applied equally well to different operating systems,
 
 =item *
 
@@ -58,7 +58,7 @@ is accurate, efficient, and minimally invasive,
 
 =item *
 
-doesn't need to be installed on the target system,
+doesn't need to be "installed" on a given system to work on that system,
 
 =item *
 

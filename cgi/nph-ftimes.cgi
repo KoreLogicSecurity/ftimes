@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 ######################################################################
 #
-# $Id: nph-ftimes.cgi,v 1.1.1.1 2002/01/18 03:16:35 mavrik Exp $
+# $Id: nph-ftimes.cgi,v 1.6 2002/04/09 16:04:28 mavrik Exp $
 #
 ######################################################################
 #
@@ -21,17 +21,19 @@ use strict;
   my %returnCodes =
   (
     '200' => "OK",
-    '250' => "Ping Received",
+    '250' => "Ping Received", # ftimes only
     '251' => "LinkTest Succeeded",
-    '252' => "Upload Succeeded, Relay Failed",
+    '252' => "Upload Succeeded, Relay Failed", # ftimes only
     '405' => "Method Not Allowed",
     '450' => "Invalid Query",
     '451' => "File Already Exists",
-    '452' => "Undefined Username",
+    '452' => "Username Undefined",
     '453' => "Username-ClientId Mismatch",
-    '454' => "Content-Length Mismatch",
-    '455' => "File Not Available",
-    '460' => "RequiredMask-FieldMask Mismatch",
+    '454' => "Content-Length Undefined",
+    '455' => "Content-Length Exceeds Limit",
+    '456' => "Content-Length Mismatch",
+    '457' => "File Not Available",
+    '460' => "RequiredMask-FieldMask Mismatch", # ftimes only
     '500' => "Internal Server Error",
     '550' => "Insufficient Access"
   );
@@ -52,21 +54,19 @@ use strict;
   #
   #####################################################################
 
-  my ($baseDirectory, $ftimes, $importFile);
+  my ($baseDirectory);
 
   if ($^O =~ /MSWin32/i)
-  { 
+  {
     $baseDirectory    = "c:/inetpub/wwwroot/integrity";
-    $ftimes           = "c:/integrity/bin/ftimes.exe";
     binmode(STDIN);
     close(STDERR);
   }
   else
-  { 
+  {
     $baseDirectory    = "/integrity";
-    $ftimes           = "/usr/local/integrity/bin/ftimes";
     umask 022;
-  } 
+  }
 
 #######################################################################
 #
@@ -76,25 +76,12 @@ use strict;
 
   #####################################################################
   #
-  # The import variable is used to reference an external file from
-  # the configuration file that is constructed during a PUT request.
-  # This is useful in situations where snapshots need to be relayed
-  # to another server at some later point. If the variable is not
-  # defined, no Import directive is added to the config file. If the
-  # variable is set, its value should be a full path.
-  #
-  #####################################################################
-
-  my $importFile      = undef;
-
-  #####################################################################
-  #
   # The dig and map variables specify the name of config files that
   # will be served when clients issue GET requests. These files are
   # expected to exist in $baseDirectory/profiles/$clientId/cfgfiles.
   #
   #####################################################################
- 
+
   my $digFile         = "dig.cfg";
   my $mapFile         = "map.cfg";
 
@@ -105,7 +92,7 @@ use strict;
   # REMOTE_USER when authentication is enabled.
   #
   #####################################################################
- 
+
   my $requireUser     = 1; # 0 = disabled, 1 = enabled
 
   #####################################################################
@@ -115,8 +102,18 @@ use strict;
   # users may issue requests on behalf of a given client.
   #
   #####################################################################
- 
+
   my $requireMatch    = 1; # 0 = disabled, 1 = enabled
+
+  #####################################################################
+  #
+  # The enforce limit variable forces the program to abort whenever
+  # $contentLength is greater than $maxLength.
+  #
+  #####################################################################
+
+  my $enforceLimit    = 0; # 0 = disabled, 1 = enabled
+  my $maxLength       = 50000000; # 50 MB
 
   #####################################################################
   #
@@ -126,7 +123,7 @@ use strict;
   # query string variable.
   #
   #####################################################################
- 
+
   my $requireMask     = 1; # 0 = disabled, 1 = enabled
   my $requiredMask    = "";
   my $requiredMapMask = "all-magic";
@@ -137,7 +134,7 @@ use strict;
   # The following regex variables are used to validate query strings.
   #
   #####################################################################
- 
+
   my $reVersion       = "VERSION=(.+)";
   my $reClientId      = "&CLIENTID=([A-Z]\\d{3}_[A-Z]{4}_\\d{4}_\\d{1})";
   my $reRequest       = "&REQUEST=(MapConfig|DigConfig)";
@@ -197,6 +194,38 @@ use strict;
 
   ####################################################################
   #
+  # Make sure that a content length has been defined.
+  #
+  ####################################################################
+
+  my $contentLength = $ENV{'CONTENT_LENGTH'};
+
+  if (!defined $contentLength || !length($contentLength))
+  {
+    $returnCode = '454';
+    $context = undef;
+    $explanation = $returnCodes{$returnCode};
+    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
+    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
+  }
+
+  ####################################################################
+  #
+  # Check that the content length is within the limit, if required.
+  #
+  ####################################################################
+
+  if ($enforceLimit && $contentLength > $maxLength)
+  {
+    $returnCode = '455';
+    $context = "Length=$contentLength Limit=$maxLength";
+    $explanation = $returnCodes{$returnCode};
+    LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
+    ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
+  }
+
+  ####################################################################
+  #
   # Make sure that the required dig/map masks pass a syntax check.
   #
   ####################################################################
@@ -226,6 +255,7 @@ use strict;
   ####################################################################
 
   my $dropZone = $baseDirectory . "/incoming";
+
   if (!-d $dropZone)
   {
     $returnCode = '500';
@@ -234,6 +264,7 @@ use strict;
     LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
     ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
   }
+
   if (!-W $dropZone)
   {
     $returnCode = '550';
@@ -250,6 +281,7 @@ use strict;
   ####################################################################
 
   my $profiles = $baseDirectory . "/profiles";
+
   if (!-d $profiles)
   {
     $returnCode = '500';
@@ -257,9 +289,10 @@ use strict;
     $explanation = $!;
     LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
     ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
-  } 
+  }
+
   if (!-R $profiles)
-  { 
+  {
     $returnCode = '550';
     $context = "Profiles=$profiles";
     $explanation = "Read access is required for this object";
@@ -269,7 +302,7 @@ use strict;
 
   ####################################################################
   #
-  # Preprocess the query string.
+  # Preprocess the query string (i.e. unencode it).
   #
   ####################################################################
 
@@ -279,7 +312,7 @@ use strict;
 
   ####################################################################
   #
-  # If this is a GET request, the client wants a config file.
+  # GET Request -- Determine what was requested, and serve it up.
   #
   ####################################################################
 
@@ -306,13 +339,11 @@ use strict;
 
       if (-e $getFile)
       {
-        my $size = -s $getFile;
         if (open(FILE, "$getFile"))
         {
-          $byteCount = $size;
+          $byteCount = -s $getFile;
           $returnCode = '200';
-#FIXME Handle ReturnContent() failures.
-          ReturnContent(\*FILE, $size, $returnCode, $returnCodes{$returnCode});
+          ReturnContent(\*FILE, $byteCount, $returnCode, $returnCodes{$returnCode});
           $context = "File=$getFile";
           $explanation = $returnCodes{$returnCode};
           LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
@@ -331,7 +362,7 @@ use strict;
       }
       else
       {
-        $returnCode = '455';
+        $returnCode = '457';
         $context = "File=$getFile";
         $explanation = $returnCodes{$returnCode};
         LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
@@ -341,7 +372,7 @@ use strict;
     else
     {
       $returnCode = '450';
-      $context = "QueryString=" . $ENV{'QUERY_STRING'};
+      $context = "QueryString=" . $ENV{'QUERY_STRING'}; # Extract actual value from ENV.
       $explanation = $returnCodes{$returnCode};
       LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
       ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
@@ -350,8 +381,7 @@ use strict;
 
   ####################################################################
   #
-  # If this is a PING request, check the client's output mask, return
-  # a response, and quit.
+  # PING Request -- Check the client's mask, and respond to the ping.
   #
   ####################################################################
 
@@ -399,12 +429,11 @@ use strict;
       $explanation = $returnCodes{$returnCode};
       LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
       ReturnSuccess($logHandle, $returnCode, $returnCodes{$returnCode});
-      Finish($logHandle);
     }
     else
     {
       $returnCode = '450';
-      $context = "QueryString=" . $ENV{'QUERY_STRING'};
+      $context = "QueryString=" . $ENV{'QUERY_STRING'}; # Extract actual value from ENV.
       $explanation = $returnCodes{$returnCode};
       LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
       ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
@@ -413,9 +442,7 @@ use strict;
 
   ####################################################################
   #
-  # If this is a PUT request, read the data and store it directly
-  # to disk. It's someone else's job to parse it. Our job is to
-  # be efficient.
+  # PUT Request -- Write the uploaded data directly to disk.
   #
   ####################################################################
 
@@ -456,7 +483,7 @@ use strict;
         $requiredMask = ($dataType =~ /^map$/i) ? $requiredMapMask : $requiredDigMask;
         if (!CompareMasks($requiredMask, $fieldMask))
         {
-          ReadAndChuckData($ENV{'CONTENT_LENGTH'}); # prevents a broken pipe
+          ReadAndChuckData($contentLength); # prevents a broken pipe
           $returnCode = '460';
           $context = "DataType=$dataType FieldMask=$fieldMask RequiredMask=$requiredMask";
           $explanation = $returnCodes{$returnCode};
@@ -473,13 +500,12 @@ use strict;
 
       if ($runType eq "linktest")
       {
-        ReadAndChuckData($ENV{'CONTENT_LENGTH'}); # prevents a broken pipe
+        ReadAndChuckData($contentLength); # prevents a broken pipe
         $returnCode = '251';
         $context = undef;
         $explanation = $returnCodes{$returnCode};
         LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
         ReturnSuccess($logHandle, $returnCode, $returnCodes{$returnCode});
-        Finish($logHandle);
       }
 
       ##############################################################
@@ -501,7 +527,7 @@ use strict;
 
       if (-e $logFile)
       {
-        ReadAndChuckData($ENV{'CONTENT_LENGTH'}); # prevents a broken pipe
+        ReadAndChuckData($contentLength); # prevents a broken pipe
         $returnCode = '451';
         $context = "File=$logFile";
         $explanation = $returnCodes{$returnCode};
@@ -511,7 +537,7 @@ use strict;
 
       if (-e $outFile)
       {
-        ReadAndChuckData($ENV{'CONTENT_LENGTH'}); # prevents a broken pipe
+        ReadAndChuckData($contentLength); # prevents a broken pipe
         $returnCode = '451';
         $context = "File=$outFile";
         $explanation = $returnCodes{$returnCode};
@@ -521,7 +547,7 @@ use strict;
 
       if (-e $cfgFile)
       {
-        ReadAndChuckData($ENV{'CONTENT_LENGTH'}); # prevents a broken pipe
+        ReadAndChuckData($contentLength); # prevents a broken pipe
         $returnCode = '451';
         $context = "File=$cfgFile";
         $explanation = $returnCodes{$returnCode};
@@ -531,13 +557,21 @@ use strict;
 
       if (-e $rdyFile)
       {
-        ReadAndChuckData($ENV{'CONTENT_LENGTH'}); # prevents a broken pipe
+        ReadAndChuckData($contentLength); # prevents a broken pipe
         $returnCode = '451';
         $context = "File=$rdyFile";
         $explanation = $returnCodes{$returnCode};
         LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
         ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
       }
+
+      ##############################################################
+      #
+      # Initialize the read byte count.
+      #
+      ##############################################################
+
+      $byteCount = 0;
 
       ##############################################################
       #
@@ -548,7 +582,7 @@ use strict;
 
       if (!open(FILE, ">$logFile"))
       {
-        ReadAndChuckData($ENV{'CONTENT_LENGTH'}); # prevents a broken pipe
+        ReadAndChuckData($contentLength); # prevents a broken pipe
         $returnCode = '500';
         $context = "File=$logFile";
         $explanation = $!;
@@ -557,18 +591,17 @@ use strict;
       }
 
       binmode(FILE);
-      $byteCount = 0;
-      my $n = ReadAndWriteData(\*FILE, $logLength);
+      my $nLog = ReadAndWriteData(\*FILE, $logLength);
       close(FILE);
-      if ($n != $logLength)
+      if ($nLog != $logLength)
       {
-        $returnCode = '454';
-        $context = "File=$logFile NRead=$n Length=$logLength";
+        $returnCode = '456';
+        $context = "File=$logFile NRead=$nLog Length=$logLength";
         $explanation = $returnCodes{$returnCode};
         LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
         ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
       }
-      $byteCount += $n;
+      $byteCount += $nLog;
 
       ##############################################################
       #
@@ -579,7 +612,7 @@ use strict;
 
       if (!open(FILE, ">$outFile"))
       {
-        ReadAndChuckData($ENV{'CONTENT_LENGTH'}); # prevents a broken pipe
+        ReadAndChuckData($contentLength); # prevents a broken pipe
         $returnCode = '500';
         $context = "File=$outFile";
         $explanation = $!;
@@ -588,17 +621,17 @@ use strict;
       }
 
       binmode(FILE);
-      my $n = ReadAndWriteData(\*FILE, $outLength);
+      my $nOut = ReadAndWriteData(\*FILE, $outLength);
       close(FILE);
-      if ($n != $outLength)
+      if ($nOut != $outLength)
       {
-        $returnCode = '454';
-        $context = "File=$outFile NRead=$n Length=$outLength";
+        $returnCode = '456';
+        $context = "File=$outFile NRead=$nOut Length=$outLength";
         $explanation = $returnCodes{$returnCode};
         LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
         ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
       }
-      $byteCount += $n;
+      $byteCount += $nOut;
 
       ##############################################################
       #
@@ -633,13 +666,8 @@ use strict;
       print FILE "DateTime=$dateTime\n";
       print FILE "FieldMask=$fieldMask\n";
       print FILE "RunType=$runType\n";
-      if (defined $importFile)
-      {
-        print FILE "#\n";
-        print FILE "Import=$importFile\n";
-      }
       print FILE "#\n";
-      close(FILE); 
+      close(FILE);
 
       ##############################################################
       #
@@ -658,7 +686,7 @@ use strict;
         ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
       }
       print FILE "+";
-      close(FILE); 
+      close(FILE);
 
       ####################################################################
       #
@@ -671,12 +699,11 @@ use strict;
       $explanation = $returnCodes{$returnCode};
       LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
       ReturnSuccess($logHandle, $returnCode, $returnCodes{$returnCode});
-      Finish($logHandle);
     }
     else
     {
       $returnCode = '450';
-      $context = "QueryString=" . $ENV{'QUERY_STRING'};
+      $context = "QueryString=" . $ENV{'QUERY_STRING'}; # Extract actual value from ENV.
       $explanation = $returnCodes{$returnCode};
       LogMessage($logHandle, $username, $cgiRemote, $cgiMethod, $cgiRequest, $byteCount, $startTime, $returnCode, $context, $explanation);
       ReturnFailure($logHandle, $returnCode, $returnCodes{$returnCode});
@@ -685,7 +712,7 @@ use strict;
 
   ####################################################################
   #
-  # Any other methods are not allowed.
+  # Unsupported Request -- Return an error.
   #
   ####################################################################
 
@@ -723,18 +750,18 @@ sub Finish
 
 sub ReadAndWriteData
 {
-  my ($fileHandle, $toread) = @_;
-  my ($nread, $byteCount);
+  my ($fileHandle, $toRead) = @_;
+  my ($nRead, $nWritten);
 
-  $nread = $byteCount = 0;
-  while($toread)
+  $nRead = $nWritten = 0;
+  while($toRead)
   {
-    my $buf = ""; 
-    $nread = sysread(STDIN, $buf, $toread);
-    $byteCount += syswrite($fileHandle, $buf, $nread);
-    $toread -= $nread;
+    my $data = "";
+    $nRead = sysread(STDIN, $data, $toRead);
+    $nWritten += syswrite($fileHandle, $data, $nRead);
+    $toRead -= $nRead;
   }
-  return $byteCount;
+  return $nWritten;
 }
 
 
@@ -746,14 +773,14 @@ sub ReadAndWriteData
 
 sub ReadAndChuckData
 {
-  my ($toread) = @_;
+  my ($toRead) = @_;
 
-  while($toread)
+  while($toRead)
   {
-    my $buf = ""; 
-    $toread -= sysread(STDIN, $buf, $toread);
+    my $data = "";
+    $toRead -= sysread(STDIN, $data, $toRead);
   }
-  return $toread;
+  return $toRead;
 }
 
 
@@ -771,9 +798,7 @@ sub ReturnFailure
   print "Content-Type: text/plain\r\n";
   print "Content-Length: 0\r\n";
   print "\r\n";
-
   Finish($fileHandle);
-
   1;
 }
 
@@ -792,9 +817,7 @@ sub ReturnSuccess
   print "Content-Type: text/plain\r\n";
   print "Content-Length: 0\r\n";
   print "\r\n";
-
   Finish($fileHandle);
-
   1;
 }
 
@@ -807,11 +830,11 @@ sub ReturnSuccess
 
 sub ReturnContent
 {
-  my ($fileHandle, $size, $statusCode, $reasonPhrase) = @_;
+  my ($fileHandle, $contentLength, $statusCode, $reasonPhrase) = @_;
   print "HTTP/1.1 $statusCode $reasonPhrase\r\n";
   print "Server: $ENV{'SERVER_SOFTWARE'}\r\n";
-  print "Content-Type: text/plain\r\n";
-  print "Content-Length: $size\r\n";
+  print "Content-Type: application/octet-stream\r\n";
+  print "Content-Length: $contentLength\r\n";
   print "\r\n";
   while (<$fileHandle>)
   {

@@ -1,0 +1,110 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% $Id: baselining.sty,v 1.4 2002/06/12 14:07:46 mavrik Exp $
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% General Packages
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage[pdftex,dvipsnames]{color}
+\RequirePackage{colortbl}
+\RequirePackage{palatino}
+\RequirePackage{supertabular}
+\RequirePackage{xspace}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% General Settings
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\parindent=1em
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Screen/Print Layout
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage[print, panelright, chocolate, paneltoc, sectionbreak]{pdfscreen}
+
+\begin{screen}
+  \margins{.65in}{.65in}{.25in}{.75in}
+  \screensize{6.25in}{8in}
+  \def\pfill{\vskip6pt}
+  \headheight=1.1em
+  \headsep=1em
+  \footskip=2em
+  \IfFileExists{FTimes-Scroll-250x127-deb887.jpg}{\emblema{FTimes-Scroll-250x127-deb887.jpg}}{}
+  \panelhomepagename{FTimes Website}
+  \urlid{ftimes.sourceforge.net}
+  \definecolor{buttonbackground}{rgb}{.933,.933,.933}
+  \definecolor{buttonshadow}{rgb}{.500,.500,.500}
+  \definecolor{website_bgcolor}{rgb}{.941,.941,.753}
+  \backgroundcolor{website_bgcolor}
+\end{screen}
+
+\begin{print}
+  \oddsidemargin=0pt
+  \evensidemargin=0pt
+  \textwidth=6.5in
+  \topmargin=0pt
+  \textheight=8.2in
+\end{print}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Macros
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\def\Draft
+{
+  \rhead{D R A F T}
+}
+
+\def\GetMonth#1
+{
+  \ifcase#1
+        \or
+    Jan\ \or
+    Feb\ \or
+    Mar\ \or
+    Apr\ \or
+    May\ \or
+    Jun\ \or
+    Jul\ \or
+    Aug\ \or
+    Sep\ \or
+    Oct\ \or
+    Nov\ \or
+    Dec\ 
+  \fi
+}
+
+\def\ParseCVSDate #1: #2/#3/#4 #5 #6 ;
+{
+  \def\CVSDateString{Last modified on \GetMonth{#3} #4, #2 #5}
+}
+
+\def\ParseCVSRevision #1: #2 #3 ;
+{
+  \def\CVSRevisionString{Revision #2}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Order Dependent Settings
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage{fancyheadings}
+\pagestyle{fancy}
+\rhead{}
+\lhead{}
+\rfoot{}
+

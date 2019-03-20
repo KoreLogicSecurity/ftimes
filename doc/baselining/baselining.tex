@@ -1,0 +1,1203 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% $Id: baselining.tex,v 1.2 2002/06/11 21:07:25 mavrik Exp $
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[10pt]{article}
+\def\VersionString{Version 1.2}
+\RequirePackage{baselining}
+\ParseCVSRevision $Revision: 1.2 $ ;
+\ParseCVSDate $Date: 2002/06/11 21:07:25 $ ;
+%\Draft
+
+\title{\Large\bf System Baselining -- A Forensic Perspective}
+\author{Klayton Monroe and Dave Bailey\thanks{Exodus, a Cable \& Wireless Service. Authors' addresses: klm@ir.exodus.net, Dave.Bailey@exodus.net}}
+\date{\VersionString\thanks{\CVSRevisionString, \CVSDateString}}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+
+In the analysis of a compromised system, it is important to identify
+what has been compromised, recover as much useful state information
+as possible, and restore the system to a usable, but less vulnerable
+state.  The purpose of this paper is to demonstrate the utility of
+system baselining as a technique that supports these goals.
+
+From a forensic point of view, the ability to detect change correctly
+and consistently is a top priority.  When computers are accessed
+in an unauthorized manner, the state of various file objects will
+change.  This change can manifest itself in various ways -- slow
+system response, additional daemons in the process table, lost or
+damaged data, et cetera.  Unfortunately, without the tools and
+techniques to detect and evaluate such change, systems could operate
+for quite some time, perhaps indefinitely, without exceeding
+operational limits generally considered to be abnormal.
+
+Using tools and techniques that are ``court worthy'' will get the
+job done without ruling out the possibility of pursuing legal
+remedies.  FTimes -- a system baselining and evidence collection
+tool -- addresses these specific problems and goals and is well-suited
+to handle the types of applications and environments incident
+handler's are likely to encounter.
+
+\end{abstract}
+
+\section{Introduction}
+
+Incident response handlers are faced with responding to incidents
+whenever and wherever they may arise.  In enterprise environments
+decision makers, administrators, and response handlers may all be
+in different locations and time-zones, and they may all be remote
+from the equipment.  This problem is often complicated by an
+unwillingness, on the part of the victim, to vacate the premises
+while it is, in effect, burning down.  Forensic examination of
+systems usually requires that system operation be stopped and
+disassembled so that system disks can be imaged.  Victims are often
+unwilling to shut the system down for any reason, and will seldom
+be amenable to disassembly.
+
+Even worse, the client is frequently indecisive about the course
+of action to take: pursue the perpetrators and prosecute, or clean
+up, patch, and move on.  In many cases, the client does not have
+adequately trained staff on-site who could assist with the initial
+response effort.
+
+To combat this problem, practitioners need high quality, lightweight,
+easy to use tools and techniques.  It is important to quickly
+identify what has been compromised, to recover as much useful state
+information as possible, and to restore the system to a usable,
+but less vulnerable state.  One extremely useful technique in this
+situation is to create a ``system baseline.'' The baseline provides
+a snapshot of the state of the system at the time the incident
+response begins.  In some cases, the baseline may be sufficient to
+determine what occurred and to direct the response effort.
+
+Since the victim may not initially be able to decide whether to
+pursue attackers through prosecution, it is incumbent on responders
+to begin as though prosecution was desired.  Later, legal remedies
+may be abandoned, and some unnecessary work will have been done.
+However, if the response is not initiated in a way that supports
+prosecution, it is unlikely that such a decision could be taken at
+a later time -- generally, poor handling of evidence would no longer
+support prosecution.
+
+This paper defines baselining terminology, explains the mechanics
+of baselining, compares and contrasts different baselining techniques,
+and describes FTimes -- a system baselining and evidence collection
+tool.  The paper also explores some of the criteria that evidence
+collection tools and techniques must satisfy if they are going to
+support prosecutions.  In closing, it presents a pair of war stories
+that are typical of the times.
+
+\section{Background}
+
+This section introduces and defines baselining terminology, describes
+and discusses critical baselining factors, explains the mechanics
+of baselining, and states baselining objectives from administrative
+and forensic perspectives.
+
+\subsection{Terminology}
+
+A {\it baseline} is a set of critical observations or data used
+for comparison \cite{dictionary}.  A {\it snapshot} is an impression
+or view of something transitory \cite{dictionary}.  In the context
+of file integrity, a snapshot refers to a set of critical observations
+(i.e. file attributes) taken at a particular point in time from
+one or more file objects stored on a given system.  When a particular
+snapshot is used as the reference in change analysis it is called
+a baseline.  In other words, a baseline is a particular, designated
+snapshot.  The baseline is usually, but not necessarily, the first
+snapshot taken.  This paper defines {\it change analysis} as the
+process of comparing a snapshot to a baseline.  {\it Baselining},
+in this context, is the process of taking a snapshot and subsequently
+designating it as the baseline.  A {\it message digest} is a
+cryptographic hash computed over a given block of data such as a
+file's content.  The term {\it subject} will be used, throughout
+this paper, to describe some aspect of the system being baselined
+or examined.
+
+\subsection{Critical Baselining Factors}
+
+There are four critical factors involved in baselining: provenance,
+perspective, acuity, and integrity.
+
+\subsubsection{Provenance}
+
+{\it Provenance} is the history of ownership of a valued object or
+work of art or literature \cite{dictionary}.  It is also defined as
+the origin or source of an object.  Provenance plays an important
+role in change analysis.  One of the major advantages of baselining
+is that a file can be summarized by its attributes.  If these
+attributes provide enough detail about a given file, then changes
+to that file can usually be detected by comparing snapshot data to
+corresponding baseline data.  In particular, if a file's content
+changes, one may conclude with near certainty that the file's
+hash has changed.  However, one can conclude nothing about the
+nature of this change unless the new hash represents a well-known
+value.  In other words, a hash is useless for characterizing file
+content unless it is bound to a known file object.  This is because
+it is computationally infeasible to reconstruct a file's content
+from its hash.  In the absence of such a binding, the practitioner
+must inspect a file's content and make a determination as to its
+type and purpose.
+
+One way to validate the provenance of a given file object is to
+compare its hash to a previously recorded and known-good hash for
+that object.  If there is no previously recorded hash, one
+may\footnote{This, of course, depends on how distributions are
+packaged -- individual files may need to be uncompressed, decrypted,
+or dynamically created during an installation.} be able to use hashes
+computed from the original distribution media to validate provenance.
+However, it would not be prudent to assume that distributions are
+sacred; they can be compromised too, and this should be kept in
+mind when conducting post mortem analysis.
+
+If provenance can't be validated by hash comparisons, it can, in
+some cases, be asserted.  This is done by manually inspecting a
+given file.  Once the file has been fully characterized, its hash
+may be computed, and the two (i.e. file object and hash) may be
+bound together for future reference.
+
+\subsubsection{Perspective}
+
+{\it Perspective} is the capacity to view things in their true
+relations or relative importance \cite{dictionary}.  Baselining
+tools must run in or be able to create an environment that maintains
+perspective.  Without this, a tool can only see what it is allowed
+to see.  In other words, it can only see part of the necessary
+context.  An attacker with sufficient privilege may decide to
+construct an environment that artificially alters perspective.
+Baselining tools that run in such an environment produce results
+that can not, in general, be trusted.  Perspective can be artificially
+altered by modifying application code, libraries, or system calls.
+In some cases, the same result can be achieved by manipulating
+relevant application or system data.
+
+A good example of an environment that artificially alters perspective
+would be a compromised system where a rootkit has been installed.
+``A rootkit is a collection of tools an intruder brings along to
+a victim computer after gaining initial access.  A rootkit generally
+contains network sniffers, log-cleaning scripts, and trojaned
+replacements of core system utilities such as \texttt{ps},
+\texttt{netstat}, \texttt{ifconfig}, and \texttt{killall}.  Although
+the intruders still need to break into a victim system before they
+can install their rootkits, the ease-of-use and the amount of
+destruction they cause make rootkits a big threat for system
+administrators. \ldots\ Arguably the most severe threat to system
+security that can be caused by a rootkit comes from those that
+deploy LKM (Loadable Kernel Module) trojans.  Loadable Kernel Modules
+are a mechanism for adding functionality to an operating-system
+kernel on the fly -- without requiring a kernel recompilation
+\cite{rootkit}.''
+
+\subsubsection{Acuity}
+
+{\it Acuity} is keenness of perception \cite{dictionary}.  In other
+words, it is the relative ability of a tool to resolve detail.
+Without good acuity, baselining tools effectively have impaired
+vision -- they can only see what they were built to see.  If the
+condition is bad enough, be assured that attackers will take
+advantage of the situation.
+
+For example, in Microsoft's NTFS (New Technology File System) a
+file object is implemented as a series of streams.  By default,
+file content is stored in the object's unnamed stream.  However,
+a user can choose to create and store data in an alternate or named
+stream.  One problem with this is that programs like \texttt{dir}
+and \texttt{explorer} have no mechanism to enumerate alternate
+streams.  Consequently, such streams remain hidden to the observer.
+Even worse, the WIN32 API, itself, does not provide an adequate
+mechanism to enumerate alternate streams.  Tool designers who want
+this level of acuity must either use the
+Backup\{Read$\mid$Seek$\mid$Write\} routines or drop down a level,
+to the Native API, and use the undocumented NtQueryInformationFile
+routine.
+
+Perfect acuity is realized only when the designers of tools fully
+understand and can obtain necessary and sufficient access to the
+underlying mechanics of the system technology they are trying to
+interrogate.
+
+\subsubsection{Integrity}
+
+{\it Integrity} is an unimpaired condition or the quality or state
+of being complete or undivided \cite{dictionary}.  In other words,
+it's the state of being uncorrupted, complete and sound.  The
+integrity of the baselining tool, its input, and its output must
+be protected throughout the baselining process, and, if possible,
+indefinitely.  In any case, the baseline's integrity must remain
+steadfast throughout its lifespan if one expects to assert that
+future change analysis will yield accurate, reliable, and consistent
+results.
+
+Two general types of attacks that can be used to compromise the
+integrity of a baselining tool and/or its data are on-disk and
+memory resident modification.  On-disk modification of the tool/data
+could be accomplished by replacing it or applying a patch (i.e.
+through modification to a portion of the tool/data).  Memory resident
+modification could be accomplished by manipulating memory buffers
+either while they are in memory or swap space.
+
+\subsection{Baselining Objectives}
+
+In our forensic practice, we approach baselining from two perspectives:
+forensic and administrative.  The ultimate goal of a forensic
+process is to reconstruct, as accurately as possible, those events
+that led to change.  The administrative process, on the other hand,
+is more concerned with the problem of automatically detecting,
+reporting, and possibly correcting change for a large number of
+host systems.
+
+\subsubsection{Forensic Objective}
+
+The forensic objective of baselining is to record an accurate
+snapshot while minimizing or eliminating perturbation to the subject
+system.  Primary concerns are preservation of evidence, integrity,
+correctness, completeness, error reporting, consistency, and
+ease-of-use.  Time and automation considerations are important,
+but not priorities.  One of the forensic practitioner's priorities
+is to build a case based on evidence that stands up to cross
+examination in court.  It may be the case that such evidence never
+makes its way to court, but adopting evidence collection and analysis
+processes that are ``court worthy'' is a good practice because it
+creates a firm foundation that is defensible.
+
+\subsubsection{Administrative Objective}
+
+The administrative objective of baselining is to record an accurate
+snapshot while minimizing the administrative effort involved.
+Primary concerns are time involved, automation, scalability, built-in
+analysis, correctness, and ease-of-use.  The administrator wants
+problems to be detected and corrected automatically.  Administrators
+also want intelligent alerting and solid logging facilities.  In
+other words, ``don't bother me unless there is a serious problem,
+but when that happens, give me access to a log trail that contains
+as much as possible.''
+
+\subsection{Baselining Mechanics}
+
+The processes for creating a baseline and subsequently detecting
+change can be summarized as follows:
+
+\begin{enumerate}
+
+  \item
+  Define the set of attributes that are relevant to the type of
+  change you wish to detect.  Then, develop or obtain a minimally
+  invasive tool with good acuity that systematically traverses
+  specified directories and files and collects or derives the chosen
+  attributes.
+
+  \item
+  Choose a perspective that supports your baselining objective(s),
+  and baseline the subject using the tool developed or obtained in
+  step one.  Archive the results in a manner that maintains provenance
+  and preserves integrity.
+
+  \item
+  At some point in the future, create a snapshot by repeating step
+  two; determine change by comparing the snapshot to the baseline.
+
+  \item
+  Periodically repeat step three reverting, instead, to step two
+  whenever a new baseline is desired.
+
+%klmb
+%  \item
+%  Define the set of attributes that are relevant to the type of
+%  change you are attempting to detect.
+%
+%  \item
+%  Develop or obtain a minimally invasive tool with good acuity that
+%  systematically traverses specified directories and files and
+%  collects or derives the various attributes defined in step one.
+%
+%  \item
+%  Choose a perspective that supports your baselining objective(s),
+%  and create a baseline of the subject system using the technique
+%  defined in step two.
+%
+%  \item
+%  Archive the results in a manner that maintains provenance and
+%  preserves integrity.
+%
+%  \item
+%  At some point in the future, create a snapshot by repeating steps
+%  three and four.
+%
+%  \item
+%  Determine change by comparing the snapshot to the baseline.
+%klme
+
+\end{enumerate}
+
+\section{Baselining Techniques}
+
+This section describes four different techniques for baselining a
+system: Alternate Platform, Alternate Operating System, Single-User-Mode,
+and Multi-User-Mode.  These techniques are ordered from a forensic
+point of view according to their ability to maintain perspective
+and integrity.  For each technique, we point out the advantages
+and disadvantages of its approach.  In the end, the practitioner
+must determine, on a case-by-case basis, which technique to use
+based on available resources, time constraints, and operational
+limitations.
+
+\subsection{Alternate Platform}
+
+The safest way to create a baseline, from a forensic point of view,
+is to utilize a dedicated, stand-alone computer that has been
+configured specifically to mount and scan disks extracted from
+subject systems (i.e. a baselining system).  However, the process
+of extracting subject disks may not be easy or practical, and it
+can be fraught with technical problems that, if not handled correctly,
+could result in irreparable damage.
+
+  \textbf{Advantages}
+
+\begin{enumerate}
+
+  \item
+  This technique is completely independent of the subject system.
+  This provides the necessary out-of-band perspective to analyze
+  the extracted disks.
+
+  \item 
+  This technique can effectively access all files contained within
+  subject file systems because the baselining tool runs outside
+  the context of the subject operating system.  A baselining tool
+  that operates within the context of a running operating system
+  can't always access all files maintained by that system due to
+  kernel or other locking mechanisms.  This can be true even if
+  the baselining tool runs with full system privileges.
+
+  \item
+  If properly protected, the integrity of the baselining tool and
+  the data it collects will be guaranteed.
+
+  \item
+  The baselining system can mount subject file systems with software
+  read-only access.  Older SCSI disks may even have a physical
+  jumper that can be set to enforce hardware read-only access.
+
+\end{enumerate}
+
+  \textbf{Disadvantages}
+
+\begin{enumerate}
+
+  \item
+  The practitioner must supply, maintain, and control access to
+  the dedicated hardware/software resources that constitute the
+  baselining system.
+
+  \item 
+  This technique is time consuming, and it requires human interaction
+  and physical access to all systems involved.
+
+  \item
+  The subject operating system must be taken off-line.  Down time
+  could last minutes to hours.
+
+  \item
+  The subject system may need to be disassembled to extract its
+  disks.  This increases the risk of irreparable damage.  Also,
+  the practitioner must have a working knowledge of the various
+  hardware components that may be encountered.
+
+\end{enumerate}
+
+\subsection{Alternate Operating System}
+
+Another relatively safe way to create a baseline is to boot the
+subject system into an alternate operating system that can access
+and scan subject file systems.  To minimize perturbation, the
+practitioner should not write output to subject media.  If possible,
+subject file systems should be mounted with software read-only
+access.
+
+  \textbf{Advantages}
+
+\begin{enumerate}
+
+  \item
+  This technique is completely independent of the subject operating
+  system.  This provides an out-of-band perspective to analyze the
+  system's disks.  However, if the system's hardware/firmware has
+  been compromised, perspective could be at risk.
+
+  \item
+  This technique can effectively access all files contained within
+  subject file systems because the baselining tool runs outside
+  the context of the subject operating system.
+
+  \item
+  If properly protected, the integrity of the baselining tool and
+  the data it collects will be guaranteed provided that the system's
+  hardware/firmware has not been compromised.
+
+  \item
+  The baselining operating system can mount subject file systems
+  with software read-only access.
+
+  \item
+  Baseline output may be directed to one of several different types
+  of media such as parallel/serial/usb port, network, attached
+  SCSI, PCMCIA, et cetera.  This gives the practitioner more ways
+  to overcome operational limitations (e.g., no external SCSI port).
+
+\end{enumerate}
+
+  \textbf{Disadvantages}
+
+\begin{enumerate}
+
+  \item
+  The practitioner must supply, maintain, and control access to
+  the dedicated hardware/software resources that perform this
+  function.  This is complicated by the fact that each subject
+  system encountered may have unique characteristics that require
+  different hardware/software resources and support.
+
+  \item
+  This technique is time consuming, and it generally requires human
+  interaction and physical access to the subject system.
+
+  \item
+  The subject operating system must be taken off-line.  Down time
+  could last minutes to hours.
+
+  \item
+  The practitioner must have detailed knowledge of the boot process
+  for each subject system that is to be baselined -- today many
+  systems support multiple boot devices and various boot options.
+
+  \item
+  The alternate operating system must provide driver support for
+  the various subject file systems that may be encountered.
+
+  \item
+  If the alternate and subject operating systems coexist, then it
+  may be possible, from the context of the subject operating system,
+  to corrupt the baselining tool or its data either prior to or
+  after taking a snapshot.
+
+\end{enumerate}
+
+\subsection{Single-User-Mode}
+
+The third technique for creating a baseline is to bring the subject
+system into single-user-mode.  In this state there should be a
+minimal number of system processes running, networked shares should
+not be mounted, normal users should not be able to access the
+system, and it should be possible to re-mount some or all subject
+file systems with read-only access.  Unfortunately, not all systems
+support single-user-mode (e.g., Windows NT/2K), so this technique
+does not apply universally.
+
+One major issue that must be considered with this technique is
+where output will be written.  If possible, output should be written
+to external media that has been attached specifically for this
+purpose.  In some cases, it may turn out that the only practical
+place to store output is on a subject file system.  In forensic
+scenarios, this is less desirable because it implies that potential
+evidence will be overwritten in the process.  Baselines taken under
+these conditions still have value, but the practitioner must weigh
+the anticipated benefits and risks prior to taking action.
+
+  \textbf{Advantages}
+
+\begin{enumerate}
+
+  \item
+  This technique provides a restricted access environment for
+  creating a baseline.
+
+  \item
+  This technique can effectively access most to all files contained
+  within subject file systems.  Because the baselining tool runs
+  within the context of the subject operating system, it may lack
+  the necessary privileges to access all file objects.
+
+  \item
+  In many cases, subject file systems may be re-mounted with
+  read-only access.  This provides additional protection against
+  system perturbation.
+
+\end{enumerate}
+
+  \textbf{Disadvantages}
+
+\begin{enumerate}
+
+  \item
+  This technique is completely dependent on the subject system.
+  Therefore, the baselining tool is forced to operate with an
+  in-band perspective.  This implies that output may not be complete
+  or trustworthy.
+
+  \item
+  This technique is time consuming, and it generally requires human
+  interaction and physical access to the subject system.
+
+  \item
+  The practitioner may be required to store output on a subject
+  file system.  This increases the likelihood that other potential
+  evidence is lost, and it exposes baseline data to attack.
+
+  \item
+  The subject system must drop into single-user-mode which effectively
+  means the system will be unavailable.  Down time could last
+  minutes to hours.
+
+  \item
+  The executable used to generate the baseline is at risk to
+  subversion in two forms: in memory during execution and on disk
+  before execution.  On disk modification can be mitigated by
+  running the executable from read-only media (e.g., CDROM).  The
+  likelihood of in memory modification is reduced, but not eliminated,
+  by the fact that the system is in Single-User-Mode.
+
+\end{enumerate}
+
+\subsection{Multi-User-Mode}
+
+The final method of creating a baseline is to do it under normal
+system operation.  In this state it may or may not be possible to
+re-mount subject file systems with read-only access.  Issues
+regarding where output will be written must be considered here just
+as they were in the Single-User-Mode case.  From the forensic
+perspective, this technique is the least sound of all the techniques,
+yet because of time or operational constraints, it may be the only
+viable technique.
+
+  \textbf{Advantages}
+
+\begin{enumerate}
+
+  \item
+  This technique could be effected without physical access to the
+  subject system provided that remote access already exists.
+
+  \item
+  This technique can effectively access most to all files contained
+  within subject file systems.  Because the baselining tool runs
+  within the context of the subject operating system, it may lack
+  the necessary privileges to access all file objects.
+
+\end{enumerate}
+
+  \textbf{Disadvantages}
+
+\begin{enumerate}
+
+  \item
+  This technique is completely dependent on the subject system.
+  Therefore, the baselining tool is forced to operate with an
+  in-band perspective.  This implies that output may not be complete
+  or trustworthy.
+
+  \item
+  Resulting output must either be stored on the system being
+  baselined or to a network resource.  In both cases the data's
+  integrity is at risk.  Use of encryption can reduce this risk,
+  but may not be able to eliminate it.
+
+  \item
+  It is unlikely that any or all of the subject file systems can
+  be re-mounted with software read-only access.  Even if a file
+  system could be re-mounted this way, it may not be practical to
+  do so for operational reasons.
+
+  \item
+  The executable used to generate the baseline is at risk to
+  subversion in two forms: in memory during execution and on disk
+  before execution.  On disk modification can be mitigated by
+  running the executable from read-only media (e.g., CDROM).
+
+  \item
+  The system is available to users and normal processing continues.
+  This may result in incomplete, inconsistent, or incorrect results.
+  Evidence may be altered or destroyed before it can be collected.
+
+\end{enumerate}
+
+\section{FTimes}
+
+This section discusses FTimes (File Topography and Integrity
+Monitoring on an Enterprise Scale), a system baselining and evidence
+collection tool written to improve the practitioner's ability to
+conduct incident response and post mortem analysis.  In particular,
+this section will address the motivating factors that led to the
+tool's development, provide a basic overview of the tool and its
+capabilities, explain how it works and under what conditions it
+satisfies each of the critical baselining factors.
+
+\subsection{Motivation}
+
+When conducting incident response, one quickly realizes that
+time and spatial constraints are two major factors that degrade
+the overall effectiveness of the response.  To combat these factors,
+response handlers need tools that are simple to use and can be
+deployed safely and securely in remote environments.  These tools
+need to be so simple that any green administrator could correctly initiate
+diagnostic or evidence collection procedures with minimal coaching.
+They also need to provide a mechanism to safely and securely transmit
+the results of diagnostic/evidence collection procedures to a
+location of the handler's choosing.
+
+One important objective in all of this is to build tools that can
+be used to support prosecutions.  In order to sustain a procedure
+in a court, it must be possible to demonstrate the tool's scientific
+basis.  This is necessary to satisfy the court's responsibility as
+the ``gatekeeper'' for admissible evidence established by the US
+Supreme Court in the {\it Daubert} decision.\footnote{Daubert v.
+Merrell Dow Pharmaceuticals, Inc., 509 U.S. 579, 589, 1993.} {\it
+Daubert} was a case involving scientific investigation, and it was
+later asserted that the decision did not apply in situations
+involving technology.  However, the Supreme Court affirmed in {\it
+Kumho Tire}\footnote{Kumho Tire Co. v. Carmichael, 526 US 137,
+1999.} that the same scientific standards apply to technology as
+well as to pure science.  Basically, this means that the scientific
+or technological practitioner must follow the precepts of ``good
+science.'' The techniques should satisfy several questions (see
+Table \ref{tbl:daubert}) including ``whether the theory or technique
+in question can be (and has been) tested, whether it has been
+subjected to peer review and publication, its known or potential
+error rate, and the existence and maintenance of standards controlling
+its operation, and whether it has attracted widespread acceptance
+within a relevant scientific community.''\footnote{Summary of {\it
+Daubert} decision.  Cornell University Legal Information
+Institute.\newline
+\href{http://supct.law.cornell.edu:8080/supct/html/92-102.ZS.html}
+{http://supct.law.cornell.edu:8080/supct/html/92-102.ZS.html}}
+
+\begin{table}[h]
+\begin{center}
+\caption{\bf Daubert Tests\label{tbl:daubert}}\vspace{.2em}
+\begin{tabular}{l}\hline
+  Can the procedure be and has it been been tested? \\
+  Has it been published and subjected to peer review? \\
+  Does it have a known or knowable error rate? \\
+  Has it been accepted by practitioners in the field? \\
+\end{tabular}
+\end{center}
+\end{table}
+
+Consequently, we assert that a system baselining and
+evidence collection tool should have the following characteristics:
+
+\begin{itemize}
+
+  \item
+  easy to use
+
+  \item
+  does one thing extremely well (i.e. collect file attributes)
+
+  \item
+  utilizes a simple, effective, and well understood algorithm that
+  can be applied equally well to different operating systems
+
+  \item
+  generates output that is easily assimilated by a wide variety of
+  existing tools
+
+  \item
+  has built-in logging that is complete, precise, and useful for
+  analysis purposes
+
+  \item
+  is accurate, efficient, and minimally invasive
+
+  \item
+  doesn't need to be installed on the subject system
+
+  \item
+  is small enough to run from floppy even if statically compiled
+
+  \item
+  provides only a command line interface
+
+\end{itemize}
+
+It was precisely these factors and characteristics that led
+to the creation and ongoing development of FTimes.
+
+\subsection{Overview}
+
+The primary purpose of FTimes is to gather and/or develop information
+about specified directories and files in a manner conducive to
+intrusion analysis.  FTimes was designed to support the following
+initiatives:  content integrity monitoring, incident response,
+intrusion analysis, and computer forensics.
+
+FTimes is a lightweight tool in the sense that it generally doesn't
+need to be installed on the subject system, is small enough to fit
+on a single floppy, and provides only a command line interface.
+
+Preserving records of all activity that occurs during a snapshot
+is important for intrusion analysis and evidence admissibility.
+For this reason, FTimes was designed to log four types of information:
+configuration settings, progress indicators, metrics, and errors.
+Output produced by FTimes is delimited text, and therefore, is
+easily assimilated by a wide variety of existing tools.
+
+FTimes implements two basic capabilities: file topography and string
+search.  File topography is the process of mapping key attributes
+of directories and files on a given file system.  String search is
+the process of digging through directories and files on a given
+file system while looking for specific sequences of bytes.
+Respectively, these capabilities are referred to as mapping and
+digging.
+
+FTimes supports two operating environments: workbench and client-server.
+In the workbench environment, the operator uses FTimes to do things
+such as examine evidence (e.g., a disk image or files from a
+compromised system), analyze snapshots for change, search for files
+that have specific attributes, verify file integrity, and so on.
+In the client-server environment, the focus shifts from what the
+operator can do locally to how the operator can efficiently monitor,
+manage, and aggregate snapshot data for many hosts.  In the
+client-server environment, the primary goal is to move collected
+data from the subject host to a centralized system, known as an
+Integrity Server, in a secure and authenticated fashion.  An
+Integrity Server is a hardened system that has been configured to
+handle FTimes GET, PING, and PUT HTTP/S requests.
+
+\subsection{File Topography}
+
+This section focuses exclusively on how FTimes maps file objects
+-- a process known as file topography.  FTimes supports several
+other modes of operation (e.g., compare, dig, get, put, etc.).
+These modes are peripheral to the subject of system baselining.
+Therefore, they won't be discussed in this paper.  Detailed
+information regarding all modes of operation may be found in the
+FTimes man page documentation \cite{ftimes}.
+
+To create a snapshot, FTimes essentially takes a list of directories
+and files as input, iteratively and/or recursively gathers attributes,
+and returns a set of text records containing one or more delimited
+attributes for each object encountered.  In this context, an object
+is a directory, file, or stream.  Some attributes (e.g., Size,
+ATime, etc.) are simply collected from existing data structures
+while others such as MD5 or Magic are calculated or derived based
+on predetermined algorithms or signatures.
+
+FTimes' mapping facility provides two modes of operation: mapauto
+and mapfull.  The former mode is designed to support ad-hoc but
+fairly narrow applications.  Consequently, it only allows the
+operator to specify a FieldMask (i.e. what attributes to collect)
+and a list of directories and/or files to map.  Its primary benefit
+is that output is written directly to stdout and stderr.  Thus, it
+may be used in scenarios where writing to the subject's local disk
+is out of the question (e.g., during an investigation).  The latter
+mode was designed to provide a rich set of controls that may be
+used to customize runtime behavior.  These controls are managed
+through the use of a configuration file.
+
+Table \ref{tbl:attributes} summarizes those attributes that are
+collected or derived from each file system that FTimes supports.
+An 'X' indicates that a given attribute applies to the corresponding
+file system.  An 'S' indicates that a given attribute may be
+simulated by the host operating system.  In other words, it doesn't
+really exist in the underlying file system but the operating system
+provides a value for it anyway.  The actual name that FTimes uses
+to refer to a given attribute is displayed in parentheses.  File
+system types and attributes are described in appendices A and B
+respectively.
+
+\begin{table}
+\begin{center}
+\caption{\bf File System Attributes Collected by FTimes\label{tbl:attributes}}
+
+\vspace{.5em}
+\begin{tabular}[h]{lcccccc}
+ & EXT\{2$\mid$3\} & FAT & FFS & JFS & NTFS & UFS \\\hline
+   ATime (atime)             & X &  S &  X &  X &  X &  X \\
+   Attributes (attributes)   & . &  X &  . &  . &  X &  . \\
+   CTime (ctime)             & X &  X &  X &  X &  X &  X \\
+   ChTime (chtime)           & . &  S &  . &  . &  X &  . \\
+   Device (dev)              & X &  . &  X &  X &  . &  X \\
+   File Index (findex)       & . &  X &  . &  . &  X &  . \\
+   GID (gid)                 & X &  . &  X &  X &  . &  X \\
+   Inode (inode)             & X &  . &  X &  X &  . &  X \\
+   MD5 (md5)                 & X &  X &  X &  X &  X &  X \\
+   MTime (mtime)             & X &  X &  X &  X &  X &  X \\
+   Magic (magic)             & X &  X &  X &  X &  X &  X \\
+   Mode (mode)               & X &  . &  X &  X &  . &  X \\
+   NLinks (nlinks)           & X &  . &  X &  X &  . &  X \\
+   Name (name)               & X &  X &  X &  X &  X &  X \\
+   RDevice (rdev)            & X &  . &  X &  X &  . &  X \\
+   Size (size)               & X &  X &  X &  X &  X &  X \\
+   Stream Count (altstreams) & . &  . &  . &  . &  X &  . \\
+   Stream MD5 (md5)          & . &  . &  . &  . &  X &  . \\
+   Stream Size (size)        & . &  . &  . &  . &  X &  . \\
+   UID (uid)                 & X &  . &  X &  X &  . &  X \\
+   Volume (volume)           & . &  X &  . &  . &  X &  . \\
+\end{tabular}
+\end{center}
+\end{table}
+
+FTimes collects critical timestamp values before they are altered
+as a side-effect of the baselining process.  This is accomplished, in
+part, by utilizing a depth-first search algorithm on directories.
+Initially, it was thought that FTimes should actively restore
+timestamps as part of the baselining process.  This idea, while it
+seemed like a reasonable approach, was abandoned due to our belief
+that evidence collection tools should not attempt to artificially
+alter system state -- such a capability could cast a shadow of doubt as
+to whether or not the tool is actually collecting or creating
+evidence.
+
+A critical component of FTimes is the ability to accurately calculate
+MD5 digests.  The MD5 algorithm takes an input message of arbitrary
+length and produces a fixed-length, 128-bit fingerprint or message
+digest.  ``It is conjectured that it is computationally infeasible
+to produce two messages having the same message digest, or to
+produce any message having a given prespecified target message
+digest \cite{md5}.''  In other words, an MD5 message digest provides
+a mechanism to verify data integrity.  A corollary to this proposition
+is that when the content of a particular message (e.g., data within
+a file or stream) is changed, its MD5 digest will also change.
+
+\subsection{Relationship to Critical Baselining Factors}
+
+FTimes was designed with provenance, perspective, acuity, and
+integrity in mind.  However, the ability of FTimes to support each
+of these factors depends on the environment in which it runs.  To
+a large extent, that environment is defined by the baselining
+technique employed.
+
+FTimes supports provenance through its ability to calculate and
+analyze MD5 digests.  This task becomes more difficult without a
+known good baseline.  With original distribution media and a spare
+system in hand, constructing and baselining a second system that
+approximates the subject is relatively straight forward.  The
+resultant baseline may then be used to distinguish known good files
+from those that need review.
+
+FTimes, itself, can't create or enforce an environment that maintains
+perspective.  However, perspective can certainly be maintained if
+FTimes is used in conjunction with either the Alternate Platform
+or Alternate Operating System technique.  Thus, FTimes' relationship
+to perspective is the fact that it draws attention to the need for
+perspective.
+
+For the attributes that it collects, FTimes has good acuity.  Great
+care was taken to ensure that the data collected by FTimes is
+complete and accurate.  FTimes does not, however, have perfect
+acuity.  This is due to the fact that not all possible attributes
+for each supported file system are collected.  Originally, this
+came down to a design trade-off between special case complexity
+and maximum portability.
+
+FTimes contains several mechanisms that work to ensure integrity:
+data uploads over HTTPS to include mutual authentication through
+digital certificates, dynamic creation of an output MD5 digest
+(i.e. a hash of the generated output stream), and separation of
+log and data output streams.  Additionally, the Alternate Platform
+and Alternate Operating System techniques may be used to provide
+even greater integrity assurance.
+
+\section{War Stories}
+
+FTimes has been used effectively and with great success in the
+areas of Incident Response (IR) and Integrity Monitoring (IM).
+The stories presented in this section are representative of the
+types of scenarios that are fairly common today.  The first emphasizes
+how FTimes helped an IR team collect and analyze evidence in a
+situation where there were many constraints, including no prior
+system baselines, working against them.  The second emphasizes how
+FTimes, being used in an IM scenario, provided the necessary
+information to quickly recover from a break-in.
+
+\subsection{Uptime at All Costs}
+
+Between January 31 and February 1, 2002, several identical systems
+were compromised.  Administrators initially realized that something
+was wrong due to a failure in a critical application.  Upon
+investigating this failure, administrators determined that several
+system files had changed.  Analysis of the Network Intrusion
+Detection Systems (NIDS) logs revealed evidence of probing activity
+and successful attacks.  Later, it was determined that root access
+was obtained and that rootkits were installed on each system.
+
+These systems were all identical in configuration and mission --
+Solaris 2.6 out-of-the-box installations with third-party software
+that implemented a mission critical function.  Due to deployment
+and support agreement constraints, the IR team was not allowed to
+take systems off-line to image their disks.  The fall-back plan
+was to take a snapshot of one affected system, copy off any
+interesting files, and perform live \texttt{dd}s of as many file
+systems as possible -- all of this activity had to take place within
+the allotted one hour maintenance window.  Unfortunately, it was
+also the case that these systems did not provide \texttt{ssh}/\texttt{scp}
+or floppy access.  Consequently, data and diagnostic tools were
+moved around with the least common denominator (i.e.  \texttt{tftp}
+and \texttt{ftp}).  A statically compiled version of FTimes was
+brought in to take the snapshot.
+
+To make things worse, the client had no prior system baselines.
+Fortunately, the IR team was able to baseline a system that had
+been freshly restored from vender media.  The team felt that the
+chance of this system being tainted was small due to the fact that
+its snapshot was taken shortly after the system was restored.
+
+Change analysis revealed classic evidence of a rootkit (i.e. a
+hidden directory and trojaned system binaries).  Later, the actual
+rootkit was recovered, and it's contents matched those found in
+the hidden directory.  Because the IR team was able to baseline a
+freshly restored system, change analysis yielded a good reduction
+in the amount of by-hand analysis needed to reconstruct the events
+that took place.  The baseline and snapshot contained 20104 and
+21251 records respectively.  Of these records, there were 379
+changed, 92 missing, and 1239 new files.  Further by-hand analysis
+quickly narrowed this list down to 113 entries that were blatantly
+suspicious or unknown.  When it was all said and done, it took
+approximately 10 minutes to map both the victim and restored
+machines.  It took about 3 seconds for FTimes to perform change
+analysis, and the by-hand effort took less than one hour.
+
+\subsection{Just Another Day at the Office}
+
+On January 2, 2001 at 09:31:47 a Linux system was attacked through
+\texttt{rpc.statd} -- a daemon that implements the NSM (Network
+Status Monitor) RPC (Remote Procedure Call) protocol.  The attacker
+gained root access with this attack, and by 09:34:50 two new system
+accounts had been created: cgi (uid=0) and killer (uid=504).  At
+09:35:00 it just so happened that an FTimes' \texttt{cron} job
+began scanning various system critical files.  This particular job
+ran every hour and was configured to upload its data to an Integrity
+Server where it could be protected, archived, and analyzed.
+
+Within 10 minutes an alert email was generated and sent to the
+administrator of the system.  When the administrator saw the message
+in his mailbox, he immediately knew something was up because, under
+normal circumstances, none of the monitored files were supposed to
+change.
+
+The administrator looked at various system log files and consequently
+found evidence of the attack and the two new accounts.  Instead of
+overreacting, he calmly halted the network subsystem, permanently
+disabled the vulnerable daemon, and removed the new system accounts.
+Then, he rebooted the system and ran a full FTimes' scan.  This
+data was also shipped to the Integrity Server.  After reviewing
+the change analysis for the entire system, he was satisfied that
+no additional damage had been done, so he went to breakfast.
+
+\section{Conclusion}
+
+This paper has defined baselining terminology, explained the
+mechanics of baselining, compared and contrasted different baselining
+techniques, and described FTimes -- a system baselining and evidence
+collection tool.  It also explored some of the criteria that evidence
+collection tools and techniques must satisfy if they are going to
+support prosecutions.  In closing, it presented a pair of war
+stories that are typical of the times.
+
+When it comes to incident response and forensic analysis, one
+snapshot is better than none.  Two snapshots are better than one,
+and a complete history of snapshots is nearly ideal.  However, even
+if no baseline exists, one should not rule out the usefulness of
+baselining tools.  A significant amount of information can be
+collected or derived from data collected by such tools even though
+a history of prior snapshots does not exist.
+
+Incident response is fraught with constraints.  Therefore, tool
+designers need to take into account these issues and compensate,
+where possible, in their designs.  Further, tool builders need to
+design their tools with Daubert principles in mind.  Specifically,
+such tools need to have open architectures and utilize open data
+formats so that other practitioners and tool builders may thoroughly
+understand and appreciate their operation.
+
+The design and construction of FTimes was influenced by all the
+considerations presented in this paper.  Thus, it has a strong
+foundation from forensic and incident response perspectives.  The
+fact that it is also ideal for integrity monitoring applications
+is simply a pleasant artifact of its design.
+
+From a forensic perspective, the safest way to baseline systems is
+the Alternate Platform technique.  In practice, however, the
+practitioner is more likely to be faced with the constraint of
+operating in a multi-user-mode environment.  FTimes attempts to
+compensate for this deficiency through its lightweight design.
+Additionally, its ability to use strong authentication and encryption
+for snapshot uploads mitigates the inherent risk involved with
+transmitting sensitive data over untrusted networks.
+
+FTimes can provide useful time and labor saving information during
+an incident response even where no prior information has been
+collected.  When used as a regular part of system monitoring, FTimes
+can also provide warning of unauthorized system access.  By comparing
+the baseline data to known data, the recovery process can also be
+dramatically shortened.  In some cases, a situation that might
+ordinarily require rebuilding the system can be shortened to
+restoration of a few critical files.
+
+\newpage
+\appendix
+\section{File System Descriptions}
+
+\begin{center}
+\begin{supertabular}{lp{4.75in}}
+EXT\{2$\mid$3\}
+&
+Second or Third Extended File System (Linux)
+\\[.5em]
+FAT
+&
+File Allocation Table (98/ME/NT/2K/XP)
+\\[.5em]
+FFS
+&
+Fast File System (FreeBSD)
+\\[.5em]
+JFS
+&
+Journaled File System (AIX)
+\\[.5em]
+NTFS
+&
+New Technology File System (NT/2K/XP)
+\\[.5em]
+UFS
+&
+UNIX File System (Solaris)
+\\[.5em]
+\end{supertabular}
+\end{center}
+
+\section{Attribute Descriptions}
+
+\begin{center}
+\begin{supertabular}{lp{4.75in}}
+ATime
+&
+ATime represents the time of last file access.
+\\[.5em]
+Attributes
+&
+File attributes is a combination of one or more of the following
+values: archive, compressed, directory, hidden, normal, off-line,
+read-only, system, and temporary.
+\\[.5em]
+CTime
+&
+For Microsoft operating systems, CTime represents the time that a
+given file object was created.  For UNIX operating systems, CTime
+represents the time of last status change.  In other words, it's
+the last time that a file's inode or meta data changed.
+\\[.5em]
+ChTime
+&
+The ChTime attribute is specific to NT-based operating systems,
+but remains an undocumented attribute.  In practice, however, it
+appears to be analogous to the UNIX CTime attribute.
+\\[.5em]
+Device
+&
+The Device attribute represents the serial number or ID of a given
+file system.  When used in conjunction with the Inode attribute,
+file objects within that file system are uniquely specified.
+\\[.5em]
+File Index
+&
+The File Index attribute represents a unique ID for each file within
+a given file system.  When used in conjunction with the Volume
+attribute, files within a given file system are uniquely specified.
+\\[.5em]
+GID
+&
+The GID attribute represents the group ID that is bound to a given
+file object.
+\\[.5em]
+Inode
+&
+The Inode attribute represents a unique ID for each file within a
+given file system.  When used in conjunction with the Device
+attribute, files within that file system are uniquely specified.
+\\[.5em]
+MD5
+&
+A cryptographic hash of file's data.  If the file's content
+changes, this attribute will change.
+\\[.5em]
+MTime
+&
+MTime represents the time a file's content was last modified.
+\\[.5em]
+Magic
+&
+The Magic attribute provides an indication as to what type of data
+is stored in a particular file object (e.g., executable, text, jpeg
+image, etc.).
+\\[.5em]
+Mode
+&
+The Mode attribute is a combination of a file's protection (i.e.
+suid, sgid, sticky, and rwx,rwx,rwx) and device type bits (i.e.
+directory, regular file, socket, symbolic link, etc.).
+\\[.5em]
+NLinks
+&
+The NLinks attribute represents the number of hard links for a
+given file object.
+\\[.5em]
+Name
+&
+A fully qualified path.  This attribute provides a descriptive way
+to identify unique files within a system while providing location
+information and hints as to what the file's purpose may be.
+\\[.5em]
+RDevice
+&
+The RDevice attribute contains the major/minor numbers for special
+device files.  Otherwise, it is not defined.
+\\[.5em]
+Size
+&
+The Size attribute represents a file's size in bytes.
+\\[.5em]
+Stream Count
+&
+The Stream Count attribute represents the number of alternate or
+named streams bound to a given file object.
+\\[.5em]
+Stream MD5
+&
+A cryptographic hash of stream's data.  This attribute has the
+same properties as MD5, but on a per stream basis.
+\\[.5em]
+Stream Size
+&
+The Stream Size attribute represents a stream's size in bytes.
+\\[.5em]
+UID
+&
+The UID attribute represents the user ID that is bound to a given
+file object.
+\\[.5em]
+Volume
+&
+The Volume attribute represents the serial number or ID of a given
+disk volume.  When used in conjunction with the File Index attribute,
+files within that Volume are uniquely specified.
+\\[.5em]
+\end{supertabular}
+\end{center}
+
+\section{FTimes Availability}
+
+FTimes is known to run on the following operating systems: AIX, BSDi,
+FreeBSD, Linux, Solaris, and Windows 98/ME/NT/2K/XP.  Source code and
+other project resources are available at \href{http://ftimes.sourceforge.net/}
+{http://ftimes.sourceforge.net/}.
+
+\bibliographystyle{alpha}
+\bibliography{baselining}
+
+\end{document}
