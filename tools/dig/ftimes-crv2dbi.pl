@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-crv2dbi.pl,v 1.22 2012/01/04 03:12:28 mavrik Exp $
+# $Id: ftimes-crv2dbi.pl,v 1.23 2013/02/14 16:55:21 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2006-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2006-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

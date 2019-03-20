@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: error.h,v 1.23 2012/01/04 03:12:28 mavrik Exp $
+ * $Id: error.h,v 1.25 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -100,7 +100,7 @@ int                 ErrorGetFailures(void);
 int                 ErrorGetWipeouts(void);
 void                ErrorHandler(int iError, char *pcError, int iSeverity);
 #ifdef WIN32
-void                ErrorFormatWin32Error(char **ppcMessage);
+void                ErrorFormatWinxError(DWORD dwError, TCHAR **pptcMessage);
 #endif
 
 #endif /* !_ERROR_H_INCLUDED */

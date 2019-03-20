@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-make.pl,v 1.25 2012/01/04 03:12:39 mavrik Exp $
+# $Id: hashdig-make.pl,v 1.26 2013/02/14 16:55:22 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

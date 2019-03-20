@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: xmagic.c,v 1.101 2012/01/04 03:12:28 mavrik Exp $
+ * $Id: xmagic.c,v 1.108 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -19,10 +19,24 @@
  ***********************************************************************
  */
 #define SKIP_WHITESPACE(pc) { while (*pc && isspace((int) *pc)) pc++; }
-#define FIND_DELIMETER(pc) { while (*pc && (!isspace((int) *pc) || *(pc - 1) == '\\')) pc++; }
+#define FIND_DELIMITER(pc) { while (*pc && (!isspace((int) *pc) || *(pc - 1) == '\\')) pc++; }
 
 int                 giSystemByteOrder = -1;
 APP_UI8             gaui08ByteOrderMagic[4] = {0x01, 0x02, 0x03, 0x04};
+
+#ifdef USE_KLEL
+XMAGIC_KLEL_TYPE_SPEC gasKlelTypes[] =
+{
+  { "belong_at",        KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_INT64) },
+  { "beshort_at",       KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_INT64) },
+  { "byte_at",          KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_INT64) },
+  { "f_size",           KLEL_TYPE_INT64 }, /* file size */
+  { "lelong_at",        KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_INT64) },
+  { "leshort_at",       KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_INT64) },
+  { "row_entropy_1_at", KLEL_TYPE_REAL_FUNCTION2(KLEL_TYPE_INT64, KLEL_TYPE_INT64) },
+  { "string_at",        KLEL_TYPE_STRING_FUNCTION1(KLEL_TYPE_INT64) },
+};
+#endif
 
 /*-
  ***********************************************************************
@@ -36,6 +50,22 @@ is80_ff(int c)
 {
   return (c >= 0x80 && c <= 0xff);
 }
+
+
+#if defined(USE_KLEL) && !defined(HAVE_STRNLEN)
+/*-
+ ***********************************************************************
+ *
+ * strnlen
+ *
+ ***********************************************************************
+ */
+size_t strnlen(const char *pcString, size_t szMaxLength)
+{
+  const char *pcEnd = memchr(pcString, 0, szMaxLength);
+  return (pcEnd != NULL) ? (size_t)(pcEnd - pcString) : szMaxLength;
+};
+#endif
 
 
 /*-
@@ -874,20 +904,20 @@ XMagicFormatDescription(void *pvValue, XMAGIC *psXMagic, char *pcDescription)
   }
   else if (psXMagic->iType == XMAGIC_UNIX_YMDHMS_LEDATE || psXMagic->iType == XMAGIC_UNIX_YMDHMS_BEDATE)
   {
-    char acTime[FTIMES_TIME_SIZE];
+    char acTime[XMAGIC_TIME_SIZE];
     time_t tTime = *((APP_UI32 *) pvValue);
 /* FIXME Add logic to handle time values that are out of range. */
-    strftime(acTime, FTIMES_YMDHMS_FORMAT_SIZE, FTIMES_YMDHMS_FORMAT, gmtime(&tTime));
+    strftime(acTime, XMAGIC_YMDHMS_FORMAT_SIZE, XMAGIC_YMDHMS_FORMAT, gmtime(&tTime));
     n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, acTime);
   }
   else if (psXMagic->iType == XMAGIC_WINX_YMDHMS_LEDATE || psXMagic->iType == XMAGIC_WINX_YMDHMS_BEDATE)
   {
     APP_UI64 ui64TimeValue = *((APP_UI64 *) pvValue);
     APP_UI64 ui64TimeDelta = (XMagicSwapUi64(ui64TimeValue, psXMagic->iType) - UNIX_EPOCH_IN_NT_TIME) / 10000000;
-    char acTime[FTIMES_TIME_SIZE];
+    char acTime[XMAGIC_TIME_SIZE];
 /* FIXME Add logic to handle time values that are out of range. */
     time_t tTime = (time_t) ui64TimeDelta;
-    strftime(acTime, FTIMES_YMDHMS_FORMAT_SIZE, FTIMES_YMDHMS_FORMAT, gmtime(&tTime));
+    strftime(acTime, XMAGIC_YMDHMS_FORMAT_SIZE, XMAGIC_YMDHMS_FORMAT, gmtime(&tTime));
     n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, acTime);
   }
   else if (psXMagic->iType == XMAGIC_UI64 || psXMagic->iType == XMAGIC_BEUI64 || psXMagic->iType == XMAGIC_LEUI64)
@@ -899,6 +929,36 @@ XMagicFormatDescription(void *pvValue, XMAGIC *psXMagic, char *pcDescription)
     n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, (unsigned long long) *pui64Value);
 #endif
   }
+#ifdef USE_KLEL
+  else if (psXMagic->iType == XMAGIC_KLELEXP)
+  {
+    if (strcmp(KlelGetCommandInterpreter(psXMagic->psKlelContext), "concat") == 0)
+    {
+      KLEL_COMMAND *psCommand = NULL;
+      n += snprintf(&pcDescription[n], iBytesLeft, "%s", KlelGetCommandProgram(psXMagic->psKlelContext)); /* NOTE: This is really the type/subtype. */
+      iBytesLeft -= n;
+      psCommand = KlelGetCommand(psXMagic->psKlelContext);
+      if (psCommand == NULL)
+      {
+        snprintf
+        (
+          acLocalError,
+          MESSAGE_SIZE,
+          "%s: KlelGetCommand(): KlelExp = [%s]: Failed to evaluate command (%s).",
+          acRoutine,
+          KlelGetName(psXMagic->psKlelContext),
+          KlelGetError(psXMagic->psKlelContext)
+        );
+        ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
+      }
+      else
+      {
+        n += snprintf(&pcDescription[n], iBytesLeft, "%s", psCommand->ppcArgumentVector[1]);
+        KlelFreeCommand(psCommand);
+      }
+    }
+  }
+#endif
   else
   {
     pui32Value = (APP_UI32 *) pvValue;
@@ -997,6 +1057,147 @@ XMagicGetDescription(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
   strncpy(psXMagic->acDescription, pcS, XMAGIC_DESCRIPTION_BUFSIZE);
 
   return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * XMagicGetLine
+ *
+ ***********************************************************************
+ */
+char *
+XMagicGetLine(FILE *pFile, int iMaxLine, unsigned int uiFlags, int *piLinesConsumed, char *pcError)
+{
+  const char          acRoutine[] = "XMagicGetLine()";
+  char               *pcComment = NULL;
+  char               *pcData = NULL;
+  char               *pcLine = NULL;
+  char               *pcTemp = NULL;
+  int                 iDone = 0;
+  int                 iLength = 0;
+  int                 iNToKeep = 0;
+  int                 iOffset = 0;
+
+  /*-
+   *********************************************************************
+   *
+   * Initialize the line count and allocate some memory.
+   *
+   *********************************************************************
+   */
+  *piLinesConsumed = 0;
+
+  pcData = calloc(iMaxLine + 1, 1);
+  if (pcData == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Read and conditionally join lines to form a composite line.
+   *
+   *********************************************************************
+   */
+  for (iOffset = 0; !iDone; iOffset += iNToKeep)
+  {
+    pcData[0] = 0;
+    pcTemp = fgets(pcData, iMaxLine, pFile);
+    if (pcTemp == NULL)
+    {
+      if (ferror(pFile))
+      {
+        if (pcData != NULL)
+        {
+          free(pcData);
+        }
+        if (pcLine != NULL)
+        {
+          free(pcLine);
+        }
+        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+        return NULL;
+      }
+      if (pcLine == NULL) /* EOF was reached before any portion of a composite line was read. */
+      {
+        if (pcData != NULL)
+        {
+          free(pcData);
+        }
+        return NULL;
+      }
+      else /* EOF was reached after some portion of a composite line was read. */
+      {
+        iNToKeep = 0;
+        iDone = 1;
+      }
+    }
+    else
+    {
+      (*piLinesConsumed)++;
+      pcComment = NULL;
+      while (isspace((int) *pcTemp))
+      {
+        pcTemp++;
+      }
+      iLength = strlen(pcTemp);
+      while (iLength > 0 && (pcTemp[iLength - 1] == '\r' || pcTemp[iLength - 1] == '\n'))
+      {
+        pcTemp[--iLength] = 0;
+      }
+      pcComment = strchr(pcTemp, '#');
+      if (pcComment != NULL && (uiFlags & XMAGIC_PRESERVE_COMMENTS) == 0)
+      {
+        if (pcTemp[iLength - 1] == '\\')
+        {
+          *(pcComment + 0) = '\\';
+          *(pcComment + 1) = 0;
+        }
+        else
+        {
+          *(pcComment + 0) = 0;
+        }
+      }
+      iLength = strlen(pcTemp);
+      if (pcTemp[iLength - 1] == '\\')
+      {
+        pcTemp[--iLength] = 0;
+      }
+      else
+      {
+        iDone = 1;
+      }
+      iNToKeep = iLength;
+      pcLine = realloc(pcLine, iOffset + iNToKeep + 1);
+      if (pcLine == NULL)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): %s", acRoutine, strerror(errno));
+        return NULL;
+      }
+      strncpy(&pcLine[iOffset], pcTemp, iNToKeep + 1);
+    }
+  }
+  free(pcData);
+
+  /*-
+   *********************************************************************
+   *
+   * Abort if the composite line exceeds the specified number of bytes.
+   *
+   *********************************************************************
+   */
+  if (iOffset > iMaxLine)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: Composite line length exceeds %d bytes.", acRoutine, iMaxLine);
+    free(pcLine);
+    return NULL;
+  }
+
+  return pcLine;
 }
 
 
@@ -1874,6 +2075,22 @@ XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
       break;
     }
   }
+#ifdef USE_KLEL
+  else if (psXMagic->iType == XMAGIC_KLELEXP)
+  {
+    psXMagic->psKlelContext = KlelCompile(pcS, KLEL_MUST_BE_GUARDED_COMMAND, XMagicKlelGetTypeOfVar, XMagicKlelGetValueOfVar, NULL);
+    if (!KlelIsValid(psXMagic->psKlelContext))
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: KlelCompile(): Failed to compile expression (%s).", acRoutine, KlelGetError(psXMagic->psKlelContext));
+      return ER;
+    }
+    if (strcmp(KlelGetCommandInterpreter(psXMagic->psKlelContext), "concat") != 0)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: KlelGetCommandInterpreter(): Interpreter = [%s] != [concat]: Interpreter mismatch.", acRoutine, KlelGetCommandInterpreter(psXMagic->psKlelContext));
+      return ER;
+    }
+  }
+#endif
   else
   {
     switch (psXMagic->iTestOperator)
@@ -2245,6 +2462,12 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
   {
     psXMagic->iType = XMAGIC_NLEFT;
   }
+#ifdef USE_KLEL
+  else if (strcasecmp(pcS, "klelexp") == 0)
+  {
+    psXMagic->iType = XMAGIC_KLELEXP;
+  }
+#endif
   else
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Invalid type (%s).", acRoutine, pcS);
@@ -2592,10 +2815,14 @@ XMAGIC *
 XMagicLoadMagic(char *pcFilename, char *pcError)
 {
   const char          acRoutine[] = "XMagicLoadMagic()";
-  char                acLine[XMAGIC_MAX_LINE] = "";
   char                acLocalError[MESSAGE_SIZE] = "";
+  char               *pcLine = NULL;
   FILE               *pFile = NULL;
+  int                 iError = ER_OK;
+  int                 iFinalLineNumber = 0;
+  int                 iFirstLineNumber = 0;
   int                 iLineNumber = 0;
+  int                 iLinesConsumed = 0;
   int                 iParentExists = 0;
   XMAGIC             *psHead = NULL;
   XMAGIC             *psLast = NULL;
@@ -2604,181 +2831,191 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
 
   giSystemByteOrder = (*pui32ByteOrderMagic == 0x01020304) ? XMAGIC_MSB : XMAGIC_LSB;
 
+  /*-
+   *********************************************************************
+   *
+   * Make sure the file is magical.
+   *
+   *********************************************************************
+   */
   if ((pFile = fopen(pcFilename, "r")) == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): File = [%s]: %s", acRoutine, pcFilename, strerror(errno));
     return NULL;
   }
-
-  for (acLine[0] = 0, iLineNumber = 1; fgets(acLine, XMAGIC_MAX_LINE, pFile) != NULL; acLine[0] = 0, iLineNumber++)
+  pcLine = XMagicGetLine(pFile, XMAGIC_MAX_LINE, XMAGIC_PRESERVE_COMMENTS, &iLinesConsumed, acLocalError);
+  if (iLinesConsumed < 1)
   {
-    /*-
-     *******************************************************************
-     *
-     * Check the file's magic.
-     *
-     *******************************************************************
-     */
-    if (iLineNumber == 1 && strncmp(acLine, "# XMagic", 8) != 0)
+    iFirstLineNumber = iLineNumber;
+    iFinalLineNumber = iLineNumber;
+  }
+  else
+  {
+    iFirstLineNumber = iLineNumber + 1;
+    iFinalLineNumber = iLineNumber + iLinesConsumed;
+  }
+  iLineNumber += iLinesConsumed;
+  if (pcLine == NULL)
+  {
+    if (feof(pFile))
     {
-      fclose(pFile);
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: magic != [# XMagic]", acRoutine, pcFilename, iLineNumber);
-      XMagicFreeXMagic(psHead);
-      return NULL;
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Lines = [%d-%d]: File has no magic header. The first 8 bytes must be \"# XMagic\".", acRoutine, pcFilename, iFirstLineNumber, iFinalLineNumber);
+      iError = ER;
     }
-
-    /*-
-     *******************************************************************
-     *
-     * Ignore full line comments (i.e. '#' in position 0).
-     *
-     *******************************************************************
-     */
-    if (acLine[0] == '#')
+    else
     {
-      continue;
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Lines = [%d-%d]: %s", acRoutine, pcFilename, iFirstLineNumber, iFinalLineNumber, acLocalError);
+      iError = ER;
     }
-
-    /*-
-     *******************************************************************
-     *
-     * Remove EOL characters.
-     *
-     *******************************************************************
-     */
-    if (SupportChopEOLs(acLine, feof(pFile) ? 0 : 1, acLocalError) == ER)
+  }
+  else
+  {
+    if (strncmp(pcLine, "# XMagic", 8) != 0)
     {
-      fclose(pFile);
-      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
-      XMagicFreeXMagic(psHead);
-      return NULL;
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Lines = [%d-%d]: File has an invalid magic header. The first 8 bytes must be \"# XMagic\".", acRoutine, pcFilename, iFirstLineNumber, iFinalLineNumber);
+      iError = ER;
     }
+  }
+  if (iError != ER_OK)
+  {
+    fclose(pFile);
+    free(pcLine);
+    return NULL;
+  }
 
-    /*-
-     *******************************************************************
-     *
-     * If there's anything left over, process it.
-     *
-     *******************************************************************
-     */
-    if (strlen(acLine) > 0)
+  /*-
+   *********************************************************************
+   *
+   * Conjure up a magic tree.
+   *
+   *********************************************************************
+   */
+  while (1)
+  {
+    if (pcLine != NULL)
     {
-      psXMagic = XMagicNewXMagic(acLocalError);
-      if (psXMagic == NULL)
+      free(pcLine);
+    }
+    pcLine = XMagicGetLine(pFile, XMAGIC_MAX_LINE, 0, &iLinesConsumed, acLocalError);
+    if (iLinesConsumed < 1)
+    {
+      iFirstLineNumber = iLineNumber;
+      iFinalLineNumber = iLineNumber;
+    }
+    else
+    {
+      iFirstLineNumber = iLineNumber + 1;
+      iFinalLineNumber = iLineNumber + iLinesConsumed;
+    }
+    iLineNumber += iLinesConsumed;
+    if (pcLine == NULL)
+    {
+      if (feof(pFile))
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-        XMagicFreeXMagic(psHead);
-        return NULL;
-      }
-
-      if (XMagicParseLine(acLine, psXMagic, acLocalError) != ER_OK)
-      {
-        snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
-        XMagicFreeXMagic(psHead);
-        XMagicFreeXMagic(psXMagic);
-        return NULL;
-      }
-
-      if (psHead == NULL && psLast == NULL)
-      {
-        if (psXMagic->ui32Level != 0)
-        {
-          snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: The first test must be a level zero test and use an absolute offset.", acRoutine, pcFilename, iLineNumber);
-          XMagicFreeXMagic(psHead);
-          XMagicFreeXMagic(psXMagic);
-          return NULL;
-        }
-        psXMagic->psParent = NULL;
-        psHead = psXMagic;
+        /* EOF reached. We're done. */
       }
       else
       {
-        /*-
-         ***************************************************************
-         *
-         * If psXMagic->ui32Level == psLast->ui32Level, then we have a
-         * sibling.
-         *
-         ***************************************************************
-         */
-        if (psXMagic->ui32Level == psLast->ui32Level)
+        snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Lines = [%d-%d]: %s", acRoutine, pcFilename, iFirstLineNumber, iFinalLineNumber, acLocalError);
+        iError = ER;
+      }
+      break;
+    }
+    if (pcLine[0] == 0)
+    {
+      continue; /* Silently ignore blank lines. */
+    }
+    psXMagic = XMagicParseLine(pcLine, acLocalError);
+    if (psXMagic == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Lines = [%d-%d]: %s", acRoutine, pcFilename, iFirstLineNumber, iFinalLineNumber, acLocalError);
+      iError = ER;
+      break;
+    }
+    if (psHead == NULL && psLast == NULL)
+    {
+      if (psXMagic->ui32Level != 0)
+      {
+        XMagicFreeXMagic(psXMagic);
+        snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Lines = [%d-%d]: The first test must be a level zero test and use an absolute offset.", acRoutine, pcFilename, iFirstLineNumber, iFinalLineNumber);
+        iError = ER;
+        break;
+      }
+      psXMagic->psParent = NULL;
+      psHead = psXMagic;
+    }
+    else
+    {
+      /*-
+       *****************************************************************
+       *
+       * If this level equals the last level, we have a sibling. If
+       * this level is greater than the last level and the delta
+       * between levels is exactly 1, we have a child -- deltas
+       * greater than 1 are considered an error. Otherwise, we need to
+       * crawl back up the family tree until we find a sibling. If no
+       * sibling is found, then we have no parent, and that's just
+       * plain wrong.
+       *
+       *****************************************************************
+       */
+      if (psXMagic->ui32Level == psLast->ui32Level)
+      {
+        psXMagic->psParent = psLast->psParent;
+        psLast->psSibling = psXMagic;
+      }
+      else if (psXMagic->ui32Level > psLast->ui32Level)
+      {
+        if ((psXMagic->ui32Level - psLast->ui32Level) > 1)
         {
-          psXMagic->psParent = psLast->psParent;
-          psLast->psSibling = psXMagic;
+          XMagicFreeXMagic(psXMagic);
+          snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Lines = [%d-%d]: One or more test levels skipped.", acRoutine, pcFilename, iFirstLineNumber, iFinalLineNumber);
+          iError = ER;
+          break;
         }
-
-        /*-
-         ***************************************************************
-         *
-         * If psXMagic->ui32Level > psLast->ui32Level and the delta == 1,
-         * then we have a child.
-         *
-         ***************************************************************
-         */
-        else if (psXMagic->ui32Level > psLast->ui32Level)
+        psXMagic->psParent = psLast;
+        psLast->psChild = psXMagic;
+      }
+      else
+      {
+        iParentExists = 0;
+        while ((psLast = psLast->psParent) != NULL)
         {
-          if ((psXMagic->ui32Level - psLast->ui32Level) > 1)
+          if (psXMagic->ui32Level == psLast->ui32Level)
           {
-            snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: test level(s) skipped", acRoutine, pcFilename, iLineNumber);
-            XMagicFreeXMagic(psHead);
-            XMagicFreeXMagic(psXMagic);
-            return NULL;
+            psXMagic->psParent = psLast->psParent;
+            psLast->psSibling = psXMagic;
+            iParentExists = 1;
+            break;
           }
-          psXMagic->psParent = psLast;
-          psLast->psChild = psXMagic;
         }
-
-        /*-
-         ***************************************************************
-         *
-         * Otherwise, we need to crawl back up the family tree until we
-         * find a sibling. If no sibling was found, then we have no
-         * parent, and that's just plain wrong.
-         *
-         ***************************************************************
-         */
-        else
+        if (!iParentExists)
         {
-          iParentExists = 0;
-          while ((psLast = psLast->psParent) != NULL)
-          {
-            if (psXMagic->ui32Level == psLast->ui32Level)
-            {
-              psXMagic->psParent = psLast->psParent;
-              psLast->psSibling = psXMagic;
-              iParentExists = 1;
-              break;
-            }
-          }
-          if (!iParentExists)
-          {
-            snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: missing parent magic", acRoutine, pcFilename, iLineNumber);
-            XMagicFreeXMagic(psHead);
-            XMagicFreeXMagic(psXMagic);
-            return NULL;
-          }
+          XMagicFreeXMagic(psXMagic);
+          snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Lines = [%d-%d]: Parent magic is missing. That should not happen.", acRoutine, pcFilename, iFirstLineNumber, iFinalLineNumber);
+          iError = ER;
+          break;
         }
       }
-      psLast = psXMagic;
     }
-  }
-  if (ferror(pFile))
-  {
-    fclose(pFile);
-    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
-    XMagicFreeXMagic(psHead);
-    return NULL;
+    psLast = psXMagic;
   }
   fclose(pFile);
 
   /*
    *********************************************************************
    *
-   * Make sure we have some magic.
+   * Abort if there was an error or the magic tree is not defined.
    *
    *********************************************************************
    */
-  if (!psHead)
+  if (iError != ER_OK)
+  {
+    XMagicFreeXMagic(psHead);
+    return NULL;
+  }
+
+  if (psHead == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: Apparently, you have no magic.", acRoutine, pcFilename);
     return NULL;
@@ -2786,6 +3023,288 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
 
   return psHead;
 }
+
+
+#ifdef USE_KLEL
+/*-
+ ***********************************************************************
+ *
+ * XMagicKlelBeLongAt
+ *
+ ***********************************************************************
+ */
+KLEL_VALUE *
+XMagicKlelBeLongAt(KLEL_VALUE **ppsArgs, void *pvContext)
+{
+  XMAGIC_DATA_BLOCK *psData = (XMAGIC_DATA_BLOCK *)KlelGetPrivateData((KLEL_CONTEXT *)pvContext);
+  unsigned char *pucData = psData->pucData;
+  int iOffset = 0;
+
+  KLEL_ASSERT(ppsArgs           != NULL);
+  KLEL_ASSERT(ppsArgs[0]        != NULL);
+  KLEL_ASSERT(ppsArgs[1]        == NULL);
+  KLEL_ASSERT(ppsArgs[0]->iType == KLEL_EXPR_INTEGER);
+
+  iOffset = (int)ppsArgs[0]->llInteger;
+
+  return KlelCreateInteger
+  (
+      (pucData[iOffset + 0] << 24)
+    | (pucData[iOffset + 1] << 16)
+    | (pucData[iOffset + 2] <<  8)
+    | (pucData[iOffset + 3] <<  0)
+  );
+}
+#endif
+
+
+#ifdef USE_KLEL
+/*-
+ ***********************************************************************
+ *
+ * XMagicKlelBeShortAt
+ *
+ ***********************************************************************
+ */
+KLEL_VALUE *
+XMagicKlelBeShortAt(KLEL_VALUE **ppsArgs, void *pvContext)
+{
+  XMAGIC_DATA_BLOCK *psData = (XMAGIC_DATA_BLOCK *)KlelGetPrivateData((KLEL_CONTEXT *)pvContext);
+  unsigned char *pucData = psData->pucData;
+  int iOffset = 0;
+
+  KLEL_ASSERT(ppsArgs           != NULL);
+  KLEL_ASSERT(ppsArgs[0]        != NULL);
+  KLEL_ASSERT(ppsArgs[1]        == NULL);
+  KLEL_ASSERT(ppsArgs[0]->iType == KLEL_EXPR_INTEGER);
+
+  iOffset = (int)ppsArgs[0]->llInteger;
+
+  return KlelCreateInteger((pucData[iOffset] << 8) | pucData[iOffset + 1]);
+}
+#endif
+
+
+#ifdef USE_KLEL
+/*-
+ ***********************************************************************
+ *
+ * XMagicKlelByteAt
+ *
+ ***********************************************************************
+ */
+KLEL_VALUE *
+XMagicKlelByteAt(KLEL_VALUE **ppsArgs, void *pvContext)
+{
+  XMAGIC_DATA_BLOCK *psData = (XMAGIC_DATA_BLOCK *)KlelGetPrivateData((KLEL_CONTEXT *)pvContext);
+  unsigned char *pucData = psData->pucData;
+  int iOffset = 0;
+
+  KLEL_ASSERT(ppsArgs           != NULL);
+  KLEL_ASSERT(ppsArgs[0]        != NULL);
+  KLEL_ASSERT(ppsArgs[1]        == NULL);
+  KLEL_ASSERT(ppsArgs[0]->iType == KLEL_EXPR_INTEGER);
+
+  iOffset = (int)ppsArgs[0]->llInteger;
+
+  return KlelCreateInteger(pucData[iOffset]);
+}
+#endif
+
+
+#ifdef USE_KLEL
+/*-
+ ***********************************************************************
+ *
+ * XMagicKlelComputeRowEntropy1At
+ *
+ ***********************************************************************
+ */
+KLEL_VALUE *
+XMagicKlelComputeRowEntropy1At(KLEL_VALUE **ppsArgs, void *pvContext)
+{
+  XMAGIC_DATA_BLOCK *psData = (XMAGIC_DATA_BLOCK *)KlelGetPrivateData((KLEL_CONTEXT *)pvContext);
+  unsigned char *pucData = psData->pucData;
+  int iLength = 0;
+  int iOffset = 0;
+
+  KLEL_ASSERT(ppsArgs           != NULL);
+  KLEL_ASSERT(ppsArgs[0]        != NULL);
+  KLEL_ASSERT(ppsArgs[1]        == NULL);
+  KLEL_ASSERT(ppsArgs[0]->iType == KLEL_EXPR_INTEGER);
+
+  iOffset = (int)ppsArgs[0]->llInteger;
+  iLength = (int)ppsArgs[1]->llInteger;
+
+  return KlelCreateReal(XMagicComputeRowEntropy1(&pucData[iOffset], iLength));
+}
+#endif
+
+
+#ifdef USE_KLEL
+/*-
+ ***********************************************************************
+ *
+ * XMagicKlelGetTypeOfVar
+ *
+ ***********************************************************************
+ */
+KLEL_EXPR_TYPE
+XMagicKlelGetTypeOfVar(const char *pcName, void *pvContext)
+{
+  int                 i = 0;
+
+  for (i = 0; i < sizeof(gasKlelTypes) / sizeof(gasKlelTypes[0]); i++)
+  {
+    if (strcmp(gasKlelTypes[i].pcName, pcName) == 0)
+    {
+      return gasKlelTypes[i].iType;
+    }
+  }
+
+  return KLEL_TYPE_UNKNOWN;
+}
+#endif
+
+
+#ifdef USE_KLEL
+/*-
+ ***********************************************************************
+ *
+ * XMagicKlelGetValueOfVar
+ *
+ ***********************************************************************
+ */
+KLEL_VALUE *
+XMagicKlelGetValueOfVar(const char *pcName, void *pvContext)
+{
+  XMAGIC_DATA_BLOCK *psData = (XMAGIC_DATA_BLOCK *)KlelGetPrivateData((KLEL_CONTEXT *)pvContext);
+
+  if (strcmp(pcName, "byte_at") == 0)
+  {
+    return KlelCreateFunction(KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_INT64), "byte_at", XMagicKlelByteAt);
+  }
+  else if (strcmp(pcName, "beshort_at") == 0)
+  {
+    return KlelCreateFunction(KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_INT64), "beshort_at", XMagicKlelBeShortAt);
+  }
+  else if (strcmp(pcName, "leshort_at") == 0)
+  {
+    return KlelCreateFunction(KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_INT64), "leshort_at", XMagicKlelLeShortAt);
+  }
+  else if (strcmp(pcName, "belong_at") == 0)
+  {
+    return KlelCreateFunction(KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_INT64), "belong_at", XMagicKlelBeLongAt);
+  }
+  else if (strcmp(pcName, "lelong_at") == 0)
+  {
+    return KlelCreateFunction(KLEL_TYPE_INT64_FUNCTION1(KLEL_TYPE_INT64), "lelong_at", XMagicKlelLeLongAt);
+  }
+  else if (strcmp(pcName, "string_at") == 0)
+  {
+    return KlelCreateFunction(KLEL_TYPE_STRING_FUNCTION1(KLEL_TYPE_INT64), "string_at", XMagicKlelStringAt);
+  }
+  else if (strcmp(pcName, "row_entropy_1_at") == 0)
+  {
+    return KlelCreateFunction(KLEL_TYPE_REAL_FUNCTION2(KLEL_TYPE_INT64, KLEL_TYPE_INT64), "row_entropy_1_at", XMagicKlelComputeRowEntropy1At);
+  }
+  else if (strcmp(pcName, "f_size") == 0)
+  {
+    return KlelCreateInteger(psData->iLength);
+  }
+
+  return NULL; /* Returning NULL here causes KL-EL to retrieve the value of the specified variable, should it exist in the standard library. */
+}
+#endif
+
+
+#ifdef USE_KLEL
+/*-
+ ***********************************************************************
+ *
+ * XMagicKlelLeLongAt
+ *
+ ***********************************************************************
+ */
+KLEL_VALUE *
+XMagicKlelLeLongAt(KLEL_VALUE **ppsArgs, void *pvContext)
+{
+  XMAGIC_DATA_BLOCK *psData = (XMAGIC_DATA_BLOCK *)KlelGetPrivateData((KLEL_CONTEXT *)pvContext);
+  unsigned char *pucData = psData->pucData;
+  int iOffset = 0;
+
+  KLEL_ASSERT(ppsArgs           != NULL);
+  KLEL_ASSERT(ppsArgs[0]        != NULL);
+  KLEL_ASSERT(ppsArgs[1]        == NULL);
+  KLEL_ASSERT(ppsArgs[0]->iType == KLEL_EXPR_INTEGER);
+
+  iOffset = (int)ppsArgs[0]->llInteger;
+
+  return KlelCreateInteger
+  (
+      (pucData[iOffset + 3] << 24)
+    | (pucData[iOffset + 2] << 16)
+    | (pucData[iOffset + 1] <<  8)
+    | (pucData[iOffset + 0] <<  0)
+  );
+}
+#endif
+
+
+#ifdef USE_KLEL
+/*-
+ ***********************************************************************
+ *
+ * XMagicKlelLeShortAt
+ *
+ ***********************************************************************
+ */
+KLEL_VALUE *
+XMagicKlelLeShortAt(KLEL_VALUE **ppsArgs, void *pvContext)
+{
+  XMAGIC_DATA_BLOCK *psData = (XMAGIC_DATA_BLOCK *)KlelGetPrivateData((KLEL_CONTEXT *)pvContext);
+  unsigned char *pucData = psData->pucData;
+  int iOffset = 0;
+
+  KLEL_ASSERT(ppsArgs           != NULL);
+  KLEL_ASSERT(ppsArgs[0]        != NULL);
+  KLEL_ASSERT(ppsArgs[1]        == NULL);
+  KLEL_ASSERT(ppsArgs[0]->iType == KLEL_EXPR_INTEGER);
+
+  iOffset = (int)ppsArgs[0]->llInteger;
+
+  return KlelCreateInteger((pucData[iOffset + 1] << 8) | pucData[iOffset]);
+}
+#endif
+
+
+#ifdef USE_KLEL
+/*-
+ ***********************************************************************
+ *
+ * XMagicKlelStringAt
+ *
+ ***********************************************************************
+ */
+KLEL_VALUE *
+XMagicKlelStringAt(KLEL_VALUE **ppsArgs, void *pvContext)
+{
+  XMAGIC_DATA_BLOCK *psData = (XMAGIC_DATA_BLOCK *)KlelGetPrivateData((KLEL_CONTEXT *)pvContext);
+  char *pcData = (char *)psData->pucData;
+  int iLength = 0;
+  int iOffset = 0;
+
+  KLEL_ASSERT(ppsArgs           != NULL);
+  KLEL_ASSERT(ppsArgs[0]        != NULL);
+  KLEL_ASSERT(ppsArgs[1]        == NULL);
+  KLEL_ASSERT(ppsArgs[0]->iType == KLEL_EXPR_INTEGER);
+
+  iOffset = (int)ppsArgs[0]->llInteger;
+  iLength = psData->iLength - iOffset;
+
+  return KlelCreateString(strnlen(&pcData[iOffset], iLength), &pcData[iOffset]);
+}
+#endif
 
 
 /*-
@@ -2866,8 +3385,8 @@ XMagicNewXMagic(char *pcError)
  *
  ***********************************************************************
  */
-int
-XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
+XMAGIC *
+XMagicParseLine(char *pcLine, char *pcError)
 {
   const char          acRoutine[] = "XMagicParseLine()";
   char                acLocalError[MESSAGE_SIZE] = "";
@@ -2875,13 +3394,23 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
   char               *pcS = pcLine;
   int                 iError = 0;
   int                 iEndFound = 0;
+  XMAGIC             *psXMagic = NULL;
 
-  FIND_DELIMETER(pcE);
+  psXMagic = XMagicNewXMagic(acLocalError);
+  if (psXMagic == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    XMagicFreeXMagic(psXMagic);
+    return NULL;
+  }
+
+  FIND_DELIMITER(pcE);
 
   if (*pcE == 0)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: offset: unexpected NULL found", acRoutine);
-    return ER;
+    XMagicFreeXMagic(psXMagic);
+    return NULL;
   }
 
   *pcE = 0;
@@ -2890,7 +3419,8 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    return ER;
+    XMagicFreeXMagic(psXMagic);
+    return NULL;
   }
 
   pcE++;
@@ -2899,12 +3429,13 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
 
   pcS = pcE;
 
-  FIND_DELIMETER(pcE);
+  FIND_DELIMITER(pcE);
 
   if (*pcE == 0)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: type: unexpected NULL found", acRoutine);
-    return ER;
+    XMagicFreeXMagic(psXMagic);
+    return NULL;
   }
 
   *pcE = 0;
@@ -2913,7 +3444,8 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    return ER;
+    XMagicFreeXMagic(psXMagic);
+    return NULL;
   }
 
   pcE++;
@@ -2922,12 +3454,13 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
 
   pcS = pcE;
 
-  FIND_DELIMETER(pcE);
+  FIND_DELIMITER(pcE);
 
   if (*pcE == 0)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: operator: unexpected NULL found", acRoutine);
-    return ER;
+    XMagicFreeXMagic(psXMagic);
+    return NULL;
   }
 
   *pcE = 0;
@@ -2936,7 +3469,8 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    return ER;
+    XMagicFreeXMagic(psXMagic);
+    return NULL;
   }
 
   pcE++;
@@ -2945,7 +3479,28 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
 
   pcS = pcE;
 
-  FIND_DELIMETER(pcE);
+#ifdef USE_KLEL
+  /*-
+   *********************************************************************
+   *
+   * Conditionally consume all remaining bytes.
+   *
+   *********************************************************************
+   */
+  if (psXMagic->iType == XMAGIC_KLELEXP)
+  {
+    while (*pcE)
+    {
+      pcE++;
+    }
+  }
+  else
+  {
+    FIND_DELIMITER(pcE);
+  }
+#else
+  FIND_DELIMITER(pcE);
+#endif
 
   /*-
    *********************************************************************
@@ -2968,8 +3523,23 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    return ER;
+    XMagicFreeXMagic(psXMagic);
+    return NULL;
   }
+
+#ifdef USE_KLEL
+  /*-
+   *********************************************************************
+   *
+   * This is where we bail out for KL-EL expressions.
+   *
+   *********************************************************************
+   */
+  if (psXMagic->iType == XMAGIC_KLELEXP)
+  {
+    return psXMagic;
+  }
+#endif
 
   if (!iEndFound)
   {
@@ -2989,10 +3559,11 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
   if (iError != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    return ER;
+    XMagicFreeXMagic(psXMagic);
+    return NULL;
   }
 
-  return ER_OK;
+  return psXMagic;
 }
 
 
@@ -4449,6 +5020,33 @@ XMagicTestValue(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, APP_SI3
     iMatch = XMagicTestNumber(psXMagic, ui32Value);
     pvValue = (void *) &ui32Value;
   }
+#ifdef USE_KLEL
+  else if (psXMagic->iType == XMAGIC_KLELEXP)
+  {
+    KLEL_VALUE *psResult = NULL;
+    XMAGIC_DATA_BLOCK sData = { pucBuffer, iLength };
+    KlelSetPrivateData(psXMagic->psKlelContext, (void *)&sData);
+    psResult = KlelExecute(psXMagic->psKlelContext);
+    if (psResult == NULL)
+    {
+      snprintf
+      (
+        acLocalError,
+        MESSAGE_SIZE,
+        "%s: KlelExecute(): KlelExp = [%s]: Failed to evaluate expression (%s).",
+        acRoutine,
+        KlelGetName(psXMagic->psKlelContext),
+        KlelGetError(psXMagic->psKlelContext)
+      );
+      ErrorHandler(ER_Warning, acLocalError, ERROR_WARNING);
+    }
+    else
+    {
+      iMatch = (psResult->bBoolean) ? 1 : 0;
+      KlelFreeResult(psResult);
+    }
+  }
+#endif
   else
   {
     switch (psXMagic->iType)

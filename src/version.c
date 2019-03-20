@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: version.c,v 1.6 2012/04/14 19:01:21 mavrik Exp $
+ * $Id: version.c,v 1.9 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2011-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -120,8 +120,8 @@ VersionGetVersion(void)
    *
    *********************************************************************
    */
-#if defined(USE_FILE_HOOKS)
-  iIndex += snprintf(&acMyVersion[iIndex], iSize, "%sklel(%s)", (iCount++ == 0) ? " " : ",", KlelGetRelease());
+#ifdef USE_KLEL
+  iIndex += snprintf(&acMyVersion[iIndex], iSize, "%sklel(%s)", (iCount++ == 0) ? " " : ",", KlelGetReleaseString());
   iSize = ((VERSION_MAX_VERSION_LENGTH - iIndex) <= 0) ? 0 : VERSION_MAX_VERSION_LENGTH - iIndex;
 #endif
 #ifdef USE_PCRE

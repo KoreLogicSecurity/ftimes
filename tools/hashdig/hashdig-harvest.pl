@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-harvest.pl,v 1.43 2012/01/04 03:12:39 mavrik Exp $
+# $Id: hashdig-harvest.pl,v 1.44 2013/02/14 16:55:22 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

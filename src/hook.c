@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: hook.c,v 1.4 2012/04/23 14:10:54 mavrik Exp $
+ * $Id: hook.c,v 1.8 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2011-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -25,15 +25,6 @@ HookAddHook(char *pcExpression, HOOK_LIST **psHead, char *pcError)
   char                acLocalError[MESSAGE_SIZE] = "";
   HOOK_LIST          *psCurrent = NULL;
   HOOK_LIST          *psHook = NULL;
-
-  /*-
-   *********************************************************************
-   *
-   * Establish required callbacks.
-   *
-   *********************************************************************
-   */
-  HookInitialize();
 
   /*-
    *********************************************************************
@@ -114,24 +105,9 @@ HookFreeHook(HOOK_LIST *psHook)
     {
       free(psHook->pcProgram);
     }
-    KlelFreeNode(&psHook->psExpression);
     KlelFreeContext(psHook->psContext);
     free(psHook);
   }
-}
-
-
-/*-
- ***********************************************************************
- *
- * HookGetFuncDesc
- *
- ***********************************************************************
- */
-KLEL_EXPR_TYPE *
-HookGetFuncDesc(const char *pcName, KLEL_CONTEXT *psContext)
-{
-  return KlelGetStdLibFuncDesc(pcName, psContext); /* Chain to the standard library. */
 }
 
 
@@ -143,7 +119,7 @@ HookGetFuncDesc(const char *pcName, KLEL_CONTEXT *psContext)
  ***********************************************************************
  */
 KLEL_EXPR_TYPE
-HookGetTypeOfVar(const char *pcName, KLEL_CONTEXT *psContext)
+HookGetTypeOfVar(const char *pcName, void *pvContext)
 {
   int                 i = 0;
   HOOK_TYPE_SPEC      asTypes[] =
@@ -228,7 +204,7 @@ HookGetTypeOfVar(const char *pcName, KLEL_CONTEXT *psContext)
     }
   }
 
-  return KlelGetTypeOfStdVar(pcName, psContext); /* Chain to the standard library. */
+  return KLEL_TYPE_UNKNOWN; /* This causes KL-EL to retrieve the type of the specified variable, should it exist in the standard library. */
 }
 
 
@@ -240,9 +216,9 @@ HookGetTypeOfVar(const char *pcName, KLEL_CONTEXT *psContext)
  ***********************************************************************
  */
 KLEL_VALUE *
-HookGetValueOfVar(const char *pcName, KLEL_CONTEXT *psContext)
+HookGetValueOfVar(const char *pcName, void *pvContext)
 {
-  FTIMES_FILE_DATA   *psFTFileData = (FTIMES_FILE_DATA *)psContext->pvData;
+  FTIMES_FILE_DATA   *psFTFileData = (FTIMES_FILE_DATA *)KlelGetPrivateData((KLEL_CONTEXT *)pvContext);
   FTIMES_PROPERTIES  *psProperties = FTimesGetPropertiesReference();
 #ifdef UNIX
   struct stat        *psFStatEntry = &psFTFileData->sStatEntry;
@@ -580,29 +556,7 @@ HookGetValueOfVar(const char *pcName, KLEL_CONTEXT *psContext)
   }
 #endif
 
-  return KlelGetValueOfStdVar(pcName, psContext); /* Chain to the standard library. */
-}
-
-
-/*-
- ***********************************************************************
- *
- * HookInitialize
- *
- ***********************************************************************
- */
-void
-HookInitialize(void)
-{
-  static int          iDone = 0;
-
-  if (!iDone)
-  {
-    KlelGetTypeOfVar = HookGetTypeOfVar;
-    KlelGetValueOfVar = HookGetValueOfVar;
-    KlelGetFuncDesc = HookGetFuncDesc;
-    iDone = 1;
-  }
+  return KlelCreateUnknown(); /* This causes KL-EL to retrieve the value of the specified variable, should it exist in the standard library. */
 }
 
 
@@ -618,21 +572,16 @@ HookMatchHook(HOOK_LIST *psHookList, FTIMES_FILE_DATA *psFTFileData)
 {
   const char          acRoutine[] = "HookMatchHook()";
   char                acLocalError[MESSAGE_SIZE] = "";
-  char               *pcMessage = NULL;
   HOOK_LIST          *psHook = NULL;
   KLEL_VALUE         *psResult = NULL;
 
   for (psHook = psHookList; psHook != NULL; psHook = psHook->psNext, KlelFreeResult(psResult))
   {
-    psHook->psContext->pvData = (void *)psFTFileData;
-    psResult = KlelExecute(psHook->psExpression, psHook->psContext);
+    KlelSetPrivateData(psHook->psContext, (void *)psFTFileData);
+    psResult = KlelExecute(psHook->psContext);
     if (psResult == NULL)
     {
-      for (pcMessage = KlelGetFirstError(psHook->psContext); pcMessage != NULL; pcMessage = KlelGetNextError(psHook->psContext))
-      {
-        ErrorHandler(ER_Failure, pcMessage, ERROR_FAILURE);
-      }
-      snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: KlelExecute(): Hook (%s) failed to execute expression.", acRoutine, psFTFileData->pcNeuteredPath, psHook->pcName);
+      snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: KlelExecute(): Hook (%s) failed to execute expression (%s).", acRoutine, psFTFileData->pcNeuteredPath, psHook->pcName, KlelGetError(psHook->psContext));
       ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
       continue;
     }
@@ -664,7 +613,7 @@ HookNewHook(char *pcExpression, char *pcError)
 #endif
   int                 iLength = 0;
 #ifdef USE_EMBEDDED_PERL
-  SV                 *psScalarValue = NULL;
+//SV                 *psScalarValue = NULL;
 #endif
   unsigned long       ulFlags = 0;
 
@@ -703,14 +652,6 @@ HookNewHook(char *pcExpression, char *pcError)
     return NULL;
   }
 
-  psHook->psContext = KlelCreateContext(NULL);
-  if (psHook->psContext == NULL)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: KlelCreateContext(): calloc(): %s", acRoutine, strerror(errno));
-    HookFreeHook(psHook);
-    return NULL;
-  }
-
   /*-
    *********************************************************************
    *
@@ -718,25 +659,19 @@ HookNewHook(char *pcExpression, char *pcError)
    *
    *********************************************************************
    */
-  ulFlags = KLEL_MUST_BE_GUARDED_COMMAND | KLEL_MUST_BE_NAMED | KLEL_MUST_SPECIFY_RETURN_CODES;
-  psHook->psExpression = KlelCompile(pcExpression, ulFlags, psHook->psContext);
-  if (psHook->psExpression == NULL)
+  ulFlags = KLEL_MUST_BE_NAMED | KLEL_MUST_BE_GUARDED_COMMAND_WITH_RETURN_CODES;
+  psHook->psContext = KlelCompile(pcExpression, ulFlags, HookGetTypeOfVar, HookGetValueOfVar, NULL);
+  if (!KlelIsValid(psHook->psContext))
   {
-    char *pcMessage = KlelGetFirstError(psHook->psContext);
-    while (pcMessage != NULL)
-    {
-      ErrorHandler(ER_Failure, pcMessage, ERROR_FAILURE);
-      pcMessage = KlelGetNextError(psHook->psContext);
-    }
-    snprintf(pcError, MESSAGE_SIZE, "%s: KlelCompile(): Hook failed to compile.", acRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: KlelCompile(): Hook failed to compile (%s).", acRoutine, KlelGetError(psHook->psContext));
     HookFreeHook(psHook);
     return NULL;
   }
-  psHook->uiId = KlelGetChecksum(psHook->psExpression, KLEL_EXPRESSION_ONLY);
-  psHook->pcName = KlelGetName(psHook->psExpression);
-  psHook->pcExpression = KlelExpressionToString(psHook->psExpression, KLEL_EXPRESSION_PLUS_EVERYTHING);
-  psHook->pcInterpreter = KlelGetCommandInterpreter(psHook->psExpression, NULL);
-  psHook->pcProgram = KlelGetCommandProgram(psHook->psExpression, NULL);
+  psHook->uiId = KlelGetChecksum(psHook->psContext, KLEL_EXPRESSION_ONLY);
+  psHook->pcName = KlelGetName(psHook->psContext);
+  psHook->pcExpression = KlelExpressionToString(psHook->psContext, KLEL_EXPRESSION_PLUS_EVERYTHING);
+  psHook->pcInterpreter = KlelGetCommandInterpreter(psHook->psContext);
+  psHook->pcProgram = KlelGetCommandProgram(psHook->psContext);
   psHook->psNext = NULL;
 
   /*-
@@ -754,13 +689,13 @@ HookNewHook(char *pcExpression, char *pcError)
   }
   if (psHook->pcExpression == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: KlelExpressionToString(): Hook failed to yield a expression value.", acRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: KlelExpressionToString(): Hook failed to yield an expression value.", acRoutine);
     HookFreeHook(psHook);
     return NULL;
   }
   if (psHook->pcInterpreter == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: KlelGetCommandInterpreter(): Hook failed to yield a interpreter value.", acRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: KlelGetCommandInterpreter(): Hook failed to yield an interpreter value.", acRoutine);
     HookFreeHook(psHook);
     return NULL;
   }
@@ -795,7 +730,7 @@ HookNewHook(char *pcExpression, char *pcError)
 //  SAVETMPS; /* This should not be needed since mortal variables are not created/used. */
     call_argv("Embed::Persistent::LoadScript", G_EVAL | G_KEEPERR | G_SCALAR, ppcArgumentVector); /* Do not use G_DISCARD here so that Perl stack items are preserved. */
     SPAGAIN;
-    psScalarValue = POPs; /* This should be the package name of the just-loaded script. */
+//  psScalarValue = POPs; /* This should be the package name of the just-loaded script. */
     PUTBACK;
     if (SvTRUE(ERRSV))
     {

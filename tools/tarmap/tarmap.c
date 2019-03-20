@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: tarmap.c,v 1.26 2012/01/04 03:12:40 mavrik Exp $
+ * $Id: tarmap.c,v 1.28 2013/02/14 16:55:23 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2005-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -432,6 +432,11 @@ TarMapReadLongName(FILE *pFile, APP_UI64 ui64Size, char *pcError)
     snprintf(pcError, MESSAGE_SIZE, "%s: fread(): %s", acRoutine, strerror(errno));
     return NULL;
   }
+  if (iNRead != iNBlocks)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: fread(): Wanted %d blocks, but got %d instead.", acRoutine, iNBlocks, iNRead);
+    return NULL;
+  }
   pcName[iLength - 1] = 0;
 
   return pcName;
@@ -569,7 +574,7 @@ TarMapWorkHorse(TARMAP_PROPERTIES *psProperties, char *pcError)
   int                 i = 0;
   int                 iEndOfArchive = 0;
   int                 iLastHeaderWasNull = 0;
-  int                 iLinkLength = 0;
+//int                 iLinkLength = 0;
   int                 iLongLink = 0;
   int                 iLongName = 0;
   int                 iNameLength = 0;
@@ -765,7 +770,7 @@ TarMapWorkHorse(TARMAP_PROPERTIES *psProperties, char *pcError)
     strncpy(acLink, psTar->linkname, TARMAP_NAME_SIZE);
     acLink[TARMAP_NAME_SIZE] = 0;
     pcLink = acLink;
-    iLinkLength = strlen(pcLink);
+//  iLinkLength = strlen(pcLink);
 
 /* FIXME See if there's a way to remove the following code/label (see comment below). */
     iLongName = 0;
@@ -973,7 +978,7 @@ LONGNAME_TAKE2:
         snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], %s", acRoutine, pcFile, acLocalError);
         return ER;
       }
-      iLinkLength = strlen(pcLink);
+//    iLinkLength = strlen(pcLink);
 /* FIXME See if there's a way to do a continue here -- rather than jumping back to the middle of the loop. */
       iNRead = TarMapReadHeader(pFile, pucHeader, acLocalError);
       if (iNRead == ER)
@@ -1016,7 +1021,7 @@ LONGNAME_TAKE2:
         strncpy(acLink, psTar->linkname, TARMAP_NAME_SIZE);
         acLink[TARMAP_NAME_SIZE] = 0;
         pcLink = acLink;
-        iLinkLength = strlen(pcLink);
+//      iLinkLength = strlen(pcLink);
       }
       goto LONGNAME_TAKE2;
       break;

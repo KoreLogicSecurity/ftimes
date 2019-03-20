@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: version2string,v 1.5 2012/01/04 03:12:40 mavrik Exp $
+# $Id: version2string,v 1.6 2013/02/14 16:34:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2008-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -142,35 +142,77 @@ sub VersionToString
   }
 
   my $sString = "";
-  if ($sType =~ /^cvs$/)
+  if (($sVersion & 0xfff) == 0x800)
   {
-    $sString = sprintf("V%d_%d_%d_%s%d",
-      ($sVersion >> 28) & 0x0f,
-      ($sVersion >> 20) & 0xff,
-      ($sVersion >> 12) & 0xff,
-      uc($sStateString),
-      $sVersion & 0x3ff
+    if ($sType =~ /^cvs$/)
+    {
+      $sString = sprintf
+      (
+        "V%d_%d_%d",
+        ($sVersion >> 28) & 0x0f,
+        ($sVersion >> 20) & 0xff,
+        ($sVersion >> 12) & 0xff
       );
+    }
+    elsif ($sType =~ /^tar$/)
+    {
+      $sString = sprintf
+      (
+        "%d.%d.%d",
+        ($sVersion >> 28) & 0x0f,
+        ($sVersion >> 20) & 0xff,
+        ($sVersion >> 12) & 0xff
+      );
+    }
+    elsif ($sType =~ /^program$/)
+    {
+      $sString = sprintf
+      (
+        "%d.%d.%d",
+        ($sVersion >> 28) & 0x0f,
+        ($sVersion >> 20) & 0xff,
+        ($sVersion >> 12) & 0xff
+      );
+    }
   }
-  elsif ($sType =~ /^tar$/)
+  else
   {
-    $sString = sprintf("%d.%d.%d.%s%d",
-      ($sVersion >> 28) & 0x0f,
-      ($sVersion >> 20) & 0xff,
-      ($sVersion >> 12) & 0xff,
-      $sStateString,
-      $sVersion & 0x3ff
+    if ($sType =~ /^cvs$/)
+    {
+      $sString = sprintf
+      (
+        "V%d_%d_%d_%s%d",
+        ($sVersion >> 28) & 0x0f,
+        ($sVersion >> 20) & 0xff,
+        ($sVersion >> 12) & 0xff,
+        uc($sStateString),
+        $sVersion & 0x3ff
       );
-  }
-  elsif ($sType =~ /^program$/)
-  {
-    $sString = sprintf("%d.%d.%d (%s%d)",
-      ($sVersion >> 28) & 0x0f,
-      ($sVersion >> 20) & 0xff,
-      ($sVersion >> 12) & 0xff,
-      $sStateString,
-      $sVersion & 0x3ff
+    }
+    elsif ($sType =~ /^tar$/)
+    {
+      $sString = sprintf
+      (
+        "%d.%d.%d.%s%d",
+        ($sVersion >> 28) & 0x0f,
+        ($sVersion >> 20) & 0xff,
+        ($sVersion >> 12) & 0xff,
+        $sStateString,
+        $sVersion & 0x3ff
       );
+    }
+    elsif ($sType =~ /^program$/)
+    {
+      $sString = sprintf
+      (
+        "%d.%d.%d (%s%d)",
+        ($sVersion >> 28) & 0x0f,
+        ($sVersion >> 20) & 0xff,
+        ($sVersion >> 12) & 0xff,
+        $sStateString,
+        $sVersion & 0x3ff
+      );
+    }
   }
 
   return $sString;

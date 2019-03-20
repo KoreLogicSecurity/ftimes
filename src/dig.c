@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.c,v 1.50 2012/01/04 03:12:28 mavrik Exp $
+ * $Id: dig.c,v 1.52 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -582,7 +582,7 @@ DigNewDigString(char *pcString, int iType, char *pcError)
   int                 iHaveWhiteSpace = 0;
   int                 iLength = 0;
   int                 iWhitespaceCount = 0;
-  int                 iWhitespaceIndex = 0;
+//int                 iWhitespaceIndex = 0;
   DIG_STRING         *psDigString = NULL;
 #ifdef USE_PCRE
   const char         *pcPcreError = NULL;
@@ -631,7 +631,7 @@ DigNewDigString(char *pcString, int iType, char *pcError)
       {
         iWhitespaceCount--; /* Adjust count for a contiguous space. */
       }
-      iWhitespaceIndex = i;
+//    iWhitespaceIndex = i;
       if (iHaveWhiteSpace == 0)
       {
         iEndOfDigString = i;

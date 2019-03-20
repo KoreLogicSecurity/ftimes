@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: message.c,v 1.20 2012/01/04 03:12:28 mavrik Exp $
+ * $Id: message.c,v 1.22 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -167,6 +167,10 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
               iLength += snprintf(&aacMessageQueue[i][iLength], 3, "%s", gacNewLine);
             }
             iNWritten = fwrite(aacMessageQueue[i], iLength, 1, gpFile);
+            if (iNWritten != 1)
+            {
+              /* Empty */
+            }
           }
           aacMessageQueue[i][0] = 0;
         }
@@ -215,6 +219,10 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
               iLength += snprintf(&aacMessageQueue[i][iLength], 3, "%s", gacNewLine);
             }
             iNWritten = fwrite(aacMessageQueue[i], iLength, 1, gpFile);
+            if (iNWritten != 1)
+            {
+              /* Empty */
+            }
           }
           aacMessageQueue[i][0] = 0;
         }
@@ -243,6 +251,10 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
           iLength += snprintf(&aacMessageQueue[0][iLength], 3, "%s", gacNewLine);
         }
         iNWritten = fwrite(aacMessageQueue[0], iLength, 1, gpFile);
+        if (iNWritten != 1)
+        {
+          /* Empty */
+        }
       }
       aacMessageQueue[0][0] = 0;
       fprintf(stderr, "%*.*s|%s%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage, gacNewLine);
@@ -267,6 +279,10 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
               iLength += snprintf(&aacMessageQueue[i][iLength], 3, "%s", gacNewLine);
             }
             iNWritten = fwrite(aacMessageQueue[i], iLength, 1, gpFile);
+            if (iNWritten != 1)
+            {
+              /* Empty */
+            }
           }
           aacMessageQueue[i][0] = 0;
         }

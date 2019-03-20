@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: error.c,v 1.15 2012/01/04 03:12:28 mavrik Exp $
+ * $Id: error.c,v 1.17 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -77,53 +77,84 @@ ErrorHandler(int iError, char *pcError, int iSeverity)
 /*-
  ***********************************************************************
  *
- * ErrorFormatWin32Error
+ * ErrorFormatWinxError
  *
  ***********************************************************************
  */
 void
-ErrorFormatWin32Error(char **ppcMessage)
+ErrorFormatWinxError(DWORD dwError, TCHAR **pptcMessage)
 {
-  static char         acMessage[MESSAGE_SIZE / 2] = { 0 };
-  char               *pc;
-  int                 i;
-  int                 j;
-  LPVOID              lpvMessage;
+  static TCHAR        atcMessage[MESSAGE_SIZE / 2];
+  int                 i = 0;
+  int                 j = 0;
+  LPVOID              lpvMessage = NULL;
+  TCHAR              *ptc = NULL;
 
-  *ppcMessage = acMessage;
-
-  FormatMessage(
-                FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                FORMAT_MESSAGE_FROM_SYSTEM |
-                FORMAT_MESSAGE_IGNORE_INSERTS,
-                NULL,
-                GetLastError(),
-                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),        /* default language */
-                (LPTSTR) & lpvMessage,
-                0,
-                NULL
-    );
-
-  /*
-   * Replace linefeeds with spaces. Eliminate carriage returns.
+  /*-
+   *********************************************************************
+   *
+   * Initialize the result buffer/pointer.
+   *
+   *********************************************************************
    */
-  for (i = 0, j = 0, pc = (char *) lpvMessage; (i < (int) strlen(lpvMessage)) && (i < (MESSAGE_SIZE / 2)); i++, j++)
+  atcMessage[0] = 0;
+
+  *pptcMessage = atcMessage;
+
+  /*-
+   *********************************************************************
+   *
+   * Format the message that corresponds to the specified error code.
+   *
+   *********************************************************************
+   */
+  FormatMessage
+  (
+    FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+    NULL,
+    dwError,
+    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* default language */
+    (LPTSTR) &lpvMessage,
+    0,
+    NULL
+  );
+
+  /*-
+   *********************************************************************
+   *
+   * Replace linefeeds with spaces. Eliminate carriage returns.
+   *
+   *********************************************************************
+   */
+  for (i = 0, j = 0, ptc = (TCHAR *) lpvMessage; (i < (int) _tcslen(lpvMessage)) && (i < (MESSAGE_SIZE / 2)); i++, j++)
   {
-    if (pc[i] == '\n')
+    if (ptc[i] == _T('\n'))
     {
-      acMessage[j] = ' ';
+      atcMessage[j] = _T(' ');
     }
-    else if (pc[i] == '\r')
+    else if (ptc[i] == _T('\r'))
     {
       j--;
       continue;
     }
     else
     {
-      acMessage[j] = pc[i];
+      atcMessage[j] = ptc[i];
     }
   }
-  acMessage[j] = 0;
+  atcMessage[j] = 0;
+
+  /*-
+   *********************************************************************
+   *
+   * Removing trailing spaces.
+   *
+   *********************************************************************
+   */
+  while (j > 1 && atcMessage[j - 1] == _T(' '))
+  {
+    atcMessage[--j] = 0;
+  }
 
   LocalFree(lpvMessage);
 }

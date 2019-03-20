@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: nph-ftimes.cgi,v 1.35 2012/05/05 22:32:49 mavrik Exp $
+# $Id: nph-ftimes.cgi,v 1.36 2013/02/14 16:55:23 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2000-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 
@@ -47,7 +47,7 @@ use Fcntl qw(:flock);
   ####################################################################
 
   $hProperties{'StartTime'} = time();
-  $hProperties{'Version'} = sprintf("%s %s", __FILE__, ('$Revision: 1.35 $' =~ /^.Revision: ([\d.]+)/));
+  $hProperties{'Version'} = sprintf("%s %s", __FILE__, ('$Revision: 1.36 $' =~ /^.Revision: ([\d.]+)/));
 
   ####################################################################
   #

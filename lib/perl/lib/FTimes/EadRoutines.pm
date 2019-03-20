@@ -1,10 +1,10 @@
 ######################################################################
 #
-# $Id: EadRoutines.pm,v 1.20 2012/01/04 03:12:27 mavrik Exp $
+# $Id: EadRoutines.pm,v 1.21 2013/02/14 16:55:19 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2008-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -24,7 +24,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 
 @EXPORT_OK = ();
 @ISA = qw(Exporter);
-$VERSION = do { my @r = (q$Revision: 1.20 $ =~ /(\d+)/g); sprintf("%d."."%03d" x $#r, @r); };
+$VERSION = do { my @r = (q$Revision: 1.21 $ =~ /(\d+)/g); sprintf("%d."."%03d" x $#r, @r); };
 
 ######################################################################
 #

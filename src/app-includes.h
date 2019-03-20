@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: app-includes.h,v 1.33 2012/04/14 18:15:02 mavrik Exp $
+ * $Id: app-includes.h,v 1.35 2013/02/14 16:55:19 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -39,8 +39,11 @@ typedef unsigned int APP_UI32;
 #endif
 #endif
 
-#ifdef USE_FILE_HOOKS
+#ifdef USE_KLEL
 #include <klel.h>
+#endif
+
+#ifdef USE_FILE_HOOKS
 #include "hook.h"
 #endif
 

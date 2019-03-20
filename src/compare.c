@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.c,v 1.50 2012/01/04 03:12:27 mavrik Exp $
+ * $Id: compare.c,v 1.52 2013/02/14 16:55:19 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -587,7 +587,7 @@ CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError)
     );
     if (hFile == INVALID_HANDLE_VALUE)
     {
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: CreateFile(): %s", acRoutine, pcMessage);
       return ER;
     }
@@ -758,14 +758,14 @@ CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError)
     hMemoryMap = CreateFileMapping(hFile, NULL, PAGE_READWRITE, 0, 0, 0);
     if (hMemoryMap == NULL)
     {
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: CreateFileMapping(): %s", acRoutine, pcMessage);
       return ER;
     }
     psProperties->pvMemoryMap = MapViewOfFile(hMemoryMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
     if (psProperties->pvMemoryMap == NULL)
     {
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: MapViewOfFile(): %s", acRoutine, pcMessage);
       return ER;
     }

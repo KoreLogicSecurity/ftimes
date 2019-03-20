@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: FTimes-Properties.t,v 1.2 2012/01/04 03:12:27 mavrik Exp $
+# $Id: FTimes-Properties.t,v 1.3 2013/02/14 16:55:19 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2011-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2011-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

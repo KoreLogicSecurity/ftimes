@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.57 2012/01/04 03:12:27 mavrik Exp $
+ * $Id: analyze.c,v 1.60 2013/02/14 16:55:19 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -375,7 +375,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, cha
           );
   if (hFile == INVALID_HANDLE_VALUE)
   {
-    ErrorFormatWin32Error(&pcMessage);
+    ErrorFormatWinxError(GetLastError(), &pcMessage);
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, pcMessage);
     return ER;
   }
@@ -959,7 +959,7 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * Seek out and load Magic.
+   * Locate and load magic. If a file was specified, it must exist.
    *
    *********************************************************************
    */
@@ -971,6 +971,11 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
       if (psProperties->acMagicFileName[0])
       {
         iError = SupportExpandPath(psProperties->acMagicFileName, psProperties->acMagicFileName, FTIMES_MAX_PATH, 1, acLocalError);
+        if (iError != ER_OK)
+        {
+          snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+          return ER_XMagic;
+        }
       }
       else
       {

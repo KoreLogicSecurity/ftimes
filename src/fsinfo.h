@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.h,v 1.44 2012/01/04 03:12:28 mavrik Exp $
+ * $Id: fsinfo.h,v 1.46 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -52,6 +52,7 @@ enum eFSTypes
   FSTYPE_RAMFS,
   FSTYPE_REISER,
   FSTYPE_SMB,
+  FSTYPE_SQUASHFS,
   FSTYPE_TMPFS,
   FSTYPE_UDF,
   FSTYPE_UFS,
@@ -152,6 +153,9 @@ enum eFSTypes
 #endif
 #ifndef SMB_SUPER_MAGIC
 #define SMB_SUPER_MAGIC       0x517B
+#endif
+#ifndef SQUASHFS_SUPER_MAGIC
+#define SQUASHFS_SUPER_MAGIC 0x71736873
 #endif
 #ifndef TMPFS_SUPER_MAGIC
 #define TMPFS_SUPER_MAGIC  0x1021994

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: support.c,v 1.61 2012/04/23 14:17:22 mavrik Exp $
+ * $Id: support.c,v 1.63 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -1683,7 +1683,7 @@ SupportSetPriority(FTIMES_PROPERTIES *psProperties, char *pcError)
     if (!SetPriorityClass(GetCurrentProcess(), (DWORD) psProperties->iPriority))
     {
       char *pcMessage = NULL;
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: SetPriorityClass(): %s", acRoutine, pcMessage);
       return ER;
     }

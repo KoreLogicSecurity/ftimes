@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: properties.c,v 1.64 2012/01/18 03:09:44 mavrik Exp $
+ * $Id: properties.c,v 1.66 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -1798,7 +1798,7 @@ if (RUN_MODE_IS_SET(MODES_URLPutSnapshot, psProperties->iRunMode) && psPropertie
   {
     for (psHook = psProperties->psFileHookList; psHook != NULL; psHook = psHook->psNext)
     {
-      pcExpression = KlelExpressionToString(psHook->psExpression, KLEL_EXPRESSION_PLUS_EVERYTHING);
+      pcExpression = KlelExpressionToString(psHook->psContext, KLEL_EXPRESSION_PLUS_EVERYTHING);
       snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_FileHook, pcExpression);
       free(pcExpression);
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);

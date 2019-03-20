@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: configure.in,v 1.103 2012/05/06 02:07:04 mavrik Exp $
+# $Id: configure.in,v 1.110 2013/02/15 18:01:29 mavrik Exp $
 #
 ########################################################################
 
@@ -11,7 +11,7 @@ dnl #
 dnl ####################################################################
 
 AC_INIT(src/ftimes.c)
-AC_PREREQ(2.53)
+AC_PREREQ(2.68)
 AC_CONFIG_AUX_DIR(utils)
 AC_PREFIX_DEFAULT(/usr/local/ftimes)
 cgidir='${exec_prefix}/cgi'
@@ -205,7 +205,7 @@ AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_FUNC_STAT
 AC_FUNC_STRFTIME
-AC_CHECK_FUNCS([fseeko getcwd gethostbyname memset modf socket strcasecmp strchr strerror strncasecmp strstr strtoul uname])
+AC_CHECK_FUNCS([fseeko getcwd gethostbyname memset modf socket strcasecmp strchr strerror strncasecmp strnlen strstr strtoul uname])
 
 dnl ####################################################################
 dnl #
@@ -251,12 +251,6 @@ AC_ARG_WITH(klel,
   ]
 )
 if test ${use_klel} -eq 1 ; then
-  case "${target_os}" in
-  *mingw*)
-    AC_MSG_RESULT([this feature can not be enabled on this platform (aborting)])
-    exit 1
-    ;;
-  esac
   AC_DEFINE(USE_KLEL, 1, [Define to 1 if KLEL support is enabled.])
   if test -z "${kleldir}" ; then
     AC_MSG_RESULT(missing or incomplete)
@@ -554,6 +548,43 @@ fi
 
 dnl ####################################################################
 dnl #
+dnl # Check whether or not KLEL release number is ok.
+dnl #
+dnl ####################################################################
+
+if test ${use_klel} -eq 1 ; then
+  OLD_CFLAGS=${CFLAGS}
+  OLD_LIBS=${LIBS}
+  CFLAGS="${CFLAGS} ${klel_incflags} ${pcre_incflags}"
+  LIBS="${LIBS} ${klel_libflags} ${pcre_libflags}"
+  AC_MSG_CHECKING([whether or not KLEL release number is ok])
+  AC_RUN_IFELSE(
+    [
+      AC_LANG_SOURCE(
+      [[
+#include <klel.h>
+int main() { return (KlelGetReleaseNumber() >= 0x10100800) ? 0 : 1; }
+      ]]
+      )
+    ],
+    [klel_version_ok="1"],
+    [klel_version_ok="0"],
+    [klel_version_ok="2"]
+  )
+  if test ${klel_version_ok} -eq 1 ; then
+    AC_MSG_RESULT([yes])
+  elif test ${klel_version_ok} -eq 2 ; then
+    AC_MSG_RESULT([skipped (cross-compiling)])
+  else
+    AC_MSG_RESULT([no (0x10100800 or higher required)])
+    exit 1
+  fi
+  CFLAGS=${OLD_CFLAGS}
+  LIBS=${OLD_LIBS}
+fi
+
+dnl ####################################################################
+dnl #
 dnl # Check whether or not to enable XMagic support.
 dnl #
 dnl ####################################################################
@@ -610,21 +641,21 @@ AC_ARG_ENABLE(file-hooks,
   ],
   [ enable_file_hooks="0" ]
 )
-if test ${enable_file_hooks} -eq 1; then
+if test ${enable_file_hooks} -eq 1 ; then
   case "${target_os}" in
   *mingw*)
     AC_MSG_RESULT([this feature can not be enabled on this platform (aborting)])
     exit 1
     ;;
   esac
-  if test ${use_klel} -eq 1; then
+  if test ${use_klel} -eq 1 ; then
     AC_MSG_RESULT(yes)
     AC_DEFINE(USE_FILE_HOOKS, 1, [Define to 1 if file hooks are enabled.])
     hook_srcs="hook.c"
     hook_incs="hook.h"
     AC_SUBST(hook_srcs)
     AC_SUBST(hook_incs)
-  elif test ${use_klel} -eq 2; then
+  elif test ${use_klel} -eq 2 ; then
     AC_MSG_RESULT([KLEL support is required, but it has been explicitly disabled (aborting)])
     exit 1
   else

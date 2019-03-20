@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-encoder,v 1.16 2012/01/04 03:12:38 mavrik Exp $
+# $Id: ftimes-encoder,v 1.17 2013/02/14 16:55:21 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2008-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2008-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

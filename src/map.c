@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: map.c,v 1.99 2012/05/03 03:35:46 mavrik Exp $
+ * $Id: map.c,v 1.104 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -270,8 +270,8 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
   int                 iKidPid = 0;
   int                 iKidReturn = 0;
   int                 iKidStatus = 0;
-  int                 iKidSignal = 0;
-  int                 iKidDumped = 0;
+//int                 iKidSignal = 0;
+//int                 iKidDumped = 0;
   int                 iNRead = 0;
   int                 iNReady = 0;
   int                 iNToWatch = 0;
@@ -355,24 +355,24 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
 
 /* NOTE: Perhaps this code perhaps should be placed above the fork(), but having it here eliminates the need to have KlelFreeCommand() before each return in the parent. */
     psHook->psContext->pvData = (void *)psFTFileData;
-    psCommand = KlelGetCommand(psHook->psExpression, psHook->psContext);
+    psCommand = KlelGetCommand(psHook->psContext);
     if (psCommand == NULL)
     {
-      snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: KlelGetCommand(): Hook (%s) failed to produce a valid command (%s).", acRoutine, psFTFileData->pcNeuteredPath, psHook->pcName, KlelGetFirstError(psHook->psContext));
+      snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: KlelGetCommand(): Hook (%s) failed to produce a valid command (%s).", acRoutine, psFTFileData->pcNeuteredPath, psHook->pcName, KlelGetError(psHook->psContext));
       MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
       exit(-2);
     }
 
-    if (strcmp(psCommand->pcInterpreter, "exec") == 0)
+    if (strcmp(psCommand->acInterpreter, "exec") == 0)
     {
-      execv(psCommand->pcProgram, psCommand->ppcArgumentVector);
-      snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->pcInterpreter, psHook->pcName, psCommand->pcProgram, strerror(errno));
+      execv(psCommand->acProgram, psCommand->ppcArgumentVector);
+      snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName, psCommand->acProgram, strerror(errno));
       MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
       KlelFreeCommand(psCommand);
       exit(-1);
     }
 #ifdef USE_EMBEDDED_PERL
-    else if (strcmp(psCommand->pcInterpreter, "perl") == 0)
+    else if (strcmp(psCommand->acInterpreter, "perl") == 0)
     {
       dSP;
       ENTER;
@@ -384,7 +384,7 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
       if (SvTRUE(ERRSV))
       {
         iError = -1;
-        snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->pcInterpreter, psHook->pcName, psCommand->pcProgram, SvPV_nolen(ERRSV));
+        snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName, psCommand->acProgram, SvPV_nolen(ERRSV));
         MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
       }
       else
@@ -396,7 +396,7 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
         else
         {
           iError = -1;
-          snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (No $@).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->pcInterpreter, psHook->pcName, psCommand->pcProgram);
+          snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (No $@).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName, psCommand->acProgram);
           MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
         }
       }
@@ -410,12 +410,27 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
       exit(iError);
     }
 #endif
-    else if (strcmp(psCommand->pcInterpreter, "system") == 0)
+    else if (strcmp(psCommand->acInterpreter, "system") == 0)
     {
-      iError = system(psCommand->ppcArgumentVector[0]);
-      if (iError == -1)
+      if
+      (
+           psCommand->ppcArgumentVector[0] != NULL
+        && psCommand->ppcArgumentVector[1] != NULL
+        && strcmp(psCommand->ppcArgumentVector[0], "") == 0
+        && strcmp(psCommand->ppcArgumentVector[1], "") != 0
+      )
       {
-        snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->pcInterpreter, psHook->pcName, psCommand->pcProgram, strerror(errno));
+        iError = system(psCommand->ppcArgumentVector[1]);
+        if (iError == -1)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName, psCommand->ppcArgumentVector[1], strerror(errno));
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
+        }
+      }
+      else
+      {
+        iError = -1;
+        snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute (Usage: eval(\"system\", \"\", \"<command>\")).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName);
         MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
       }
       KlelFreeCommand(psCommand);
@@ -423,7 +438,7 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
     }
     else
     {
-      snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) requires an unsupported interpreter.", acRoutine, psFTFileData->pcNeuteredPath, psCommand->pcInterpreter, psHook->pcName);
+      snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) requires an unsupported interpreter.", acRoutine, psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName);
       MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
       KlelFreeCommand(psCommand);
       exit(-1);
@@ -514,9 +529,9 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
       return ER;
     }
     iKidReturn = WEXITSTATUS(iKidStatus);
-    iKidSignal = WTERMSIG(iKidStatus);
-    iKidDumped = WCOREDUMP(iKidStatus);
-    if (!KlelIsSuccessReturnCode(psHook->psExpression, iKidReturn))
+//  iKidSignal = WTERMSIG(iKidStatus);
+//  iKidDumped = WCOREDUMP(iKidStatus);
+    if (!KlelIsSuccessReturnCode(psHook->psContext, iKidReturn))
     {
       snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: wait(): Hook (%s) returned an unexpected exit code (%d).", acRoutine, psFTFileData->pcNeuteredPath, psHook->pcName, iKidReturn);
       ErrorHandler(ER_Failure, acMessage, ERROR_FAILURE);
@@ -1321,7 +1336,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
   hSearch = FindFirstFileW(awcSearchPath, &sFindDataW);
   if (hSearch == INVALID_HANDLE_VALUE)
   {
-    ErrorFormatWin32Error(&pcMessage);
+    ErrorFormatWinxError(GetLastError(), &pcMessage);
     snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: %s", acRoutine, psFTTreeData->pcNeuteredPath, pcMessage);
     ErrorHandler(ER_FindFirstFile, pcError, ERROR_FAILURE);
     return ER_FindFirstFile;
@@ -2003,7 +2018,7 @@ MapCountNamedStreams(HANDLE hFile, int *piStreamCount, unsigned char **ppucStrea
     if (dwStatus != STATUS_SUCCESS && dwStatus != STATUS_BUFFER_OVERFLOW)
     {
       SetLastError(LsaNtStatusToWinError(dwStatus));
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: NtQueryInformationFile(): %s", acRoutine, pcMessage);
       MEMORY_FREE(psFSI);
       return ER;
@@ -2979,6 +2994,7 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTFileData)
   BOOL                bResult;
   BY_HANDLE_FILE_INFORMATION sFileInfo;
   char               *pcMessage;
+  DWORD               dwLastError;
   DWORD               dwSize;
   DWORD               dwStatus;
   FILE_BASIC_INFORMATION sFileBasicInfo;
@@ -3025,7 +3041,7 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTFileData)
     }
     else
     {
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileInformationByHandle(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
       ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
     }
@@ -3070,8 +3086,8 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTFileData)
       );
     if (dwStatus != ERROR_SUCCESS)
     {
-      SetLastError(dwStatus); /* This is needed because ErrorFormatWin32Error() calls GetLastError(). */
-      ErrorFormatWin32Error(&pcMessage);
+      dwLastError = dwStatus; /* According to MSDN, GetSecurityInfo() returns a nonzero error code defined in WinError.h when it fails. */
+      ErrorFormatWinxError(dwLastError, &pcMessage);
       snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetSecurityInfo(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
       ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
     }
@@ -3111,8 +3127,8 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTFileData)
   }
   else
   {
-    DWORD dwLastError = GetLastError();
-    ErrorFormatWin32Error(&pcMessage);
+    dwLastError = GetLastError();
+    ErrorFormatWinxError(dwLastError, &pcMessage);
     snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: MapGetFileHandleW(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
     ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
     if (dwLastError == ERROR_FILE_NOT_FOUND)
@@ -3137,7 +3153,7 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTFileData)
     }
     else
     {
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileAttributesExW(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
       ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
     }
@@ -3185,21 +3201,21 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTFileData)
         }
         else
         {
-          ErrorFormatWin32Error(&pcMessage);
+          ErrorFormatWinxError(GetLastError(), &pcMessage);
           snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileSecurityW(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
           ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
         }
       }
       else
       {
-        ErrorFormatWin32Error(&pcMessage);
+        ErrorFormatWinxError(GetLastError(), &pcMessage);
         snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: LocalAlloc(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
         ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
       }
     }
     else
     {
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(acLocalError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: GetFileSecurityW(): %s", acRoutine, psFTFileData->pcNeuteredPath, pcMessage);
       ErrorHandler(ER_Failure, acLocalError, ERROR_FAILURE);
     }
@@ -3590,7 +3606,7 @@ MapUtf8ToWide(char *pcString, int iUtf8Size, char *pcError)
     iWideSize = MultiByteToWideChar(CP_UTF8, 0, pcString, iUtf8Size, pwcString, iWideSize);
     if (!iWideSize)
     {
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: MultiByteToWideChar(): %s", acRoutine, pcMessage);
       free(pwcString);
       return NULL;
@@ -3598,7 +3614,7 @@ MapUtf8ToWide(char *pcString, int iUtf8Size, char *pcError)
   }
   else
   {
-    ErrorFormatWin32Error(&pcMessage);
+    ErrorFormatWinxError(GetLastError(), &pcMessage);
     snprintf(pcError, MESSAGE_SIZE, "%s: MultiByteToWideChar(): %s", acRoutine, pcMessage);
     return NULL;
   }
@@ -3634,7 +3650,7 @@ MapWideToUtf8(wchar_t *pwcString, int iWideSize, char *pcError)
     iUtf8Size = WideCharToMultiByte(CP_UTF8, 0, pwcString, iWideSize, pcString, iUtf8Size, NULL, NULL);
     if (!iUtf8Size)
     {
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: WideCharToMultiByte(): %s", acRoutine, pcMessage);
       free(pcString);
       return NULL;
@@ -3642,7 +3658,7 @@ MapWideToUtf8(wchar_t *pwcString, int iWideSize, char *pcError)
   }
   else
   {
-    ErrorFormatWin32Error(&pcMessage);
+    ErrorFormatWinxError(GetLastError(), &pcMessage);
     snprintf(pcError, MESSAGE_SIZE, "%s: WideCharToMultiByte(): %s", acRoutine, pcMessage);
     return NULL;
   }

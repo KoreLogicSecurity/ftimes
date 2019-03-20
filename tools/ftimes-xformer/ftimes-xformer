@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-xformer,v 1.40 2012/01/04 03:12:39 mavrik Exp $
+# $Id: ftimes-xformer,v 1.41 2013/02/14 16:55:22 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2007-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2007-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

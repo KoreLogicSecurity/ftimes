@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.163 2012/04/14 18:15:02 mavrik Exp $
+ * $Id: ftimes.h,v 1.165 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -61,6 +61,7 @@ typedef enum _BOOL
 typedef enum _FTIMES_OPTION_IDS
 {
   OPT_LogLevel,
+  OPT_MagicFile,
   OPT_MemoryMapEnable,
   OPT_NamesAreCaseInsensitive,
   OPT_StrictTesting,

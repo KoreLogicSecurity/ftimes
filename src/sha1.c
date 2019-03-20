@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sha1.c,v 1.12 2012/01/04 03:12:28 mavrik Exp $
+ * $Id: sha1.c,v 1.14 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2003-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -92,8 +92,9 @@ SHA1HashStream(FILE *pFile, unsigned char *pucSHA1, APP_UI64 *pui64Size)
   SHA1_CONTEXT        sSHA1Context;
 
   SHA1Alpha(&sSHA1Context);
-  while ((iNRead = fread(aucData, 1, SHA1_READ_SIZE, pFile)) == SHA1_READ_SIZE)
+  while ((iNRead = fread(aucData, 1, SHA1_READ_SIZE, pFile)) > 0)
   {
+    *pui64Size += (APP_UI64) iNRead;
     SHA1Cycle(&sSHA1Context, aucData, iNRead);
   }
   if (ferror(pFile))
@@ -108,8 +109,6 @@ SHA1HashStream(FILE *pFile, unsigned char *pucSHA1, APP_UI64 *pui64Size)
 #endif
     return -1;
   }
-  *pui64Size += (APP_UI64) iNRead;
-  SHA1Cycle(&sSHA1Context, aucData, iNRead);
   SHA1Omega(&sSHA1Context, pucSHA1);
   return 0;
 }

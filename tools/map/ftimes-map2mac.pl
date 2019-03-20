@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-map2mac.pl,v 1.26 2012/01/04 03:12:40 mavrik Exp $
+# $Id: ftimes-map2mac.pl,v 1.27 2013/02/14 16:55:23 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

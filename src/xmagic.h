@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: xmagic.h,v 1.66 2012/05/04 17:43:12 mavrik Exp $
+ * $Id: xmagic.h,v 1.71 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -85,6 +85,12 @@
 #endif
 #endif
 
+#define XMAGIC_PRESERVE_COMMENTS 0x00000001
+
+#define XMAGIC_TIME_SIZE               20
+#define XMAGIC_YMDHMS_FORMAT_SIZE      20
+#define XMAGIC_YMDHMS_FORMAT "%Y-%m-%d %H:%M:%S"
+
 /*-
  ***********************************************************************
  *
@@ -92,6 +98,22 @@
  *
  ***********************************************************************
  */
+#ifdef USE_KLEL
+typedef struct _XMAGIC_DATA_BLOCK
+{
+  unsigned char *pucData;
+  int            iLength;
+} XMAGIC_DATA_BLOCK;
+#endif
+
+#ifdef USE_KLEL
+typedef struct _XMAGIC_KLEL_TYPE_SPEC
+{
+  const char         *pcName;
+  KLEL_EXPR_TYPE      iType;
+} XMAGIC_KLEL_TYPE_SPEC;
+#endif
+
 typedef enum _XMAGIC_TEST_OPERATORS
 {
   XMAGIC_OP_AND = 0,   /* '&'         */
@@ -139,6 +161,9 @@ typedef enum _XMAGIC_TYPES
   XMAGIC_BEUI64,
   XMAGIC_BYTE,
   XMAGIC_DATE,
+#ifdef USE_KLEL
+  XMAGIC_KLELEXP,
+#endif
   XMAGIC_LEDATE,
   XMAGIC_LELONG,
   XMAGIC_LESHORT,
@@ -268,6 +293,9 @@ typedef struct _XMAGIC
   double              dEntropy;
   double              dPercent;
   char               *pcHash;
+#ifdef USE_KLEL
+  KLEL_CONTEXT       *psKlelContext;
+#endif
 } XMAGIC;
 
 /*-
@@ -278,6 +306,9 @@ typedef struct _XMAGIC
  ***********************************************************************
  */
 int                 is80_ff(int c);
+#if defined(USE_KLEL) && !defined(HAVE_STRNLEN)
+size_t              strnlen(const char *pcString, size_t szMaxLength);
+#endif
 double              XMagicComputePercentage(unsigned char *pucBuffer, int iLength, int iType);
 char               *XMagicComputePercentageCombos(unsigned char *pucBuffer, int iLength, int iType);
 double              XMagicComputeRowAverage1(unsigned char *pucBuffer, int iLength);
@@ -290,14 +321,26 @@ int                 XMagicConvertHexToInt(int iC);
 void                XMagicFormatDescription(void *pvValue, XMAGIC *psXMagic, char *pcDescription);
 void                XMagicFreeXMagic(XMAGIC *psXMagic);
 int                 XMagicGetDescription(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError);
+char               *XMagicGetLine(FILE *pFile, int iMaxLine, unsigned int uiFlags, int *piLinesConsumed, char *pcError);
 int                 XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError);
 int                 XMagicGetTestOperator(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError);
 int                 XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError);
 int                 XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError);
 APP_SI32            XMagicGetValueOffset(unsigned char *pucBuffer, int iNRead, XMAGIC *psXMagic);
 XMAGIC             *XMagicLoadMagic(char *pcFilename, char *pcError);
+#ifdef USE_KLEL
+KLEL_VALUE         *XMagicKlelBeLongAt(KLEL_VALUE **ppsArgs, void *pvContext);
+KLEL_VALUE         *XMagicKlelBeShortAt(KLEL_VALUE **ppsArgs, void *pvContext);
+KLEL_VALUE         *XMagicKlelByteAt(KLEL_VALUE **ppsArgs, void *pvContext);
+KLEL_VALUE         *XMagicKlelComputeRowEntropy1At(KLEL_VALUE **ppsArgs, void *pvContext);
+KLEL_EXPR_TYPE      XMagicKlelGetTypeOfVar(const char *pcName, void *pvContext);
+KLEL_VALUE         *XMagicKlelGetValueOfVar(const char *pcName, void *pvContext);
+KLEL_VALUE         *XMagicKlelLeLongAt(KLEL_VALUE **ppsArgs, void *pvContext);
+KLEL_VALUE         *XMagicKlelLeShortAt(KLEL_VALUE **ppsArgs, void *pvContext);
+KLEL_VALUE         *XMagicKlelStringAt(KLEL_VALUE **ppsArgs, void *pvContext);
+#endif
 XMAGIC             *XMagicNewXMagic(char *pcError);
-int                 XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError);
+XMAGIC             *XMagicParseLine(char *pcLine, char *pcError);
 int                 XMagicStringToUi64(char *pcNumber, APP_UI64 *pui64Value);
 APP_UI16            XMagicSwapUi16(APP_UI16 ui16Value, APP_UI32 ui32MagicType);
 APP_UI32            XMagicSwapUi32(APP_UI32 ui32Value, APP_UI32 ui32MagicType);

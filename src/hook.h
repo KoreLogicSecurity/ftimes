@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: hook.h,v 1.2 2012/04/14 18:15:02 mavrik Exp $
+ * $Id: hook.h,v 1.4 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2011-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -36,7 +36,6 @@ typedef struct _HOOK_LIST
   char               *pcExpression;
   char               *pcInterpreter;
   char               *pcProgram;
-  KLEL_NODE          *psExpression;
   KLEL_CONTEXT       *psContext;
   struct _HOOK_LIST  *psNext;
 } HOOK_LIST;
@@ -72,10 +71,8 @@ typedef struct _HOOK_FUNC_DESC
  */
 int                   HookAddHook(char *pcExpression, HOOK_LIST **psHead, char *pcError);
 void                  HookFreeHook(HOOK_LIST *psHook);
-KLEL_EXPR_TYPE       *HookGetFuncDesc(const char *pcName, KLEL_CONTEXT *psContext);
-KLEL_EXPR_TYPE        HookGetTypeOfVar(const char *pcName, KLEL_CONTEXT *psContext);
-KLEL_VALUE           *HookGetValueOfVar(const char *pcName, KLEL_CONTEXT *psContext);
-void                  HookInitialize(void);
+KLEL_EXPR_TYPE        HookGetTypeOfVar(const char *pcName, void *pvContext);
+KLEL_VALUE           *HookGetValueOfVar(const char *pcName, void *pvContext);
 //HOOK_LIST            *HookMatchHook(HOOK_LIST *psHookList, FTIMES_FILE_DATA *psFTFileData); /* This is declared in ftimes.h. */
 HOOK_LIST            *HookNewHook(char *pcExpression, char *pcError);
 

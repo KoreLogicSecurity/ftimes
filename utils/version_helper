@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: version_helper,v 1.6 2012/01/04 03:12:40 mavrik Exp $
+# $Id: version_helper,v 1.7 2013/02/14 16:31:46 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2006-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2006-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -45,7 +45,6 @@ use Getopt::Std;
   my $sMinorNumberRegex = qq((?:\\d+|[+]));
   my $sPatchNumberRegex = qq((?:\\d+|[+]));
   my $sStateNumberRegex = qq((?:[0-3+]|[dx]s|rc|sr));
-  my $sTypeRegex = qq((?:cvs|program|tar));
 
   ####################################################################
   #
@@ -55,7 +54,7 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('b:f:M:m:p:s:t:', \%hOptions))
+  if (!getopts('b:f:M:m:p:s:', \%hOptions))
   {
     Usage($sProgram);
   }
@@ -197,22 +196,6 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # A Type, '-t', is optional.
-  #
-  ####################################################################
-
-  my $sType;
-
-  $sType = (exists($hOptions{'t'})) ? $hOptions{'t'} : "cvs";
-
-  if (defined($sType) && $sType !~ /^$sTypeRegex$/)
-  {
-    print STDERR "$sProgram: Type='$sType' Error='Invalid version type.'\n";
-    exit(2);
-  }
-
-  ####################################################################
-  #
   # If any arguments remain, it's an error.
   #
   ####################################################################
@@ -224,115 +207,177 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # Do some work.
+  # Attempt to locate/identify the current version number.
   #
   ####################################################################
 
+  my ($sOldVersion, $sVersionFmt);
+
   while (my $sLine = <$sFileHandle>)
   {
-    next unless($sLine =~ /^#define VERSION (0x[0-9A-Fa-f]{8})\s*/);
-    my $sOldVersion = hex($1);
-    my $sVersion = $sOldVersion;
-
-    my $sOldVersionString = VersionToString($sVersion, $sType);
-
-    if (defined($sMajorNumber))
+    if ($sLine =~ /^#define VERSION (0x[0-9A-Fa-f]{8})\s*/)
     {
-      if ($sMajorNumber =~ /^\+$/)
-      {
-        $sVersion += 0x10000000;
-        $sVersion &= 0xf0000000;
-      }
-      else
-      {
-        if ($sMajorNumber < 0 || $sMajorNumber > 15)
-        {
-          print STDERR "$sProgram: MajorNumber='$sMajorNumber' Error='Invalid major number.'\n";
-          exit(2);
-        }
-        $sVersion = (($sMajorNumber & 0xf) << 28) + ($sVersion & 0x0fffffff);
-      }
+      $sOldVersion = hex($1);
+      $sVersionFmt = "define";
+      last;
     }
-
-    if (defined($sMinorNumber))
+    elsif ($sLine =~ /^\s*(0x[0-9A-Fa-f]{8})\s*$/)
     {
-      if ($sMinorNumber =~ /^\+$/)
-      {
-        $sVersion += 0x00100000;
-        $sVersion &= 0xfff00000;
-      }
-      else
-      {
-        if ($sMinorNumber < 0 || $sMinorNumber > 255)
-        {
-          print STDERR "$sProgram: MinorNumber='$sMinorNumber' Error='Invalid minor number.'\n";
-          exit(2);
-        }
-        $sVersion = (($sMinorNumber & 0xff) << 20) + ($sVersion & 0xf00fffff);
-      }
+      $sOldVersion = hex($1);
+      $sVersionFmt = "string";
+      last;
     }
-
-    if (defined($sPatchNumber))
+    elsif ($sLine =~ /^\s*(?:version\s+=\s+)?(0x[0-9A-Fa-f]{8})\s*$/)
     {
-      if ($sPatchNumber =~ /^\+$/)
-      {
-        $sVersion += 0x00001000;
-        $sVersion &= 0xfffff000;
-      }
-      else
-      {
-        if ($sPatchNumber < 0 || $sPatchNumber > 255)
-        {
-          print STDERR "$sProgram: PatchNumber='$sPatchNumber' Error='Invalid patch number.'\n";
-          exit(2);
-        }
-        $sVersion = (($sPatchNumber & 0xff) << 12) + ($sVersion & 0xfff00fff);
-      }
+      $sOldVersion = hex($1);
+      $sVersionFmt = "assign";
+      last;
     }
-
-    if (defined($sStateNumber))
+    else
     {
-      if ($sStateNumber =~ /^\+$/)
-      {
-        $sVersion += 0x00000400;
-        $sVersion &= 0xfffffc00;
-      }
-      else
-      {
-        if ($sStateNumber < 0 || $sStateNumber > 255)
-        {
-          print STDERR "$sProgram: StateNumber='$sStateNumber' Error='Invalid state number.'\n";
-          exit(2);
-        }
-        $sVersion = (($sStateNumber & 0x3) << 10) + ($sVersion & 0xfffff3ff);
-      }
+      next;
     }
+  }
+  close($sFileHandle);
 
-    if (defined($sBuildNumber))
+  if (!defined($sOldVersion))
+  {
+    print STDERR "$sProgram: Error='Failed to locate/identify current version number.'\n";
+    exit(2);
+  }
+
+  if (!defined($sVersionFmt))
+  {
+    print STDERR "$sProgram: Error='Failed to determine version format.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Compute the new version number.
+  #
+  ####################################################################
+
+  my ($sNewVersion);
+
+  $sNewVersion = $sOldVersion;
+
+  if (defined($sMajorNumber))
+  {
+    if ($sMajorNumber =~ /^\+$/)
     {
-      if ($sBuildNumber =~ /^\+$/)
-      {
-        $sVersion += 0x00000001;
-      }
-      else
-      {
-        if ($sBuildNumber < 0 || $sBuildNumber > 255)
-        {
-          print STDERR "$sProgram: BuildNumber='$sBuildNumber' Error='Invalid build number.'\n";
-          exit(2);
-        }
-        $sVersion = ($sBuildNumber & 0x3ff) + ($sVersion & 0xfffffc00);
-      }
+      $sNewVersion += 0x10000000;
+      $sNewVersion &= 0xf0000000;
     }
+    else
+    {
+      if ($sMajorNumber < 0 || $sMajorNumber > 15)
+      {
+        print STDERR "$sProgram: MajorNumber='$sMajorNumber' Error='Invalid major number.'\n";
+        exit(2);
+      }
+      $sNewVersion = (($sMajorNumber & 0xf) << 28) + ($sNewVersion & 0x0fffffff);
+    }
+  }
 
-    my $sVersionString = VersionToString($sVersion, $sType);
-    my $so = sprintf("0x%08x", $sOldVersion);
-    my $sn = sprintf("0x%08x", $sVersion);
-    my $sCommand = "perl -p -i.bak -e 's/define VERSION $so/define VERSION $sn/g;' $sFilename";
-    print $sCommand, "\n";
-    $sCommand = "cvs commit -m \"Bumped the build number ($sn).\"";
-    print $sCommand, "\n";
-    $sCommand = "cvs tag $sVersionString";
+  if (defined($sMinorNumber))
+  {
+    if ($sMinorNumber =~ /^\+$/)
+    {
+      $sNewVersion += 0x00100000;
+      $sNewVersion &= 0xfff00000;
+    }
+    else
+    {
+      if ($sMinorNumber < 0 || $sMinorNumber > 255)
+      {
+        print STDERR "$sProgram: MinorNumber='$sMinorNumber' Error='Invalid minor number.'\n";
+        exit(2);
+      }
+      $sNewVersion = (($sMinorNumber & 0xff) << 20) + ($sNewVersion & 0xf00fffff);
+    }
+  }
+
+  if (defined($sPatchNumber))
+  {
+    if ($sPatchNumber =~ /^\+$/)
+    {
+      $sNewVersion += 0x00001000;
+      $sNewVersion &= 0xfffff000;
+    }
+    else
+    {
+      if ($sPatchNumber < 0 || $sPatchNumber > 255)
+      {
+        print STDERR "$sProgram: PatchNumber='$sPatchNumber' Error='Invalid patch number.'\n";
+        exit(2);
+      }
+      $sNewVersion = (($sPatchNumber & 0xff) << 12) + ($sNewVersion & 0xfff00fff);
+    }
+  }
+
+  if (defined($sStateNumber))
+  {
+    if ($sStateNumber =~ /^\+$/)
+    {
+      $sNewVersion += 0x00000400;
+      $sNewVersion &= 0xfffffc00;
+    }
+    else
+    {
+      if ($sStateNumber < 0 || $sStateNumber > 255)
+      {
+        print STDERR "$sProgram: StateNumber='$sStateNumber' Error='Invalid state number.'\n";
+        exit(2);
+      }
+      $sNewVersion = (($sStateNumber & 0x3) << 10) + ($sNewVersion & 0xfffff3ff);
+    }
+  }
+
+  if (defined($sBuildNumber))
+  {
+    if ($sBuildNumber =~ /^\+$/)
+    {
+      $sNewVersion += 0x00000001;
+    }
+    else
+    {
+      if ($sBuildNumber < 0 || $sBuildNumber > 255)
+      {
+        print STDERR "$sProgram: BuildNumber='$sBuildNumber' Error='Invalid build number.'\n";
+        exit(2);
+      }
+      $sNewVersion = ($sBuildNumber & 0x3ff) + ($sNewVersion & 0xfffffc00);
+    }
+  }
+
+  ####################################################################
+  #
+  # Generate update/commit/tag commands the user can run manually.
+  #
+  ####################################################################
+
+  my $sOldVersionString = VersionToString($sOldVersion, "tar");
+  my $sNewVersionString = VersionToString($sNewVersion, "tar");
+  my $so = sprintf("0x%08x", $sOldVersion);
+  my $sn = sprintf("0x%08x", $sNewVersion);
+  my $sCommand = "perl -p -i.bak ";
+  if ($sVersionFmt eq "macro")
+  {
+    $sCommand .= " -e 's/define VERSION $so/define VERSION $sn/g;' $sFilename";
+  }
+  else
+  {
+    $sCommand .= " -e 's/$so/$sn/g;' $sFilename";
+  }
+  print $sCommand, "\n";
+  $sCommand = "cvs commit -m \"Updated version number ($sOldVersionString --> $sNewVersionString).\"";
+  print $sCommand, "\n";
+  $sCommand = "cvs tag " . VersionToString($sNewVersion, "vcs");
+  print $sCommand, "\n";
+  if (((($sNewVersion >> 10) & 0x03) == 2) && (($sNewVersion & 0x3ff) == 0))
+  {
+    $sCommand = "cvs tag " . VersionToString($sNewVersion, "vcs_sr0");
     print $sCommand, "\n";
   }
 
@@ -368,35 +413,51 @@ sub VersionToString
   }
 
   my $sString = "";
-  if ($sType =~ /^cvs$/)
+  if ($sType =~ /^vcs$/)
   {
-    $sString = sprintf("V%d_%d_%d_%s%d",
+    $sString = sprintf
+    (
+      "V%d_%d_%d_%s%d",
       ($sVersion >> 28) & 0x0f,
       ($sVersion >> 20) & 0xff,
       ($sVersion >> 12) & 0xff,
       uc($sStateString),
       $sVersion & 0x3ff
-      );
+    );
+  }
+  elsif ($sType =~ /^vcs_sr0$/)
+  {
+    $sString = sprintf
+    (
+      "V%d_%d_%d",
+      ($sVersion >> 28) & 0x0f,
+      ($sVersion >> 20) & 0xff,
+      ($sVersion >> 12) & 0xff
+    );
   }
   elsif ($sType =~ /^tar$/)
   {
-    $sString = sprintf("%d.%d.%d.%s%d",
+    $sString = sprintf
+    (
+      "%d.%d.%d.%s%d",
       ($sVersion >> 28) & 0x0f,
       ($sVersion >> 20) & 0xff,
       ($sVersion >> 12) & 0xff,
       $sStateString,
       $sVersion & 0x3ff
-      );
+    );
   }
   elsif ($sType =~ /^program$/)
   {
-    $sString = sprintf("%d.%d.%d (%s%d)",
+    $sString = sprintf
+    (
+      "%d.%d.%d (%s%d)",
       ($sVersion >> 28) & 0x0f,
       ($sVersion >> 20) & 0xff,
       ($sVersion >> 12) & 0xff,
       $sStateString,
       $sVersion & 0x3ff
-      );
+    );
   }
 
   return $sString;
@@ -413,7 +474,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-M major] [-m minor] [-p patch] [-s state] [-b build] [-t {cvs|program|tar}] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-M major] [-m minor] [-p patch] [-s state] [-b build] -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }

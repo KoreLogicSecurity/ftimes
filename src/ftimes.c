@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.c,v 1.57 2012/04/18 02:53:21 mavrik Exp $
+ * $Id: ftimes.c,v 1.60 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -207,7 +207,7 @@ FTimesBootstrap(char *pcError)
     NtdllHandle = LoadLibrary("NTdll.dll");
     if (NtdllHandle == NULL)
     {
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: LoadLibrary(): Library = [NTdll.dll]: %s", acRoutine, pcMessage);
       return ER;
     }
@@ -219,7 +219,7 @@ FTimesBootstrap(char *pcError)
     if (NtdllNQIF == NULL)
     {
       FreeLibrary(NtdllHandle);
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: GetProcAddress(): Routine = [NtQueryInformationFile]: %s", acRoutine, pcMessage);
       return ER;
     }
@@ -746,6 +746,14 @@ FTimesOptionHandler(OPTIONS_TABLE *psOption, char *pcValue, FTIMES_PROPERTIES *p
       return ER;
     }
     break;
+  case OPT_MagicFile:
+    if (iLength < 1 || iLength > FTIMES_MAX_PATH - 1)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: option=[%s]: Argument length must be in the range [1-%d].", acRoutine, psOption->atcFullName, FTIMES_MAX_PATH - 1);
+      return ER;
+    }
+    strncpy(psProperties->acMagicFileName, pcValue, FTIMES_MAX_PATH);
+    break;
   case OPT_MemoryMapEnable:
     if (strcasecmp(pcValue, "1") == 0 || strcasecmp(pcValue, "Y") == 0)
     {
@@ -823,10 +831,12 @@ FTimesProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char
   static OPTIONS_TABLE asMadOptions[] =
   {
     { OPT_LogLevel, "-l", "--LogLevel", 0, 0, 1, 0, FTimesOptionHandler },
+    { OPT_MagicFile, "", "--MagicFile", 0, 0, 1, 0, FTimesOptionHandler },
   };
   static OPTIONS_TABLE asMapOptions[] =
   {
     { OPT_LogLevel, "-l", "--LogLevel", 0, 0, 1, 0, FTimesOptionHandler },
+    { OPT_MagicFile, "", "--MagicFile", 0, 0, 1, 0, FTimesOptionHandler },
   };
 
   psProperties->pcProgram = ppcArgumentVector[0];

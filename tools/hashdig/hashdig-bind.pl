@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-bind.pl,v 1.33 2012/01/04 03:12:39 mavrik Exp $
+# $Id: hashdig-bind.pl,v 1.34 2013/02/14 16:55:22 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2012 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2013 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

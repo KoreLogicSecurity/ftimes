@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: md5.c,v 1.22 2012/01/04 03:12:28 mavrik Exp $
+ * $Id: md5.c,v 1.24 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2003-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -90,8 +90,9 @@ MD5HashStream(FILE *pFile, unsigned char *pucMD5, APP_UI64 *pui64Size)
   MD5_CONTEXT         sMD5Context;
 
   MD5Alpha(&sMD5Context);
-  while ((iNRead = fread(aucData, 1, MD5_READ_SIZE, pFile)) == MD5_READ_SIZE)
+  while ((iNRead = fread(aucData, 1, MD5_READ_SIZE, pFile)) > 0)
   {
+    *pui64Size += (APP_UI64) iNRead;
     MD5Cycle(&sMD5Context, aucData, iNRead);
   }
   if (ferror(pFile))
@@ -106,8 +107,6 @@ MD5HashStream(FILE *pFile, unsigned char *pucMD5, APP_UI64 *pui64Size)
 #endif
     return -1;
   }
-  *pui64Size += (APP_UI64) iNRead;
-  MD5Cycle(&sMD5Context, aucData, iNRead);
   MD5Omega(&sMD5Context, pucMD5);
   return 0;
 }

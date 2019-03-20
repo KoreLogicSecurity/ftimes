@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.49 2012/01/04 03:12:28 mavrik Exp $
+ * $Id: fsinfo.c,v 1.52 2013/02/14 16:55:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2012 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -52,6 +52,7 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "RAMFS",
   "REISER",
   "SMB",
+  "SQUASHFS",
   "TMPFS",
   "UDF",
   "UFS",
@@ -178,6 +179,9 @@ GetFileSystemType(char *pcPath, char *pcError)
       break;
     case SMB_SUPER_MAGIC:
       return FSTYPE_SMB;
+      break;
+    case SQUASHFS_SUPER_MAGIC:
+      return FSTYPE_SQUASHFS;
       break;
     case JFS_SUPER_MAGIC:
       return FSTYPE_JFS;
@@ -318,6 +322,10 @@ GetFileSystemType(char *pcPath, char *pcError)
     {
       return FSTYPE_SMB;
     }
+    else if (strstr(acFSName, "SQUASHFS") != NULL)
+    {
+      return FSTYPE_SQUASHFS;
+    }
     else if (strstr(acFSName, "CD9660") != NULL || strstr(acFSName, "HSFS"))
     {
       return FSTYPE_CDFS;
@@ -387,7 +395,7 @@ GetFileSystemType(char *pcPath, char *pcError)
   {
     if (!GetVolumeInformation(acRootPath, NULL, 0, NULL, NULL, NULL, acFSName, sizeof(acFSName) - 1))
     {
-      ErrorFormatWin32Error(&pcMessage);
+      ErrorFormatWinxError(GetLastError(), &pcMessage);
       snprintf(pcError, MESSAGE_SIZE, "%s: RootPath = [%s]: %s", acRoutine, acRootPath, pcMessage);
       return ER;
     }
