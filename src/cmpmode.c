@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: cmpmode.c,v 1.1.1.1 2002/01/18 03:17:03 mavrik Exp $
+ * $Id: cmpmode.c,v 1.3 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -10,7 +10,6 @@
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
 /*-
@@ -23,12 +22,12 @@
 int
 CmpModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char *ppcArgumentVector[], char *pcError)
 {
-  const char          cRoutine[] = "CmpModeProcessArguments()";
-  char                cLocalError[ERRBUF_SIZE];
-  int                 iError,
-                      iLength;
+  const char          acRoutine[] = "CmpModeProcessArguments()";
+  char                acLocalError[MESSAGE_SIZE];
+  int                 iError;
+  int                 iLength;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -42,18 +41,18 @@ CmpModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
     iLength = strlen(ppcArgumentVector[0]);
     if (iLength > ALL_FIELDS_MASK_SIZE - 1)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Mask = [%s], Length = [%d]: Length exceeds %d bytes.", cRoutine, ppcArgumentVector[0], iLength, ALL_FIELDS_MASK_SIZE - 1);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Mask = [%s], Length = [%d]: Length exceeds %d bytes.", acRoutine, ppcArgumentVector[0], iLength, ALL_FIELDS_MASK_SIZE - 1);
       return ER_Length;
     }
     if (strcasecmp(ppcArgumentVector[0], "NONE") == 0)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Mask = [%s], Mask must include at least one field (e.g. NONE+md5).", cRoutine, ppcArgumentVector[0]);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Mask = [%s], Mask must include at least one field (e.g. NONE+md5).", acRoutine, ppcArgumentVector[0]);
       return ER_BadValue;
     }
-    iError = CompareParseStringMask(ppcArgumentVector[0], &psProperties->ulFieldMask, psProperties->iRunMode, psProperties->ptMaskTable, psProperties->iMaskTableLength, cLocalError);
+    iError = CompareParseStringMask(ppcArgumentVector[0], &psProperties->ulFieldMask, psProperties->iRunMode, psProperties->ptMaskTable, psProperties->iMaskTableLength, acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: Mask = [%s]: %s", cRoutine, ppcArgumentVector[0], cLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Mask = [%s]: %s", acRoutine, ppcArgumentVector[0], acLocalError);
       return iError;
     }
     strncpy(psProperties->cMaskString, ppcArgumentVector[0], ALL_FIELDS_MASK_SIZE);
@@ -63,10 +62,10 @@ CmpModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
     {
       if (iArgumentCount == 5 && strcmp(ppcArgumentVector[3], "-l") == 0)
       {
-        iError = SupportSetLogLevel(ppcArgumentVector[4], &psProperties->iLogLevel, cLocalError);
+        iError = SupportSetLogLevel(ppcArgumentVector[4], &psProperties->iLogLevel, acLocalError);
         if (iError != ER_OK)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: Level = [%s]: %s", cRoutine, ppcArgumentVector[4], cLocalError);
+          snprintf(pcError, MESSAGE_SIZE, "%s: Level = [%s]: %s", acRoutine, ppcArgumentVector[4], acLocalError);
           return iError;
         }
       }
@@ -94,6 +93,26 @@ CmpModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
 int
 CmpModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
+  const char          acRoutine[] = "CmpModeInitialize()";
+  char                acLocalError[MESSAGE_SIZE];
+  CMP_PROPERTIES     *psCmpProperties;
+
+  /*-
+   *********************************************************************
+   *
+   * Initialize Compare properties.
+   *
+   *********************************************************************
+   */
+  psCmpProperties = CompareNewProperties(acLocalError);
+  if (psCmpProperties == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    free(psProperties);
+    return ER;
+  }
+  CompareSetPropertiesReference(psCmpProperties);
+
   /*-
    *********************************************************************
    *
@@ -119,23 +138,23 @@ CmpModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 CmpModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "CmpModeCheckDependencies()";
+  const char          acRoutine[] = "CmpModeCheckDependencies()";
 
   if (psProperties->cMaskString[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing FieldMask.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing FieldMask.", acRoutine);
     return ER_MissingControl;
   }
 
   if (psProperties->pcBaselineFile == NULL || psProperties->pcBaselineFile[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing baseline file.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing baseline file.", acRoutine);
     return ER_MissingControl;
   }
 
   if (psProperties->pcSnapshotFile == NULL || psProperties->pcSnapshotFile[0] == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Missing snapshot file.", cRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Missing snapshot file.", acRoutine);
     return ER_MissingControl;
   }
 
@@ -153,11 +172,11 @@ CmpModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "CmpModeFinalize()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "CmpModeFinalize()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
   /*-
    *********************************************************************
@@ -168,10 +187,10 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   strncpy(psProperties->cLogFileName, "stderr", FTIMES_MAX_PATH);
   psProperties->pFileLog = stderr;
-   
+
   MessageSetNewLine(psProperties->cNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
-    
+
   /*-
    *******************************************************************
    *
@@ -182,7 +201,6 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
   strncpy(psProperties->cOutFileName, "stdout", FTIMES_MAX_PATH);
   psProperties->pFileOut = stdout;
 
-  CompareSetNewLine(psProperties->cNewLine);
   CompareSetOutputStream(psProperties->pFileOut);
 
   /*-
@@ -192,10 +210,11 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  iError = CompareWriteHeader(psProperties->pFileOut, cLocalError);
+  CompareSetNewLine(psProperties->cNewLine);
+  iError = CompareWriteHeader(psProperties->pFileOut, psProperties->cNewLine, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Compare Header: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Compare Header: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -222,23 +241,23 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 CmpModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  const char          cRoutine[] = "CmpModeWorkHorse()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "CmpModeWorkHorse()";
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
 
-  cLocalError[0] = 0;
+  acLocalError[0] = 0;
 
-  iError = CompareCreateDatabase(psProperties->pcBaselineFile, cLocalError);
+  iError = CompareLoadBaselineData(psProperties->pcBaselineFile, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
-  iError = CompareEnumerateChanges(psProperties->pcSnapshotFile, cLocalError);
+  iError = CompareEnumerateChanges(psProperties->pcSnapshotFile, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -256,9 +275,7 @@ CmpModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 CmpModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
-  char                cMessage[MESSAGE_SIZE];
-
-  CompareFreeDatabase();
+  char                acMessage[MESSAGE_SIZE];
 
   /*-
    *********************************************************************
@@ -267,14 +284,14 @@ CmpModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  snprintf(cMessage, MESSAGE_SIZE, "LogFileName=%s", psProperties->cLogFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "LogFileName=%s", psProperties->cLogFileName);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-  snprintf(cMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->cOutFileName);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "OutFileName=%s", psProperties->cOutFileName);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-  snprintf(cMessage, MESSAGE_SIZE, "DataType=%s", psProperties->cDataType);
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "DataType=%s", psProperties->cDataType);
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
   /*-
    *********************************************************************
@@ -283,20 +300,23 @@ CmpModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  snprintf(cMessage, MESSAGE_SIZE, "RecordsAnalyzed=%d", CompareGetRecordCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "RecordsAnalyzed=%d", CompareGetRecordCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-  snprintf(cMessage, MESSAGE_SIZE, "ChangedCount=%d", CompareGetChangedCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "ChangedCount=%d", CompareGetChangedCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-  snprintf(cMessage, MESSAGE_SIZE, "MissingCount=%d", CompareGetMissingCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "MissingCount=%d", CompareGetMissingCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-  snprintf(cMessage, MESSAGE_SIZE, "NewCount=%d", CompareGetNewCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "NewCount=%d", CompareGetNewCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
-  snprintf(cMessage, MESSAGE_SIZE, "UnknownCount=%d", CompareGetUnknownCount());
-  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
+  snprintf(acMessage, MESSAGE_SIZE, "UnknownCount=%d", CompareGetUnknownCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
+
+  snprintf(acMessage, MESSAGE_SIZE, "CrossedCount=%d", CompareGetCrossedCount());
+  MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, acMessage);
 
   SupportDisplayRunStatistics(psProperties);
 
@@ -314,5 +334,6 @@ CmpModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
 int
 CmpModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
+  CompareFreeProperties(CompareGetPropertiesReference());
   return ER_OK;
 }

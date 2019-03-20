@@ -14,7 +14,7 @@
 
 1.1 Revision
 
-  $Id: INSTALL,v 1.7 2002/09/11 00:41:34 mavrik Exp $
+  $Id: INSTALL,v 1.9 2003/01/14 04:52:27 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -311,8 +311,9 @@
   client-side error checking without giving up the ability to
   generate application specific responses.
 
-  The tree structure depicted below must be created on the Web
-  server to support processing of FTimes requests.
+  The tree structure depicted here is used by the server to support
+  FTimes request processing.  Each top-level directory is explained
+  in the following paragraphs.
 
   integrity
     |
@@ -376,16 +377,16 @@
 
   The variable $CGI_DIR refers to the location where nph-ftimes.cgi
   will be installed.  This document assumes that $CGI_DIR is set
-  to the value "$APACHE_DIR/cgi-ftimes".  Set this variable on your
+  to the value "$APACHE_DIR/cgi-client".  Set this variable on your
   system as follows:
 
   Bourne shell variants:
 
-    export CGI_DIR=$APACHE_DIR/cgi-ftimes
+    export CGI_DIR=$APACHE_DIR/cgi-client
 
   C shell variants:
 
-    setenv CGI_DIR $APACHE_DIR/cgi-ftimes
+    setenv CGI_DIR $APACHE_DIR/cgi-client
 
   For the remainder of this document, it is assumed that you have
   set these variables.
@@ -414,7 +415,7 @@
   Note: make sure you replace $CGI_DIR with its literal value.
 
     --- snippet ---
-    ScriptAlias /cgi-ftimes/ "$CGI_DIR/"
+    ScriptAlias /cgi-client/ "$CGI_DIR/"
 
     <Directory "$CGI_DIR">
         AllowOverride AuthConfig
@@ -574,7 +575,7 @@
     BaseName=S001_TEST_0001_1
     OutDir=.
     URLPutSnapshot=Y
-    URLPutURL=http://web.server.net/cgi-ftimes/nph-ftimes.cgi
+    URLPutURL=http://web.server.net/cgi-client/nph-ftimes.cgi
     URLUsername=S001_TEST_0001_1
     URLPassword=<password>
     URLAuthType=basic
@@ -597,7 +598,7 @@
     BaseName=S001_TEST_0001_1
     GetAndExec=N
     GetFileName=remote.cfg
-    URLGetURL=http://web.server.net/cgi-ftimes/nph-ftimes.cgi
+    URLGetURL=http://web.server.net/cgi-client/nph-ftimes.cgi
     URLUsername=S001_TEST_0001_1
     URLPassword=<password>
     URLAuthType=basic

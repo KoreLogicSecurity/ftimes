@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: digmode.c,v 1.3 2002/01/29 15:20:05 mavrik Exp $
+ * $Id: digmode.c,v 1.4 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -140,7 +140,7 @@ DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
     snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
     return iError;
   }
-  
+
   /*-
    *******************************************************************
    *
@@ -595,12 +595,12 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
     for (i = 0, iFirst = 0; i < psProperties->iLastAnalysisStage; i++)
     {
         iIndex += sprintf(&cMessage[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", psProperties->sAnalysisStages[i].cDescription);
-    }  
+    }
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
-  
+
     snprintf(cMessage, MESSAGE_SIZE, "ObjectsAnalyzed=%lu", AnalyzeGetFileCount());
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_MODEDATA_STRING, cMessage);
-  
+
 #ifdef UNIX
 #ifdef USE_AP_SNPRINTF
     snprintf(cMessage, MESSAGE_SIZE, "BytesAnalyzed=%qu", AnalyzeGetByteCount());

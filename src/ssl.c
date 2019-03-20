@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: ssl.c,v 1.3 2002/09/20 17:46:03 mavrik Exp $
+ * $Id: ssl.c,v 1.4 2003/01/13 13:26:18 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -65,7 +65,7 @@ SSLConnect(int iSocket, SSL_CTX *psslCTX, char *pcError)
   if (iError == 0)
   {
     ERR_error_string(ERR_get_error(), acLocalError);
-    snprintf(pcError, MESSAGE_SIZE, "%s: SSL_connect(): %s", acRoutine, acLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: SSL_set_fd(): %s", acRoutine, acLocalError);
     SSL_free(pssl);
     return NULL;
   }
@@ -315,7 +315,7 @@ SSLNewProperties(char *pcError)
   psSSLProperties = (SSL_PROPERTIES *) malloc(sizeof(SSL_PROPERTIES));
   if (psSSLProperties == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
   memset(psSSLProperties, 0, sizeof(SSL_PROPERTIES));
@@ -543,24 +543,19 @@ SSLSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
   const char          acRoutine[] = "SSLSetDynamicString()";
   char               *pcTempValue;
 
-  if (*ppcValue == NULL || strlen(pcNewValue) > strlen(*ppcValue))
+  /*-
+   *********************************************************************
+   *
+   * The caller is expected to free this memory.
+   *
+   *********************************************************************
+   */
+  pcTempValue = realloc(*ppcValue, strlen(pcNewValue) + 1);
   {
-    /*-
-     *******************************************************************
-     *
-     * The caller may free this memory with SSLFreeProperties().
-     *
-     *******************************************************************
-     */
-    pcTempValue = malloc(strlen(pcNewValue) + 1);
     if (pcTempValue == NULL)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): %s", acRoutine, strerror(errno));
       return -1;
-    }
-    if (*ppcValue != NULL)
-    {
-      free(*ppcValue);
     }
     *ppcValue = pcTempValue;
   }
@@ -718,14 +713,14 @@ SSLVerifyCN(SSL *ssl, char *pcCN, char *pcError)
 
   if (SSL_get_verify_result(ssl) != X509_V_OK)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Invalid Certificate.", acRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: SSL_get_verify_result(): Invalid Certificate.", acRoutine);
     return -1;
   }
 
   psX509Cert = SSL_get_peer_certificate(ssl);
   if (psX509Cert == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Missing Certificate.", acRoutine);
+    snprintf(pcError, MESSAGE_SIZE, "%s: SSL_get_peer_certificate(): Missing Certificate.", acRoutine);
     return -1;
   }
 

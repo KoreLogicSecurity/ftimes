@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: support.c,v 1.3 2002/01/29 15:20:06 mavrik Exp $
+ * $Id: support.c,v 1.5 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -43,7 +43,7 @@ SupportAddListItem(char *pcPath, FILE_LIST *pHead, char *pcError)
     snprintf(pcError, ERRBUF_SIZE, "%s: Length = [%d]: Length less than 1 byte.", cRoutine, iLength);
     return NULL;
   }
-   
+
   if (iLength > FTIMES_MAX_PATH - 1)
   {
     snprintf(pcError, ERRBUF_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", cRoutine, iLength, FTIMES_MAX_PATH - 1);
@@ -256,6 +256,67 @@ SupportAdjustPrivileges(LPCTSTR lpcPrivilege)
 /*-
  ***********************************************************************
  *
+ * SupportChopEOLs
+ *
+ ***********************************************************************
+ */
+int
+SupportChopEOLs(char *pcLine, int iStrict, char *pcError)
+{
+  const char          acRoutine[] = "SupportChopEOLs()";
+  int                 iLineLength;
+  int                 iSaveLength;
+
+  /*-
+   *********************************************************************
+   *
+   * Calculate line length.
+   *
+   *********************************************************************
+   */
+  iLineLength = iSaveLength = strlen(pcLine);
+
+  /*-
+   *********************************************************************
+   *
+   * Scan backwards over EOL characters.
+   *
+   *********************************************************************
+   */
+  while (iLineLength > 0 && ((pcLine[iLineLength - 1] == '\r') || (pcLine[iLineLength - 1] == '\n')))
+  {
+    iLineLength--;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * If strict checking is on and EOL was not found, it's an error.
+   *
+   *********************************************************************
+   */
+  if (iStrict && iLineLength == iSaveLength)
+  {
+    snprintf(pcError, ERRBUF_SIZE, "%s: EOL required but not found.", acRoutine);
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Terminate line excluding any EOL characters.
+   *
+   *********************************************************************
+   */
+  pcLine[iLineLength] = 0;
+
+  return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * SupportDisplayRunStatistics
  *
  ***********************************************************************
@@ -420,7 +481,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
    * print out the name of the directory that you are in (i.e. c:\xyz).
    * To avoid this problem, you need to type "cd c:\". The same seems
    * to be true for getwcd().
-   * 
+   *
    *********************************************************************
    */
   if (pcPath[iLength - 1] != FTIMES_SLASHCHAR)
@@ -433,7 +494,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
    *********************************************************************
    *
    * Save the current directory entry after getting its full path.
-   * 
+   *
    *********************************************************************
    */
   pcCwdDir = getcwd(NULL, FTIMES_MAX_PATH);
@@ -448,7 +509,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
    *********************************************************************
    *
    * Change to the specified directory, and expand its path.
-   * 
+   *
    *********************************************************************
    */
   iError = chdir((const char *) pcTempPath);
@@ -473,7 +534,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
    *********************************************************************
    *
    * Chop off any trailing slashes.
-   * 
+   *
    *********************************************************************
    */
   iLength = strlen(pcFullPath);
@@ -486,7 +547,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
    *********************************************************************
    *
    * Change back to the starting directory.
-   * 
+   *
    *********************************************************************
    */
   iError = chdir((const char *) pcCwdDir);
@@ -544,7 +605,7 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
    * When forced expansion is off (i.e. 0), fully qualified paths will
    * be copied directly into the output buffer. Relative paths must be
    * expanded in any case.
-   * 
+   *
    *********************************************************************
    */
   if (!iForceExpansion)
@@ -557,11 +618,11 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
     {
       strncpy(pcFullPath, pcPath, iFullPathSize);
       return ER_OK;
-    } 
+    }
 #endif
 #ifdef FTimes_UNIX
-    if (pcPath[0] == FTIMES_SLASHCHAR)   
-    { 
+    if (pcPath[0] == FTIMES_SLASHCHAR)
+    {
       strncpy(pcFullPath, pcPath, iFullPathSize);
       return ER_OK;
     }
@@ -574,7 +635,7 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
     snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s]: %s", cRoutine, pcPath, strerror(errno));
     return ER_BadValue;
     break;
-  
+
   case FTIMES_FILETYPE_DIRECTORY:
     iError = SupportExpandDirectoryPath(pcPath, pcFullPath, iFullPathSize, cLocalError);
     if (iError != ER_OK)
@@ -589,7 +650,7 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
      *******************************************************************
      *
      * Create a working copy of the input path.
-     * 
+     *
      *******************************************************************
      */
     pcTempFile = malloc(iLength + 1); /* +1 for a NULL */
@@ -598,7 +659,7 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
       snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s]: %s", cRoutine, pcPath, strerror(errno));
       return ER_BadHandle;
     }
-  
+
     pcTempPath = malloc(iLength + 1); /* +1 for a NULL */
     if (pcTempPath == NULL)
     {
@@ -606,15 +667,15 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
       free(pcTempFile);
       return ER_BadHandle;
     }
-  
+
     strcpy(pcTempPath, pcPath);
-  
+
     /*-
      *******************************************************************
      *
      * Scan backwards looking for a directory separator. If found, note
      * the location.
-     * 
+     *
      *******************************************************************
      */
     while (iTempLength > 0)
@@ -625,7 +686,7 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
       }
       iTempLength--;
     }
-  
+
     /*-
      *******************************************************************
      *
@@ -633,26 +694,26 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
      * during construction of the full path. Insert a null after the
      * last directory separator to terminate the directory portion of
      * the path.
-     * 
+     *
      *******************************************************************
      */
     strcpy(pcTempFile, &pcTempPath[iTempLength]);
     pcTempPath[iTempLength] = 0;
-  
+
     /*-
      *******************************************************************
      *
      * Expand the directory path. If length is zero, a valid directory
      * separator was not found. In that case, expand cwd (i.e. FTIMES_DOT).
-     * 
+     *
      *******************************************************************
      */
     if (iTempLength == 0)
-    {  
+    {
       iError = SupportExpandDirectoryPath(FTIMES_DOT, pcFullPath, iFullPathSize, cLocalError);
     }
     else
-    {  
+    {
       iError = SupportExpandDirectoryPath(pcTempPath, pcFullPath, iFullPathSize, cLocalError);
     }
     if (iError != ER_OK)
@@ -662,12 +723,12 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
       free(pcTempFile);
       return iError;
     }
-     
+
     /*-
      *******************************************************************
      *
      * Construct the full path. Abort, if the size limit is exceeded.
-     * 
+     *
      *******************************************************************
      */
     if ((int)(strlen(pcFullPath) + strlen(FTIMES_SLASH) + strlen(pcTempFile)) > iFullPathSize - 1)
@@ -679,10 +740,10 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
     }
     strcat(pcFullPath, FTIMES_SLASH);
     strcat(pcFullPath, pcTempFile);
-  
+
     free(pcTempPath);
     free(pcTempFile);
-  
+
     break;
   }
 
@@ -1132,7 +1193,7 @@ SupportNeuterString(char *pcData, int iLength, char *pcError)
     return NULL;
   }
   pcNeutered[0] = 0;
-         
+
   /*-
    *********************************************************************
    *
@@ -1205,7 +1266,7 @@ SupportNeuterStringW(unsigned short *pusData, int iLength, char *pcError)
     return NULL;
   }
   pcNeutered[0] = 0;
-         
+
   /*-
    *********************************************************************
    *

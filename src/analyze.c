@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.6 2002/01/24 18:27:32 mavrik Exp $
+ * $Id: analyze.c,v 1.7 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -31,7 +31,7 @@ static K_UINT64       gui64Bytes;
 /*-
  ***********************************************************************
  *
- * AnalyzeGetByteCount  
+ * AnalyzeGetByteCount
  *
  ***********************************************************************
  */
@@ -45,7 +45,7 @@ AnalyzeGetByteCount(void)
 /*-
  ***********************************************************************
  *
- * AnalyzeGetFileCount  
+ * AnalyzeGetFileCount
  *
  ***********************************************************************
  */
@@ -86,13 +86,13 @@ AnalyzeGetFileCount(void)
  *   |                |    |     |                |    |
  *   |xxxxx SAVE xxxxx| ---+     |                | ---+
  *   +----------------+          +----------------+
- *   |00000 ZERO 00000|          |00000 ZERO 00000|     
- *   |                |          |                |     
- *   |   SAFETYZONE   |          |   SAFETYZONE   |     
- *   |                |          |                |     
- *   |                |          |                |     
+ *   |00000 ZERO 00000|          |00000 ZERO 00000|
+ *   |                |          |                |
+ *   |   SAFETYZONE   |          |   SAFETYZONE   |
+ *   |                |          |                |
+ *   |                |          |                |
  *   +----------------+          +----------------+
- *  
+ *
  ***********************************************************************
  */
 int
@@ -170,7 +170,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
      *******************************************************************
      */
 #ifdef FTimes_WINNT
-    bResult = ReadFile(hFile, &ucBuffer[ANALYZE_READ_BUFSIZE], ANALYZE_READ_BUFSIZE, &iNRead, NULL); 
+    bResult = ReadFile(hFile, &ucBuffer[ANALYZE_READ_BUFSIZE], ANALYZE_READ_BUFSIZE, &iNRead, NULL);
 #else
     iNRead = fread(&ucBuffer[ANALYZE_READ_BUFSIZE], 1, ANALYZE_READ_BUFSIZE, pFile);
 #endif

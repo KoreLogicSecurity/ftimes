@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: decode.c,v 1.1.1.1 2002/01/18 03:17:23 mavrik Exp $
+ * $Id: decode.c,v 1.3 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -474,17 +474,17 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
 
   /*-
    *********************************************************************
-   * 
+   *
    * Open the snapshot file.
    *
    *********************************************************************
    */
   if (strcmp(pcFilename, "-") == 0)
-  { 
+  {
     pFile = stdin;
-  } 
+  }
   else
-  {  
+  {
     pFile = fopen(pcFilename, "rb");
     if (pFile == NULL)
     {
@@ -503,18 +503,19 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
   iLineNumber = 1;
   fgets(cLine, FTIMES_MAX_LINE, pFile);
 
-  pc = cLine;
-  while (*pc != '\r' && *pc != '\n' && *pc != 0)
+  /*-
+   *********************************************************************
+   *
+   * Remove EOL characters.
+   *
+   *********************************************************************
+   */
+  if (SupportChopEOLs(cLine, feof(pFile) ? 0 : 1, cLocalError) == ER)
   {
-    pc++;
-  }
-  if (*pc == 0)
-  {
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: EOL not found. That shouldn't happen!", cRoutine, pcFilename, iLineNumber);
+    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, cLocalError);
     fclose(pFile);
-    return ER_Length;
+    return ER;
   }
-  *pc = 0;
 
   if (strncmp(cLine, "zname|", 6) != 0)
   {
@@ -574,22 +575,16 @@ DecodeFile(char *pcFilename, FILE *pFileOut, char *pcNewLine, char *pcError)
     /*-
      *******************************************************************
      *
-     * Find EOL.
+     * Remove EOL characters.
      *
      *******************************************************************
      */
-    pc = cLine;
-    while (*pc != '\r' && *pc != '\n' && *pc != 0)
+    if (SupportChopEOLs(cLine, feof(pFile) ? 0 : 1, cLocalError) == ER)
     {
-      pc++;
-    }
-    if (*pc == 0)
-    {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: EOL not found. That shouldn't happen!", cRoutine, pcFilename, iLineNumber);
+      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, cLocalError);
       fclose(pFile);
-      return ER_Length;
+      return ER;
     }
-    *pc = 0;
 
     /*-
      *******************************************************************
@@ -727,7 +722,7 @@ DecodeFormatTime(FILETIME *pFileTime, char *pcTime)
   {
     return ER;
   }
-     
+
   iCount = snprintf(
                      pcTime,
                      DECODE_TIME_FORMAT_SIZE,
@@ -739,12 +734,12 @@ DecodeFormatTime(FILETIME *pFileTime, char *pcTime)
                      systemTime.wMinute,
                      systemTime.wSecond
                    );
-   
+
   if (iCount != DECODE_TIME_FORMAT_SIZE - 1)
   {
     return ER;
   }
-   
+
   return ER_OK;
 }
 #endif
@@ -794,7 +789,7 @@ DecodeGetBase64Hash(char *pcData, unsigned char *pucHash, int iLength, char *pcE
 /*-
  ***********************************************************************
  *
- * DecodeGetRecordsDecoded  
+ * DecodeGetRecordsDecoded
  *
  ***********************************************************************
  */
@@ -808,7 +803,7 @@ DecodeGetRecordsDecoded(void)
 /*-
  ***********************************************************************
  *
- * DecodeGetRecordsLost  
+ * DecodeGetRecordsLost
  *
  ***********************************************************************
  */

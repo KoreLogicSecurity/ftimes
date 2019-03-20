@@ -1,7 +1,7 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: compare.c,v 1.1.1.1 2002/01/18 03:17:29 mavrik Exp $
+ * $Id: compare.c,v 1.4 2003/01/16 21:36:32 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -10,10 +10,16 @@
  *
  ***********************************************************************
  */
-
 #include "all-includes.h"
 
-ALL_FIELDS_TABLE      AllFieldsTable[ALL_FIELDS_TABLE_LENGTH] =
+/*-
+ ***********************************************************************
+ *
+ * Globals
+ *
+ ***********************************************************************
+ */
+ALL_FIELDS_TABLE gsAllFieldsTable[ALL_FIELDS_TABLE_LENGTH] =
 {
   { "name",       0 },
   { "dev",        1 },
@@ -39,484 +45,8 @@ ALL_FIELDS_TABLE      AllFieldsTable[ALL_FIELDS_TABLE_LENGTH] =
   { "magic",      1 },
   { "md5",        1 }
 };
-static const int      AllFieldsTableLength = sizeof(AllFieldsTable) / sizeof(AllFieldsTable[0]);
-
-#ifdef FTimes_WIN32
-static char           gcNewLine[NEWLINE_LENGTH] = CRLF;
-#endif
-#ifdef FTimes_UNIX
-static char           gcNewLine[NEWLINE_LENGTH] = LF;
-#endif
-unsigned char        *gpucHashDB;
-unsigned long         gulHashTable[1 << CMP_HASHB_SIZE];
-CMP_PROPERTIES        gsCompareProperties;
-
-
-/*-
- ***********************************************************************
- *
- * CompareCreateDatabase
- *
- ***********************************************************************
- */
-int
-CompareCreateDatabase(char *pcFilename, char *pcError)
-{
-  const char          cRoutine[] = "CompareCreateDatabase()";
-  char                cLocalError[ERRBUF_SIZE];
-  FILE               *pFile;
-  int                 i;
-  int                 j;
-  int                 iError;
-  int                 iFirst;
-  int                 iLength;
-  int                 iLineNumber;
-  int                 iSaveLength;
-  unsigned char       ucLine[CMP_MAX_LINE_LENGTH];
-  unsigned char       ucName[CMP_MAX_LINE_LENGTH];
-  unsigned char       ucNameMD5[MD5_HASH_LENGTH];
-  unsigned long       ulIndex;
-  unsigned long       ulStored;
-  unsigned long       ulLast = 0;
-  unsigned long       ulHashDBFree = 0;
-
-  /*-
-   *********************************************************************
-   *
-   * Get a _whole_ bunch of memory.
-   *
-   *********************************************************************
-   */
-  gpucHashDB = (unsigned char *) malloc(CMP_ARRAY_SIZE * sizeof(char)); /* The caller must free this storage. */
-  if (gpucHashDB == NULL)
-  {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, strerror(errno));
-    return ER_BadHandle;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Load system description into hash database.
-   *
-   *********************************************************************
-   */
-  strcpy(&gpucHashDB[ulHashDBFree], "Baseline");
-  ulHashDBFree += strlen("Baseline") + 1;
-
-  /*-
-   *********************************************************************
-   *
-   * Open the baseline file.
-   *
-   *********************************************************************
-   */
-  pFile = fopen(pcFilename, "rb");
-  if (pFile == NULL)
-  {
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s]: %s", cRoutine, pcFilename, strerror(errno));
-    return ER_fopen;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Read the header line.
-   *
-   *********************************************************************
-   */
-  iLineNumber = 1;
-  fgets(ucLine, CMP_MAX_LINE_LENGTH, pFile);
-  if (ferror(pFile))
-  {
-    fclose(pFile);
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, strerror(errno));
-    return ER_fgets;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Test that this is a valid file by parsing the header.
-   *
-   *********************************************************************
-   */
-  iError = CompareDecodeHeader(ucLine, cLocalError);
-  if (iError != ER_OK)
-  {
-    fclose(pFile);
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, cLocalError);
-    return iError;
-  }
-
-  for (ucLine[0] = 0, iFirst = 1, iLineNumber++; fgets(ucLine, CMP_MAX_LINE_LENGTH, pFile) != NULL; ucLine[0] = 0, iLineNumber++)
-  {
-    iLength = iSaveLength = strlen(ucLine);
-
-    /*-
-     *******************************************************************
-     *
-     * Determine the compare function based on the OsType. This affects
-     * name digest calculations and comparisions. This test expects
-     * WINDOWS files to begin with a drive letter followed by a colon.
-     *
-     *******************************************************************
-     */
-    if (iFirst)
-    {
-      if (isupper(toupper((int) ucLine[1])) && ucLine[2] == ':')
-      {
-        gsCompareProperties.piCompareRoutine = strcasecmp; /* WIN32 */
-      }
-      else
-      {
-        gsCompareProperties.piCompareRoutine = strcmp; /* UNIX */
-      }
-      iFirst = 0;
-    }
-
-    /*-
-     *******************************************************************
-     *
-     * Scan backwards over EOL characters.
-     *
-     *******************************************************************
-     */
-    while (iLength && ((ucLine[iLength - 1] == '\r') || (ucLine[iLength - 1] == '\n')))
-    {
-      iLength--;
-    }
-
-    /*-
-     *******************************************************************
-     *
-     * Its an error if no EOL was found. The exception to this is EOF.
-     *
-     *******************************************************************
-     */
-    if (iLength == iSaveLength && !feof(pFile))
-    {
-      fclose(pFile);
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: Length exceeds %d bytes.", cRoutine, pcFilename, iLineNumber, CMP_MAX_LINE_LENGTH - 1);
-      return ER_Length;
-    }
-    
-    /*-
-     *******************************************************************
-     *
-     * Terminate the line excluding any EOL characters.
-     *
-     *******************************************************************
-     */
-    ucLine[iLength] = 0;
-
-    /*-
-     *******************************************************************
-     *
-     * Extract the name for name digest calculation.
-     *
-     *******************************************************************
-     */
-    for (i = 0; i < iLength && ucLine[i] != '|'; i++)
-    {
-      ucName[i] = ucLine[i];
-    }
-    ucName[i] = 0;
-
-    /*-
-     *******************************************************************
-     *
-     * If this is WIN32 data, tolower() the filename.
-     *
-     *******************************************************************
-     */
-    if (gsCompareProperties.piCompareRoutine == strcasecmp)
-    {
-      for (i = 0; i < (int) strlen(ucName); i++)
-      {
-        ucName[i] = (char) tolower((int) ucName[i]);
-      }
-    }
-
-    /*-
-     *******************************************************************
-     *
-     * Compute the name digest from the possibly modified name.
-     *
-     *******************************************************************
-     */
-    md5_string((unsigned char *) ucName, strlen(ucName), ucNameMD5);
-
-    /*-
-     *******************************************************************
-     *
-     * Check for enough room in the database.
-     *
-     *******************************************************************
-     */
-    if ((ulHashDBFree + CMP_HASHB_SIZE + CMP_NEXT_NAME_SIZE + CMP_NEXT_HASH_SIZE + CMP_FOUND_SIZE + iLength) > CMP_ARRAY_SIZE)
-    {
-      fclose(pFile);
-      snprintf(pcError, ERRBUF_SIZE, "%s: HashDB array overflow.", cRoutine);
-      return ER_Overflow;
-    }
-
-    /*-
-     *******************************************************************
-     *
-     * Compute an array index based on some portion of the low 3 bytes
-     * of the name digest.
-     *
-     *******************************************************************
-     */
-    ulIndex = (ucNameMD5[13] << 16) | (ucNameMD5[14] << 8) | ucNameMD5[15];
-    ulIndex &= CMP_HASH_MASK;
-
-    /*-
-     *******************************************************************
-     *
-     * Search for this hash in table.
-     *
-     *******************************************************************
-     */
-    if (gulHashTable[ulIndex] == 0)
-    {
-      /*-
-       *****************************************************************
-       *
-       * This is the first occurrence of this index.
-       *
-       *****************************************************************
-       */
-      gulHashTable[ulIndex] = ulHashDBFree;
-      for (i = 0; i < CMP_HASHB_SIZE; i++)
-      {
-        gpucHashDB[ulHashDBFree++] = ucNameMD5[i];
-      }
-      for (i = 0; i < CMP_NEXT_NAME_SIZE; i++)
-      {
-        gpucHashDB[ulHashDBFree++] = 0;
-      }
-      for (i = 0; i < 32; i += 8)
-      {
-        gpucHashDB[ulHashDBFree++] = (unsigned char) 0;
-      }
-      gpucHashDB[ulHashDBFree++] = 0; /* Initialize the found flag. */
-      strcpy(&gpucHashDB[ulHashDBFree], ucLine);
-      ulHashDBFree += iLength;
-      gpucHashDB[ulHashDBFree++] = 0;
-    }
-    else
-    {
-      ulIndex = gulHashTable[ulIndex];
-      ulStored = 0;
-      while (ulIndex != 0)
-      {
-        /*-
-         ***************************************************************
-         *
-         * Check hash.
-         *
-         ***************************************************************
-         */
-        for (i = 0; i < CMP_HASHB_SIZE; i++)
-        {
-          if (gpucHashDB[ulIndex + i] != ucNameMD5[i])
-          {
-            break;
-          }
-        }
-
-        if (i != CMP_HASHB_SIZE)
-        {
-          /*-
-           *************************************************************
-           *
-           * The hash didn't match. Advance to next hash. Collect $200.
-           *
-           *************************************************************
-           */
-          ulLast = ulIndex + CMP_HASHB_SIZE + CMP_NEXT_NAME_SIZE;
-          ulIndex = 0;
-          for (j = 0; j < CMP_HASHC_SIZE; j += 8)
-          {
-            ulIndex |= gpucHashDB[ulLast++] << j;
-          }
-        }
-        else
-        {
-          /*-
-           *************************************************************
-           *
-           * Hash matched. If CMP_DEPLETED, check for matching filename.
-           * If not CMP_DEPLETED or no matching filename then add to end.
-           *
-           *************************************************************
-           */
-          ulIndex += CMP_HASHB_SIZE;
-          do
-          {
-            if (CMP_DEPLETED)
-            {
-              if (strcmp(ucLine, &gpucHashDB[ulIndex + CMP_NEXT_HASH_SIZE + CMP_FOUND_SIZE]) == 0)
-              {
-                /*-
-                 *******************************************************
-                 *
-                 * Hash and filename matched, so just deep six this one.
-                 *
-                 *******************************************************
-                 */
-                ulStored = 1;
-                break;
-              }
-            }
-
-            ulLast = ulIndex;
-            ulIndex = 0;
-            for (j = 0; j < CMP_HASHC_SIZE; j += 8)
-            {
-              ulIndex |= gpucHashDB[ulLast++] << j;
-            }
-          } while (ulIndex != 0);
-
-          if (ulStored == 1)
-          {
-            break;
-          }
-
-          ulLast -= CMP_NEXT_HASH_SIZE;
-          for (i = 0; i < 32; i += 8)
-          {
-            gpucHashDB[ulLast++] = (unsigned char) ((ulHashDBFree >> i) & 0xff);
-          }
-          for (i = 0; i < 32; i += 8)
-          {
-            gpucHashDB[ulHashDBFree++] = (unsigned char) 0;
-          }
-          gpucHashDB[ulHashDBFree++] = 0; /* Initialize the found flag. */
-          strcpy(&gpucHashDB[ulHashDBFree], ucLine);
-          ulHashDBFree += iLength;
-          gpucHashDB[ulHashDBFree++] = 0;
-
-          ulStored = 1;
-          break;
-        }
-      }
-
-      if (ulStored == 0)
-      {
-        ulLast -= CMP_NEXT_HASH_SIZE;
-        for (i = 0; i < 32; i += 8)
-        {
-          gpucHashDB[ulLast++] = (unsigned char) ((ulHashDBFree >> i) & 0xff);
-        }
-        for (i = 0; i < CMP_HASHB_SIZE; i++)
-        {
-          gpucHashDB[ulHashDBFree++] = ucNameMD5[i];
-        }
-        for (i = 0; i < CMP_NEXT_NAME_SIZE; i++)
-        {
-          gpucHashDB[ulHashDBFree++] = 0;
-        }
-        for (i = 0; i < 32; i += 8)
-        {
-          gpucHashDB[ulHashDBFree++] = (unsigned char) 0;
-        }
-        gpucHashDB[ulHashDBFree++] = 0; /* Initialize the found flag. */
-        strcpy(&gpucHashDB[ulHashDBFree], ucLine);
-        ulHashDBFree += iLength;
-        gpucHashDB[ulHashDBFree++] = 0;
-      }
-    }
-  }
-  if (ferror(pFile))
-  {
-    fclose(pFile);
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, strerror(errno));
-    return ER_fgets;
-  }
-  fclose(pFile);
-
-  return ER_OK;
-}
-
-
-/*-
- ***********************************************************************
- *
- * CompareDecodeHeader
- *
- ***********************************************************************
- */
-int
-CompareDecodeHeader(char *pcLine, char *pcError)
-{
-  const char          cRoutine[] = "CompareDecodeHeader()";
-  char               *pc;
-  char                cTempLine[CMP_MAX_LINE_LENGTH];
-  int                 i;
-  int                 iFields;
-  int                 iLength;
-
-  /*-
-   *********************************************************************
-   *
-   * Check input length.
-   *
-   *********************************************************************
-   */
-  iLength = strlen(pcLine);
-  if (iLength > CMP_MAX_LINE_LENGTH - 1)
-  {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", cRoutine, iLength, CMP_MAX_LINE_LENGTH - 1);
-    return ER_Length;
-  }
-  strncpy(cTempLine, pcLine, CMP_MAX_LINE_LENGTH);
-
-  /*-
-   *********************************************************************
-   *
-   * Check that we at least have the name field.
-   *
-   *********************************************************************
-   */
-  if (strncmp(pcLine, "name", 4) != 0)
-  {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Unrecognized input stream.", cRoutine);
-    return ER_Header;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Scan backwards over EOL characters.
-   *
-   *********************************************************************
-   */
-  while (iLength && ((cTempLine[iLength - 1] == '\r') || (cTempLine[iLength - 1] == '\n')))
-  {
-    iLength--;
-  }
-  cTempLine[iLength] = 0;
-
-  for (pc = strtok(cTempLine, CMP_FIELD_SEPARATOR), iFields = 0; pc != NULL; pc = strtok(NULL, CMP_FIELD_SEPARATOR), iFields++)
-  {
-    for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
-    {
-      if (strcasecmp(pc, AllFieldsTable[i].cName) == 0)
-      {
-        PUTBIT(gsCompareProperties.ulFieldsMask, 1, i);
-        break;
-      }
-    }
-  }
-
-  gsCompareProperties.iFields = iFields;
-
-  return ER_OK;
-}
-
+static const int giAllFieldsTableLength = sizeof(gsAllFieldsTable) / sizeof(gsAllFieldsTable[0]);
+static CMP_PROPERTIES *gpsCmpProperties;
 
 /*-
  ***********************************************************************
@@ -526,73 +56,81 @@ CompareDecodeHeader(char *pcLine, char *pcError)
  ***********************************************************************
  */
 int
-CompareDecodeLine(char *pcLine, CMP_FIELD_VALUE_TABLE *decodeFields, char *pcError)
+CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields[][CMP_MAX_LINE_LENGTH], char *pcError)
 {
-  const char          cRoutine[] = "CompareDecodeLine()";
-  char                cTempLine[CMP_MAX_LINE_LENGTH];
-  char               *pcH;
-  char               *pcT;
+  const char          acRoutine[] = "CompareDecodeLine()";
+  char                acTempLine[CMP_MAX_LINE_LENGTH];
+  char               *pcHead;
+  char               *pcTail;
   int                 i;
+  int                 iDone;
   int                 iFound;
-  int                 iItem;
+  int                 iField;
   int                 iLength;
 
   /*-
    *********************************************************************
    *
-   * Check input length.
+   * Terminate each output field.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
+  {
+    aacDecodeFields[i][0] = 0;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Check the line's length.
    *
    *********************************************************************
    */
   iLength = strlen(pcLine);
   if (iLength > CMP_MAX_LINE_LENGTH - 1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", cRoutine, iLength, CMP_MAX_LINE_LENGTH - 1);
-    return ER_Length;
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", acRoutine, iLength, CMP_MAX_LINE_LENGTH - 1);
+    return ER;
   }
-  strncpy(cTempLine, pcLine, CMP_MAX_LINE_LENGTH);
+  strncpy(acTempLine, pcLine, CMP_MAX_LINE_LENGTH);
 
   /*-
    *********************************************************************
    *
-   * Clear the compare fields.
+   * Parse data, and make a copy of each specified field.
    *
    *********************************************************************
    */
-  for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
+  for (pcHead = pcTail = acTempLine, iDone = iField = 0; !iDone; pcHead = ++pcTail, iField++)
   {
-    decodeFields[i].cValue[0] = 0;
-  }
-
-  iItem = 0;
-  pcH = pcT = cTempLine;
-  while (*pcH != 0)
-  {
-    while (*pcT != '|' && *pcT != 0)
+    while (*pcTail != CMP_SEPARATOR_C && *pcTail != 0)
     {
-      pcT++;
+      pcTail++;
     }
-
-    *pcT = 0;
-    iFound = -1;
-    for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
+    if (*pcTail == 0)
     {
-      if ((gsCompareProperties.ulFieldsMask & (1 << i)) == (unsigned int) 1 << i)
+      iDone = 1;
+    }
+    else
+    {
+      *pcTail = 0;
+    }
+    for (i = 0, iFound = -1; i < ALL_FIELDS_TABLE_LENGTH; i++)
+    {
+      if ((ulFieldsMask & (1 << i)) == (unsigned long) 1 << i)
       {
         iFound++;
       }
-      if (iFound == iItem)
+      if (iFound == iField)
       {
         break;
       }
     }
     if (i != ALL_FIELDS_TABLE_LENGTH)
     {
-      strcpy(decodeFields[i].cValue, pcH);
+      strcpy(aacDecodeFields[i], pcHead);
     }
-
-    iItem++;
-    pcH = ++pcT;
   }
 
   return ER_OK;
@@ -609,29 +147,33 @@ CompareDecodeLine(char *pcLine, CMP_FIELD_VALUE_TABLE *decodeFields, char *pcErr
 int
 CompareEnumerateChanges(char *pcFilename, char *pcError)
 {
-  const char          cRoutine[] = "CompareEnumerateChanges()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "CompareEnumerateChanges()";
+  char                aacBaselineFields[ALL_FIELDS_TABLE_LENGTH][CMP_MAX_LINE_LENGTH];
+  char                aacSnapshotFields[ALL_FIELDS_TABLE_LENGTH][CMP_MAX_LINE_LENGTH];
+  char                acLine[CMP_MAX_LINE_LENGTH];
+  char                acLocalError[MESSAGE_SIZE];
+  CMP_DATA            sCompareData;
+  int                 iLastIndex;
+  int                 iTempIndex;
+#ifdef USE_SNAPSHOT_COLLISION_DETECTION
+  int                *piNodeIndex;
+#endif
+  CMP_PROPERTIES     *psProperties;
   FILE               *pFile;
   int                 i;
-  int                 j;
   int                 iError;
-  int                 iLength;
-  int                 iLevel;
+  int                 iFound;
+  int                 iKeysIndex;
+  int                 iNodeCount;
+  int                 iNodeIndex;
+  int                 iLineLength;
   int                 iLineNumber;
-  int                 iSaveLength;
-  unsigned char       ucName[CMP_MAX_LINE_LENGTH];
-  unsigned char       ucNameMD5[MD5_HASH_LENGTH];
-  unsigned char       ucLine[CMP_MAX_LINE_LENGTH];
-  unsigned long       ulChangedMask;
-  unsigned long       ulIndex;
-  unsigned long       ulLast;
-  unsigned long       ulStored;
-  unsigned long       ulTop;
-  unsigned long       ulUnknownMask;
-  CMP_FIELD_VALUE_TABLE sBaseFields[ALL_FIELDS_TABLE_LENGTH];
-  CMP_FIELD_VALUE_TABLE sSnapFields[ALL_FIELDS_TABLE_LENGTH];
+  int                 iToLower;
+  unsigned char       aucHash[MD5_HASH_LENGTH];
 
-  cLocalError[0] = 0;
+  acLocalError[0] = iLineLength = iLineNumber = 0;
+
+  psProperties = CompareGetPropertiesReference();
 
   /*-
    *********************************************************************
@@ -649,40 +191,25 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
     pFile = fopen(pcFilename, "rb");
     if (pFile == NULL)
     {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s]: %s", cRoutine, pcFilename, strerror(errno));
-      return ER_fopen;
+      snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
+      return ER;
     }
   }
 
   /*-
    *********************************************************************
    *
-   * Read the header line.
+   * Read and parse the header.
    *
    *********************************************************************
    */
-  iLineNumber = 1;
-  fgets(ucLine, CMP_MAX_LINE_LENGTH, pFile);
-  if (ferror(pFile))
-  {
-    fclose(pFile);
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, strerror(errno));
-    return ER_fgets;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Test that this is a valid file by parsing the header.
-   *
-   *********************************************************************
-   */
-  iError = CompareDecodeHeader(ucLine, cLocalError);
+  iLineNumber++;
+  iError = CompareReadHeader(pFile, acLocalError);
   if (iError != ER_OK)
   {
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
     fclose(pFile);
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, strerror(errno));
-    return iError;
+    return ER;
   }
 
   /*-
@@ -692,13 +219,22 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
    *
    *********************************************************************
    */
-  gsCompareProperties.ulCompareMask &= gsCompareProperties.ulFieldsMask;
-
-  if (gsCompareProperties.ulCompareMask == 0)
+  psProperties->ulCompareMask &= psProperties->ulFieldsMask;
+  if (psProperties->ulCompareMask == 0)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: None of the specified fields exist in the snapshot data.", cRoutine);
-    return ER_NothingToDo;
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: None of the specified fields exist in the snapshot data.", acRoutine, pcFilename, iLineNumber);
+    fclose(pFile);
+    return ER;
   }
+
+  /*-
+   *********************************************************************
+   *
+   * Set the ToLower conversion flag.
+   *
+   *********************************************************************
+   */
+  iToLower = (psProperties->piCompareRoutine == strcasecmp) ? 1 : 0;
 
   /*-
    *********************************************************************
@@ -707,394 +243,177 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
    *
    *********************************************************************
    */
-  for (ucLine[0] = 0, iLineNumber++; fgets(ucLine, CMP_MAX_LINE_LENGTH, pFile) != NULL; ucLine[0] = 0, iLineNumber++)
+  iNodeCount = iNodeIndex = 0;
+  for (acLine[0] = 0, iLineNumber++; fgets(acLine, CMP_MAX_LINE_LENGTH, pFile) != NULL; acLine[0] = 0, iLineNumber++)
   {
-    iLength = iSaveLength = strlen(ucLine);
-
     /*-
      *******************************************************************
      *
-     * Scan backwards over EOL characters.
+     * Preprocess the line.
      *
      *******************************************************************
      */
-    while (iLength && ((ucLine[iLength - 1] == '\r') || (ucLine[iLength - 1] == '\n')))
+    iError = ComparePreprocessLine(pFile, iToLower, acLine, &iLineLength, aucHash, acLocalError);
+    if (iError != ER_OK)
     {
-      iLength--;
-    }
-
-    /*-
-     *******************************************************************
-     *
-     * Its an error if no EOL was found. The exception to this is EOF.
-     *
-     *******************************************************************
-     */
-    if (iLength == iSaveLength && !feof(pFile))
-    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
       fclose(pFile);
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: Length exceeds %d bytes.", cRoutine, pcFilename, iLineNumber, CMP_MAX_LINE_LENGTH - 1);
-      return ER_Length;
+      return ER;
     }
-  
-    /*-
-     *******************************************************************
-     *
-     * Terminate the line excluding any EOL characters.
-     *
-     *******************************************************************
-     */
-    ucLine[iLength] = 0;
 
+#ifdef USE_SNAPSHOT_COLLISION_DETECTION
     /*-
      *******************************************************************
      *
-     * Decode the line.
+     * Check memory size, and allocate more, if necessary.
      *
      *******************************************************************
      */
-    CompareDecodeLine(ucLine, sSnapFields, cLocalError);
-
-    /*-
-     *******************************************************************
-     *
-     * Extract the name to calculate it's digest.
-     *
-     *******************************************************************
-     */
-    for (i = 0; i < iLength && ucLine[i] != '|'; i++)
+    if (iNodeIndex >= iNodeCount)
     {
-      ucName[i] = ucLine[i];
-    }
-    ucName[i] = 0;
-
-    /*-
-     *******************************************************************
-     *
-     * If this is WINDOWS data, tolower() the filename.
-     *
-     *******************************************************************
-     */
-    if (gsCompareProperties.piCompareRoutine == strcasecmp)
-    {
-      for (i = 0; i < (int) strlen(ucName); i++)
+      iNodeCount += CMP_NODE_REQUEST_COUNT;
+      psProperties->psSnapshotNodes = (CMP_NODE *) realloc(psProperties->psSnapshotNodes, (iNodeCount * sizeof(CMP_NODE)));
+      if (psProperties->psSnapshotNodes == NULL)
       {
-        ucName[i] = (char) tolower((int) ucName[i]);
+        snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
+        fclose(pFile);
+        return ER;
       }
     }
 
     /*-
      *******************************************************************
      *
-     * Compute a digest for the possibly modified name.
+     * Insert a new node. Drop collisions and warn the user.
      *
      *******************************************************************
      */
-    md5_string((unsigned char *) ucName, strlen(ucName), ucNameMD5);
-
-    /*-
-     *******************************************************************
-     *
-     * Compute an index based on the low 3 bytes of the name digest.
-     *
-     *******************************************************************
-     */
-    ulIndex = (ucNameMD5[13] << 16) | (ucNameMD5[14] << 8) | ucNameMD5[15];
-    ulIndex &= CMP_HASH_MASK;
-
-    /*-
-     *******************************************************************
-     *
-     * Search for this hash in table. If not found, the file is new.
-     *
-     *******************************************************************
-     */
-    if (gulHashTable[ulIndex] == 0)
+    piNodeIndex = CompareGetNodeIndexReference(aucHash, psProperties->aiSnapshotKeys, psProperties->psSnapshotNodes);
+    if (piNodeIndex == NULL)
     {
-      iError = CompareWriteRecord('N', sSnapFields[0].cValue, 0, 0, cLocalError);
-      if (iError != ER_OK)
-      {
-        snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-        return iError;
-      }
-      gsCompareProperties.ulNew++;
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: Hash collision. Check for duplicate filenames.", acRoutine, pcFilename, iLineNumber);
+      ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
     }
     else
     {
-      ulIndex = gulHashTable[ulIndex];
-      ulStored = 0;
-      while (ulIndex != 0)
-      {
-        /*-
-         ***************************************************************
-         *
-         * Check hash.
-         *
-         ***************************************************************
-         */
-        for (i = 0; i < CMP_HASHB_SIZE; i++)
-        {
-          if (gpucHashDB[ulIndex + i] != ucNameMD5[i])
-          {
-            break;
-          }
-        }
+      *piNodeIndex = iNodeIndex;
+      psProperties->psSnapshotNodes[*piNodeIndex].iNextIndex = -1;
+      memcpy(psProperties->psSnapshotNodes[*piNodeIndex].aucHash, aucHash, CMP_HASHB_SIZE);
+      iNodeIndex++;
+    }
+#endif
 
-        if (i != CMP_HASHB_SIZE)
+    /*-
+     *******************************************************************
+     *
+     * Search for the hash and compare specified fields.
+     *
+     *******************************************************************
+     */
+    psProperties->ulAnalyzed++;
+    iFound = 0;
+    CompareDecodeLine(acLine, psProperties->ulFieldsMask, aacSnapshotFields, acLocalError);
+    sCompareData.cCategory = 0;
+    sCompareData.pcRecord = NULL;
+    iKeysIndex = CMP_GET_NODE_INDEX(aucHash);
+    iLastIndex = iTempIndex = psProperties->aiBaselineKeys[iKeysIndex];
+    while (iTempIndex != -1)
+    {
+      if (memcmp(psProperties->psBaselineNodes[iTempIndex].aucHash, aucHash, CMP_HASHB_SIZE) == 0)
+      {
+        iFound = psProperties->psBaselineNodes[iTempIndex].iFound = 1;
+        CompareDecodeLine(psProperties->psBaselineNodes[iTempIndex].pcData, psProperties->ulFieldsMask, aacBaselineFields, acLocalError);
+        sCompareData.ulChangedMask = 0;
+        sCompareData.ulUnknownMask = 0;
+        for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
         {
-          /*-
-           *************************************************************
-           *
-           * The hash didn't match. Advance to next hash. Collect $200.
-           *
-           *************************************************************
-           */
-          ulLast = ulIndex + CMP_HASHB_SIZE + CMP_NEXT_NAME_SIZE;
-          ulIndex = 0;
-          for (j = 0; j < CMP_HASHC_SIZE; j += 8)
+          if ((psProperties->ulCompareMask & 1 << i) == (unsigned long) 1 << i)
           {
-            ulIndex |= gpucHashDB[ulLast++] << j;
-          }
-        }
-        else
-        {
-          /*-
-           *************************************************************
-           *
-           * Hash matched. Look for a filename match.
-           *
-           *************************************************************
-           */
-          ulIndex += CMP_HASHB_SIZE;
-          iLevel = 1;
-          do
-          {
-            /*-
-             ***********************************************************
-             *
-             * Decode the line.
-             *
-             ***********************************************************
-             */
-            if (iLevel == 1)
+            if (aacBaselineFields[i][0] != 0 && aacSnapshotFields[i][0] != 0)
             {
-              CompareDecodeLine(&gpucHashDB[ulIndex + CMP_NEXT_NAME_SIZE + CMP_NEXT_HASH_SIZE + CMP_FOUND_SIZE], sBaseFields, cLocalError);
+              if (strcmp(aacBaselineFields[i], aacSnapshotFields[i]) != 0)
+              {
+                sCompareData.ulChangedMask |= 1 << i;
+              }
             }
             else
             {
-              CompareDecodeLine(&gpucHashDB[ulIndex + CMP_NEXT_HASH_SIZE + CMP_FOUND_SIZE], sBaseFields, cLocalError);
+              sCompareData.ulUnknownMask |= 1 << i;
             }
-
-            /*-
-             ***********************************************************
-             *
-             * If the names are the same, compare each requested field
-             * provided that the field is not NULL in either data set.
-             *
-             ***********************************************************
-             */
-            if (gsCompareProperties.piCompareRoutine(sBaseFields[0].cValue, sSnapFields[0].cValue) == 0)
-            {
-              for (i = 0, ulChangedMask = ulUnknownMask = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
-              {
-                if ((gsCompareProperties.ulCompareMask & 1 << i) == (unsigned int) 1 << i)
-                {
-                  if (sBaseFields[i].cValue[0] != 0 && sSnapFields[i].cValue[0] != 0)
-                  {
-                    if (strcmp(sBaseFields[i].cValue, sSnapFields[i].cValue) != 0)
-                    {
-                      ulChangedMask |= 1 << i;
-                    }
-                  }
-                  else
-                  {
-                    ulUnknownMask |= 1 << i;
-                  }
-
-                  /*-
-                   *****************************************************
-                   *
-                   * Mark entry as found.
-                   *
-                   *****************************************************
-                   */
-                  if (iLevel == 1)
-                  {
-                    gpucHashDB[ulIndex + CMP_NEXT_NAME_SIZE + CMP_NEXT_HASH_SIZE] = 1;
-                  }
-                  else
-                  {
-                    gpucHashDB[ulIndex + CMP_NEXT_HASH_SIZE] = 1;
-                  }
-                }
-              }
-
-              /*-
-               *********************************************************
-               *
-               * It's changed. Write out a record.
-               *
-               * FYI - The whole input line is located at the following address:
-               *
-               * &gpucHashDB[ulIndex + CMP_NEXT_NAME_SIZE + CMP_NEXT_HASH_SIZE + CMP_FOUND_SIZE]
-               *
-               *********************************************************
-               */
-              if (ulChangedMask && !ulUnknownMask)
-              {
-                iError = CompareWriteRecord('C', sBaseFields[0].cValue, ulChangedMask, ulUnknownMask, cLocalError);
-                if (iError != ER_OK)
-                {
-                  snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-                  return iError;
-                }
-                gsCompareProperties.ulChanged++;
-              }
-              else if (!ulChangedMask && ulUnknownMask)
-              {
-                iError = CompareWriteRecord('U', sBaseFields[0].cValue, ulChangedMask, ulUnknownMask, cLocalError);
-                if (iError != ER_OK)
-                {
-                  snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-                  return iError;
-                }
-                gsCompareProperties.ulUnknown++;
-              }
-              else if (ulChangedMask && ulUnknownMask)
-              {
-                iError = CompareWriteRecord('X', sBaseFields[0].cValue, ulChangedMask, ulUnknownMask, cLocalError);
-                if (iError != ER_OK)
-                {
-                  snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-                  return iError;
-                }
-                gsCompareProperties.ulChanged++;
-                gsCompareProperties.ulUnknown++;
-              }
-              gsCompareProperties.ulFound++;
-            }
-
-            iLevel++;
-            ulLast = ulIndex;
-            ulIndex = 0;
-            for (j = 0; j < CMP_HASHC_SIZE; j += 8)
-            {
-              ulIndex |= gpucHashDB[ulLast++] << j;
-            }
-          } while (ulIndex != 0);
-
-          ulStored = 1;
-          break;
+          }
         }
-      }
-
-      /*-
-       *****************************************************************
-       *
-       * It's new. Write out a record.
-       *
-       *****************************************************************
-       */
-      if (ulStored == 0)
-      {
-        iError = CompareWriteRecord('N', sSnapFields[0].cValue, 0, 0, cLocalError);
-        if (iError != ER_OK)
+        if (sCompareData.ulChangedMask && !sCompareData.ulUnknownMask)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-          return iError;
+          sCompareData.cCategory = 'C';
+          psProperties->ulChanged++;
         }
-        gsCompareProperties.ulNew++;
+        else if (!sCompareData.ulChangedMask && sCompareData.ulUnknownMask)
+        {
+          sCompareData.cCategory = 'U';
+          psProperties->ulUnknown++;
+        }
+        else if (sCompareData.ulChangedMask && sCompareData.ulUnknownMask)
+        {
+          sCompareData.cCategory = 'X';
+          psProperties->ulCrossed++;
+        }
+        sCompareData.pcRecord = aacBaselineFields[0];
+        break;
       }
+      iLastIndex = iTempIndex;
+      iTempIndex = psProperties->psBaselineNodes[iTempIndex].iNextIndex;
+    }
+    if (iFound == 0 || iLastIndex == -1)
+    {
+      sCompareData.cCategory = 'N';
+      sCompareData.pcRecord = aacSnapshotFields[0];
+      psProperties->ulNew++;
+    }
+    else if (sCompareData.cCategory == 0)
+    {
+      continue; /* Nothing to report. */
+    }
+    iError = CompareWriteRecord(psProperties, &sCompareData, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
+      fclose(pFile);
+      return ER;
     }
   }
   if (ferror(pFile))
   {
+    snprintf(pcError, MESSAGE_SIZE, "%s: fgets(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
     fclose(pFile);
-    snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, strerror(errno));
-    return ER_fgets;
+    return ER;
   }
   fclose(pFile);
 
   /*-
    *********************************************************************
    *
-   * Enumerate missing files.
+   * Enumerate missing objects.
    *
    *********************************************************************
    */
-  for (i = 0; i < sizeof(gulHashTable) / sizeof(gulHashTable[0]); i++)
+  for (iKeysIndex = 0; iKeysIndex < CMP_MODULUS; iKeysIndex++)
   {
-    if (gulHashTable[i] != 0)
+    iTempIndex = psProperties->aiBaselineKeys[iKeysIndex];
+    while (iTempIndex != -1)
     {
-      ulIndex = gulHashTable[i];
-      while (ulIndex != 0)
+      if (psProperties->psBaselineNodes[iTempIndex].iFound == 0)
       {
-        ulTop = ulIndex;
-
-        /*-
-         ***************************************************************
-         *
-         * Check found flag. If not found, write out a missing record.
-         *
-         ***************************************************************
-         */
-        if (gpucHashDB[ulTop + CMP_HASHB_SIZE + CMP_NEXT_NAME_SIZE + CMP_NEXT_HASH_SIZE] == 0)
+        sCompareData.cCategory = 'M';
+        sCompareData.pcRecord = psProperties->psBaselineNodes[iTempIndex].pcData;
+        iError = CompareWriteRecord(psProperties, &sCompareData, acLocalError);
+        if (iError != ER_OK)
         {
-          iError = CompareWriteRecord('M', &gpucHashDB[ulIndex + CMP_HASHB_SIZE + CMP_NEXT_NAME_SIZE + CMP_NEXT_HASH_SIZE + CMP_FOUND_SIZE], 0, 0, cLocalError);
-          if (iError != ER_OK)
-          {
-            snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-            return iError;
-          }
-          gsCompareProperties.ulMissing++;
+          snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
+          return ER;
         }
-
-        /*-
-         ***************************************************************
-         *
-         * Follow left branch of files with the same name digest.
-         *
-         ***************************************************************
-         */
-        ulIndex += CMP_HASHB_SIZE;
-        if (gpucHashDB[ulIndex] != 0)
-        {
-          do
-          {
-            if (gpucHashDB[ulIndex + CMP_NEXT_HASH_SIZE] == 0)
-            {
-              iError = CompareWriteRecord('M', &gpucHashDB[ulIndex + CMP_HASHB_SIZE + CMP_NEXT_NAME_SIZE + CMP_NEXT_HASH_SIZE + CMP_FOUND_SIZE], 0, 0, cLocalError);
-              if (iError != ER_OK)
-              {
-                snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
-                return iError;
-              }
-              gsCompareProperties.ulMissing++;
-            }
-
-            ulLast = ulIndex;
-            ulIndex = 0;
-            for (j = 0; j < CMP_HASHC_SIZE; j += 8)
-            {
-              ulIndex |= gpucHashDB[ulLast++] << j;
-            }
-          } while (ulIndex != 0);
-        }
-
-        /*-
-         ***************************************************************
-         *
-         * Go back to the top of the last branch and descend right.
-         *
-         ***************************************************************
-         */
-        ulLast = ulTop + CMP_HASHB_SIZE + CMP_NEXT_HASH_SIZE;
-        ulIndex = 0;
-        for (j = 0; j < CMP_HASHC_SIZE; j += 8)
-        {
-          ulIndex |= gpucHashDB[ulLast++] << j;
-        }
+        psProperties->ulMissing++;
       }
+      iTempIndex = psProperties->psBaselineNodes[iTempIndex].iNextIndex;
     }
   }
   return ER_OK;
@@ -1104,16 +423,30 @@ CompareEnumerateChanges(char *pcFilename, char *pcError)
 /*-
  ***********************************************************************
  *
- * CompareFreeDatabase
+ * CompareFreeProperties
  *
  ***********************************************************************
  */
 void
-CompareFreeDatabase(void)
+CompareFreeProperties(CMP_PROPERTIES *psProperties)
 {
-  if (gpucHashDB != NULL)
+  if (psProperties != NULL)
   {
-    free(gpucHashDB);
+    if (psProperties->pcPackedData != NULL)
+    {
+      free(psProperties->pcPackedData);
+    }
+    if (psProperties->psBaselineNodes != NULL)
+    {
+      free(psProperties->psBaselineNodes);
+    }
+#ifdef USE_SNAPSHOT_COLLISION_DETECTION
+    if (psProperties->psSnapshotNodes != NULL)
+    {
+      free(psProperties->psSnapshotNodes);
+    }
+#endif
+    free(psProperties);
   }
 }
 
@@ -1128,7 +461,21 @@ CompareFreeDatabase(void)
 int
 CompareGetChangedCount(void)
 {
-  return gsCompareProperties.ulChanged;
+  return gpsCmpProperties->ulChanged;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * CompareGetCrossedCount
+ *
+ ***********************************************************************
+ */
+int
+CompareGetCrossedCount(void)
+{
+  return gpsCmpProperties->ulCrossed;
 }
 
 
@@ -1142,7 +489,7 @@ CompareGetChangedCount(void)
 int
 CompareGetMissingCount(void)
 {
-  return gsCompareProperties.ulMissing;
+  return gpsCmpProperties->ulMissing;
 }
 
 
@@ -1156,7 +503,57 @@ CompareGetMissingCount(void)
 int
 CompareGetNewCount(void)
 {
-  return gsCompareProperties.ulNew;
+  return gpsCmpProperties->ulNew;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * CompareGetNodeIndexReference
+ *
+ ***********************************************************************
+ */
+int *
+CompareGetNodeIndexReference(unsigned char *pucHash, int *piKeys, CMP_NODE *psNodes)
+{
+  int                 iKeysIndex;
+  int                 iLastIndex;
+  int                 iTempIndex;
+
+  iKeysIndex = CMP_GET_NODE_INDEX(pucHash);
+
+  if ((iLastIndex = iTempIndex = piKeys[iKeysIndex]) == -1)
+  {
+    return &piKeys[iKeysIndex];
+  }
+  else
+  {
+    while (iTempIndex != -1)
+    {
+      if (memcmp(psNodes[iTempIndex].aucHash, pucHash, CMP_HASHB_SIZE) == 0)
+      {
+        return NULL;
+      }
+      iLastIndex = iTempIndex;
+      iTempIndex = psNodes[iTempIndex].iNextIndex;
+    }
+    return &psNodes[iLastIndex].iNextIndex;
+  }
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * CompareGetPropertiesReference
+ *
+ ***********************************************************************
+ */
+CMP_PROPERTIES *
+CompareGetPropertiesReference(void)
+{
+  return gpsCmpProperties;
 }
 
 
@@ -1170,7 +567,7 @@ CompareGetNewCount(void)
 int
 CompareGetRecordCount(void)
 {
-  return gsCompareProperties.ulFound;
+  return gpsCmpProperties->ulAnalyzed;
 }
 
 
@@ -1184,7 +581,245 @@ CompareGetRecordCount(void)
 int
 CompareGetUnknownCount(void)
 {
-  return gsCompareProperties.ulUnknown;
+  return gpsCmpProperties->ulUnknown;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * CompareLoadBaselineData
+ *
+ ***********************************************************************
+ */
+int
+CompareLoadBaselineData(char *pcFilename, char *pcError)
+{
+  const char          acRoutine[] = "CompareLoadBaselineData()";
+  char                acLine[CMP_MAX_LINE_LENGTH];
+  char                acLocalError[MESSAGE_SIZE];
+  char               *pcPackedData;
+  CMP_PROPERTIES     *psProperties;
+  FILE               *pFile;
+  int                 iError;
+  int                 iFirst;
+  int                 iLineLength;
+  int                 iLineNumber;
+  int                 iNodeCount;
+  int                 iNodeIndex;
+  int                 iToLower;
+  int                *piNodeIndex;
+  struct stat         statEntry;
+  unsigned char       aucHash[MD5_HASH_LENGTH];
+
+  acLocalError[0] = iLineLength = iLineNumber = 0;
+
+  psProperties = CompareGetPropertiesReference();
+
+  /*-
+   *********************************************************************
+   *
+   * Open the baseline.
+   *
+   *********************************************************************
+   */
+  pFile = fopen(pcFilename, "rb");
+  if (pFile == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Allocate memory to hold the data.
+   *
+   *********************************************************************
+   */
+  iError = fstat(fileno(pFile), &statEntry);
+  if (iError == -1)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: fstat(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
+    fclose(pFile);
+    return ER;
+  }
+  pcPackedData = malloc(statEntry.st_size);
+  if (pcPackedData == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
+    fclose(pFile);
+    return ER;
+  }
+  psProperties->pcPackedData = pcPackedData;
+
+  /*-
+   *********************************************************************
+   *
+   * Read and parse the header.
+   *
+   *********************************************************************
+   */
+  iLineNumber++;
+  iError = CompareReadHeader(pFile, acLocalError);
+  if (iError != ER_OK)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
+    fclose(pFile);
+    return ER;
+  }
+
+  iFirst = 1;
+  iNodeCount = iNodeIndex = iToLower = 0;
+  for (acLine[0] = 0, iLineNumber++; fgets(acLine, CMP_MAX_LINE_LENGTH, pFile) != NULL; acLine[0] = 0, iLineNumber++)
+  {
+    /*-
+     *******************************************************************
+     *
+     * Determine the compare function based on the OsType. This affects
+     * name digest calculations and comparisions. This test expects
+     * WIN32 files to begin with a drive letter followed by a colon.
+     *
+     *******************************************************************
+     */
+    if (iFirst)
+    {
+      if (isupper(toupper((int) acLine[1])) && acLine[2] == ':')
+      {
+        psProperties->piCompareRoutine = strcasecmp; /* WIN32 */
+        iToLower = 1;
+      }
+      else
+      {
+        psProperties->piCompareRoutine = strcmp; /* UNIX */
+        iToLower = 0;
+      }
+      iFirst = 0;
+    }
+
+    /*-
+     *******************************************************************
+     *
+     * Preprocess the line.
+     *
+     *******************************************************************
+     */
+    iError = ComparePreprocessLine(pFile, iToLower, acLine, &iLineLength, aucHash, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
+      fclose(pFile);
+      return ER;
+    }
+
+    /*-
+     *******************************************************************
+     *
+     * Check memory size, and allocate more, if necessary.
+     *
+     *******************************************************************
+     */
+    if (iNodeIndex >= iNodeCount)
+    {
+      iNodeCount += CMP_NODE_REQUEST_COUNT;
+      psProperties->psBaselineNodes = (CMP_NODE *) realloc(psProperties->psBaselineNodes, (iNodeCount * sizeof(CMP_NODE)));
+      if (psProperties->psBaselineNodes == NULL)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
+        fclose(pFile);
+        return ER;
+      }
+    }
+
+    /*-
+     *******************************************************************
+     *
+     * Insert a new node. Drop collisions and warn the user.
+     *
+     *******************************************************************
+     */
+    piNodeIndex = CompareGetNodeIndexReference(aucHash, psProperties->aiBaselineKeys, psProperties->psBaselineNodes);
+    if (piNodeIndex == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: Hash collision. Check for duplicate filenames.", acRoutine, pcFilename, iLineNumber);
+      ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
+    }
+    else
+    {
+      *piNodeIndex = iNodeIndex;
+      psProperties->psBaselineNodes[*piNodeIndex].iNextIndex = -1;
+      memcpy(psProperties->psBaselineNodes[*piNodeIndex].aucHash, aucHash, CMP_HASHB_SIZE);
+      psProperties->psBaselineNodes[*piNodeIndex].pcData = pcPackedData;
+      strcpy(psProperties->psBaselineNodes[*piNodeIndex].pcData, acLine);
+      pcPackedData += iLineLength + 1;
+      iNodeIndex++;
+    }
+  }
+  if (ferror(pFile))
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: fgets(): File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
+    fclose(pFile);
+    return ER;
+  }
+  fclose(pFile);
+
+  return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * CompareNewProperties
+ *
+ ***********************************************************************
+ */
+CMP_PROPERTIES *
+CompareNewProperties(char *pcError)
+{
+  const char          acRoutine[] = "CompareNewProperties()";
+  CMP_PROPERTIES     *psProperties;
+  int                 i;
+
+  /*
+   *********************************************************************
+   *
+   * Allocate and clear memory for the properties structure.
+   *
+   *********************************************************************
+   */
+  psProperties = (CMP_PROPERTIES *) calloc(sizeof(CMP_PROPERTIES), 1);
+  if (psProperties == NULL)
+  {
+    snprintf(pcError, ERRBUF_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    return NULL;
+  }
+
+  /*
+   *********************************************************************
+   *
+   * Initialize non-zero variables.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < CMP_MODULUS; i++)
+  {
+    psProperties->aiBaselineKeys[i] = -1;
+#ifdef USE_SNAPSHOT_COLLISION_DETECTION
+    psProperties->aiSnapshotKeys[i] = -1;
+#endif
+  }
+
+#ifdef FTimes_WIN32
+  psProperties->piCompareRoutine = strcasecmp;
+  strncpy(psProperties->acNewLine, CRLF, NEWLINE_LENGTH);
+#endif
+#ifdef FTimes_UNIX
+  psProperties->piCompareRoutine = strcmp;
+  strncpy(psProperties->acNewLine, LF, NEWLINE_LENGTH);
+#endif
+
+  return psProperties;
 }
 
 
@@ -1198,10 +833,10 @@ CompareGetUnknownCount(void)
 int
 CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *pMaskTable, int iMaskTableLength, char *pcError)
 {
-  const char          cRoutine[] = "CompareParseStringMask()";
+  const char          acRoutine[] = "CompareParseStringMask()";
+  char                acTempLine[ALL_FIELDS_MASK_SIZE];
   char                cLastAction;
   char                cNextAction;
-  char                cTempLine[ALL_FIELDS_MASK_SIZE];
   char               *pcToken;
   int                 i;
   int                 j;
@@ -1212,7 +847,7 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
   iLength = strlen(pcMask);
   if (iLength > ALL_FIELDS_MASK_SIZE - 1)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Length = [%d]: Argument exceeds [%d] bytes.", cRoutine, iLength, ALL_FIELDS_MASK_SIZE - 1);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Argument exceeds [%d] bytes.", acRoutine, iLength, ALL_FIELDS_MASK_SIZE - 1);
     return ER;
   }
 
@@ -1229,7 +864,7 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
   else
   {
     *ulMask = 0;
-    snprintf(pcError, ERRBUF_SIZE, "%s: Prefix = [%s] != [ALL|NONE]: Invalid prefix.", cRoutine, pcMask);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Prefix = [%s] != [ALL|NONE]: Invalid prefix.", acRoutine, pcMask);
     return ER;
   }
 
@@ -1245,7 +880,7 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
     return ER_OK;
     break;
   default:
-    snprintf(pcError, ERRBUF_SIZE, "%s: Operator = [%c] != [+|-]: Invalid operator.", cRoutine, pcMask[iLength]);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Operator = [%c] != [+|-]: Invalid operator.", acRoutine, pcMask[iLength]);
     return ER;
     break;
   }
@@ -1257,22 +892,16 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
    *
    *********************************************************************
    */
-  strncpy(cTempLine, &pcMask[iLength], ALL_FIELDS_MASK_SIZE);
-  iLength = strlen(cTempLine);
+  strncpy(acTempLine, &pcMask[iLength], ALL_FIELDS_MASK_SIZE);
 
   /*-
    *********************************************************************
    *
-   * Scan backwards over EOL characters. Expect no more than two
-   * iterations of this loop.
+   * Remove EOL characters.
    *
    *********************************************************************
    */
-  while (iLength && ((cTempLine[iLength - 1] == '\r') || (cTempLine[iLength - 1] == '\n')))
-  {
-    iLength--;
-  }
-  cTempLine[iLength] = 0;
+  SupportChopEOLs(acTempLine, 0, NULL);
 
   /*-
    *********************************************************************
@@ -1282,11 +911,11 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
    *
    *********************************************************************
    */
-  for (pcToken = cTempLine, iOffset = 0, iDone = 0; !iDone;)
+  for (pcToken = acTempLine, iOffset = 0, iDone = 0; !iDone;)
   {
-    if (cTempLine[iOffset] == '+' || cTempLine[iOffset] == '-' || cTempLine[iOffset] == 0)
+    if (acTempLine[iOffset] == '+' || acTempLine[iOffset] == '-' || acTempLine[iOffset] == 0)
     {
-      if (cTempLine[iOffset] == 0)
+      if (acTempLine[iOffset] == 0)
       {
         iDone = 1;
       }
@@ -1299,7 +928,7 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
        *****************************************************************
        */
       cLastAction = cNextAction;
-      cNextAction = cTempLine[iOffset];
+      cNextAction = acTempLine[iOffset];
 
       /*-
        *****************************************************************
@@ -1308,7 +937,7 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
        *
        *****************************************************************
        */
-      cTempLine[iOffset] = 0;
+      acTempLine[iOffset] = 0;
 
       /*-
        *****************************************************************
@@ -1324,25 +953,23 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
       {
         for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
         {
-/* FIXME Remove global reference to AllFieldsTable. */
-          if (strcasecmp(pcToken, AllFieldsTable[i].cName) == 0)
+          if (strcasecmp(pcToken, gsAllFieldsTable[i].acName) == 0)
           {
-            if (AllFieldsTable[i].iBitsToSet == 0)
+            if (gsAllFieldsTable[i].iBitsToSet == 0)
             {
-              snprintf(pcError, ERRBUF_SIZE, "%s: Token = [%c%s]: Illegal value.", cRoutine, cLastAction, pcToken);
+              snprintf(pcError, MESSAGE_SIZE, "%s: Token = [%c%s]: Illegal value.", acRoutine, cLastAction, pcToken);
               return ER;
             }
-            for (j = 0; j < AllFieldsTable[i].iBitsToSet; j++)
+            for (j = 0; j < gsAllFieldsTable[i].iBitsToSet; j++)
             {
               PUTBIT(*ulMask, ((cLastAction == '+') ? 1 : 0), (i + j));
             }
             break;
           }
         }
-
         if (i == ALL_FIELDS_TABLE_LENGTH)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: Token = [%c%s]: Invalid value.", cRoutine, cLastAction, pcToken);
+          snprintf(pcError, MESSAGE_SIZE, "%s: Token = [%c%s]: Invalid value.", acRoutine, cLastAction, pcToken);
           return ER;
         }
       }
@@ -1356,18 +983,16 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
             break;
           }
         }
-
         if (i == iMaskTableLength)
         {
-          snprintf(pcError, ERRBUF_SIZE, "%s: Token = [%c%s]: Invalid value.", cRoutine, cLastAction, pcToken);
+          snprintf(pcError, MESSAGE_SIZE, "%s: Token = [%c%s]: Invalid value.", acRoutine, cLastAction, pcToken);
           return ER;
         }
       }
-
       if (!iDone)
       {
         iOffset++;
-        pcToken = &cTempLine[iOffset];
+        pcToken = &acTempLine[iOffset];
       }
     }
     else
@@ -1385,6 +1010,183 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
 /*-
  ***********************************************************************
  *
+ * ComparePreprocessLine
+ *
+ ***********************************************************************
+ */
+int
+ComparePreprocessLine(FILE *pFile, int iToLower, char *pcLine, int *piLength, unsigned char *pucHash, char *pcError)
+{
+  const char          acRoutine[] = "ComparePreprocessLine()";
+  char                acLocalError[MESSAGE_SIZE];
+  char                acName[CMP_MAX_LINE_LENGTH];
+  int                 i;
+  int                 iLength;
+
+  /*-
+   *********************************************************************
+   *
+   * Remove EOL characters.
+   *
+   *********************************************************************
+   */
+  if (SupportChopEOLs(pcLine, feof(pFile) ? 0 : 1, acLocalError) == ER)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Calculate line length.
+   *
+   *********************************************************************
+   */
+  *piLength = strlen(pcLine);
+
+  /*-
+   *********************************************************************
+   *
+   * Extract the name, and calculate it's hash.
+   *
+   *********************************************************************
+   */
+  for (iLength = 0; iLength < *piLength && pcLine[iLength] != CMP_SEPARATOR_C; iLength++)
+  {
+    acName[iLength] = pcLine[iLength];
+  }
+  acName[iLength] = 0;
+  if (iToLower)
+  {
+    for (i = 0; i < iLength; i++)
+    {
+      if (acName[i] >= 'A' && acName[i] <= 'Z')
+      {
+        acName[i] += 0x20;
+      }
+    }
+  }
+  md5_string((unsigned char *) acName, iLength, pucHash);
+
+  return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * CompareReadHeader
+ *
+ ***********************************************************************
+ */
+int
+CompareReadHeader(FILE *pFile, char *pcError)
+{
+  const char          acRoutine[] = "CompareReadHeader()";
+  char                acHeader[CMP_MAX_LINE_LENGTH];
+  char                acLocalError[MESSAGE_SIZE];
+  char               *pcHead;
+  char               *pcTail;
+  CMP_PROPERTIES     *psProperties;
+  int                 i;
+  int                 iDone;
+  int                 iFields;
+
+  psProperties = CompareGetPropertiesReference();
+
+  /*-
+   *********************************************************************
+   *
+   * Read header line.
+   *
+   *********************************************************************
+   */
+  fgets(acHeader, CMP_MAX_LINE_LENGTH, pFile);
+  if (ferror(pFile))
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: fgets(): %s", acRoutine, strerror(errno));
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Remove EOL characters.
+   *
+   *********************************************************************
+   */
+  if (SupportChopEOLs(acHeader, feof(pFile) ? 0 : 1, acLocalError) == ER)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Check that there's at least a name field.
+   *
+   *********************************************************************
+   */
+  if (strncmp(acHeader, "name", 4) != 0)
+  {
+    if (strncmp(acHeader, "zname", 5) == 0)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Header magic indicates that this file contains compressed data.", acRoutine);
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Header magic is not recognized.", acRoutine);
+    }
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Parse header, and construct a field mask.
+   *
+   *********************************************************************
+   */
+  for (pcHead = pcTail = acHeader, iDone = iFields = 0; !iDone; pcHead = ++pcTail, iFields++)
+  {
+    while (*pcTail != CMP_SEPARATOR_C && *pcTail != 0)
+    {
+      pcTail++;
+    }
+    if (*pcTail == 0)
+    {
+      iDone = 1;
+    }
+    else
+    {
+      *pcTail = 0;
+    }
+    for (i = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
+    {
+      if (strcasecmp(pcHead, gsAllFieldsTable[i].acName) == 0)
+      {
+        PUTBIT(psProperties->ulFieldsMask, 1, i);
+        break;
+      }
+    }
+    if (i == ALL_FIELDS_TABLE_LENGTH)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Token = [%s]: Unknown field.", acRoutine, (*pcHead == 0) ? "" : pcHead);
+      return ER;
+    }
+  }
+
+  psProperties->iFields = iFields;
+
+  return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * CompareSetMask
  *
  ***********************************************************************
@@ -1392,21 +1194,21 @@ CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_T
 void
 CompareSetMask(unsigned long ulMask)
 {
-  gsCompareProperties.ulCompareMask = ulMask;
+  gpsCmpProperties->ulCompareMask = ulMask;
 }
 
 
-/*- 
+/*-
  ***********************************************************************
  *
  * CompareSetNewLine
- *   
+ *
  ***********************************************************************
  */
 void
 CompareSetNewLine(char *pcNewLine)
 {
-  strcpy(gcNewLine, (strcmp(pcNewLine, CRLF) == 0) ? CRLF : LF);
+  strcpy(gpsCmpProperties->acNewLine, (strcmp(pcNewLine, CRLF) == 0) ? CRLF : LF);
 }
 
 
@@ -1420,7 +1222,21 @@ CompareSetNewLine(char *pcNewLine)
 void
 CompareSetOutputStream(FILE *pFile)
 {
-  gsCompareProperties.pFileOut = pFile;
+  gpsCmpProperties->pFileOut = pFile;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * CompareSetPropertiesReference
+ *
+ ***********************************************************************
+ */
+void
+CompareSetPropertiesReference(CMP_PROPERTIES *psProperties)
+{
+  gpsCmpProperties = psProperties;
 }
 
 
@@ -1432,20 +1248,20 @@ CompareSetOutputStream(FILE *pFile)
  ***********************************************************************
  */
 int
-CompareWriteHeader(FILE *pFile, char *pcError)
+CompareWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
 {
-  const char          cRoutine[] = "CompareWriteHeader()";
-  char                cHeaderData[FTIMES_MAX_LINE];
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "CompareWriteHeader()";
+  char                acHeader[FTIMES_MAX_LINE];
+  char                acLocalError[MESSAGE_SIZE];
   int                 iError;
   int                 iIndex;
 
-  iIndex = sprintf(cHeaderData, "category|name|changed|unknown%s", gcNewLine);
+  iIndex = sprintf(acHeader, "category|name|changed|unknown%s", pcNewLine);
 
-  iError = SupportWriteData(pFile, cHeaderData, iIndex, cLocalError);
+  iError = SupportWriteData(pFile, acHeader, iIndex, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 
@@ -1461,10 +1277,10 @@ CompareWriteHeader(FILE *pFile, char *pcError)
  ***********************************************************************
  */
 int
-CompareWriteRecord(char cCategory, char *pcRecord, unsigned long ulChangedMask, unsigned long ulUnknownMask, char *pcError)
+CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError)
 {
-  const char          cRoutine[] = "CompareWriteRecord()";
-  char                cLocalError[ERRBUF_SIZE];
+  const char          acRoutine[] = "CompareWriteRecord()";
+  char                acLocalError[MESSAGE_SIZE];
   char               *pc;
   int                 i;
   int                 iError;
@@ -1486,7 +1302,7 @@ CompareWriteRecord(char cCategory, char *pcRecord, unsigned long ulChangedMask, 
    *
    *********************************************************************
    */
-  char                cOutput[CMP_MAX_LINE_LENGTH + (2 * ALL_FIELDS_MASK_SIZE) + 6];
+  char                acOutput[CMP_MAX_LINE_LENGTH + (2 * ALL_FIELDS_MASK_SIZE) + 6];
 
   /*-
    *********************************************************************
@@ -1495,18 +1311,18 @@ CompareWriteRecord(char cCategory, char *pcRecord, unsigned long ulChangedMask, 
    *
    *********************************************************************
    */
-  switch (cCategory)
+  switch (psData->cCategory)
   {
   case 'C': /* changed */
   case 'M': /* missing */
   case 'N': /* new */
   case 'U': /* unknown */
   case 'X': /* both changed and unknown */
-    cOutput[0] = cCategory;
+    acOutput[0] = psData->cCategory;
     break;
   default:
-    snprintf(pcError, ERRBUF_SIZE, "%s: Category = [%c] != [C|M|N|U|X]: That shouldn't happen.", cRoutine, cCategory);
-    return ER_BadValue;
+    snprintf(pcError, MESSAGE_SIZE, "%s: Category = [%c] != [C|M|N|U|X]: That shouldn't happen.", acRoutine, psData->cCategory);
+    return ER;
     break;
   }
   iIndex = 1;
@@ -1518,17 +1334,16 @@ CompareWriteRecord(char cCategory, char *pcRecord, unsigned long ulChangedMask, 
    *
    *********************************************************************
    */
-  
-  pc = strstr(&pcRecord[1], "\"");
-  if (pcRecord[0] != '"' || pc == NULL)
+  pc = strstr(&psData->pcRecord[1], "\"");
+  if (psData->pcRecord[0] != '"' || pc == NULL)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: Name = [%s]: Name is not quoted. That shouldn't happen.", cRoutine, pcRecord);
-    return ER_BadValue;
+    snprintf(pcError, MESSAGE_SIZE, "%s: Name = [%s]: Name is not quoted. That shouldn't happen.", acRoutine, psData->pcRecord);
+    return ER;
   }
-  cOutput[iIndex++] = '|';
-  for (i = 0; i <= pc - pcRecord; i++)
+  acOutput[iIndex++] = CMP_SEPARATOR_C;
+  for (i = 0; i <= pc - psData->pcRecord; i++)
   {
-    cOutput[iIndex++] = pcRecord[i];
+    acOutput[iIndex++] = psData->pcRecord[i];
   }
 
   /*-
@@ -1538,31 +1353,31 @@ CompareWriteRecord(char cCategory, char *pcRecord, unsigned long ulChangedMask, 
    *
    *********************************************************************
    */
-  if (cCategory == 'C' || cCategory == 'U' || cCategory == 'X')
+  if (psData->cCategory == 'C' || psData->cCategory == 'U' || psData->cCategory == 'X')
   {
-    cOutput[iIndex++] = '|';
+    acOutput[iIndex++] = CMP_SEPARATOR_C;
     for (i = 0, iFirst = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
     {
       ul = 1 << i;
-      if ((ulChangedMask & ul) == ul)
+      if ((psData->ulChangedMask & ul) == ul)
       {
-        iIndex += sprintf(&cOutput[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", AllFieldsTable[i].cName);
+        iIndex += sprintf(&acOutput[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", gsAllFieldsTable[i].acName);
       }
     }
-    cOutput[iIndex++] = '|';
+    acOutput[iIndex++] = CMP_SEPARATOR_C;
     for (i = 0, iFirst = 0; i < ALL_FIELDS_TABLE_LENGTH; i++)
     {
       ul = 1 << i;
-      if ((ulUnknownMask & ul) == ul)
+      if ((psData->ulUnknownMask & ul) == ul)
       {
-        iIndex += sprintf(&cOutput[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", AllFieldsTable[i].cName);
+        iIndex += sprintf(&acOutput[iIndex], "%s%s", (iFirst++ > 0) ? "," : "", gsAllFieldsTable[i].acName);
       }
     }
   }
   else
   {
-    cOutput[iIndex++] = '|';
-    cOutput[iIndex++] = '|';
+    acOutput[iIndex++] = CMP_SEPARATOR_C;
+    acOutput[iIndex++] = CMP_SEPARATOR_C;
   }
 
   /*-
@@ -1572,7 +1387,7 @@ CompareWriteRecord(char cCategory, char *pcRecord, unsigned long ulChangedMask, 
    *
    *********************************************************************
    */
-  iIndex += sprintf(&cOutput[iIndex], "%s", gcNewLine);
+  iIndex += sprintf(&acOutput[iIndex], "%s", psProperties->acNewLine);
 
   /*-
    *********************************************************************
@@ -1581,10 +1396,10 @@ CompareWriteRecord(char cCategory, char *pcRecord, unsigned long ulChangedMask, 
    *
    *********************************************************************
    */
-  iError = SupportWriteData(gsCompareProperties.pFileOut, cOutput, iIndex, cLocalError);
+  iError = SupportWriteData(psProperties->pFileOut, acOutput, iIndex, acLocalError);
   if (iError != ER_OK)
   {
-    snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return iError;
   }
 

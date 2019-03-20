@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: compare.h,v 1.1.1.1 2002/01/18 03:17:19 mavrik Exp $
+ * $Id: compare.h,v 1.2 2002/12/20 22:27:19 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -18,17 +18,22 @@
  *
  ***********************************************************************
  */
-#define CMP_FIELD_SEPARATOR                 "|"
-#define CMP_DEPLETED                         1
-#define CMP_MAX_LINE_LENGTH               2000
-#define CMP_NAME_LENGTH                    512
-#define CMP_NEXT_NAME_SIZE                   4
-#define CMP_NEXT_HASH_SIZE                   4
-#define CMP_FOUND_SIZE                       1
+#ifndef MESSAGE_SIZE
+#define MESSAGE_SIZE 1024
+#endif
+
+#ifndef NEWLINE_LENGTH
+#define NEWLINE_LENGTH 3
+#endif
+
 #define CMP_HASHC_SIZE                      32
 #define CMP_HASHB_SIZE                      16
-#define CMP_HASH_MASK ((1<<(CMP_HASHB_SIZE))-1)
-#define CMP_ARRAY_SIZE                  (1<<26)
+#define CMP_MAX_LINE_LENGTH               2048
+#define CMP_MODULUS                     (1<<16)
+#define CMP_HASH_MASK         ((CMP_MODULUS)-1)
+#define CMP_NODE_REQUEST_COUNT          200000
+#define CMP_SEPARATOR_C                     '|'
+#define CMP_SEPARATOR_S                     "|"
 
 #define ALL_FIELDS_NAME_SIZE                32
 #define ALL_FIELDS_TABLE_LENGTH             23
@@ -43,28 +48,59 @@
  */
 typedef struct _ALL_FIELDS_TABLE
 {
-  char                cName[ALL_FIELDS_NAME_SIZE];
+  char                acName[ALL_FIELDS_NAME_SIZE];
   int                 iBitsToSet;
 } ALL_FIELDS_TABLE;
 
-typedef struct _CMP_FIELD_VALUE_TABLE
+typedef struct _CMP_DATA
 {
-  char                cValue[CMP_MAX_LINE_LENGTH];
-} CMP_FIELD_VALUE_TABLE;
+  char                cCategory;
+  char               *pcRecord;
+  unsigned long       ulChangedMask;
+  unsigned long       ulUnknownMask;
+} CMP_DATA;
+
+typedef struct _CMP_NODE
+{
+  unsigned char       aucHash[16];
+  char               *pcData;
+  int                 iFound;
+  int                 iNextIndex;
+} CMP_NODE;
 
 typedef struct _CMP_PROPERTIES
 {
+  char                acNewLine[NEWLINE_LENGTH];
+  char               *pcPackedData;
+  CMP_NODE           *psBaselineNodes;
+#ifdef USE_SNAPSHOT_COLLISION_DETECTION
+  CMP_NODE           *psSnapshotNodes;
+#endif
   FILE               *pFileOut;
-  int               (*piCompareRoutine)();
+  int                 aiBaselineKeys[CMP_MODULUS];
+#ifdef USE_SNAPSHOT_COLLISION_DETECTION
+  int                 aiSnapshotKeys[CMP_MODULUS];
+#endif
   int                 iFields;
+  int               (*piCompareRoutine)();
   unsigned long       ulCompareMask;
   unsigned long       ulFieldsMask;
+  unsigned long       ulAnalyzed;
   unsigned long       ulChanged;
-  unsigned long       ulFound;
   unsigned long       ulMissing;
   unsigned long       ulNew;
   unsigned long       ulUnknown;
+  unsigned long       ulCrossed;
 } CMP_PROPERTIES;
+
+/*-
+ ***********************************************************************
+ *
+ * Macros
+ *
+ ***********************************************************************
+ */
+#define CMP_GET_NODE_INDEX(aucHash) (((aucHash[13] << 16) | (aucHash[14] << 8) | aucHash[15]) & (CMP_HASH_MASK))
 
 /*-
  ***********************************************************************
@@ -73,19 +109,27 @@ typedef struct _CMP_PROPERTIES
  *
  ***********************************************************************
  */
-int                 CompareCreateDatabase(char *pcFilename, char *pcError);
-int                 CompareDecodeHeader(char *pcLine, char *pcError);
-int                 CompareDecodeLine(char *pcLine, CMP_FIELD_VALUE_TABLE *decodeFields, char *pcError);
+int                 CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char aacDecodeFields[][CMP_MAX_LINE_LENGTH], char *pcError);
 int                 CompareEnumerateChanges(char *pcFilename, char *pcError);
-void                CompareFreeDatabase(void);
+void                CompareFreeProperties(CMP_PROPERTIES *psProperties);
 int                 CompareGetChangedCount(void);
+int                 CompareGetCrossedCount(void);
 int                 CompareGetMissingCount(void);
 int                 CompareGetNewCount(void);
+int                *CompareGetNodeIndexReference(unsigned char *pucHash, int *piKeys, CMP_NODE *psNodes);
+CMP_PROPERTIES     *CompareGetPropertiesReference(void);
 int                 CompareGetRecordCount(void);
 int                 CompareGetUnknownCount(void);
-/* int              CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *pMaskTable, int iMaskTableLength, char *pcError); */
+int                 CompareLoadBaselineData(char *pcFilename, char *pcError);
+CMP_PROPERTIES     *CompareNewProperties(char *pcError);
+/* This is declared in ftimes.h.
+int                 CompareParseStringMask(char *pcMask, unsigned long *ulMask, int iRunMode, MASK_TABLE *pMaskTable, int iMaskTableLength, char *pcError);
+*/
+int                 ComparePreprocessLine(FILE *pFile, int iToLower, char *pcLine, int *piLength, unsigned char *pucHash, char *pcError);
+int                 CompareReadHeader(FILE *pFile, char *pcError);
 void                CompareSetMask(unsigned long ulMask);
 void                CompareSetNewLine(char *pcNewLine);
 void                CompareSetOutputStream(FILE *pFile);
-int                 CompareWriteHeader(FILE *pFile, char *pcError);
-int                 CompareWriteRecord(char cCategory, char *pcName, unsigned long ulChangedMask, unsigned long ulUnknownMask, char *pcError);
+void                CompareSetPropertiesReference(CMP_PROPERTIES *psProperties);
+int                 CompareWriteHeader(FILE *pFile, char *pcNewLine, char *pcError);
+int                 CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError);

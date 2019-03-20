@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: fsinfo.h,v 1.3 2002/09/20 22:17:46 mavrik Exp $
+ * $Id: fsinfo.h,v 1.5 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -28,7 +28,7 @@ enum eFSTypes
   FSTYPE_FAT,
   FSTYPE_FAT_REMOTE,
   FSTYPE_NFS,
-  FSTYPE_NTFS, 
+  FSTYPE_NTFS,
   FSTYPE_NTFS_REMOTE,
   FSTYPE_TMP,
   FSTYPE_UFS,
@@ -90,6 +90,9 @@ enum eFSTypes
 #endif
 #ifndef NFS_SUPER_MAGIC
 #define NFS_SUPER_MAGIC       0x6969
+#endif
+#ifndef NTFS_SUPER_MAGIC
+#define NTFS_SUPER_MAGIC  0x5346544e
 #endif
 #ifndef PROC_SUPER_MAGIC
 #define PROC_SUPER_MAGIC      0x9fa0

@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: properties.c,v 1.3 2002/01/29 15:20:06 mavrik Exp $
+ * $Id: properties.c,v 1.5 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -96,13 +96,12 @@ int
 PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          cRoutine[] = "PropertiesReadFile()";
-  char                cLocalError[ERRBUF_SIZE],
-                      cLine[PROPERTIES_MAX_LINE_LENGTH],
-                     *pc;
-  int                 iError,
-                      iLength,
-                      iLineNumber,
-                      iSaveLength;
+  char                cLocalError[ERRBUF_SIZE];
+  char                cLine[PROPERTIES_MAX_LINE_LENGTH];
+  char               *pc;
+  int                 iError;
+  int                 iLength;
+  int                 iLineNumber;
   FILE               *pFile;
 
   cLocalError[0] = 0;
@@ -135,8 +134,6 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
 
   for (cLine[0] = 0, iLineNumber = 1; fgets(cLine, PROPERTIES_MAX_LINE_LENGTH, pFile) != NULL; cLine[0] = 0, iLineNumber++)
   {
-    iLength = iSaveLength = strlen(cLine);
-
     /*-
      *******************************************************************
      *
@@ -152,40 +149,19 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
     /*-
      *******************************************************************
      *
-     * Scan backwards over EOL characters.
+     * Remove EOL characters.
      *
      *******************************************************************
      */
-    while (iLength && ((cLine[iLength - 1] == '\r') || (cLine[iLength - 1] == '\n')))
+    if (SupportChopEOLs(cLine, feof(pFile) ? 0 : 1, cLocalError) == ER)
     {
-      iLength--;
-    }
-
-    /*-
-     *******************************************************************
-     *
-     * Its an error if no EOL was found. The exception to this is EOF.
-     *
-     *******************************************************************
-     */
-    if (iLength == iSaveLength && !feof(pFile))
-    {
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: Length exceeds %d bytes.", cRoutine, pcFilename, iLineNumber, PROPERTIES_MAX_LINE_LENGTH - 1);
+      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, cLocalError);
       if (pFile != stdin)
       {
         fclose(pFile);
-      }  
+      }
       return ER_ReadPropertiesFile;
     }
-
-    /*-
-     *******************************************************************
-     *
-     * Terminate the line excluding any EOL characters.
-     *
-     *******************************************************************
-     */
-    cLine[iLength] = 0;
 
     /*-
      *******************************************************************
@@ -197,8 +173,8 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
     if ((pc = strstr(cLine, PROPERTIES_COMMENT_S)) != NULL)
     {
       *pc = 0;
-      iLength = strlen(cLine);
     }
+    iLength = strlen(cLine);
 
     /*-
      *******************************************************************
@@ -228,7 +204,7 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
         if (pFile != stdin)
         {
           fclose(pFile);
-        }  
+        }
         return ER_ReadPropertiesFile;
       }
     }
@@ -239,13 +215,13 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
     if (pFile != stdin)
     {
       fclose(pFile);
-    }  
+    }
     return ER_ReadPropertiesFile;
   }
   if (pFile != stdin)
   {
     fclose(pFile);
-  }  
+  }
 
   return ER_OK;
 }

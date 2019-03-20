@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: xmagic.c,v 1.3 2002/01/19 22:31:41 mavrik Exp $
+ * $Id: xmagic.c,v 1.5 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -317,7 +317,7 @@ XMagicConvertHexToInt(int iC)
   else if ((iC >= 'A') && (iC <= 'F'))
   {
     return iC + 10 - 'A';
-  }  
+  }
   else
   {
     return -1;
@@ -600,7 +600,7 @@ XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
 }
 
 
-/*-  
+/*-
  ***********************************************************************
  *
  * XMagicGetTestOperator
@@ -985,7 +985,6 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
   char                cLine[XMAGIC_MAX_LINE_LENGTH];
   char                cLocalError[ERRBUF_SIZE];
   FILE               *pFile;
-  int                 iLength;
   int                 iLineNumber;
   int                 iParentExists;
   XMAGIC             *pHead;
@@ -1006,8 +1005,6 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
 
   for (cLine[0] = 0, iLineNumber = 1; fgets(cLine, XMAGIC_MAX_LINE_LENGTH, pFile) != NULL; cLine[0] = 0, iLineNumber++)
   {
-    iLength = strlen(cLine);
-
     /*-
      *******************************************************************
      *
@@ -1037,39 +1034,16 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
     /*-
      *******************************************************************
      *
-     * Scan backwards over EOL characters Expect no more than two
-     * iterations of this loop.
+     * Remove EOL characters.
      *
      *******************************************************************
      */
-    while ((cLine[iLength - 1] == '\r') || (cLine[iLength - 1] == '\n'))
-    {
-      iLength--;
-    }
-
-    /*-
-     *******************************************************************
-     *
-     * Its an error if no EOL characters were found. The exception to
-     * this is EOF.
-     *
-     *******************************************************************
-     */
-    if (iLength == (int) strlen(cLine) && !feof(pFile))
+    if (SupportChopEOLs(cLine, feof(pFile) ? 0 : 1, cLocalError) == ER)
     {
       fclose(pFile);
-      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: Length exceeds %d bytes", cRoutine, pcFilename, iLineNumber, XMAGIC_MAX_LINE_LENGTH - 1);
-      return ER_Length;
+      snprintf(pcError, ERRBUF_SIZE, "%s: File = [%s], Line = [%d]: %s", cRoutine, pcFilename, iLineNumber, cLocalError);
+      return ER;
     }
-
-    /*-
-     *******************************************************************
-     *
-     * Terminate the line excluding any EOL characters.
-     *
-     *******************************************************************
-     */
-    cLine[iLength] = 0;
 
     /*-
      *******************************************************************
@@ -1078,7 +1052,7 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
      *
      *******************************************************************
      */
-    if (iLength)
+    if (strlen(cLine) > 0)
     {
 
       /*-
@@ -1281,22 +1255,22 @@ XMagicParseLine(char *pcLine, XMAGIC *psXMagic, char *pcError)
     snprintf(pcError, ERRBUF_SIZE, "%s: operator: unexpected NULL found", cRoutine);
     return ER_BadValue;
   }
-   
+
   *pcE = 0;
-   
+
   iError = XMagicGetTestOperator(pcS, pcE, psXMagic, cLocalError);
-  if (iError != ER_OK) 
+  if (iError != ER_OK)
   {
     snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
     return iError;
   }
- 
+
   pcE++;
-   
+
   SKIP_WHITESPACE(pcE);
-  
+
   pcS = pcE;
-  
+
   FIND_DELIMETER(pcE);
 
   /*-

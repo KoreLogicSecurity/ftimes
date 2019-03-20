@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: develop.c,v 1.3 2002/01/24 18:27:32 mavrik Exp $
+ * $Id: develop.c,v 1.4 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -1225,7 +1225,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     else
     {
       pcOutData[n++] = 'S';
-    }      
+    }
   }
 
   n += sprintf(&pcOutData[n], "%s", psProperties->cNewLine);
@@ -1852,7 +1852,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   {
     pcOutData[n++] = '|';
     if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
-    {     
+    {
       if (psProperties->bHashDirectories)
       {
         if (memcmp(psFTData->ucFileMD5, ucZeroHash, MD5_HASH_LENGTH) != 0)

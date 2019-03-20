@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.3 2002/09/20 22:15:45 mavrik Exp $
+# $Id: Makefile.vs,v 1.5 2002/11/26 16:23:42 mavrik Exp $
 #
 ########################################################################
 #
@@ -19,7 +19,7 @@ USE_SSL			= Y		# [Y|N]
 USE_STATIC_SSL_LIBS	= N		# [Y|N]
 USE_XMAGIC		= N		# [Y|N]
 
-FTIMES_DIR		= C:\Integrity
+INSTALL_DIR		= C:\Integrity
 SOURCE_DIR		= src
 OBJECT_DIR		= build
 
@@ -30,13 +30,17 @@ SSL_INC_DIR		= $(SSL_DIR)\include
 SSL_DLL1		= $(SSL_DIR)\bin\libeay32.dll
 SSL_DLL2		= $(SSL_DIR)\bin\ssleay32.dll
 SSL_COMPILER_FLAGS	= /D USE_SSL /I"$(SSL_INC_DIR)"
+!IF "$(USE_STATIC_SSL_LIBS)" == "Y" || "$(USE_STATIC_SSL_LIBS)" == "y"
+SSL_LINKER_FLAGS	= /libpath:"$(SSL_LIB_DIR)" libeay32.lib ssleay32.lib gdi32.lib
+!ELSE
 SSL_LINKER_FLAGS	= /libpath:"$(SSL_LIB_DIR)" libeay32.lib ssleay32.lib
+!ENDIF
 !ENDIF
 
 !IF "$(USE_STATIC_SSL_LIBS)" == "Y" || "$(USE_STATIC_SSL_LIBS)" == "y"
-MDML_SWITCH		= MD
+MTML_SWITCH		= MT
 !ELSE
-MDML_SWITCH		= ML
+MTML_SWITCH		= ML
 !ENDIF
 
 !IF "$(USE_XMAGIC)" == "Y" || "$(USE_XMAGIC)" == "y"
@@ -62,35 +66,35 @@ COMPILER_FLAGS		=\
 			/Fd"$(OBJECT_DIR)\\"\
 			/Fp"$(OBJECT_DIR)\ftimes.pch"\
 			/c /W3 /GX /YX /FD\
-!IF "$(BUILD_TYPE)" == "DEBUG"
+!IF "$(BUILD_TYPE)" == "DEBUG" || "$(BUILD_TYPE)" == "debug"
 			/D _DEBUG\
-			/$(MDML_SWITCH)d /Od /Zi /Gm
+			/$(MTML_SWITCH)d /Od /Zi /Gm
 !ELSE
 			/D NDEBUG\
-			/$(MDML_SWITCH) /O2
+			/$(MTML_SWITCH) /O2
 !ENDIF
 
-FTIMES_INCLUDES		=\
-			src/all-includes.h\
-			src/app-includes.h\
-			src/compare.h\
-			src/decode.h\
-			src/dig.h\
-			src/error.h\
-			src/fsinfo.h\
-			src/ftimes.h\
-			src/http.h\
-			src/ktypes.h\
-			src/md5.h\
-			src/message.h\
-			src/native.h\
-			src/socket.h\
-			src/ssl.h\
-			src/ssl-pool.h\
-			src/sys-includes.h\
-			src/xmagic.h
+INCLUDES		=\
+			src\all-includes.h\
+			src\app-includes.h\
+			src\compare.h\
+			src\decode.h\
+			src\dig.h\
+			src\error.h\
+			src\fsinfo.h\
+			src\ftimes.h\
+			src\http.h\
+			src\ktypes.h\
+			src\md5.h\
+			src\message.h\
+			src\native.h\
+			src\socket.h\
+			src\ssl.h\
+			src\ssl-pool.h\
+			src\sys-includes.h\
+			src\xmagic.h
 
-FTIMES_OBJECTS		=\
+OBJECTS			=\
 			"$(OBJECT_DIR)\analyze.obj"\
 			"$(OBJECT_DIR)\cfgtest.obj"\
 			"$(OBJECT_DIR)\cmpmode.obj"\
@@ -122,7 +126,7 @@ FTIMES_OBJECTS		=\
 			"$(OBJECT_DIR)\xmagic.obj"
 !ENDIF
 
-FTIMES_EXECUTEABLE	= $(OBJECT_DIR)\ftimes.exe
+EXECUTEABLE		= $(OBJECT_DIR)\ftimes.exe
 
 LINKER			= link.exe
 
@@ -132,13 +136,10 @@ LINKER_FLAGS		=\
 			/machine:I386\
 			$(SSL_LINKER_FLAGS)\
 			advapi32.lib\
-!IF "$(USE_STATIC_SSL_LIBS)" == "Y" || "$(USE_STATIC_SSL_LIBS)" == "y"
-			gdi32.lib\
-!ENDIF
 			wsock32.lib\
-			/out:"$(FTIMES_EXECUTEABLE)"\
+			/out:"$(EXECUTEABLE)"\
 			/pdb:"$(OBJECT_DIR)\ftimes.pdb"\
-!IF "$(BUILD_TYPE)" == "DEBUG"
+!IF "$(BUILD_TYPE)" == "DEBUG" || "$(BUILD_TYPE)" == "debug"
 			/incremental:yes\
 			/debug\
 			/pdbtype:sept
@@ -146,26 +147,27 @@ LINKER_FLAGS		=\
 			/incremental:no
 !ENDIF
 
-all: "$(FTIMES_EXECUTEABLE)"
+all: "$(EXECUTEABLE)"
 
-install: "$(FTIMES_EXECUTEABLE)"
-	if not exist "$(FTIMES_DIR)" mkdir "$(FTIMES_DIR)"
-	if not exist "$(FTIMES_DIR)\bin" mkdir "$(FTIMES_DIR)\bin"
-	if not exist "$(FTIMES_DIR)\cgi" mkdir "$(FTIMES_DIR)\cgi"
-	if not exist "$(FTIMES_DIR)\doc" mkdir "$(FTIMES_DIR)\doc"
-	if not exist "$(FTIMES_DIR)\etc" mkdir "$(FTIMES_DIR)\etc"
-	if not exist "$(FTIMES_DIR)\log" mkdir "$(FTIMES_DIR)\log"
-	if not exist "$(FTIMES_DIR)\run" mkdir "$(FTIMES_DIR)\run"
-	copy "$(FTIMES_EXECUTEABLE)" "$(FTIMES_DIR)\bin"
-	copy cgi\nph-ftimes.cgi "$(FTIMES_DIR)\cgi"
-	copy doc\ftimes.html "$(FTIMES_DIR)\doc"
-	copy etc\dig.cfg "$(FTIMES_DIR)\etc"
-	copy etc\get.cfg "$(FTIMES_DIR)\etc"
-	copy etc\map.cfg "$(FTIMES_DIR)\etc"
-	copy etc\put.cfg "$(FTIMES_DIR)\etc"
+install: "$(EXECUTEABLE)"
+	if not exist "$(INSTALL_DIR)" mkdir "$(INSTALL_DIR)"
+	if not exist "$(INSTALL_DIR)\bin" mkdir "$(INSTALL_DIR)\bin"
+	if not exist "$(INSTALL_DIR)\cgi" mkdir "$(INSTALL_DIR)\cgi"
+	if not exist "$(INSTALL_DIR)\cgi\cgi-client" mkdir "$(INSTALL_DIR)\cgi\cgi-client"
+	if not exist "$(INSTALL_DIR)\doc" mkdir "$(INSTALL_DIR)\doc"
+	if not exist "$(INSTALL_DIR)\etc" mkdir "$(INSTALL_DIR)\etc"
+	if not exist "$(INSTALL_DIR)\log" mkdir "$(INSTALL_DIR)\log"
+	if not exist "$(INSTALL_DIR)\run" mkdir "$(INSTALL_DIR)\run"
+	copy "$(EXECUTEABLE)" "$(INSTALL_DIR)\bin"
+	copy cgi\nph-ftimes.cgi "$(INSTALL_DIR)\cgi\cgi-client"
+	copy doc\ftimes.html "$(INSTALL_DIR)\doc"
+	copy etc\dig.cfg "$(INSTALL_DIR)\etc"
+	copy etc\get.cfg "$(INSTALL_DIR)\etc"
+	copy etc\map.cfg "$(INSTALL_DIR)\etc"
+	copy etc\put.cfg "$(INSTALL_DIR)\etc"
 !IF ("$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y") && ("$(USE_STATIC_SSL_LIBS)" == "N" || "$(USE_STATIC_SSL_LIBS)" == "n")
-	copy "$(SSL_DLL1)" "$(FTIMES_DIR)\bin"
-	copy "$(SSL_DLL2)" "$(FTIMES_DIR)\bin"
+	copy "$(SSL_DLL1)" "$(INSTALL_DIR)\bin"
+	copy "$(SSL_DLL2)" "$(INSTALL_DIR)\bin"
 !ENDIF
 
 clean:
@@ -173,9 +175,8 @@ clean:
 
 clean-all: clean
 
-"$(FTIMES_EXECUTEABLE)": "$(OBJECT_DIR)" $(FTIMES_OBJECTS)
-	$(LINKER) $(LINKER_FLAGS) $(FTIMES_OBJECTS)
-#!IF "$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y"
+"$(EXECUTEABLE)": "$(OBJECT_DIR)" $(OBJECTS)
+	$(LINKER) $(LINKER_FLAGS) $(OBJECTS)
 !IF ("$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y") && ("$(USE_STATIC_SSL_LIBS)" == "N" || "$(USE_STATIC_SSL_LIBS)" == "n")
 	copy "$(SSL_DLL1)" "$(OBJECT_DIR)"
 	copy "$(SSL_DLL2)" "$(OBJECT_DIR)"
@@ -187,55 +188,55 @@ clean-all: clean
 "$(OBJECT_DIR)":
 	if not exist "$(OBJECT_DIR)" mkdir "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\analyze.obj": src\analyze.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\analyze.obj": src\analyze.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\cfgtest.obj": src\cfgtest.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\cfgtest.obj": src\cfgtest.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\cmpmode.obj": src\cmpmode.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\cmpmode.obj": src\cmpmode.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\compare.obj": src\compare.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\compare.obj": src\compare.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\decode.obj": src\decode.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\decode.obj": src\decode.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\decoder.obj": src\decoder.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\decoder.obj": src\decoder.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\develop.obj": src\develop.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\develop.obj": src\develop.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\dig.obj": src\dig.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\dig.obj": src\dig.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\digmode.obj": src\digmode.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\digmode.obj": src\digmode.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\error.obj": src\error.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\error.obj": src\error.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\fsinfo.obj": src\fsinfo.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\fsinfo.obj": src\fsinfo.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\ftimes.obj": src\ftimes.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\ftimes.obj": src\ftimes.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\getmode.obj": src\getmode.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\getmode.obj": src\getmode.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\http.obj": src\http.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\http.obj": src\http.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\map.obj": src\map.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\map.obj": src\map.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\mapmode.obj": src\mapmode.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\mapmode.obj": src\mapmode.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\md5.obj": src\md5.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\md5.obj": src\md5.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\message.obj": src\message.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\message.obj": src\message.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\properties.obj": src\properties.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\properties.obj": src\properties.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\putmode.obj": src\putmode.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\putmode.obj": src\putmode.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\socket.obj": src\socket.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\socket.obj": src\socket.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\ssl.obj": src\ssl.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\ssl.obj": src\ssl.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\support.obj": src\support.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\support.obj": src\support.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\time.obj": src\time.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\time.obj": src\time.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\url.obj": src\url.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\url.obj": src\url.c $(INCLUDES) "$(OBJECT_DIR)"
 
-"$(OBJECT_DIR)\xmagic.obj": src\xmagic.c $(FTIMES_INCLUDES) "$(OBJECT_DIR)"
+"$(OBJECT_DIR)\xmagic.obj": src\xmagic.c $(INCLUDES) "$(OBJECT_DIR)"
 

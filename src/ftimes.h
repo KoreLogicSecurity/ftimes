@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.6 2002/01/29 15:20:06 mavrik Exp $
+ * $Id: ftimes.h,v 1.7 2003/01/16 19:47:18 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -622,6 +622,7 @@ int                 SupportAddToList(char *pcPath, FILE_LIST **ppList, char *pcE
 #ifdef FTimes_WIN32
 BOOL                SupportAdjustPrivileges(LPCTSTR lpcPrivilege);
 #endif
+int                 SupportChopEOLs(char *pcLine, int iStrict, char *pcError);
 void                SupportDisplayRunStatistics(FTIMES_PROPERTIES *psProperties);
 FILE_LIST          *SupportDropListItem(FILE_LIST *pHead, FILE_LIST *pDrop);
 int                 SupportEraseFile(char *pcName, char *pcError);

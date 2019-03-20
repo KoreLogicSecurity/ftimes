@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: app-includes.h,v 1.3 2002/09/20 17:46:02 mavrik Exp $
+ * $Id: app-includes.h,v 1.7 2003/01/14 23:19:16 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -16,9 +16,9 @@
 #ifdef USE_SSL
 #include "ssl.h"
 #include "ssl-pool.h"
-#define VERSION "3.1.0 ssl"
+#define VERSION "3.2.0 ssl"
 #else
-#define VERSION "3.1.0"
+#define VERSION "3.2.0"
 #endif
 
 #ifdef USE_AP_SNPRINTF
@@ -44,6 +44,7 @@
 
 #ifdef FTimes_WIN32
 #define execlp _execlp
+#define fstat _fstat
 #define getcwd _getcwd
 #define snprintf _snprintf
 #define stat _stat

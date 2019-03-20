@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: string2pool.c,v 1.1 2002/09/20 17:50:57 mavrik Exp $
+ * $Id: string2pool.c,v 1.2 2002/10/22 00:46:01 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -97,7 +97,7 @@ ConstructIncludeFile(FILE *pFile, char *pcPoolType, unsigned long ulFinal, int *
   fprintf(pFile, "/*\n");
   fprintf(pFile, " ***********************************************************************\n");
   fprintf(pFile, " *\n");
-  fprintf(pFile, " * $Id: string2pool.c,v 1.1 2002/09/20 17:50:57 mavrik Exp $\n", acPrefix, acSuffix);
+  fprintf(pFile, " * $%s: %s%s.h,v custom unknown Exp $\n", "Id", acPrefix, acSuffix);
   fprintf(pFile, " *\n");
   fprintf(pFile, " ***********************************************************************\n");
   fprintf(pFile, " *\n");

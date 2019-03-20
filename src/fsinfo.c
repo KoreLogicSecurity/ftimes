@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.5 2002/09/20 22:17:46 mavrik Exp $
+ * $Id: fsinfo.c,v 1.6 2003/01/10 21:37:01 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -126,6 +126,9 @@ GetFileSystemType(char *pcPath, char *pcError)
       break;
     case NFS_SUPER_MAGIC:
       return FSTYPE_NFS;
+      break;
+    case NTFS_SUPER_MAGIC:
+      return FSTYPE_NTFS;
       break;
     case REISERFS_SUPER_MAGIC:
       return FSTYPE_REISER;

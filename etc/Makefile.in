@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.3 2002/05/20 18:54:37 mavrik Exp $
+# $Id: Makefile.in,v 1.4 2002/11/26 14:30:20 mavrik Exp $
 #
 ########################################################################
 #
@@ -36,7 +36,7 @@ DST_FILES		=\
 all: ${SRC_FILES}
 
 install: ${DST_FILES}
-	umask 22; if [ ! -d ${etcdir} ]; then mkdir ${etcdir}; fi
+	umask 22; if [ ! -d ${etcdir} ]; then mkdir -p ${etcdir}; fi
 	for i in ${SRC_FILES}; do\
 		if test -f ${srcdir}/$$i; then file=${srcdir}/$$i; else file=$$i; fi;\
 		${INSTALL} -m 644 $$file ${etcdir};\

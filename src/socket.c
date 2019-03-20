@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: socket.c,v 1.2 2002/08/21 20:27:38 mavrik Exp $
+ * $Id: socket.c,v 1.3 2003/01/13 13:26:18 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -79,7 +79,7 @@ SOCKET_CONTEXT
   psSocketCTX = malloc(sizeof(SOCKET_CONTEXT));
   if (psSocketCTX == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
   memset(psSocketCTX, 0, sizeof(SOCKET_CONTEXT));
@@ -205,7 +205,7 @@ SocketRead(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToRead, char *pcError
     iNRead = recv(psSocketCTX->iSocket, pcData, iToRead, 0);
     if (iNRead == -1)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: recv(): %s", acRoutine, strerror(errno));
     }
     break;
   }
@@ -250,7 +250,7 @@ SocketWrite(SOCKET_CONTEXT *psSocketCTX, char *pcData, int iToSend, char *pcErro
     iNSent = send(psSocketCTX->iSocket, pcData, iToSend, 0);
     if (iNSent == -1)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: send(): %s", acRoutine, strerror(errno));
     }
     break;
   }

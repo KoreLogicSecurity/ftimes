@@ -1,7 +1,7 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: http.c,v 1.3 2002/08/21 20:27:38 mavrik Exp $
+ * $Id: http.c,v 1.5 2003/01/13 13:26:18 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -120,7 +120,7 @@ HTTPBuildRequest(HTTP_URL *psURL, char *pcError)
   pcRequest = malloc(iRequestLength);
   if (pcRequest == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
   pcRequest[0] = 0;
@@ -228,7 +228,7 @@ HTTPEncodeBasic(char *pcUsername, char *pcPassword, char *pcError)
   pcBasicEncoding = malloc((iLength * 4) + 1);
   if (pcBasicEncoding == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
   memset(pcBasicEncoding, 0, (iLength * 4) + 1);
@@ -248,7 +248,7 @@ HTTPEncodeBasic(char *pcUsername, char *pcPassword, char *pcError)
   pcCredentials = malloc(iLength + 1);
   if (pcCredentials == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     HTTPFreeData(pcBasicEncoding);
     return NULL;
   }
@@ -314,7 +314,7 @@ HTTPEscape(char *pcUnEscaped, char *pcError)
   pcEscaped = malloc((3 * strlen(pcUnEscaped)) + 1);
   if (pcEscaped == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
   pcEscaped[0] = 0;
@@ -456,7 +456,7 @@ HTTPNewURL(char *pcError)
   psURL = malloc(sizeof(HTTP_URL));
   if (psURL == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
   memset(psURL, 0, sizeof(HTTP_URL));
@@ -521,7 +521,7 @@ HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *psURL, char *pcError)
   pcUserPass = malloc(strlen(pcUserPassHostPort) + 1);
   if (pcUserPass == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     return -1;
   }
   pcUserPass[0] = 0;
@@ -529,7 +529,7 @@ HTTPParseAddress(char *pcUserPassHostPort, HTTP_URL *psURL, char *pcError)
   pcHostPort = malloc(strlen(pcUserPassHostPort) + 1);
   if (pcHostPort == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     HTTPFreeData(pcUserPass);
     return -1;
   }
@@ -610,7 +610,7 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcErro
     pcTempLine = malloc(iLength + 1);
     if (pcTempLine == NULL)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
       return -1;
     }
     strcpy(pcTempLine, pcLine);
@@ -666,24 +666,19 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcErro
   /*-
    *********************************************************************
    *
-   * Initialize found variables.
-   *
-   *********************************************************************
-   */
-  psResponseHeader->iContentLengthFound = 0;
-
-  /*-
-   *********************************************************************
-   *
    * Identify the field, and parse its value.
    *
    *********************************************************************
    */
   if (strcasecmp(pcFieldName, FIELD_ContentLength) == 0)
   {
-    psResponseHeader->iContentLengthFound = 0;
-    pc = pcFieldValue;
-    while (*pc)
+    if (psResponseHeader->iContentLengthFound)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%s]: Field already defined.", acRoutine, pcFieldValue);
+      HTTPFreeData(pcTempLine);
+      return -1;
+    }
+    for (pc = pcFieldValue; *pc; pc++)
     {
       if (!isdigit((int) *pc))
       {
@@ -691,15 +686,14 @@ HTTPParseGRELine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcErro
         HTTPFreeData(pcTempLine);
         return -1;
       }
-      pc++;
     }
-    if (strlen(pcFieldValue) > strlen("4294967295"))
+    psResponseHeader->ui32ContentLength = strtoul(pcFieldValue, NULL, 10);
+    if (errno == ERANGE)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%s]: Value too large to be converted to a 32 bit integer.", acRoutine, pcFieldValue);
+      snprintf(pcError, MESSAGE_SIZE, "%s: strtoul(): Content-Length = [%s]: Value too large.", acRoutine, pcFieldValue);
       HTTPFreeData(pcTempLine);
       return -1;
     }
-    psResponseHeader->ui32ContentLength = strtol(pcFieldValue, NULL, 10);
     psResponseHeader->iContentLengthFound = 1;
   }
 
@@ -1016,8 +1010,8 @@ HTTPParseStatusLine(char *pcLine, HTTP_RESPONSE_HDR *psResponseHeader, char *pcE
 
   pcS = pcE;
 
-/* FIXME Bounds check this. */
-  strncpy(psResponseHeader->acReasonPhrase, pcS, sizeof(psResponseHeader->acReasonPhrase));
+  strncpy(psResponseHeader->acReasonPhrase, pcS, HTTP_REASON_PHRASE_SIZE);
+  psResponseHeader->acReasonPhrase[HTTP_REASON_PHRASE_SIZE] = 0;
 
   return 0;
 }
@@ -1086,7 +1080,7 @@ HTTPParseURL(char *pcURL, char *pcError)
   pcTempURL = malloc(iLength + 1);
   if (pcTempURL == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     HTTPFreeURL(psURL);
     return NULL;
   }
@@ -1279,7 +1273,7 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, char **ppcData, K_UINT32 ui3
    */
   if (ui32ContentLength > (K_UINT32) HTTP_MAX_MEMORY_SIZE)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%d]: Length exceeds internally defined limit.", acRoutine, ui32ContentLength, HTTP_MAX_MEMORY_SIZE);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds internally defined limit.", acRoutine, ui32ContentLength, HTTP_MAX_MEMORY_SIZE);
     return -1;
   }
 
@@ -1295,7 +1289,7 @@ HTTPReadDataIntoMemory(SOCKET_CONTEXT *psSocketCTX, char **ppcData, K_UINT32 ui3
   *ppcData = malloc(iToRead);
   if (*ppcData == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     return -1;
   }
 
@@ -1475,24 +1469,19 @@ HTTPSetDynamicString(char **ppcValue, char *pcNewValue, char *pcError)
   const char          acRoutine[] = "HTTPSetDynamicString()";
   char               *pcTempValue;
 
-  if (*ppcValue == NULL || strlen(pcNewValue) > strlen(*ppcValue))
+  /*-
+   *********************************************************************
+   *
+   * The caller is expected to free this memory.
+   *
+   *********************************************************************
+   */
+  pcTempValue = realloc(*ppcValue, strlen(pcNewValue) + 1);
   {
-    /*-
-     *******************************************************************
-     *
-     * The caller is expected to free this memory.
-     *
-     *******************************************************************
-     */
-    pcTempValue = malloc(strlen(pcNewValue) + 1);
     if (pcTempValue == NULL)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+      snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): %s", acRoutine, strerror(errno));
       return -1;
-    }
-    if (*ppcValue != NULL)
-    {
-      HTTPFreeData(*ppcValue);
     }
     *ppcValue = pcTempValue;
   }
@@ -1535,7 +1524,6 @@ HTTPSetURLHost(HTTP_URL *psURL, char *pcHost, char *pcError)
   WORD                wVersion;
   WSADATA             wsaData;
 #endif
-
 
   acLocalError[0] = 0;
 
@@ -1588,7 +1576,7 @@ HTTPSetURLHost(HTTP_URL *psURL, char *pcHost, char *pcError)
       if (psHostEntry == NULL)
       {
 /* FIXME Add hstrerror() for UNIX and WSAGetLastError() for Windows. */
-        snprintf(pcError, MESSAGE_SIZE, "%s: DNS Lookup Failed.", acRoutine);
+        snprintf(pcError, MESSAGE_SIZE, "%s: gethostbyname(): DNS Lookup Failed.", acRoutine);
         return -1;
       }
       else
@@ -2140,7 +2128,7 @@ HTTPSubmitRequest(HTTP_URL *psURL, int iInputType, void *pInput, int iOutputType
    */
   if (psURL->ui32DownloadLimit != 0 && psResponseHeader->ui32ContentLength > psURL->ui32DownloadLimit)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds defined download limit.", acRoutine, psResponseHeader->ui32ContentLength, psURL->ui32DownloadLimit);
+    snprintf(pcError, MESSAGE_SIZE, "%s: Content-Length = [%lu] > [%lu]: Length exceeds user defined limit.", acRoutine, psResponseHeader->ui32ContentLength, psURL->ui32DownloadLimit);
     SocketCleanup(psSocketCTX);
     return -1;
   }
@@ -2209,7 +2197,7 @@ HTTPUnEscape(char *pcEscaped, int *piUnEscapedLength, char *pcError)
   pcUnEscaped = malloc(strlen(pcEscaped));
   if (pcUnEscaped == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: malloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
   pcUnEscaped[0] = 0;

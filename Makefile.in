@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.4 2002/08/21 18:28:13 mavrik Exp $
+# $Id: Makefile.in,v 1.5 2002/11/26 14:30:19 mavrik Exp $
 #
 ########################################################################
 #
@@ -36,7 +36,7 @@ all:
 	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make $@; echo '<<<' $${i} '>>> Status=Done'; done
 
 install:
-	umask 22; if [ ! -d ${prefix} ]; then mkdir ${prefix}; fi
+	umask 22; if [ ! -d ${prefix} ]; then mkdir -p ${prefix}; fi
 	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $${i} '>>> Status=Open'; cd $${cwd}/$${i}; make $@; echo '<<<' $${i} '>>> Status=Done'; done
 
 clean:

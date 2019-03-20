@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: decoder.c,v 1.1.1.1 2002/01/18 03:17:31 mavrik Exp $
+ * $Id: decoder.c,v 1.2 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -133,10 +133,10 @@ DecoderFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   strncpy(psProperties->cLogFileName, "stderr", FTIMES_MAX_PATH);
   psProperties->pFileLog = stderr;
-   
+
   MessageSetNewLine(psProperties->cNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
-    
+
   /*-
    *******************************************************************
    *

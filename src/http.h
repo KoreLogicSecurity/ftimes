@@ -1,7 +1,7 @@
-/*
+/*-
  ***********************************************************************
  *
- * $Id: http.h,v 1.2 2002/08/21 20:27:38 mavrik Exp $
+ * $Id: http.h,v 1.3 2002/12/05 22:58:20 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -37,7 +37,11 @@
 #define HTTP_DEFAULT_HTTP_PORT           80
 #define HTTP_DEFAULT_HTTPS_PORT         443
 
-#define HTTP_MAX_MEMORY_SIZE         (1<<26)
+#define HTTP_MAX_MEMORY_SIZE      0x4000000UL
+
+#define HTTP_CONTENT_TYPE_SIZE          256
+#define HTTP_REASON_PHRASE_SIZE         256
+#define HTTP_SERVER_SIZE                256
 
 #define HTTP_IGNORE_INPUT                 0
 #define HTTP_MEMORY_INPUT                 1
@@ -59,9 +63,9 @@
  */
 typedef struct _HTTP_RESPONSE_HDR
 {
-  char                acContentType[256];
-  char                acReasonPhrase[256];
-  char                acServer[256];
+  char                acContentType[HTTP_CONTENT_TYPE_SIZE];
+  char                acReasonPhrase[HTTP_REASON_PHRASE_SIZE];
+  char                acServer[HTTP_SERVER_SIZE];
   int                 iMajorVersion;
   int                 iMinorVersion;
   int                 iStatusCode;

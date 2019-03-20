@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: url.c,v 1.2 2002/08/21 20:30:50 mavrik Exp $
+ * $Id: url.c,v 1.3 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -61,7 +61,7 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
   {
     snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
     return ER;
-  }  
+  }
   ptURL->psSSLProperties = psProperties->psSSLProperties;
 #endif
 
@@ -118,7 +118,7 @@ URLGetRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
   }
   pcEscaped[iEscaped] = HTTPEscape(VERSION, cLocalError);
   if (pcEscaped[iEscaped++] == NULL)
-  {  
+  {
     snprintf(pcError, ERRBUF_SIZE, "%s: %s", cRoutine, cLocalError);
     for (i = 0; i < iEscaped; i++)
     {
@@ -323,7 +323,7 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
       HTTPFreeData(pcEscaped[i]);
     }
     return ER;
-  }  
+  }
   pcEscaped[iEscaped] = HTTPEscape(psProperties->cBaseName, cLocalError);
   if (pcEscaped[iEscaped++] == NULL)
   {
@@ -362,7 +362,7 @@ URLPingRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
            pcEscaped[3],
            pcEscaped[4]
          );
-     
+
   for (i = 0; i < iEscaped; i++)
   {
     HTTPFreeData(pcEscaped[i]);
@@ -611,7 +611,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
       HTTPFreeData(pcEscaped[i]);
     }
     return ER;
-  }  
+  }
   pcEscaped[iEscaped] = HTTPEscape(psProperties->cBaseName, cLocalError);
   if (pcEscaped[iEscaped++] == NULL)
   {
@@ -685,7 +685,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
            sStreamList[1].ui32Size,
            pcEscaped[7]
          );
-     
+
   for (i = 0; i < iEscaped; i++)
   {
     HTTPFreeData(pcEscaped[i]);

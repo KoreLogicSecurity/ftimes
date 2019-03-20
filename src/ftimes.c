@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: ftimes.c,v 1.2 2002/01/29 15:01:24 mavrik Exp $
+ * $Id: ftimes.c,v 1.3 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -224,9 +224,9 @@ FTimesBootstrap(char *pcError)
 }
 
 
-/*-  
+/*-
  ***********************************************************************
- *   
+ *
  * FTimesNewProperties
  *
  ***********************************************************************
@@ -994,7 +994,7 @@ SSLCheckDependencies(SSL_PROPERTIES *psProperties, char *pcError)
     }
 
     if (psProperties->pcExpectedPeerCN == NULL || psProperties->pcExpectedPeerCN[0] == 0)
-    {  
+    {
       snprintf(pcError, ERRBUF_SIZE, "%s: Missing SSLExpectedPeerCN.", cRoutine);
       return ER;
     }

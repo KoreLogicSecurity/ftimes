@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: putmode.c,v 1.1.1.1 2002/01/18 03:16:53 mavrik Exp $
+ * $Id: putmode.c,v 1.2 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -216,10 +216,10 @@ PutModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   psProperties->pFileLog = stderr;
-   
+
   MessageSetNewLine(psProperties->cNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
-    
+
   /*-
    *******************************************************************
    *

@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: xmagic.h,v 1.4 2002/01/19 22:31:41 mavrik Exp $
+ * $Id: xmagic.h,v 1.5 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -86,15 +86,15 @@ typedef union _XMAGIC_VALUE
  * cOperator          '<', '=', '>', '!', '&', '^', 'x'
  * ui32Flags          XMAGIC_{INDIRECT_OFFSET|RELATIVE_OFFSET|NO_SPACE}
  * ui32Level          Level of magic test (i.e. number of '>')
- * ui32Mask           Mask before comparison with value 
+ * ui32Mask           Mask before comparison with value
  * ui32XOffset        Offset in file being evaluated
- * ui32Type           byte, short, long, date, etc. 
+ * ui32Type           byte, short, long, date, etc.
  * sIndirection       Indirect type and ui32YOffset x[.[bsl]][+-][y]
  * sValue             A 32 bit number or 32 byte string
  * iStringLength      Length of sValue.ui08String
  *
  ***********************************************************************
- */ 
+ */
 typedef struct _XMAGIC
 {
   struct _XMAGIC     *psParent;

@@ -1,7 +1,7 @@
 /*
  ***********************************************************************
  *
- * $Id: md5.c,v 1.2 2002/09/18 18:05:24 mavrik Exp $
+ * $Id: md5.c,v 1.3 2003/01/16 21:08:09 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -13,22 +13,22 @@
 
 #include "all-includes.h" /* Use <stdio.h> and "md5.h" if not available. */
 
-int 
+int
 md5_file(FILE *fp, unsigned char *message_digest)
 {
   int                 i,
                       nread;
-  unsigned char       buf[MD5_READ_BUFSIZE]; 
+  unsigned char       buf[MD5_READ_BUFSIZE];
   struct hash_block   x;
- 
+
   /*
    * Let's just make sure that we are at the beginning of the file.
    */
   rewind(fp);
 
   md5_begin(&x);
-  while ((nread = fread(buf, 1, MD5_READ_BUFSIZE, fp)) == MD5_READ_BUFSIZE)    
-  { 
+  while ((nread = fread(buf, 1, MD5_READ_BUFSIZE, fp)) == MD5_READ_BUFSIZE)
+  {
     md5_middle(&x, buf, nread);
   }
   if (nread < MD5_READ_BUFSIZE && ferror(fp))
@@ -37,7 +37,7 @@ md5_file(FILE *fp, unsigned char *message_digest)
     {
       message_digest[i] = 0;
     }
-    return -1;  
+    return -1;
   }
   else
   {
@@ -47,7 +47,7 @@ md5_file(FILE *fp, unsigned char *message_digest)
   return 0;
 }
 
-void 
+void
 md5_string(unsigned char *text, int text_len, unsigned char *message_digest)
 {
   struct hash_block   x;
@@ -63,7 +63,7 @@ md5_string(unsigned char *text, int text_len, unsigned char *message_digest)
   md5_end(&x, message_digest);
 }
 
-void 
+void
 md5_begin(struct hash_block *x)
 {
   x->A = 0x67452301;
@@ -74,7 +74,7 @@ md5_begin(struct hash_block *x)
   x->amount_left_over = 0;
 }
 
-void 
+void
 md5_middle(struct hash_block *x, unsigned char *text, MD5_UINT32 len)
 {
   unsigned char      *tmp_ptr;
@@ -127,7 +127,7 @@ md5_middle(struct hash_block *x, unsigned char *text, MD5_UINT32 len)
   }
 }
 
-void 
+void
 md5_end(struct hash_block *x, unsigned char *message_digest)
 {
   int                 i;
@@ -203,7 +203,7 @@ md5_end(struct hash_block *x, unsigned char *message_digest)
 #define HH(a,b,c,d,M,s,t) { (a)+=H(b,c,d)+(M)+(t); a=(b)+CIRC_LSHIFT((a),s); }
 #define II(a,b,c,d,M,s,t) { (a)+=I(b,c,d)+(M)+(t); a=(b)+CIRC_LSHIFT((a),s); }
 
-void 
+void
 md5_main_loop(struct hash_block *x, unsigned char *text)
 {
   MD5_UINT32          a;
