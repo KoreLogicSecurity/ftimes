@@ -1,6 +1,6 @@
 ######################################################################
 #
-# $Id: common-macros.mk.in,v 1.1 2005/05/24 18:25:40 mavrik Exp $
+# $Id: common-macros.mk.in,v 1.3 2006/07/15 03:54:09 mavrik Exp $
 #
 ######################################################################
 #
@@ -8,9 +8,9 @@
 #
 ######################################################################
 
-MAKE=make -s
-
 FTIMES=${PROJECT_ROOT}/src/ftimes
+
+FTIMES_CRV2RAW=${PROJECT_TOPDIR}/tools/dig/ftimes-crv2raw.pl
 
 TEST_HARNESS=${PROJECT_TOPDIR}/utils/test_harness
 

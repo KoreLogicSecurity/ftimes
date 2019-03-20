@@ -1,0 +1,625 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "1";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "bad_magic",
+    2 => "basic_files",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'bad_magic'   => "tests input files for valid magic",
+    'basic_files' => "tests basic input files",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+  );
+
+
+######################################################################
+#
+# TestGroup_bad_magic
+#
+######################################################################
+
+sub Hitch_bad_magic
+{
+  my $phTestProperties = GetTestProperties();
+
+  ####################################################################
+  #
+  # The doubles format is: <suffix>:{pass|fail}
+  #
+  ####################################################################
+
+  $$phTestProperties{'bad_magic'}{'doubles'} =
+  [
+    "null:fail",
+    "header:pass",
+    "z_header:pass",
+    "junk:fail",
+  ];
+
+  $$phTestProperties{'bad_magic'}{'content'}{'null'} = "";
+  $$phTestProperties{'bad_magic'}{'content'}{'header'} .= "name|md5\n";
+  $$phTestProperties{'bad_magic'}{'content'}{'z_header'} = "z_name|z_md5\n";
+  $$phTestProperties{'bad_magic'}{'content'}{'junk'} .= "junk\n";
+
+  1;
+}
+
+
+sub Check_bad_magic
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sDouble (@{$$phTestProperties{'bad_magic'}{'doubles'}})
+  {
+    my $sCommand;
+    my ($sSuffix, $sPassFail) = split(/:/, $sDouble, -1);
+    my $sSnapshot = $sFile . "_" . $sSuffix;
+
+    $sCommand = "$$phProperties{'TargetProgram'} --decoder $sSnapshot -l 6 2>&1";
+
+    DebugPrint(3, "Command=$sCommand");
+
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    if ($sPassFail =~ /^pass$/)
+    {
+      DebugPrint(4, "TargetLineCount=1");
+      if (scalar(@aLines) != 1)
+      {
+        DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+        return "fail";
+      }
+      $aLines[0] =~ s/[\r\n]*$//;
+
+      my $sTargetOutputRegExp = qq(^name[|]md5\$);
+      DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+      if ($aLines[0] !~ /$sTargetOutputRegExp/)
+      {
+        DebugPrint(4, "ActualOutput=$aLines[0]");
+        return "fail";
+      }
+    }
+    else
+    {
+      DebugPrint(4, "TargetLineCount=1");
+      if (scalar(@aLines) != 1)
+      {
+        DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+        return "fail";
+      }
+      $aLines[0] =~ s/[\r\n]*$//;
+
+      my $sTargetOutputRegExp = qq(LOG_CRIT.*File = \\[$sSnapshot\\].*Header magic (?:is not recognized|indicates that this file contains compressed data));
+      DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+      if ($aLines[0] !~ /$sTargetOutputRegExp/)
+      {
+        DebugPrint(4, "ActualOutput=$aLines[0]");
+        return "fail";
+      }
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_bad_magic
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  foreach my $sDouble (@{$$phTestProperties{'bad_magic'}{'doubles'}})
+  {
+    my ($sSuffix, $sPassFail) = split(/:/, $sDouble, -1);
+    $sFile = $$phProperties{'WorkDir'} . "/" . $sName . "_" . $sSuffix;
+    if (-f $sFile && !unlink($sFile))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Setup_bad_magic
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sDouble (@{$$phTestProperties{'bad_magic'}{'doubles'}})
+  {
+    my ($sSuffix, $sPassFail) = split(/:/, $sDouble, -1);
+    my $sContent = $$phTestProperties{'bad_magic'}{'content'}{$sSuffix};
+    my $sCount = 1;
+    $sFile = $$phProperties{'WorkDir'} . "/" . $sName . "_" . $sSuffix;
+    if (!defined(FillFile($sFile, $sContent, $sCount)))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_basic_files
+#
+######################################################################
+
+sub Hitch_basic_files
+{
+  my $phTestProperties = GetTestProperties();
+
+  ####################################################################
+  #
+  # The doubles format is: <suffix>:{pass|fail}
+  #
+  ####################################################################
+
+  $$phTestProperties{'basic_files'}{'doubles'} =
+  [
+    "unix_1r_none:pass",
+    "unix_1r_none+dev:pass",
+    "unix_1r_none+inode:pass",
+    "unix_1r_none+mode:pass",
+    "unix_1r_none+nlink:pass",
+    "unix_1r_none+uid:pass",
+    "unix_1r_none+gid:pass",
+    "unix_1r_none+rdev:pass",
+    "unix_1r_none+atime:pass",
+    "unix_1r_none+mtime:pass",
+    "unix_1r_none+ctime:pass",
+    "unix_1r_none+size:pass",
+    "unix_1r_none+sha1:pass",
+    "unix_1r_none+md5:pass",
+    "unix_1r_none+magic:pass",
+
+    "z_unix_1r_none:pass",
+    "z_unix_1r_none+dev:pass",
+    "z_unix_1r_none+inode:pass",
+    "z_unix_1r_none+mode:pass",
+    "z_unix_1r_none+nlink:pass",
+    "z_unix_1r_none+uid:pass",
+    "z_unix_1r_none+gid:pass",
+    "z_unix_1r_none+rdev:pass",
+    "z_unix_1r_none+atime:pass",
+    "z_unix_1r_none+mtime:pass",
+    "z_unix_1r_none+ctime:pass",
+    "z_unix_1r_none+size:pass",
+    "z_unix_1r_none+sha1:pass",
+    "z_unix_1r_none+md5:pass",
+    "z_unix_1r_none+magic:pass",
+
+    "windows_1r_none:pass",
+    "windows_1r_none+volume:pass",
+    "windows_1r_none+findex:pass",
+    "windows_1r_none+attributes:pass",
+    "windows_1r_none+atime:pass",
+    "windows_1r_none+ams:pass",
+    "windows_1r_none+mtime:pass",
+    "windows_1r_none+mms:pass",
+    "windows_1r_none+ctime:pass",
+    "windows_1r_none+cms:pass",
+    "windows_1r_none+chtime:pass",
+    "windows_1r_none+chms:pass",
+    "windows_1r_none+size:pass",
+    "windows_1r_none+altstreams:pass",
+    "windows_1r_none+sha1:pass",
+    "windows_1r_none+md5:pass",
+    "windows_1r_none+magic:pass",
+
+    "z_windows_1r_none:pass",
+    "z_windows_1r_none+volume:pass",
+    "z_windows_1r_none+findex:pass",
+    "z_windows_1r_none+attributes:pass",
+    "z_windows_1r_none+atime:pass",
+    "z_windows_1r_none+ams:pass",
+    "z_windows_1r_none+mtime:pass",
+    "z_windows_1r_none+mms:pass",
+    "z_windows_1r_none+ctime:pass",
+    "z_windows_1r_none+cms:pass",
+    "z_windows_1r_none+chtime:pass",
+    "z_windows_1r_none+chms:pass",
+    "z_windows_1r_none+size:pass",
+    "z_windows_1r_none+altstreams:pass",
+    "z_windows_1r_none+sha1:pass",
+    "z_windows_1r_none+md5:pass",
+    "z_windows_1r_none+magic:pass",
+  ];
+
+  ####################################################################
+  #
+  # The 'content' hash is used to hold raw file content.
+  #
+  ####################################################################
+
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none'} = "name\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none'} .= "\"/tmp/test\"\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+dev'} = "name|dev\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+dev'} .= "\"/tmp/test\"|160773\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+inode'} = "name|inode\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+inode'} .= "\"/tmp/test\"|33\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+mode'} = "name|mode\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+mode'} .= "\"/tmp/test\"|100644\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+nlink'} = "name|nlink\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+nlink'} .= "\"/tmp/test\"|1\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+uid'} = "name|uid\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+uid'} .= "\"/tmp/test\"|0\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+gid'} = "name|gid\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+gid'} .= "\"/tmp/test\"|1\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+rdev'} = "name|rdev\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+rdev'} .= "\"/tmp/test\"|0\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+atime'} = "name|atime\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+atime'} .= "\"/tmp/test\"|2006-03-19 04:18:45\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+mtime'} = "name|mtime\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+mtime'} .= "\"/tmp/test\"|2006-03-19 04:18:45\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+ctime'} = "name|ctime\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+ctime'} .= "\"/tmp/test\"|2006-03-19 04:18:45\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+size'} = "name|size\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+size'} .= "\"/tmp/test\"|0\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+sha1'} = "name|sha1\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+sha1'} .= "\"/tmp/test\"|da39a3ee5e6b4b0d3255bfef95601890afd80709\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+md5'} = "name|md5\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+md5'} .= "\"/tmp/test\"|d41d8cd98f00b204e9800998ecf8427e\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+magic'} = "name|magic\n";
+  $$phTestProperties{'basic_files'}{'content'}{'unix_1r_none+magic'} .= "\"/tmp/test\"|empty\n";
+
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none'} = "z_name\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none'} .= "00\"/tmp/test\"\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+dev'} = "z_name|z_dev\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+dev'} .= "00\"/tmp/test\"|27405\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+inode'} = "z_name|z_inode\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+inode'} .= "00\"/tmp/test\"|21\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+mode'} = "z_name|z_mode\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+mode'} .= "00\"/tmp/test\"|81a4\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+nlink'} = "z_name|z_nlink\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+nlink'} .= "00\"/tmp/test\"|1\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+uid'} = "z_name|z_uid\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+uid'} .= "00\"/tmp/test\"|0\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+gid'} = "z_name|z_gid\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+gid'} .= "00\"/tmp/test\"|1\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+rdev'} = "z_name|z_rdev\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+rdev'} .= "00\"/tmp/test\"|0\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+atime'} = "z_name|z_atime\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+atime'} .= "00\"/tmp/test\"|441cdba5\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+mtime'} = "z_name|z_mtime\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+mtime'} .= "00\"/tmp/test\"|441cdba5\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+ctime'} = "z_name|z_ctime\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+ctime'} .= "00\"/tmp/test\"|441cdba5\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+size'} = "z_name|z_size\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+size'} .= "00\"/tmp/test\"|0\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+sha1'} = "z_name|z_sha1\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+sha1'} .= "00\"/tmp/test\"|2jmj7l5rSw0yVb/vlWAYkK/YBwk\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+md5'} = "z_name|z_md5\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+md5'} .= "00\"/tmp/test\"|1B2M2Y8AsgTpgAmY7PhCfg\n";
+#FIXME FTimes does not currently compress magic -- it omits it. This behavior should probably be changed (e.g., base64 encode the magic).
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+magic'} = "z_name|z_magic\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_unix_1r_none+magic'} .= "00\"/tmp/test\"|\n";
+
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none'} = "name\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none'} .= "\"c:\\temp\\test\"\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+volume'} = "name|volume\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+volume'} .= "\"c:\\temp\\test\"|3160863858\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+findex'} = "name|findex\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+findex'} .= "\"c:\\temp\\test\"|18577348462994575\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+attributes'} = "name|attributes\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+attributes'} .= "\"c:\\temp\\test\"|32\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+atime'} = "name|atime\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+atime'} .= "\"c:\\temp\\test\"|2006-03-20 06:40:26\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+ams'} = "name|ams\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+ams'} .= "\"c:\\temp\\test\"|455\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+mtime'} = "name|mtime\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+mtime'} .= "\"c:\\temp\\test\"|2006-03-20 06:40:26\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+mms'} = "name|mms\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+mms'} .= "\"c:\\temp\\test\"|455\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+ctime'} = "name|ctime\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+ctime'} .= "\"c:\\temp\\test\"|2006-03-20 06:40:26\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+cms'} = "name|cms\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+cms'} .= "\"c:\\temp\\test\"|455\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+chtime'} = "name|chtime\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+chtime'} .= "\"c:\\temp\\test\"|2006-03-20 06:40:26\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+chms'} = "name|chms\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+chms'} .= "\"c:\\temp\\test\"|455\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+size'} = "name|size\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+size'} .= "\"c:\\temp\\test\"|0\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+altstreams'} = "name|altstreams\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+altstreams'} .= "\"c:\\temp\\test\"|0\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+sha1'} = "name|sha1\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+sha1'} .= "\"c:\\temp\\test\"|da39a3ee5e6b4b0d3255bfef95601890afd80709\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+md5'} = "name|md5\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+md5'} .= "\"c:\\temp\\test\"|d41d8cd98f00b204e9800998ecf8427e\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+magic'} = "name|magic\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'windows_1r_none+magic'} .= "\"c:\\temp\\test\"|empty\r\n";
+
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none'} = "z_name\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none'} .= "00\"c:\\temp\\test\"\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+volume'} = "z_name|z_volume\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+volume'} .= "00\"c:\\temp\\test\"|bc66f472\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+findex'} = "z_name|z_findex\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+findex'} .= "00\"c:\\temp\\test\"|4200000001648f\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+attributes'} = "z_name|z_attributes\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+attributes'} .= "00\"c:\\temp\\test\"|20\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+atime'} = "z_name|z_atime\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+atime'} .= "00\"c:\\temp\\test\"|441e4e5a\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+ams'} = "z_name|z_ams\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+ams'} .= "00\"c:\\temp\\test\"|1c7\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+mtime'} = "z_name|z_mtime\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+mtime'} .= "00\"c:\\temp\\test\"|441e4e5a\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+mms'} = "z_name|z_mms\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+mms'} .= "00\"c:\\temp\\test\"|1c7\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+ctime'} = "z_name|z_ctime\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+ctime'} .= "00\"c:\\temp\\test\"|441e4e5a\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+cms'} = "z_name|z_cms\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+cms'} .= "00\"c:\\temp\\test\"|1c7\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+chtime'} = "z_name|z_chtime\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+chtime'} .= "00\"c:\\temp\\test\"|441e4e5a\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+chms'} = "z_name|z_chms\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+chms'} .= "00\"c:\\temp\\test\"|1c7\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+size'} = "z_name|z_size\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+size'} .= "00\"c:\\temp\\test\"|0\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+altstreams'} = "z_name|z_altstreams\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+altstreams'} .= "00\"c:\\temp\\test\"|0\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+sha1'} = "z_name|z_sha1\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+sha1'} .= "00\"c:\\temp\\test\"|2jmj7l5rSw0yVb/vlWAYkK/YBwk\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+md5'} = "z_name|z_md5\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+md5'} .= "00\"c:\\temp\\test\"|1B2M2Y8AsgTpgAmY7PhCfg\r\n";
+#FIXME FTimes does not currently compress magic -- it omits it. This behavior should probably be changed (e.g., base64 encode the magic).
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+magic'} = "z_name|z_magic\r\n";
+  $$phTestProperties{'basic_files'}{'content'}{'z_windows_1r_none+magic'} .= "00\"c:\\temp\\test\"|\r\n";
+
+  ####################################################################
+  #
+  # The target values are derived from the raw file content.
+  #
+  ####################################################################
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  $$phTestTargetValues{'unix_1r_none'} = "\"/tmp/test\"";
+  $$phTestTargetValues{'unix_1r_none+dev'} = "\"/tmp/test\"|160773";
+  $$phTestTargetValues{'unix_1r_none+inode'} = "\"/tmp/test\"|33";
+  $$phTestTargetValues{'unix_1r_none+mode'} = "\"/tmp/test\"|100644";
+  $$phTestTargetValues{'unix_1r_none+nlink'} = "\"/tmp/test\"|1";
+  $$phTestTargetValues{'unix_1r_none+uid'} = "\"/tmp/test\"|0";
+  $$phTestTargetValues{'unix_1r_none+gid'} = "\"/tmp/test\"|1";
+  $$phTestTargetValues{'unix_1r_none+rdev'} = "\"/tmp/test\"|0";
+  $$phTestTargetValues{'unix_1r_none+atime'} = "\"/tmp/test\"|2006-03-19 04:18:45";
+  $$phTestTargetValues{'unix_1r_none+mtime'} = "\"/tmp/test\"|2006-03-19 04:18:45";
+  $$phTestTargetValues{'unix_1r_none+ctime'} = "\"/tmp/test\"|2006-03-19 04:18:45";
+  $$phTestTargetValues{'unix_1r_none+size'} = "\"/tmp/test\"|0";
+  $$phTestTargetValues{'unix_1r_none+sha1'} = "\"/tmp/test\"|da39a3ee5e6b4b0d3255bfef95601890afd80709";
+  $$phTestTargetValues{'unix_1r_none+md5'} = "\"/tmp/test\"|d41d8cd98f00b204e9800998ecf8427e";
+  $$phTestTargetValues{'unix_1r_none+magic'} = "\"/tmp/test\"|empty";
+
+  $$phTestTargetValues{'z_unix_1r_none'} = $$phTestTargetValues{'unix_1r_none'};
+  $$phTestTargetValues{'z_unix_1r_none+dev'} = $$phTestTargetValues{'unix_1r_none+dev'};
+  $$phTestTargetValues{'z_unix_1r_none+inode'} = $$phTestTargetValues{'unix_1r_none+inode'};
+  $$phTestTargetValues{'z_unix_1r_none+mode'} = $$phTestTargetValues{'unix_1r_none+mode'};
+  $$phTestTargetValues{'z_unix_1r_none+nlink'} = $$phTestTargetValues{'unix_1r_none+nlink'};
+  $$phTestTargetValues{'z_unix_1r_none+uid'} = $$phTestTargetValues{'unix_1r_none+uid'};
+  $$phTestTargetValues{'z_unix_1r_none+gid'} = $$phTestTargetValues{'unix_1r_none+gid'};
+  $$phTestTargetValues{'z_unix_1r_none+rdev'} = $$phTestTargetValues{'unix_1r_none+rdev'};
+  $$phTestTargetValues{'z_unix_1r_none+atime'} = $$phTestTargetValues{'unix_1r_none+atime'};
+  $$phTestTargetValues{'z_unix_1r_none+mtime'} = $$phTestTargetValues{'unix_1r_none+mtime'};
+  $$phTestTargetValues{'z_unix_1r_none+ctime'} = $$phTestTargetValues{'unix_1r_none+ctime'};
+  $$phTestTargetValues{'z_unix_1r_none+size'} = $$phTestTargetValues{'unix_1r_none+size'};
+  $$phTestTargetValues{'z_unix_1r_none+sha1'} = $$phTestTargetValues{'unix_1r_none+sha1'};
+  $$phTestTargetValues{'z_unix_1r_none+md5'} = $$phTestTargetValues{'unix_1r_none+md5'};
+#FIXME FTimes does not currently compress magic -- it omits it. This behavior should probably be changed (e.g., base64 encode the magic).
+  $$phTestTargetValues{'z_unix_1r_none+magic'} = "\"/tmp/test\"|";
+
+#"c:\temp\test"|3160863858|18577348462994575|32|2006-03-20 06:40:26|455|2006-03-20 06:40:26|445|2006-03-20 06:40:26|455|0|0|da39a3ee5e6b4b0d3255bfef95601890afd80709|d41d8cd98f00b204e9800998ecf8427e
+
+  $$phTestTargetValues{'windows_1r_none'} = "\"c:\\temp\\test\"";
+  $$phTestTargetValues{'windows_1r_none+volume'} = "\"c:\\temp\\test\"|3160863858";
+  $$phTestTargetValues{'windows_1r_none+findex'} = "\"c:\\temp\\test\"|18577348462994575";
+  $$phTestTargetValues{'windows_1r_none+attributes'} = "\"c:\\temp\\test\"|32";
+  $$phTestTargetValues{'windows_1r_none+atime'} = "\"c:\\temp\\test\"|2006-03-20 06:40:26";
+  $$phTestTargetValues{'windows_1r_none+ams'} = "\"c:\\temp\\test\"|455";
+  $$phTestTargetValues{'windows_1r_none+mtime'} = "\"c:\\temp\\test\"|2006-03-20 06:40:26";
+  $$phTestTargetValues{'windows_1r_none+mms'} = "\"c:\\temp\\test\"|455";
+  $$phTestTargetValues{'windows_1r_none+ctime'} = "\"c:\\temp\\test\"|2006-03-20 06:40:26";
+  $$phTestTargetValues{'windows_1r_none+cms'} = "\"c:\\temp\\test\"|455";
+  $$phTestTargetValues{'windows_1r_none+chtime'} = "\"c:\\temp\\test\"|2006-03-20 06:40:26";
+  $$phTestTargetValues{'windows_1r_none+chms'} = "\"c:\\temp\\test\"|455";
+  $$phTestTargetValues{'windows_1r_none+size'} = "\"c:\\temp\\test\"|0";
+  $$phTestTargetValues{'windows_1r_none+altstreams'} = "\"c:\\temp\\test\"|0";
+  $$phTestTargetValues{'windows_1r_none+sha1'} = "\"c:\\temp\\test\"|da39a3ee5e6b4b0d3255bfef95601890afd80709";
+  $$phTestTargetValues{'windows_1r_none+md5'} = "\"c:\\temp\\test\"|d41d8cd98f00b204e9800998ecf8427e";
+  $$phTestTargetValues{'windows_1r_none+magic'} = "\"c:\\temp\\test\"|empty";
+
+  $$phTestTargetValues{'z_windows_1r_none'} = $$phTestTargetValues{'windows_1r_none'};
+  $$phTestTargetValues{'z_windows_1r_none+volume'} = $$phTestTargetValues{'windows_1r_none+volume'};
+  $$phTestTargetValues{'z_windows_1r_none+findex'} = $$phTestTargetValues{'windows_1r_none+findex'};
+  $$phTestTargetValues{'z_windows_1r_none+attributes'} = $$phTestTargetValues{'windows_1r_none+attributes'};
+  $$phTestTargetValues{'z_windows_1r_none+atime'} = $$phTestTargetValues{'windows_1r_none+atime'};
+  $$phTestTargetValues{'z_windows_1r_none+ams'} = $$phTestTargetValues{'windows_1r_none+ams'};
+  $$phTestTargetValues{'z_windows_1r_none+mtime'} = $$phTestTargetValues{'windows_1r_none+mtime'};
+  $$phTestTargetValues{'z_windows_1r_none+mms'} = $$phTestTargetValues{'windows_1r_none+mms'};
+  $$phTestTargetValues{'z_windows_1r_none+ctime'} = $$phTestTargetValues{'windows_1r_none+ctime'};
+  $$phTestTargetValues{'z_windows_1r_none+cms'} = $$phTestTargetValues{'windows_1r_none+cms'};
+  $$phTestTargetValues{'z_windows_1r_none+chtime'} = $$phTestTargetValues{'windows_1r_none+chtime'};
+  $$phTestTargetValues{'z_windows_1r_none+chms'} = $$phTestTargetValues{'windows_1r_none+chms'};
+  $$phTestTargetValues{'z_windows_1r_none+size'} = $$phTestTargetValues{'windows_1r_none+size'};
+  $$phTestTargetValues{'z_windows_1r_none+altstreams'} = $$phTestTargetValues{'windows_1r_none+altstreams'};
+  $$phTestTargetValues{'z_windows_1r_none+sha1'} = $$phTestTargetValues{'windows_1r_none+sha1'};
+  $$phTestTargetValues{'z_windows_1r_none+md5'} = $$phTestTargetValues{'windows_1r_none+md5'};
+#FIXME FTimes does not currently compress magic -- it omits it. This behavior should probably be changed (e.g., base64 encode the magic).
+  $$phTestTargetValues{'z_windows_1r_none+magic'} = "\"c:\\temp\\test\"|";
+
+  1;
+}
+
+
+sub Check_basic_files
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sDouble (@{$$phTestProperties{'basic_files'}{'doubles'}})
+  {
+    my $sCommand;
+    my ($sSuffix, $sPassFail) = split(/:/, $sDouble, -1);
+    my $sSnapshot = $sFile . "_" . $sSuffix;
+
+    $sCommand = "$$phProperties{'TargetProgram'} --decoder $sSnapshot -l 6 2>&1";
+
+    DebugPrint(3, "Command=$sCommand");
+
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    if ($sPassFail =~ /^pass$/)
+    {
+      DebugPrint(4, "TargetLineCount=2");
+      if (scalar(@aLines) != 2)
+      {
+        DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+        return "fail";
+      }
+      $aLines[1] =~ s/[\r\n]*$//;
+
+      my $sTargetOutput = $$phTestTargetValues{$sSuffix};
+      DebugPrint(4, "TargetOutput=$sTargetOutput");
+      if ($aLines[1] ne $sTargetOutput)
+      {
+        DebugPrint(4, "ActualOutput=$aLines[1]");
+        return "fail";
+      }
+    }
+    else
+    {
+#FIXME Need to build this out as soon as we have tests that are supposed to fail.
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_basic_files
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sDouble (@{$$phTestProperties{'basic_files'}{'doubles'}})
+  {
+    my ($sSuffix, $sPassFail) = split(/:/, $sDouble, -1);
+    $sFile = $$phProperties{'WorkDir'} . "/" . $sName . "_" . $sSuffix;
+    if (-f $sFile && !unlink($sFile))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Setup_basic_files
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sDouble (@{$$phTestProperties{'basic_files'}{'doubles'}})
+  {
+    my ($sSuffix, $sPassFail) = split(/:/, $sDouble, -1);
+    my $sContent = $$phTestProperties{'basic_files'}{'content'}{$sSuffix};
+    my $sCount = 1;
+    $sFile = $$phProperties{'WorkDir'} . "/" . $sName . "_" . $sSuffix;
+    if (!defined(FillFile($sFile, $sContent, $sCount)))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+1;

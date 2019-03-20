@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: digmode.c,v 1.28 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: digmode.c,v 1.31 2006/06/21 16:46:19 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -205,13 +205,13 @@ DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * The carry size must not be larger than the block size.
+   * The carry size must be less than the block size.
    *
    *********************************************************************
    */
-  if (psProperties->iAnalyzeCarrySize > psProperties->iAnalyzeBlockSize)
+  if (psProperties->iAnalyzeCarrySize >= psProperties->iAnalyzeBlockSize)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: AnalyzeCarrySize (%d) must not exceed AnalyzeBlockSize (%d).", acRoutine, psProperties->iAnalyzeCarrySize, psProperties->iAnalyzeBlockSize);
+    snprintf(pcError, MESSAGE_SIZE, "%s: AnalyzeCarrySize (%d) must be less than AnalyzeBlockSize (%d).", acRoutine, psProperties->iAnalyzeCarrySize, psProperties->iAnalyzeBlockSize);
     return ER;
   }
 
@@ -228,6 +228,23 @@ DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
     snprintf(pcError, MESSAGE_SIZE, "%s: The largest DigStringNormal/DigStringNoCase value (%d) must not exceed AnalyzeCarrySize (%d).", acRoutine, iLargestDigString, psProperties->iAnalyzeCarrySize);
     return ER;
   }
+
+#ifdef USE_XMAGIC
+  /*-
+   *********************************************************************
+   *
+   * If an XMagic dig string was specified, the minimum carry size is
+   * the size of an integer. This limitation is based on the way that
+   * XMagicGetValueOffset() works.
+   *
+   *********************************************************************
+   */
+  if (DigGetSearchList(DIG_STRING_TYPE_XMAGIC, 0) != NULL && psProperties->iAnalyzeCarrySize < sizeof(K_UINT32))
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: AnalyzeCarrySize (%d) must be %d or larger when DigStringXMagic values are in use.", acRoutine, psProperties->iAnalyzeCarrySize, sizeof(K_UINT32));
+    return ER;
+  }
+#endif
 
   if (psProperties->iRunMode == FTIMES_DIGFULL)
   {
@@ -339,6 +356,23 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
    */
   AnalyzeEnableDigEngine(psProperties);
 
+#ifdef USE_XMAGIC
+  /*-
+   *********************************************************************
+   *
+   * Forceably limit the step size if it's bigger than the block size.
+   *
+   *********************************************************************
+   */
+  if (psProperties->iAnalyzeStepSize > psProperties->iAnalyzeBlockSize)
+  {
+    snprintf(acLocalError, MESSAGE_SIZE, "AnalyzeStepSize (%d) is being reduced to match AnalyzeBlockSize (%d).", psProperties->iAnalyzeStepSize, psProperties->iAnalyzeBlockSize);
+    ErrorHandler(ER_Warning, acLocalError, ERROR_WARNING);
+    psProperties->iAnalyzeStepSize = psProperties->iAnalyzeBlockSize;
+    AnalyzeSetStepSize(psProperties->iAnalyzeStepSize);
+  }
+#endif
+
   /*-
    *********************************************************************
    *
@@ -436,6 +470,7 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 
   MessageSetNewLine(psProperties->acNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
+  MessageSetAutoFlush(MESSAGE_AUTO_FLUSH_ON);
 
   /*-
    *******************************************************************

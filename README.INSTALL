@@ -14,7 +14,7 @@
 
 1.1 Revision
 
-  $Id: README.INSTALL,v 1.14 2006/04/16 20:42:39 mavrik Exp $
+  $Id: README.INSTALL,v 1.15 2006/05/31 15:16:04 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -108,7 +108,7 @@
 
   Building FTimes in a UNIX environments requires at least the
   following tools: make, gcc, and possibly autoconf.  For Windows
-  NT/2K environments Visual Studio is required.  By default, PCRE
+  NT/2K environments Visual Studio 6.0 is required.  By default, PCRE
   and SSL support is enabled in FTimes.  This means that PCRE and
   OpenSSL must be be installed and/or available on the build system.
 
@@ -212,6 +212,10 @@
   any intermediate files are removed.  In certain situations, build
   problems could arise if this is not done.
 
+  Do not use the native version of make on Solaris platforms as the
+  build/test process will, in all likelihood, fail. Use GNU Make 3.80
+  or higher instead (i.e., gmake).
+
   Executing the built-in tests (i.e., the test target) can take a
   considerable amount of time -- especially on older/slower systems.
   Also, these tests may fail if you don't have the necessary Perl
@@ -220,7 +224,7 @@
 2.5 Windows NT/2K Build Instructions
 
   FTimes has compiled successfully on Windows NT/2K using Microsoft's
-  Visual Studio.  The build process is simply a matter of setting
+  Visual Studio 6.0.  The build process is simply a matter of setting
   up a build environment and running nmake.  Windows NT/2K binaries
   are built using the following Makefile: Makefile.vs.  Note that
   there is no equivalent configure process for NT/2K builds.
@@ -236,15 +240,20 @@
   VCVARS32.BAT.  Usually, this script is kept in Visual Studio's bin
   directory.  Once you have located the script, simply execute it.
 
-  Because PCRE and SSL support is enabled by default, you need to
-  make sure that the PCRE_DIR and SSL_DIR macros in Makefile.vs
-  have appropriate values.  Basically, Makefile.vs was written with
-  the assumption that your versions of PCRE and OpenSSL were installed
-  in C:\PCRE and C:\OpenSSL, respectively.  Adjust these macros as
+  Because PCRE support is enabled by default, you need to make sure
+  that the PCRE_DIR macro in Makefile.vs has an appropriate value.
+  Basically, Makefile.vs was written with the assumption that your
+  version of PCRE was installed in C:\PCRE.  Adjust PCRE_DIR as
   necessary, if this is not the case.
 
-  Assuming that 1) you do need to run VCVARS32.BAT and 2) the PCRE
-  and OpenSSL libraries and header files are installed in the default
+  Because SSL support is enabled by default, you need to make sure
+  that the SSL_DIR macro in Makefile.vs has an appropriate value.
+  Basically, Makefile.vs was written with the assumption that your
+  version of OpenSSL was installed in C:\OpenSSL.  Adjust SSL_DIR
+  as necessary, if this is not the case.
+
+  Assuming that you are required to run VCVARS32.BAT and all the
+  required libraries and header files are installed in their default
   locations, the build sequence would be as follows:
 
     > VCVARS32.BAT

@@ -89,7 +89,7 @@ will be searched (i.e., B<AnalyzeDeviceFiles> is always enabled in
 this mode of operation).  Output is written to stdout and has the
 following format.
 
-    name|type|offset|string
+    name|type|tag|offset|string
 
 The offset field, represented as a decimal value, contains the
 location in the file identified by name where the specified string

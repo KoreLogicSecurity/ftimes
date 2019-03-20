@@ -1,0 +1,73 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "2";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "md5_null",
+    2 => "md5_alphabet",
+    3 => "md5_alphanumeric",
+    4 => "md5_1024_As",
+    5 => "md5_1024_binary",
+    6 => "md5_nsrl_vectors",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'md5_null'         => "tests MD5 of an empty file using variable blocksize",
+    'md5_alphabet'     => "tests MD5 of alphabet using variable blocksize",
+    'md5_alphanumeric' => "tests MD5 of alphanumeric using variable blocksize",
+    'md5_1024_As'      => "tests MD5 of 1024 A's using variable blocksize",
+    'md5_1024_binary'  => "tests MD5 of 1024 bytes mod 256 using variable blocksize",
+    'md5_nsrl_vectors' => "tests MD5 of NSRL's customized test vectors using variable blocksize",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+    'BlockSizes' => [1..3,7..9,15..17,31..33,63..65,128,256,512,1024,2048,4096,8192,16384,32768],
+  );
+
+1;

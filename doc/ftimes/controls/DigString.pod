@@ -1,4 +1,4 @@
-=item B<DigString>: <string>
+=item B<DigString>: <string> [<tag>]
 
 Applies to B<digauto>, B<digfull>, and B<diglean>.
 

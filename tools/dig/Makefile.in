@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.6 2006/04/07 22:15:12 mavrik Exp $
+# $Id: Makefile.in,v 1.7 2006/07/15 03:54:10 mavrik Exp $
 #
 ########################################################################
 #
@@ -25,6 +25,7 @@ EXTENSION		= @extension@
 INSTALL			= @INSTALL@
 
 SCRIPT_FILES		=\
+			ftimes-crv2raw.pl\
 			ftimes-dig2ctx.pl\
 			hipdig.pl
 

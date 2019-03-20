@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: cmpmode.c,v 1.16 2006/04/07 22:15:10 mavrik Exp $
+ * $Id: cmpmode.c,v 1.17 2006/05/04 00:50:59 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -177,6 +177,7 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 
   MessageSetNewLine(psProperties->acNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
+  MessageSetAutoFlush(MESSAGE_AUTO_FLUSH_ON);
 
   /*-
    *******************************************************************

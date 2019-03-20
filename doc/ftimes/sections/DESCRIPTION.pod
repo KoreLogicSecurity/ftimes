@@ -118,6 +118,7 @@ to the selected mode.
    AnalyzeCarrySize   .  .  .  X  X  .  .  .  .  .
    AnalyzeDeviceFiles .  .  .  X  X  .  .  X  X  .
    AnalyzeRemoteFiles .  .  .  X  X  .  .  X  X  .
+   AnalyzeStepSize    .  .  .  X  X  .  .  .  .  .
    BaseName           .  .  .  X  X  X  .  X  X  .
    BaseNameSuffix     .  .  .  X  X  .  .  X  X  .
    Compress           .  .  .  .  .  .  .  X  X  .
@@ -125,6 +126,7 @@ to the selected mode.
    DigStringNoCase    .  .  X  X  X  .  .  .  .  .
    DigStringNormal    .  .  X  X  X  .  .  .  .  .
    DigStringRegExp    .  .  X  X  X  .  .  .  .  .
+   DigStringXMagic    .  .  X  X  X  .  .  .  .  .
    EnableRecursion    .  .  .  X  X  .  .  X  X  .
    Exclude            .  .  .  X  X  .  .  X  X  .
    ExcludesMustExist  .  .  .  X  X  .  .  X  X  .

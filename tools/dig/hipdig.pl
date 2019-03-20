@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hipdig.pl,v 1.33 2006/04/07 22:15:12 mavrik Exp $
+# $Id: hipdig.pl,v 1.34 2006/06/24 21:00:17 mavrik Exp $
 #
 ######################################################################
 #
@@ -42,7 +42,7 @@ use vars qw($sDigStringRegExp);
 
   my (%hOptions);
 
-  if (!getopts('D:HhqRrs:t:x', \%hOptions))
+  if (!getopts('D:HhqRrs:T:t:x', \%hOptions))
   {
     Usage($sProgram);
   }
@@ -146,6 +146,16 @@ use vars qw($sDigStringRegExp);
 
   ####################################################################
   #
+  # The DigTag flag, '-T', is optional.
+  #
+  ####################################################################
+
+  my ($sDigTag);
+
+  $sDigTag = (exists($hOptions{'T'})) ? $hOptions{'T'} : undef;
+
+  ####################################################################
+  #
   # The DigType flag, '-t', is optional.
   #
   ####################################################################
@@ -158,38 +168,47 @@ use vars qw($sDigStringRegExp);
   {
     $sDigStringRegExp = $1;
     $sDigRoutine = \&Dig4Custom;
+    $sDigTag = "" if (!defined($sDigTag));
   }
   elsif ($sDigType =~ /^HOST$/i)
   {
     $sDigRoutine = \&Dig4Domains;
+    $sDigTag = "domain" if (!defined($sDigTag));
   }
   elsif ($sDigType =~ /^IP$/i)
   {
     $sDigRoutine = \&Dig4IPs;
+    $sDigTag = "ip" if (!defined($sDigTag));
   }
   elsif ($sDigType =~ /^(PASS|PASSWORD)$/i)
   {
     $sDigRoutine = \&Dig4Passwords;
+    $sDigTag = "password" if (!defined($sDigTag));
   }
   elsif ($sDigType =~ /^(SSN|SOCIAL)$/i)
   {
     $sDigRoutine = \&Dig4SSN;
+    $sDigTag = "ssn" if (!defined($sDigTag));
   }
   elsif ($sDigType =~ /^(T1|TRACK1)$/i)
   {
     $sDigRoutine = \&Dig4Track1;
+    $sDigTag = "track1" if (!defined($sDigTag));
   }
   elsif ($sDigType =~ /^(T1S|TRACK1-STRICT)$/i)
   {
     $sDigRoutine = \&Dig4Track1Strict;
+    $sDigTag = "track1strict" if (!defined($sDigTag));
   }
   elsif ($sDigType =~ /^(T2|TRACK2)$/i)
   {
     $sDigRoutine = \&Dig4Track2;
+    $sDigTag = "track2" if (!defined($sDigTag));
   }
   elsif ($sDigType =~ /^(T2S|TRACK2-STRICT)$/i)
   {
     $sDigRoutine = \&Dig4Track2Strict;
+    $sDigTag = "track2strict" if (!defined($sDigTag));
   }
   else
   {
@@ -248,11 +267,11 @@ use vars qw($sDigStringRegExp);
 
   if ($sPrintHex)
   {
-    $sFormat = "\"%s\"|regexp|0x%x|%s\n";
+    $sFormat = "\"%s\"|regexp|$sDigTag|0x%x|%s\n";
   }
   else
   {
-    $sFormat = "\"%s\"|regexp|%d|%s\n";
+    $sFormat = "\"%s\"|regexp|$sDigTag|%d|%s\n";
   }
 
   ####################################################################
@@ -263,7 +282,7 @@ use vars qw($sDigStringRegExp);
 
   if ($sPrintHeader)
   {
-    print "name|type|offset|string\n";
+    print "name|type|tag|offset|string\n";
   }
 
   ####################################################################
@@ -1268,7 +1287,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-HhqRrx] [-D type] [-s length] [-t {type|custom=regexp}] file [file ...]\n";
+  print STDERR "Usage: $sProgram [-HhqRrx] [-D type] [-s length] [-T tag] [-t {type|custom=regexp}] file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -1282,7 +1301,7 @@ hipdig.pl - Dig for hosts, IPs, passwords, and more...
 
 =head1 SYNOPSIS
 
-B<hipdig.pl> B<[-HhqRrx]> B<[-D type]> B<[-s length]> B<[-t {type|custom=regexp}]> B<file [file ...]>
+B<hipdig.pl> B<[-HhqRrx]> B<[-D type]> B<[-s length]> B<[-T tag]> B<[-t {type|custom=regexp}]> B<file [file ...]>
 
 =head1 DESCRIPTION
 
@@ -1331,6 +1350,14 @@ Operate on regular files only.
 
 Specifies the save length. This is the maximum number of bytes to
 carry over from one search buffer to the next.
+
+=item B<-T tag>
+
+Specifies a tag that is used to identify the dig string.  Each
+internally defined search type has a default tag value.  This option
+would typically be used to assign a tag to a CUSTOM search type.
+
+Note: The default tag, if any, is trumped by this value.
 
 =item B<-t {type|custom=regexp}>
 

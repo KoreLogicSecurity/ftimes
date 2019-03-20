@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.16 2006/04/07 22:15:04 mavrik Exp $
+# $Id: Makefile.in,v 1.17 2006/05/26 19:38:24 mavrik Exp $
 #
 ########################################################################
 #
@@ -38,28 +38,28 @@ CONFIGURE_FILES		=\
 
 all:
 	@cwd=`pwd`; for i in ${SUBDIRS}; do\
-		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
+		echo '===>' $${i} && cd $${cwd}/$${i} && ${MAKE} $@ ;\
 	done
 
 test:
 	@cwd=`pwd`; for i in ${SUBDIRS}; do\
-		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
+		echo '===>' $${i} && cd $${cwd}/$${i} && ${MAKE} $@ ;\
 	done
 
 install:
 	@umask 22; if [ ! -d ${prefix} ]; then mkdir -p ${prefix}; fi
 	@cwd=`pwd`; for i in ${SUBDIRS}; do\
-		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
+		echo '===>' $${i} && cd $${cwd}/$${i} && ${MAKE} $@ ;\
 	done
 
 clean:
 	@cwd=`pwd`; for i in ${SUBDIRS}; do\
-		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
+		echo '===>' $${i} && cd $${cwd}/$${i} && ${MAKE} $@ ;\
 	done
 
 clean-all:
 	@cwd=`pwd`; for i in ${SUBDIRS}; do\
-		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
+		echo '===>' $${i} && cd $${cwd}/$${i} && ${MAKE} $@ ;\
 	done
 	rm -f ${CONFIGURE_FILES}
 

@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.27 2006/04/07 22:15:10 mavrik Exp $
+ * $Id: analyze.c,v 1.30 2006/06/20 18:42:07 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -29,6 +29,9 @@ static K_UINT32       gui32Files;
 static K_UINT64       gui64Bytes;
 static int            giAnalyzeBlockSize = ANALYZE_BLOCK_SIZE;
 static int            giAnalyzeCarrySize = ANALYZE_CARRY_SIZE;
+#ifdef USE_XMAGIC
+static int            giAnalyzeStepSize = ANALYZE_BLOCK_SIZE;
+#endif
 
 
 /*-
@@ -121,6 +124,22 @@ AnalyzeGetFileCount(void)
 {
   return gui32Files;
 }
+
+
+#ifdef USE_XMAGIC
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeGetStepSize
+ *
+ ***********************************************************************
+ */
+int
+AnalyzeGetStepSize(void)
+{
+  return giAnalyzeStepSize;
+}
+#endif
 
 
 /*-
@@ -621,7 +640,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBu
     }
     else
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Not enough overhead (save buffer) to perform analysis.", acRoutine);
+      snprintf(pcError, MESSAGE_SIZE, "%s: Not enough overhead in the save buffer. The carry size (%d) must be no less than %d bytes for this job to work as intended.", acRoutine, iCarrySize, DigGetMaxStringLength());
       return ER;
     }
 
@@ -769,8 +788,13 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
     }
     if (iError == ER_OK)
     {
-      iError = XMagicLoadMagic(psProperties->acMagicFileName, acLocalError);
-      if (iError == ER_OK)
+      psProperties->psXMagic = XMagicLoadMagic(psProperties->acMagicFileName, acLocalError);
+      if (psProperties->psXMagic == NULL)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+        return iError;
+      }
+      else
       {
         if ((pFile = fopen(psProperties->acMagicFileName, "rb")) != NULL && MD5HashStream(pFile, aucMD5) == ER_OK)
         {
@@ -786,11 +810,6 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
           strcpy(psProperties->acMagicHash, "NONE");
         }
         break; /* Very important. This get's us out of the for loop. */
-      }
-      else
-      {
-        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-        return iError;
       }
     }
     psProperties->acMagicFileName[0] = 0;
@@ -819,6 +838,22 @@ AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int 
   const char          acRoutine[] = "AnalyzeDoXMagic()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 iError;
+  static int          iFirst = 1;
+  static XMAGIC      *psXMagic = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Obtain a reference to the XMagic.
+   *
+   *********************************************************************
+   */
+  if (iFirst)
+  {
+    FTIMES_PROPERTIES *psProperties = FTimesGetPropertiesReference();
+    psXMagic = psProperties->psXMagic;
+    iFirst = 0;
+  }
 
   /*-
    *********************************************************************
@@ -829,7 +864,7 @@ AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int 
    */
   if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
   {
-    iError = XMagicTestBuffer(pucBuffer, iBufferLength, psFTData->acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
+    iError = XMagicTestBuffer(psXMagic, pucBuffer, iBufferLength, psFTData->acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
     if (iError == ER)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -868,3 +903,19 @@ AnalyzeSetCarrySize(int iCarrySize)
 {
   giAnalyzeCarrySize = iCarrySize;
 }
+
+
+#ifdef USE_XMAGIC
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeSetStepSize
+ *
+ ***********************************************************************
+ */
+void
+AnalyzeSetStepSize(int iStepSize)
+{
+  giAnalyzeStepSize = iStepSize;
+}
+#endif

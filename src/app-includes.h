@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: app-includes.h,v 1.16 2006/04/07 22:15:10 mavrik Exp $
+ * $Id: app-includes.h,v 1.17 2006/06/20 05:20:01 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -20,6 +20,10 @@
 #include "ssl-pool.h"
 #endif
 
+#ifdef USE_XMAGIC
+#include "xmagic.h"
+#endif
+
 #ifdef USE_AP_SNPRINTF
 #include "ap_snprintf.h"
 #define snprintf ap_snprintf
@@ -35,9 +39,6 @@
 #include "decode.h"
 #include "dig.h"
 #include "fsinfo.h"
-#ifdef USE_XMAGIC
-#include "xmagic.h"
-#endif
 #include "socket.h"
 #include "http.h"
 

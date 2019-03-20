@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: properties.c,v 1.30 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: properties.c,v 1.34 2006/06/24 21:00:16 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -19,7 +19,7 @@
  ***********************************************************************
  */
 #define PROPERTIES_MAX_RECURSION_LEVEL 3
-#define PROPERTIES_MAX_LINE_LENGTH  1024
+#define PROPERTIES_MAX_LINE         8192
 #define PROPERTIES_COMMENT_C          '#'
 #define PROPERTIES_COMMENT_S          "#"
 #define PROPERTIES_SEPARATOR_C        '='
@@ -95,7 +95,7 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
 {
   const char          acRoutine[] = "PropertiesReadFile()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char                acLine[PROPERTIES_MAX_LINE_LENGTH];
+  char                acLine[PROPERTIES_MAX_LINE];
   char               *pc;
   int                 iError;
   int                 iLength;
@@ -128,7 +128,7 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
     }
   }
 
-  for (acLine[0] = 0, iLineNumber = 1; fgets(acLine, PROPERTIES_MAX_LINE_LENGTH, pFile) != NULL; acLine[0] = 0, iLineNumber++)
+  for (acLine[0] = 0, iLineNumber = 1; fgets(acLine, PROPERTIES_MAX_LINE, pFile) != NULL; acLine[0] = 0, iLineNumber++)
   {
     /*-
      *******************************************************************
@@ -393,7 +393,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       iLength--;
     }
     iValue = atoi(pc);
-    if (iValue < FTIMES_MIN_BLOCK_SIZE || iValue > FTIMES_MAX_BLOCK_SIZE)
+    if (iValue < 0 || iValue > FTIMES_MAX_BLOCK_SIZE) /* A carry size of zero is OK. */
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%s], Value out of range.", acRoutine, pcControl, pc);
       return ER;
@@ -405,6 +405,34 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     }
     psProperties->sFound.bAnalyzeCarrySizeFound = TRUE;
   }
+
+#ifdef USE_XMAGIC
+  else if (strcasecmp(pcControl, KEY_AnalyzeStepSize) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeStepSize, iRunMode))
+  {
+    DUPLICATE_ERROR(psProperties->sFound.bAnalyzeStepSizeFound);
+    while (iLength > 0)
+    {
+      if (!isdigit((int) pc[iLength - 1]))
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%s], Value must be an integer.", acRoutine, pcControl, pc);
+        return ER;
+      }
+      iLength--;
+    }
+    iValue = atoi(pc);
+    if (iValue < FTIMES_MIN_BLOCK_SIZE || iValue > FTIMES_MAX_BLOCK_SIZE)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], Value = [%s], Value out of range.", acRoutine, pcControl, pc);
+      return ER;
+    }
+    else
+    {
+      psProperties->iAnalyzeStepSize = iValue;
+      AnalyzeSetStepSize(psProperties->iAnalyzeStepSize);
+    }
+    psProperties->sFound.bAnalyzeStepSizeFound = TRUE;
+  }
+#endif
 
   else if (strcasecmp(pcControl, KEY_AnalyzeDeviceFiles) == 0 && RUN_MODE_IS_SET(MODES_AnalyzeDeviceFiles, iRunMode))
   {
@@ -495,6 +523,18 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
   else if (strcasecmp(pcControl, KEY_DigStringRegExp) == 0 && RUN_MODE_IS_SET(MODES_DigStringRegExp, iRunMode))
   {
     iError = DigAddDigString(pc, DIG_STRING_TYPE_REGEXP, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+  }
+#endif
+
+#ifdef USE_XMAGIC
+  else if (strcasecmp(pcControl, KEY_DigStringXMagic) == 0 && RUN_MODE_IS_SET(MODES_DigStringXMagic, iRunMode))
+  {
+    iError = DigAddDigString(pc, DIG_STRING_TYPE_XMAGIC, acLocalError);
     if (iError != ER_OK)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
@@ -1019,6 +1059,14 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
 
+#ifdef USE_XMAGIC
+  if (RUN_MODE_IS_SET(MODES_AnalyzeStepSize, psProperties->iRunMode))
+  {
+    snprintf(acMessage, MESSAGE_SIZE, "%s=%d", KEY_AnalyzeStepSize, psProperties->iAnalyzeStepSize);
+    MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+  }
+#endif
+
   if (RUN_MODE_IS_SET(MODES_AnalyzeDeviceFiles, psProperties->iRunMode))
   {
     snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_AnalyzeDeviceFiles, psProperties->bAnalyzeDeviceFiles ? "Y" : "N");
@@ -1326,7 +1374,12 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
     {
       for (psDigString = DigGetSearchList(DIG_STRING_TYPE_NORMAL, i); psDigString != NULL; psDigString = psDigString->psNext)
       {
-        snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_DigStringNormal, psDigString->pucEncodedString);
+        snprintf(acMessage, MESSAGE_SIZE, "%s=%s%s%s",
+          KEY_DigStringNormal,
+          psDigString->pucEncodedString,
+          (psDigString->pcTag[0]) ? " " : "",
+          (psDigString->pcTag[0]) ? psDigString->pcTag : ""
+          );
         MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
       }
     }
@@ -1338,7 +1391,12 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
     {
       for (psDigString = DigGetSearchList(DIG_STRING_TYPE_NOCASE, i); psDigString != NULL; psDigString = psDigString->psNext)
       {
-        snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_DigStringNoCase, psDigString->pucEncodedString);
+        snprintf(acMessage, MESSAGE_SIZE, "%s=%s%s%s",
+          KEY_DigStringNoCase,
+          psDigString->pucEncodedString,
+          (psDigString->pcTag[0]) ? " " : "",
+          (psDigString->pcTag[0]) ? psDigString->pcTag : ""
+          );
         MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
       }
     }
@@ -1349,7 +1407,28 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
   {
     for (psDigString = DigGetSearchList(DIG_STRING_TYPE_REGEXP, 0); psDigString != NULL; psDigString = psDigString->psNext)
     {
-      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_DigStringRegExp, psDigString->pucEncodedString);
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s%s%s",
+        KEY_DigStringRegExp,
+        psDigString->pucEncodedString,
+        (psDigString->pcTag[0]) ? " " : "",
+        (psDigString->pcTag[0]) ? psDigString->pcTag : ""
+        );
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+#endif
+
+#ifdef USE_XMAGIC
+  if (RUN_MODE_IS_SET(MODES_DigStringXMagic, psProperties->iRunMode))
+  {
+    for (psDigString = DigGetSearchList(DIG_STRING_TYPE_XMAGIC, 0); psDigString != NULL; psDigString = psDigString->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s%s%s",
+        KEY_DigStringXMagic,
+        psDigString->pucEncodedString,
+        (psDigString->pcTag[0]) ? " " : "",
+        (psDigString->pcTag[0]) ? psDigString->pcTag : ""
+        );
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }

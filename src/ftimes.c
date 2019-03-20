@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.c,v 1.29 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: ftimes.c,v 1.30 2006/06/20 05:20:01 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -336,12 +336,15 @@ FTimesNewProperties(char *pcError)
   /*-
    *********************************************************************
    *
-   * Initialize AnalyzeBlockSize and AnalyzeCarrySize variables.
+   * Initialize Analyze*Size variables.
    *
    *********************************************************************
    */
   psProperties->iAnalyzeBlockSize = AnalyzeGetBlockSize();
   psProperties->iAnalyzeCarrySize = AnalyzeGetCarrySize();
+#ifdef USE_XMAGIC
+  psProperties->iAnalyzeStepSize = AnalyzeGetStepSize();
+#endif
 
   /*-
    *********************************************************************

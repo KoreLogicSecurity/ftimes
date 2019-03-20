@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: message.h,v 1.7 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: message.h,v 1.8 2006/05/04 00:50:59 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -17,6 +17,8 @@
  *
  ***********************************************************************
  */
+#define MESSAGE_AUTO_FLUSH_OFF 0
+#define MESSAGE_AUTO_FLUSH_ON  1
 #define MESSAGE_QUEUE_IT       0
 #define MESSAGE_FLUSH_IT       1
 #define MESSAGE_QUEUE_LENGTH 100
@@ -48,6 +50,7 @@
  ***********************************************************************
  */
 void                MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage);
+void                MessageSetAutoFlush(int iOnOff);
 void                MessageSetLogLevel(int iLevel);
 void                MessageSetNewLine(char *pcNewLine);
 void                MessageSetOutputStream(FILE *pFile);

@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.h,v 1.12 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: dig.h,v 1.14 2006/06/24 21:00:16 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -23,6 +23,7 @@
 #define DIG_MAX_CHAINS 256
 #define DIG_MAX_STRING_SIZE 1024
 #define DIG_MAX_TYPE_SIZE 64
+#define DIG_MAX_TAG_SIZE 64
 
 #ifdef USE_PCRE
 #define PCRE_CAPTURE_INDEX_0L 0 /* This is the low offset of the entire pattern. */
@@ -40,6 +41,9 @@ enum DigStringTypes
 #ifdef USE_PCRE
   DIG_STRING_TYPE_REGEXP,
 #endif
+#ifdef USE_XMAGIC
+  DIG_STRING_TYPE_XMAGIC,
+#endif
   DIG_STRING_TYPE_NOMORE
 };
 
@@ -53,6 +57,7 @@ enum DigStringTypes
 typedef struct _DIG_SEARCH_DATA
 {
   char               *pcFile;
+  char               *pcTag;
   unsigned char      *pucData;
   int                 iLength;
   int                 iType;
@@ -61,6 +66,8 @@ typedef struct _DIG_SEARCH_DATA
 
 typedef struct _DIG_STRING
 {
+  char               *pcTag; /* User-supplied tag. */
+
   unsigned char      *pucEncodedString; /* User-supplied dig string (could be URL encoded). */
   unsigned char      *pucDecodedString; /* Decoded version of the user-supplied dig string. */
 
@@ -79,6 +86,10 @@ typedef struct _DIG_STRING
   int                 iCaptureCount; /* The number of capturing subpatterns in this expression. */
   pcre               *psPcre;
   pcre_extra         *psPcreExtra;
+#endif
+
+#ifdef USE_XMAGIC
+  XMAGIC             *psXMagic;
 #endif
 
   struct _DIG_STRING *psNext;

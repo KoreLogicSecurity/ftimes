@@ -1,0 +1,17 @@
+=item B<DigStringXMagic>: <file> [<tag>]
+
+Applies to B<digauto>, B<digfull>, and B<diglean>.
+
+B<DigStringXMagic> is conditionally required.  It specifies the name
+of a file that contains one or more XMagic incantations.  The XMagic
+file may be specified as a relative path.
+
+An optional tag may specified.  Tags can be used to identify a given
+dig string or set of strings -- the same tag may be assigned to
+multiple strings.  This can make the process of analyzing dig output
+much easier.  However, tags must not contain embedded white space, and
+they must be less than 64 bytes long.
+
+Note: This control is only available if XMagic support was compiled
+into the binary.
+

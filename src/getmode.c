@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: getmode.c,v 1.14 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: getmode.c,v 1.15 2006/05/04 00:50:59 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -193,6 +193,7 @@ GetModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 
   MessageSetNewLine(psProperties->acNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
+  MessageSetAutoFlush(MESSAGE_AUTO_FLUSH_ON);
 
   /*-
    *******************************************************************

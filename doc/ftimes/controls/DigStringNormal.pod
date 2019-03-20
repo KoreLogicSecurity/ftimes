@@ -1,4 +1,4 @@
-=item B<DigStringNormal>: <string>
+=item B<DigStringNormal>: <string> [<tag>]
 
 Applies to B<digauto>, B<digfull>, and B<diglean>.
 
@@ -8,4 +8,10 @@ string.  This string must be URL encoded if it contains '%', '+',
 or not a value should be encoded, encode it.  To encode a character,
 convert its hex value according to the format %HH where H is a hex
 digit.  Spaces may alternatively be encoded as '+'.
+
+An optional tag may specified.  Tags can be used to identify a given
+dig string or set of strings -- the same tag may be assigned to
+multiple strings.  This can make the process of analyzing dig output
+much easier.  However, tags must not contain embedded white space, and
+they must be less than 64 bytes long.
 

@@ -1,10 +1,16 @@
-=item B<DigStringNoCase>: <string>
+=item B<DigStringNoCase>: <string> [<tag>]
 
 Applies to B<digauto>, B<digfull>, and B<diglean>.
 
 B<DigStringNoCase> is conditionally required.  It specifies a case
 insensitive search string.  This string must be URL encoded in the
-same manner as a normal B<DigString> -- refer to that control
+same manner as a normal dig string -- refer to the B<DigStringNormal> control
 description for the details.  Internally, all alpha characters
 (i.e., [A-Za-z]) are converted to lower case.
+
+An optional tag may specified.  Tags can be used to identify a given
+dig string or set of strings -- the same tag may be assigned to
+multiple strings.  This can make the process of analyzing dig output
+much easier.  However, tags must not contain embedded white space, and
+they must be less than 64 bytes long.
 

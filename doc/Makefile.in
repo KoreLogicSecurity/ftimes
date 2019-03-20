@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.13 2006/04/07 22:15:09 mavrik Exp $
+# $Id: Makefile.in,v 1.14 2006/05/26 19:38:24 mavrik Exp $
 #
 ########################################################################
 #
@@ -62,7 +62,7 @@ dist:
 		exit 1;\
 	fi
 	@cwd=`pwd`; for i in ${SUBDIRS}; do\
-		echo '===>' doc/$${i} && cd $${cwd}/$${i} && make install ;\
+		echo '===>' doc/$${i} && cd $${cwd}/$${i} && ${MAKE} install ;\
 	done
 
 dist-clean:
@@ -75,7 +75,7 @@ dist-clean:
 		exit 1;\
 	fi
 	@cwd=`pwd`; for i in ${SUBDIRS}; do\
-		echo '===>' doc/$${i} && cd $${cwd}/$${i} && make clean-all ;\
+		echo '===>' doc/$${i} && cd $${cwd}/$${i} && ${MAKE} clean-all ;\
 	done
 	rm -f Makefile ${ALL_HTML_FILES} ${ALL_MAN1_FILES}
 

@@ -1,0 +1,508 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "2";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "basic_combos",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'basic_combos' => "tests basic field combinations using a fixed compare mask (all)",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+  );
+
+  my %hMaskValuesToFields =
+    (
+      0x0001 => 'mtime',
+      0x0002 => 'size',
+      0x0004 => 'md5',
+    );
+
+  my %hMaskFieldsToValues = reverse(%hMaskValuesToFields);
+
+  $$phTestProperties{'MaskValuesToFields'} = \%hMaskValuesToFields;
+  $$phTestProperties{'MaskFieldsToValues'} = \%hMaskFieldsToValues;
+
+
+######################################################################
+#
+# ConvertFieldMaskToValueMask
+#
+######################################################################
+
+sub ConvertFieldMaskToValueMask
+{
+  my ($phMaskFieldsToValues, $sFieldMask) = @_;
+
+  my @aFields = split(/\+/, $sFieldMask);
+
+  shift(@aFields); # Remove none.
+
+  my $sMask = 0;
+
+  foreach my $sField (@aFields)
+  {
+    $sMask |= $$phMaskFieldsToValues{$sField};
+  }
+
+  return $sMask;
+}
+
+
+######################################################################
+#
+# ConvertValueMaskToFieldMask
+#
+######################################################################
+
+sub ConvertValueMaskToFieldMask
+{
+  my ($phMaskValuesToFields, $sMask) = @_;
+
+  my @aFields;
+
+  foreach my $sKey ((sort { $a <=> $b } keys(%$phMaskValuesToFields)))
+  {
+    if (($sKey & $sMask) == $sKey)
+    {
+      push(@aFields, $$phMaskValuesToFields{$sKey});
+    }
+  }
+  my $sFieldMask = join("+", "none", @aFields);
+
+  return $sFieldMask;
+}
+
+
+######################################################################
+#
+# GetComboNames
+#
+######################################################################
+
+sub GetComboNames
+{
+  my ($phMaskValuesToFields) = @_;
+
+  my @aList = ();
+
+  foreach my $sMask (1..GetMaxMaskValue())
+  {
+    my $sFile = ConvertValueMaskToFieldMask($phMaskValuesToFields, $sMask);
+    foreach my $sType (GetComboTypes())
+    {
+      push(@aList, "$sFile.$sType");
+    }
+  }
+
+  return @aList;
+}
+
+
+######################################################################
+#
+# GetComboTypes
+#
+######################################################################
+
+sub GetComboTypes
+{
+  return ('header', 'allnulls', 'baseline', 'snapshot');
+}
+
+
+######################################################################
+#
+# GetMaxMaskValue
+#
+######################################################################
+
+sub GetMaxMaskValue
+{
+  my $phTestProperties = GetTestProperties();
+
+  my $sMax = 0;
+
+  foreach my $sKey (keys(%{$$phTestProperties{'MaskValuesToFields'}}))
+  {
+    $sMax |= $sKey;
+  }
+
+  return $sMax;
+}
+
+
+######################################################################
+#
+# SetupComboFiles
+#
+######################################################################
+
+sub SetupComboFiles
+{
+  my ($sWorkDir, $sBasename) = @_;
+
+  my $phTestProperties = GetTestProperties();
+
+  my %hContentAllNulls =
+    (
+      0x0001 => '',
+      0x0002 => '',
+      0x0004 => '',
+    );
+
+  my %hContentBaseline =
+    (
+      0x0001 => '1111-11-11 11:11:11',
+      0x0002 => '1',
+      0x0004 => '11111111111111111111111111111111',
+    );
+
+  my %hContentSnapshot =
+    (
+      0x0001 => '2222-22-22 22:22:22',
+      0x0002 => '2',
+      0x0004 => '22222222222222222222222222222222',
+    );
+
+  my %hContent =
+    (
+      'allnulls' => \%hContentAllNulls,
+      'baseline' => \%hContentBaseline,
+      'snapshot' => \%hContentSnapshot,
+    );
+
+  foreach my $sMask (1..GetMaxMaskValue()) # We aren't interested in testing a mask value of 0 here.
+  {
+    my @aFields = ();
+    my %hRecord = ();
+    @{$hRecord{'allnulls'}} = ();
+    @{$hRecord{'baseline'}} = ();
+    @{$hRecord{'snapshot'}} = ();
+
+    foreach my $sKey ((sort { $a <=> $b } keys(%{$$phTestProperties{'MaskValuesToFields'}})))
+    {
+      if (($sKey & $sMask) == $sKey)
+      {
+        push(@aFields, $$phTestProperties{'MaskValuesToFields'}{$sKey});
+        push(@{$hRecord{'allnulls'}}, $hContent{'allnulls'}{$sKey});
+        push(@{$hRecord{'baseline'}}, $hContent{'baseline'}{$sKey});
+        push(@{$hRecord{'snapshot'}}, $hContent{'snapshot'}{$sKey});
+      }
+    }
+
+    foreach my $sType (GetComboTypes($$phTestProperties{'MaskValuesToFields'}))
+    {
+      my ($sHeader, $sRecord);
+
+      $sHeader = join("|", "name", @aFields) . "\n";
+
+      if ($sType =~ /^header$/)
+      {
+        $sRecord = "";
+      }
+      else
+      {
+        $sRecord = join("|", "\"file\"", @{$hRecord{$sType}}) . "\n";
+      }
+
+      my $sCombo = join("+", "none", @aFields);
+      my $sSuffix = $sCombo . "." . $sType;
+      my $sCount = 1;
+      my $sContent = $sHeader . $sRecord;
+      my $sFile = $sWorkDir . "/" . $sBasename . "_" . $sSuffix;
+      if (!defined(FillFile($sFile, $sContent, $sCount)))
+      {
+        return "fail";
+      }
+    }
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# SetupComboProperties
+#
+######################################################################
+
+sub SetupComboProperties
+{
+  my $phTestProperties = GetTestProperties();
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my @aList = GetComboNames($$phTestProperties{'MaskValuesToFields'});
+
+  foreach my $sBaselineSuffix (@aList)
+  {
+    foreach my $sSnapshotSuffix (@aList)
+    {
+      my $sBaselineFieldMask = $sBaselineSuffix;
+      my $sSnapshotFieldMask = $sSnapshotSuffix;
+      $sBaselineFieldMask =~ s/\..*$//;
+      $sSnapshotFieldMask =~ s/\..*$//;
+      my $sBaselineValueMask = ConvertFieldMaskToValueMask($$phTestProperties{'MaskFieldsToValues'}, $sBaselineFieldMask);
+      my $sSnapshotValueMask = ConvertFieldMaskToValueMask($$phTestProperties{'MaskFieldsToValues'}, $sSnapshotFieldMask);
+      my $sCompareValueMask = $sBaselineValueMask & $sSnapshotValueMask;
+      my $sCompareFieldMask = ConvertValueMaskToFieldMask($$phTestProperties{'MaskValuesToFields'}, $sCompareValueMask);
+      my $sTargetOutput;
+      my $sTargetLineCount;
+
+      if
+      (
+        ($sBaselineSuffix =~ /\.baseline$/ && $sSnapshotSuffix =~ /\.baseline$/) ||
+        ($sBaselineSuffix =~ /\.snapshot$/ && $sSnapshotSuffix =~ /\.snapshot$/) ||
+        ($sBaselineSuffix =~ /\.header$/   && $sSnapshotSuffix =~ /\.header$/)
+      )
+      {
+        $sTargetOutput = "";
+        $sTargetLineCount = 1;
+      }
+      elsif
+      (
+        ($sBaselineSuffix =~ /\.baseline$/ && $sSnapshotSuffix =~ /\.snapshot$/) ||
+        ($sBaselineSuffix =~ /\.snapshot$/ && $sSnapshotSuffix =~ /\.baseline$/)
+      )
+      {
+        my $sChanged = $sCompareFieldMask;
+        if ($sCompareFieldMask =~ /^none$/)
+        {
+          $sTargetOutput = "";
+          $sTargetLineCount = 1;
+        }
+        else
+        {
+          $sChanged =~ s/^none[+]?//;
+          $sChanged =~ s/\+/,/g;
+          $sTargetOutput = "C|\"file\"|$sChanged|";
+          $sTargetLineCount = 2;
+        }
+      }
+      elsif
+      (
+        ($sBaselineSuffix =~ /\.allnulls$/ && $sSnapshotSuffix =~ /\.allnulls$/) ||
+        ($sBaselineSuffix =~ /\.baseline$/ && $sSnapshotSuffix =~ /\.allnulls$/) ||
+        ($sBaselineSuffix =~ /\.snapshot$/ && $sSnapshotSuffix =~ /\.allnulls$/) ||
+        ($sBaselineSuffix =~ /\.allnulls$/ && $sSnapshotSuffix =~ /\.baseline$/) ||
+        ($sBaselineSuffix =~ /\.allnulls$/ && $sSnapshotSuffix =~ /\.snapshot$/)
+      )
+      {
+        my $sUnknown = $sCompareFieldMask;
+        if ($sCompareFieldMask =~ /^none$/)
+        {
+          $sTargetOutput = "";
+          $sTargetLineCount = 1;
+        }
+        else
+        {
+          $sUnknown =~ s/^none[+]?//;
+          $sUnknown =~ s/\+/,/g;
+          $sTargetOutput = "U|\"file\"||$sUnknown";
+          $sTargetLineCount = 2;
+        }
+      }
+      elsif
+      (
+        ($sBaselineSuffix =~ /\.(allnulls|baseline|snapshot)$/ && $sSnapshotSuffix =~ /\.header$/)
+      )
+      {
+        $sTargetOutput = "M|\"file\"||";
+        $sTargetLineCount = 2;
+      }
+      elsif
+      (
+        ($sBaselineSuffix =~ /\.header$/ && $sSnapshotSuffix =~ /\.(allnulls|baseline|snapshot)$/)
+      )
+      {
+        $sTargetOutput = "N|\"file\"||";
+        $sTargetLineCount = 2;
+      }
+      else
+      {
+        $sTargetOutput = "BROKEN TEST";
+        $sTargetLineCount = 0;
+      }
+      my $sKey = "$sBaselineSuffix:$sSnapshotSuffix";
+      $$phTestTargetValues{$sKey} = $sTargetOutput;
+      push(@{$$phTestProperties{'basic_combos'}{'triples'}}, ($sKey . ":$sTargetLineCount"));
+    }
+  }
+}
+
+
+######################################################################
+#
+# TestGroup_basic_combos
+#
+######################################################################
+
+sub Hitch_basic_combos
+{
+  SetupComboProperties();
+}
+
+
+sub Check_basic_combos
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sBasename = $sName . "_common_1r";
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sTriple (@{$$phTestProperties{'basic_combos'}{'triples'}})
+  {
+    my $sCommand;
+    my ($sBaselineSuffix, $sSnapshotSuffix, $sTargetLineCount) = split(/:/, $sTriple, -1);
+    my $sBaseline = $$phProperties{'WorkDir'} . "/" . $sBasename . "_" . $sBaselineSuffix;
+    my $sSnapshot = $$phProperties{'WorkDir'} . "/" . $sBasename . "_" . $sSnapshotSuffix;
+
+    $sCommand = "$$phProperties{'TargetProgram'} --compare all $sBaseline $sSnapshot -l 6 2>&1";
+
+    DebugPrint(3, "Command=$sCommand");
+
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    if ($sTargetLineCount == 1)
+    {
+      DebugPrint(4, "TargetLineCount=$sTargetLineCount");
+      if (scalar(@aLines) != $sTargetLineCount)
+      {
+        DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+        return "fail";
+      }
+      $aLines[0] =~ s/[\r\n]*$//;
+
+      my $sTargetOutput = "category|name|changed|unknown";
+      DebugPrint(4, "TargetOutput=$sTargetOutput");
+      if ($aLines[0] ne $sTargetOutput)
+      {
+        DebugPrint(4, "ActualOutput=$aLines[0]");
+        return "fail";
+      }
+    }
+    elsif ($sTargetLineCount == 2)
+    {
+      DebugPrint(4, "TargetLineCount=$sTargetLineCount");
+      if (scalar(@aLines) != $sTargetLineCount)
+      {
+        DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+        return "fail";
+      }
+      $aLines[1] =~ s/[\r\n]*$//;
+
+      my $sKey = "$sBaselineSuffix:$sSnapshotSuffix";
+      my $sTargetOutput = $$phTestTargetValues{$sKey};
+      DebugPrint(4, "TargetOutput=$sTargetOutput");
+      if ($aLines[1] ne $sTargetOutput)
+      {
+        DebugPrint(4, "ActualOutput=$aLines[1]");
+        return "fail";
+      }
+    }
+    else
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_basic_combos
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sBasename = $sName . "_common_1r";
+
+  my $phTestProperties = GetTestProperties();
+
+  foreach my $sCombo (GetComboNames($$phTestProperties{'MaskValuesToFields'}))
+  {
+    $sFile = $$phProperties{'WorkDir'} . "/" . $sBasename . "_" . $sCombo;
+    if (-f $sFile && !unlink($sFile))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Setup_basic_combos
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sBasename = $sName . "_common_1r";
+
+  return SetupComboFiles($$phProperties{'WorkDir'}, $sBasename);
+}
+
+1;

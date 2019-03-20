@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: mapmode.c,v 1.32 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: mapmode.c,v 1.33 2006/05/04 00:50:59 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -464,6 +464,7 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 
   MessageSetNewLine(psProperties->acNewLine);
   MessageSetOutputStream(psProperties->pFileLog);
+  MessageSetAutoFlush(MESSAGE_AUTO_FLUSH_ON);
 
   /*-
    *******************************************************************

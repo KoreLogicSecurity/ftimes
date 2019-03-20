@@ -1,0 +1,411 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "1";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "bad_files",
+    2 => "bad_magic",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'bad_files' => "tests for valid input files",
+    'bad_magic' => "tests input files for valid magic",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+  );
+
+
+######################################################################
+#
+# TestGroup_bad_files
+#
+######################################################################
+
+sub Hitch_bad_files
+{
+  1;
+}
+
+
+sub Check_bad_files
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my $phTestProperties = GetTestProperties();
+
+  my $sHeader = $sFile . "_header";
+
+  my $sNonexistent = $sFile . "_nonexistent";
+
+  ####################################################################
+  #
+  # The triples format is: baseline, snapshot, bad-file. The bad-file
+  # field specifies which of the two input files is supposed to cause
+  # the expected error. A null value for bad-file means that the test
+  # is valid -- i.e., it should not fail at all.
+  #
+  ####################################################################
+
+  my @aTriples =
+  (
+    "$sHeader:$sHeader:",
+    "$sHeader:$sNonexistent:$sNonexistent",
+    "$sHeader:-:",
+    "$sNonexistent:$sHeader:$sNonexistent",
+    "$sNonexistent:$sNonexistent:$sNonexistent",
+    "$sNonexistent:-:$sNonexistent",
+    "-:$sNonexistent:$sNonexistent",
+    "-:$sHeader:",
+    "-:-:-",
+  );
+
+  foreach my $sTriple (@aTriples)
+  {
+    my $sCommand;
+    my ($sBaseline, $sSnapshot, $sBadFile) = split(/:/, $sTriple, -1);
+
+    if ($sBaseline eq "-")
+    {
+      $sCommand = "$$phProperties{'TargetProgram'} --compare all - $sSnapshot -l 6 < $sHeader 2>&1";
+    }
+    elsif ($sSnapshot eq "-")
+    {
+      $sCommand = "$$phProperties{'TargetProgram'} --compare all $sBaseline - -l 6 < $sHeader 2>&1";
+    }
+    else
+    {
+      $sCommand = "$$phProperties{'TargetProgram'} --compare all $sBaseline $sSnapshot -l 6 2>&1";
+    }
+
+    DebugPrint(3, "Command=$sCommand");
+
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    if (!defined($sBadFile) || $sBadFile =~ /^$/)
+    {
+      DebugPrint(4, "TargetLineCount=1");
+      if (scalar(@aLines) != 1)
+      {
+        DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+        return "fail";
+      }
+      $aLines[0] =~ s/[\r\n]*$//;
+
+      my $sTargetOutputRegExp = qq(^category\\|name\\|changed\\|unknown\$);
+      DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+      if ($aLines[0] !~ /$sTargetOutputRegExp/)
+      {
+        DebugPrint(4, "ActualOutput=$aLines[0]");
+        return "fail";
+      }
+    }
+    else
+    {
+      DebugPrint(4, "TargetLineCount=1");
+      if (scalar(@aLines) != 1)
+      {
+        DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+        return "fail";
+      }
+      $aLines[0] =~ s/[\r\n]*$//;
+
+      my $sTargetOutputRegExp = qq(LOG_CRIT.*File = \\[$sBadFile\\]);
+      DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+      if ($aLines[0] !~ /$sTargetOutputRegExp/)
+      {
+        DebugPrint(4, "ActualOutput=$aLines[0]");
+        return "fail";
+      }
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_bad_files
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  $sFile .= "_header";
+
+  if (-f $sFile && !unlink($sFile))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+sub Setup_bad_files
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  $sFile .= "_header";
+
+  if (!defined(FillFile($sFile, "name|md5\n", 1)))
+  {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_bad_magic
+#
+######################################################################
+
+sub Hitch_bad_magic
+{
+  1;
+}
+
+
+sub Check_bad_magic
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+
+  my $phTestProperties = GetTestProperties();
+
+  my $sNull = $sFile . "_null";
+
+  my $sHeader = $sFile . "_header";
+
+  my $sJunk = $sFile . "_junk";
+
+  my $sZHeader = $sFile . "_z_header";
+
+  ####################################################################
+  #
+  # The triples format is: baseline, snapshot, bad-file. The bad-file
+  # field specifies which of the two input files is supposed to cause
+  # the expected error. A null value for bad-file means that the test
+  # is valid -- i.e., it should not fail at all.
+  #
+  ####################################################################
+
+  my @aTriples =
+  (
+    "$sNull:$sNull:$sNull",
+    "$sNull:$sHeader:$sNull",
+    "$sNull:$sZHeader:$sNull",
+    "$sNull:$sJunk:$sNull",
+    "$sHeader:$sNull:$sNull",
+    "$sHeader:$sHeader:",
+    "$sHeader:$sZHeader:",
+    "$sHeader:$sJunk:$sJunk",
+    "$sZHeader:$sNull:$sNull",
+    "$sZHeader:$sHeader:",
+    "$sZHeader:$sZHeader:",
+    "$sZHeader:$sJunk:$sJunk",
+    "$sJunk:$sNull:$sJunk",
+    "$sJunk:$sHeader:$sJunk",
+    "$sJunk:$sZHeader:$sJunk",
+    "$sJunk:$sJunk:$sJunk",
+  );
+
+  foreach my $sTriple (@aTriples)
+  {
+    my $sCommand;
+    my ($sBaseline, $sSnapshot, $sBadFile) = split(/:/, $sTriple, -1);
+
+    if ($sBaseline eq "-")
+    {
+      $sCommand = "$$phProperties{'TargetProgram'} --compare all - $sSnapshot -l 6 < $sHeader 2>&1";
+    }
+    elsif ($sSnapshot eq "-")
+    {
+      $sCommand = "$$phProperties{'TargetProgram'} --compare all $sBaseline - -l 6 < $sHeader 2>&1";
+    }
+    else
+    {
+      $sCommand = "$$phProperties{'TargetProgram'} --compare all $sBaseline $sSnapshot -l 6 2>&1";
+    }
+
+    DebugPrint(3, "Command=$sCommand");
+
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    if (!defined($sBadFile) || $sBadFile =~ /^$/)
+    {
+      DebugPrint(4, "TargetLineCount=1");
+      if (scalar(@aLines) != 1)
+      {
+        DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+        return "fail";
+      }
+      $aLines[0] =~ s/[\r\n]*$//;
+
+      my $sTargetOutputRegExp = qq(^category\\|name\\|changed\\|unknown\$);
+      DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+      if ($aLines[0] !~ /$sTargetOutputRegExp/)
+      {
+        DebugPrint(4, "ActualOutput=$aLines[0]");
+        return "fail";
+      }
+    }
+    else
+    {
+      DebugPrint(4, "TargetLineCount=1");
+      if (scalar(@aLines) != 1)
+      {
+        DebugPrint(4, "ActualLineCount=" . scalar(@aLines));
+        return "fail";
+      }
+      $aLines[0] =~ s/[\r\n]*$//;
+
+      my $sTargetOutputRegExp = qq(LOG_CRIT.*File = \\[$sBadFile\\].*Header magic (?:is not recognized|indicates that this file contains compressed data));
+      DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+      if ($aLines[0] !~ /$sTargetOutputRegExp/)
+      {
+        DebugPrint(4, "ActualOutput=$aLines[0]");
+        return "fail";
+      }
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_bad_magic
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  foreach my $sSuffix ("null", "header", "z_header", "junk")
+  {
+    $sFile = $$phProperties{'WorkDir'} . "/" . $sName . "_" . $sSuffix;
+    if (-f $sFile && !unlink($sFile))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Setup_bad_magic
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  foreach my $sSuffix ("null", "header", "z_header", "junk")
+  {
+    my $sContent;
+    my $sCount;
+
+    if ($sSuffix =~ /^null$/)
+    {
+      $sContent = "";
+      $sCount = 0;
+    }
+    elsif ($sSuffix =~ /^header$/)
+    {
+      $sContent = "name|md5\n";
+      $sCount = 1;
+    }
+    elsif ($sSuffix =~ /^junk$/)
+    {
+      $sContent = "junk\n";
+      $sCount = 1;
+    }
+    elsif ($sSuffix =~ /^z_header$/)
+    {
+      $sContent = "z_name|z_md5\n";
+      $sCount = 1;
+    }
+    else
+    {
+      return "fail";
+    }
+
+    $sFile = $$phProperties{'WorkDir'} . "/" . $sName . "_" . $sSuffix;
+    if (!defined(FillFile($sFile, $sContent, $sCount)))
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+1;

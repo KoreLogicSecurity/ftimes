@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: support.c,v 1.27 2006/04/16 17:16:41 mavrik Exp $
+ * $Id: support.c,v 1.28 2006/05/03 21:26:28 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -1636,11 +1636,31 @@ SupportWriteData(FILE *pFile, char *pcData, int iLength, char *pcError)
   int                 iNWritten;
 
   iNWritten = fwrite(pcData, 1, iLength, pFile);
-  if (iNWritten != iLength)
+  if (ferror(pFile))
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    if (iNWritten != iLength)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: fwrite(): NWritten = [%d] != [%d]: WriteLength mismatch!: %s",
+        acRoutine,
+        iNWritten,
+        iLength,
+        (errno == 0) ? "unexpected error -- check device for sufficient space" : strerror(errno)
+        );
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: fwrite(): %s",
+        acRoutine,
+        (errno == 0) ? "unexpected error -- check device for sufficient space" : strerror(errno)
+        );
+    }
     return ER;
   }
-  fflush(pFile);
+  if (fflush(pFile) != 0)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: fflush(): %s", acRoutine, strerror(errno));
+    return ER;
+  }
+
   return ER_OK;
 }

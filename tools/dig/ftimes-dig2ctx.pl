@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-dig2ctx.pl,v 1.23 2006/04/09 00:28:10 mavrik Exp $
+# $Id: ftimes-dig2ctx.pl,v 1.24 2006/06/24 21:00:17 mavrik Exp $
 #
 ######################################################################
 #
@@ -42,11 +42,12 @@ use Getopt::Std;
 
   my $sContextRegex = qq(^\\d+\$);
   my $sIgnoreRegex  = qq(^\\d+\$);
-  my $sOldLineRegex = qq(^"(.+)"\\|(\\d+|0x[0-9A-Fa-f]+)\\|(.+)\$); # FTimes Releases < 3.5.0
-  my $sLineRegex    = qq(^"(.+)"\\|(normal|nocase|regexp)\\|(\\d+|0x[0-9A-Fa-f]+)\\|(.+)\$);
+  my $sLineRegex    = qq(^"(.+)"\\|(normal|nocase|regexp)\\|([^|]*)\\|(\\d+|0x[0-9A-Fa-f]+)\\|(.+)\$);
+  my $sLineRegexLegacy1 = qq(^"(.+)"\\|(\\d+|0x[0-9A-Fa-f]+)\\|(.+)\$); # FTimes Releases < 3.5.0
+  my $sLineRegexLegacy2 = qq(^"(.+)"\\|(normal|nocase|regexp)\\|(\\d+|0x[0-9A-Fa-f]+)\\|(.+)\$); # FTimes Releases < 3.7.0
   my $sPrefixRegex  = qq(^\\d+\$);
   my $sSchemeRegex  = qq(^(file|hex|url)\$);
-  my $sHeaderRegex  = qq(^name\|(?:type\|)?offset\|string\$);
+  my $sHeaderRegex  = qq(^name\|(?:type\|)?(?:tag\|)?offset\|string\$);
 
   ####################################################################
   #
@@ -274,17 +275,25 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my ($sAdjOffset, $sDigFile, $sDigOffset, $sDigString, $sDigType, $sRawFile, $sRawLength);
+    my ($sAdjOffset, $sDigFile, $sDigOffset, $sDigString, $sDigTag, $sDigType, $sRawFile, $sRawLength);
 
     $sLine =~ s/[\r\n]+$//;
     if ($sLine =~ /$sLineRegex/)
     {
       $sDigFile = $1;
       $sDigType = $2;
+      $sDigTag = $3;
+      $sDigOffset = $4;
+      $sDigString = $5;
+    }
+    elsif ($sLine =~ /$sLineRegexLegacy2/) # FTimes Releases < 3.7.0
+    {
+      $sDigFile = $1;
+      $sDigType = $2;
       $sDigOffset = $3;
       $sDigString = $4;
     }
-    elsif ($sLine =~ /$sOldLineRegex/) # FTimes Releases < 3.5.0
+    elsif ($sLine =~ /$sLineRegexLegacy1/) # FTimes Releases < 3.5.0
     {
       $sDigFile = $1;
       $sDigOffset = $2;

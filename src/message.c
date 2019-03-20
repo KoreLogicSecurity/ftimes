@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: message.c,v 1.9 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: message.c,v 1.12 2006/05/04 00:53:31 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -18,7 +18,22 @@ static char           gacNewLine[NEWLINE_LENGTH] = CRLF;
 static char           gacNewLine[NEWLINE_LENGTH] = LF;
 #endif
 static FILE          *gpFile;
+static int            giAutoFlush = MESSAGE_AUTO_FLUSH_OFF;
 static int            giLevel = MESSAGE_DEBUGGER;
+
+/*-
+ ***********************************************************************
+ *
+ * MessageSetAutoFlush
+ *
+ ***********************************************************************
+ */
+void
+MessageSetAutoFlush(int iOnOff)
+{
+  giAutoFlush = (iOnOff == MESSAGE_AUTO_FLUSH_OFF) ? MESSAGE_AUTO_FLUSH_OFF : MESSAGE_AUTO_FLUSH_ON;
+}
+
 
 /*-
  ***********************************************************************
@@ -74,8 +89,8 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
 {
   static char         aacMessageQueue[MESSAGE_QUEUE_LENGTH][MESSAGE_SIZE];
   static int          n = 0;
-  int                 i;
-  int                 iLength;
+  int                 i = 0;
+  int                 iLength = 0;
 
   /*-
    *********************************************************************
@@ -87,9 +102,33 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
    *********************************************************************
    */
 
+  /*-
+   *********************************************************************
+   *
+   * If the specified level doesn't match or exceed the current global
+   * level, ignore the request.
+   *
+   *********************************************************************
+   */
   if (iLevel < giLevel)
   {
     return;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * The MessageHandler has the right to enforce a flush. This knob is
+   * typically activated when the output file (not stderr) is open and
+   * ready for writing. Once that happens, there's no longer a need to
+   * queue messages. Enabling auto flush helps to ensure that messages
+   * are written to disk as soon as they are generated.
+   *
+   *********************************************************************
+   */
+  if (giAutoFlush == MESSAGE_AUTO_FLUSH_ON)
+  {
+    iAction = MESSAGE_FLUSH_IT;
   }
 
   /*-
@@ -131,16 +170,15 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
           aacMessageQueue[i][0] = 0;
         }
         n = 0;
-
         if (gpFile != NULL && gpFile != stderr)
         {
           fflush(gpFile);
         }
-
         snprintf(aacMessageQueue[n], MESSAGE_SIZE, "%*.*s|%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage);
         aacMessageQueue[n][MESSAGE_SIZE - 1] = 0; /* Force termination. */
       }
       fprintf(stderr, "%*.*s|%s%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage, gacNewLine);
+      fflush(stderr);
       n++;
     }
     return;
@@ -207,6 +245,7 @@ MessageHandler(int iAction, int iLevel, char *pcCode, char *pcMessage)
       }
       aacMessageQueue[0][0] = 0;
       fprintf(stderr, "%*.*s|%s%s", MESSAGE_WIDTH, MESSAGE_WIDTH, pcCode, pcMessage, gacNewLine);
+      fflush(stderr);
     }
     else
     {

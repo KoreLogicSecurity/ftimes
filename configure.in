@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: configure.in,v 1.41 2006/04/16 04:16:36 mavrik Exp $
+# $Id: configure.in,v 1.43 2006/07/15 03:54:09 mavrik Exp $
 #
 ########################################################################
 
@@ -28,6 +28,7 @@ AC_SUBST(mandir)
 AC_SUBST(rundir)
 
 additional_testdirs=
+additional_ftimes_testdirs=
 ap_srcs=
 ap_incs=
 extension=
@@ -64,7 +65,7 @@ case "$target_os" in
   OS_CFLAGS="-DWINNT -DWIN32 -DMINGW32"
   LIBS="-lwsock32"
   AC_DEFINE(FTimes_MINGW32, 1, [Define to 1 if the target OS is MinGW32.])
-  additional_testdirs=common_windows_ads
+  additional_ftimes_testdirs=common_windows_ads
   extension=.exe
   ;;
 *solaris*)
@@ -83,6 +84,7 @@ case "$target_os" in
 esac
 
 AC_SUBST(additional_testdirs)
+AC_SUBST(additional_ftimes_testdirs)
 AC_SUBST(ap_srcs)
 AC_SUBST(ap_incs)
 AC_SUBST(extension)
@@ -512,6 +514,15 @@ if test $install_dig -ne 0; then
   AC_MSG_RESULT(yes)
   tool_subdirs="$tool_subdirs dig"
   tool_makefiles="$tool_makefiles tools/dig/Makefile"
+  additional_testdirs="$additional_testdirs ftimes-crv2raw"
+  test_makefiles="
+$test_makefiles
+tests/ftimes-crv2raw/Makefile
+tests/ftimes-crv2raw/common/Makefile
+tests/ftimes-crv2raw/common/carve/Makefile
+tests/ftimes-crv2raw/common/carve/test_1/Makefile
+"
+
 else
   AC_MSG_RESULT(no)
 fi
@@ -593,25 +604,27 @@ AC_CONFIG_FILES(
     etc/Makefile
     src/Makefile
     tests/Makefile
-    tests/common/Makefile
-    tests/common/compare/Makefile
-    tests/common/compare/test_1/Makefile
-    tests/common/compare/test_2/Makefile
-    tests/common/compare/test_3/Makefile
-    tests/common/decoder/Makefile
-    tests/common/decoder/test_1/Makefile
-    tests/common/dig/Makefile
-    tests/common/dig/test_1/Makefile
-    tests/common/dig/test_2/Makefile
-    tests/common/dig/test_3/Makefile
-    tests/common/map/Makefile
-    tests/common/map/test_1/Makefile
-    tests/common/map/test_2/Makefile
-    tests/common/map/test_3/Makefile
-    tests/common/map/test_4/Makefile
-    tests/common_windows_ads/Makefile
-    tests/common_windows_ads/map/Makefile
-    tests/common_windows_ads/map/test_1/Makefile
+    tests/ftimes/Makefile
+    tests/ftimes/common/Makefile
+    tests/ftimes/common/compare/Makefile
+    tests/ftimes/common/compare/test_1/Makefile
+    tests/ftimes/common/compare/test_2/Makefile
+    tests/ftimes/common/compare/test_3/Makefile
+    tests/ftimes/common/decoder/Makefile
+    tests/ftimes/common/decoder/test_1/Makefile
+    tests/ftimes/common/dig/Makefile
+    tests/ftimes/common/dig/test_1/Makefile
+    tests/ftimes/common/dig/test_2/Makefile
+    tests/ftimes/common/dig/test_3/Makefile
+    tests/ftimes/common/map/Makefile
+    tests/ftimes/common/map/test_1/Makefile
+    tests/ftimes/common/map/test_2/Makefile
+    tests/ftimes/common/map/test_3/Makefile
+    tests/ftimes/common/map/test_4/Makefile
+    tests/ftimes/common_windows_ads/Makefile
+    tests/ftimes/common_windows_ads/map/Makefile
+    tests/ftimes/common_windows_ads/map/test_1/Makefile
+    $test_makefiles
     $tool_makefiles
   ]
 )

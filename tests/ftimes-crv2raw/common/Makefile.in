@@ -1,0 +1,22 @@
+
+PROJECT_ROOT=../../..
+
+PROJECT_SRCDIR=@srcdir@
+
+PROJECT_TOPDIR=@top_srcdir@
+
+VPATH=@srcdir@
+
+INCLUDES_PREFIX=${PROJECT_ROOT}/Mk
+
+SUBDIRS=carve
+
+all:
+
+check clean clean-all setup test:
+	@cwd=`pwd`; for subdir in ${SUBDIRS}; do\
+		${SUBDIR_TRACE} && ${SUBDIR_MAKE} ;\
+	done
+
+include ${INCLUDES_PREFIX}/common.mk
+

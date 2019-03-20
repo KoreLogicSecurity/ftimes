@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.19 2006/04/07 22:15:10 mavrik Exp $
+# $Id: Makefile.in,v 1.20 2006/06/17 21:03:24 mavrik Exp $
 #
 ########################################################################
 #
@@ -79,7 +79,7 @@ INCS			=\
 			sys-includes.h\
 			${XMAGIC_INCS}
 LIBFLAGS		= ${LIBS} ${PCRE_LIBFLAGS} ${SSL_LIBFLAGS}
-LIBS			= @LIBS@
+LIBS			= -lm @LIBS@
 OBJS			= ${SRCS:.c=.o}
 SRCS			=\
 			analyze.c\

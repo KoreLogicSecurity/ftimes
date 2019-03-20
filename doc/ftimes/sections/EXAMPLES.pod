@@ -102,7 +102,7 @@ search all files in /disk1.
     DigStringNormal=/dev/ptyqa
     DigStringNormal=%da%be
     DigStringNoCase=%00A%00A%00A%00A
-    DigStringRegExp=\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}
+    DigStringRegExp=\d{4}-\d{2}-\d{2}\x20\d{2}:\d{2}:\d{2}
     DigStringRegExp=(?m)(?:^|\t)(192\.168\.1\.\d{1,3})(?=\t|$)
     Include=/disk1
     --- example2.cfg ---
@@ -117,7 +117,9 @@ B<DigStringRegExp> patterns, however, you must specify no more than
 one capturing '()' subpattern.  You can use '(?:)' if you require
 additional parentheses for grouping purposes.  If you do not specify
 a capturing subpattern, then the entire match will be captured.  In
-this particular case, only the IP address will be captured.
+this particular case, only the IP address will be captured. Also note
+the use of '\x20' to represent a single space. This translation
+necessary because dig strings may not contain embedded white space.
 
 At this point B<FTimes> may be run as follows:
 
@@ -132,16 +134,21 @@ The output, if any, can be piped into other tools that take their
 input on stdin.
 
     --- strings.cfg ---
-    DigStringNormal=This+box+is+0wn3d
-    DigStringNormal=3l33t
-    DigStringNormal=175.20.1.7
+    DigStringNormal=This+box+is+0wn3d    attack_program
+    DigStringNormal=3l33t                attack_program
+    DigStringNormal=175.20.1.7           attack_ip
     DigStringNormal=hacklist@foo.bar.com
     --- strings.cfg ---
 
     ftimes --digauto strings.cfg example2.image | some-other-tool
 
-Just remember that dig strings must be URL encoded. That's why
-the spaces in the first string have been replaced with '+'.
+Just remember that dig strings must be URL encoded with no embedded
+white space. That's why the spaces in the first string have been
+replaced with '+'.  Also, note that first three dig strings are
+tagged.  In other words, each string has been assigned a value that
+gives it a special meaning or identity.  Because the tag for first two
+dig strings is the same, it can be used to classify both strings as
+belonging to the same group.
 
 =head2 Example 3. Change analysis
 

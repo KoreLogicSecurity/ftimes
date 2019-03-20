@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.21 2006/04/16 19:02:06 mavrik Exp $
+# $Id: Makefile.vs,v 1.22 2006/06/18 03:34:47 mavrik Exp $
 #
 ########################################################################
 #
@@ -40,9 +40,9 @@ SSL_DLL1		= $(SSL_DIR)\bin\libeay32.dll
 SSL_DLL2		= $(SSL_DIR)\bin\ssleay32.dll
 SSL_COMPILER_FLAGS	= /D USE_SSL /I"$(SSL_INC_DIR)"
 !IF "$(USE_STATIC_SSL_LIBS)" == "Y" || "$(USE_STATIC_SSL_LIBS)" == "y"
-SSL_LINKER_FLAGS	= /libpath:"$(SSL_LIB_DIR)" libeay32.lib ssleay32.lib gdi32.lib
+SSL_LINKER_FLAGS	= /libpath:"$(SSL_LIB_DIR)" user32.lib advapi32.lib libeay32.lib ssleay32.lib gdi32.lib
 !ELSE
-SSL_LINKER_FLAGS	= /libpath:"$(SSL_LIB_DIR)" libeay32.lib ssleay32.lib
+SSL_LINKER_FLAGS	= /libpath:"$(SSL_LIB_DIR)" user32.lib advapi32.lib libeay32.lib ssleay32.lib
 !ENDIF
 !ENDIF
 

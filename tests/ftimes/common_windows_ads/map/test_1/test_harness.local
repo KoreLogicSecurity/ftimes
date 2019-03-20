@@ -1,0 +1,343 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2006/07/14 01:09:48 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "1";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "ads_fwasn",
+    2 => "ads_dwasn",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'ads_fwasn' => "tests files with ASCII stream names",
+    'ads_dwasn' => "tests directories with ASCII stream names",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+    'StreamCounts' => [0..3],
+  );
+
+
+######################################################################
+#
+# TestGroup_ads_fwasn
+#
+######################################################################
+
+sub Hitch_ads_fwasn
+{
+}
+
+sub Check_ads_fwasn
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+  my $phTestProperties = GetTestProperties();
+
+  my $sOriginalFile = $sFile;
+  my $sOriginalName = $sName;
+
+  foreach my $sStreamCount (@{$$phTestProperties{'StreamCounts'}})
+  {
+    my $sFile = sprintf("%s_%d", $sOriginalFile, $sStreamCount);
+    my $sName = sprintf("%s_%d", $sOriginalName, $sStreamCount);
+
+    if (!CreateConfig("_config", { 'FieldMask' => "none+altstreams", BlockSize => "default" }))
+    {
+      return "fail";
+    }
+
+    my $sCommand = "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile 2>&1";
+
+    DebugPrint(3, "Command=$sCommand");
+
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    my $sTargetLineCount = 2 + $sStreamCount;
+    my $sActualLineCount = scalar(@aLines);
+    DebugPrint(4, "TargetLineCount=$sTargetLineCount");
+    DebugPrint(4, "ActualLineCount=$sActualLineCount");
+    if (scalar(@aLines) < $sTargetLineCount)
+    {
+      return "fail";
+    }
+    for (my $i = 0; $i < scalar(@aLines); $i++)
+    {
+      $aLines[$i] =~ s/[\r\n]*$//;
+    }
+
+    my $sTargetOutputRegExp = qq([\\/\\\\]$sName"\\|(\\d+)\$);
+    DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+    DebugPrint(4, "ActualOutput=$aLines[1]");
+    if ($aLines[1] !~ /$sTargetOutputRegExp/)
+    {
+      return "fail";
+    }
+    my $sActualStreamCount = $1;
+
+    my $sTargetStreamCount = $sStreamCount;
+    DebugPrint(4, "TargetStreamCount=$sTargetStreamCount");
+    DebugPrint(4, "ActualStreamCount=$sActualStreamCount");
+    if ($sActualStreamCount ne $sStreamCount)
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_ads_fwasn
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sOriginalFile = $sFile;
+
+  foreach my $sStreamCount (@{$$phTestProperties{'StreamCounts'}})
+  {
+    my $sFile = sprintf("%s_%d", $sOriginalFile, $sStreamCount);
+    if (-f $sFile && !unlink($sFile))
+    {
+      return "fail";
+    }
+=pod # This is for testing the test_harness code in UNIX environments.
+    for (my $i = 0; $i < $sStreamCount; $i++)
+    {
+      my $sStream = sprintf("%s:s_%d", $sFile, $i + 1);
+      if (-f $sStream && !unlink($sStream))
+      {
+        return "fail";
+      }
+    }
+=cut
+  }
+
+  return "pass";
+}
+
+
+sub Setup_ads_fwasn
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sOriginalFile = $sFile;
+
+  foreach my $sStreamCount (@{$$phTestProperties{'StreamCounts'}})
+  {
+    my $sFile = sprintf("%s_%d", $sOriginalFile, $sStreamCount);
+    if (!defined(FillFile($sFile, "", 1)))
+    {
+      return "fail";
+    }
+    for (my $i = 0; $i < $sStreamCount; $i++)
+    {
+      my $sStream = sprintf("%s:s_%d", $sFile, $i + 1);
+      if (!defined(FillFile($sStream, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 1)))
+      {
+        return "fail";
+      }
+    }
+  }
+
+  return "pass";
+}
+
+
+######################################################################
+#
+# TestGroup_ads_dwasn
+#
+######################################################################
+
+sub Hitch_ads_dwasn
+{
+}
+
+sub Check_ads_dwasn
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $phTestTargetValues = GetTestTargetValues();
+  my $phTestProperties = GetTestProperties();
+
+  my $sOriginalFile = $sFile;
+  my $sOriginalName = $sName;
+
+  foreach my $sStreamCount (@{$$phTestProperties{'StreamCounts'}})
+  {
+    my $sFile = sprintf("%s_%d", $sOriginalFile, $sStreamCount);
+    my $sName = sprintf("%s_%d", $sOriginalName, $sStreamCount);
+
+    if (!CreateConfig("_config", { 'FieldMask' => "none+altstreams", BlockSize => "default" }))
+    {
+      return "fail";
+    }
+
+    my $sCommand = "$$phProperties{'TargetProgram'} --maplean _config -l 6 $sFile 2>&1";
+
+    DebugPrint(3, "Command=$sCommand");
+
+    if (!open(PH, "$sCommand |"))
+    {
+      return "fail";
+    }
+    binmode(PH);
+    my @aLines = <PH>;
+    close(PH);
+
+    my $sTargetLineCount = 2 + $sStreamCount;
+    my $sActualLineCount = scalar(@aLines);
+    DebugPrint(4, "TargetLineCount=$sTargetLineCount");
+    DebugPrint(4, "ActualLineCount=$sActualLineCount");
+    if (scalar(@aLines) < $sTargetLineCount)
+    {
+      return "fail";
+    }
+    for (my $i = 0; $i < scalar(@aLines); $i++)
+    {
+      $aLines[$i] =~ s/[\r\n]*$//;
+    }
+
+    my $sTargetOutputRegExp = qq([\\/\\\\]$sName"\\|(\\d+)\$);
+    DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
+    DebugPrint(4, "ActualOutput=$aLines[1]");
+    if ($aLines[1] !~ /$sTargetOutputRegExp/)
+    {
+      return "fail";
+    }
+    my $sActualStreamCount = $1;
+
+    my $sTargetStreamCount = $sStreamCount;
+    DebugPrint(4, "TargetStreamCount=$sTargetStreamCount");
+    DebugPrint(4, "ActualStreamCount=$sActualStreamCount");
+    if ($sActualStreamCount ne $sStreamCount)
+    {
+      return "fail";
+    }
+  }
+
+  return "pass";
+}
+
+
+sub Clean_ads_dwasn
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sOriginalFile = $sFile;
+
+  foreach my $sStreamCount (@{$$phTestProperties{'StreamCounts'}})
+  {
+    my $sFile = sprintf("%s_%d", $sOriginalFile, $sStreamCount);
+    if (-d $sFile && !rmdir($sFile))
+    {
+      return "fail";
+    }
+=pod # This is for testing the test_harness code in UNIX environments.
+    for (my $i = 0; $i < $sStreamCount; $i++)
+    {
+      my $sStream = sprintf("%s:s_%d", $sFile, $i + 1);
+      if (-f $sStream && !unlink($sStream))
+      {
+        return "fail";
+      }
+    }
+=cut
+  }
+
+  return "pass";
+}
+
+
+sub Setup_ads_dwasn
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName) = MakeTestName($phProperties);
+
+  my $sOriginalFile = $sFile;
+
+  foreach my $sStreamCount (@{$$phTestProperties{'StreamCounts'}})
+  {
+    my $sFile = sprintf("%s_%d", $sOriginalFile, $sStreamCount);
+    if (!mkdir($sFile, 0755))
+    {
+      return "fail";
+    }
+    for (my $i = 0; $i < $sStreamCount; $i++)
+    {
+      my $sStream = sprintf("%s:s_%d", $sFile, $i + 1);
+      if (!defined(FillFile($sStream, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 1)))
+      {
+        return "fail";
+      }
+    }
+  }
+
+  return "pass";
+}
+
+1;

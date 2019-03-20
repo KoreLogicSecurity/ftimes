@@ -1,0 +1,72 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2006/07/15 03:54:10 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "1";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "carve_1i_rl",
+    2 => "carve_2i_rl",
+    3 => "carve_3i_rl",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'carve_1i_rl' => "tests carver using 1-item range lists and a variable unit size",
+    'carve_2i_rl' => "tests carver using 2-item range lists and a variable unit size",
+    'carve_3i_rl' => "tests carver using 3-item range lists and a variable unit size",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  # Note: These range lists have been arranged such that the lower range is always [0-3].
+  #       This limits the number of _config_<unit_size>_<offset> files that are generated.
+  %$phTestProperties =
+  (
+    '1Item_RangeLists' => ["0", "0-0", "1", "1-1", "2", "2-2", "3", "3-3"],
+    '2Item_RangeLists' => ["0-1,2-3", "1-2,4-5", "2-3,0-1", "3-4,1-2"],
+    '3Item_RangeLists' => ["0-1,2-3,4-5", "1-2,4-5,8-9", "2-3,0-1,6-7", "3-4,1-2,9"],
+    'UnitSizes' => [1, 512, 1024],
+  );
+
+1;

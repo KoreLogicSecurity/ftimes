@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness,v 1.8 2006/04/16 14:48:12 mavrik Exp $
+# $Id: test_harness,v 1.10 2006/07/14 00:30:36 mavrik Exp $
 #
 ######################################################################
 #
@@ -91,7 +91,7 @@ BEGIN
 
   my (%hOptions);
 
-  if (!getopts("d:m:p:s:w:", \%hOptions))
+  if (!getopts("d:m:p:s:t:w:", \%hOptions))
   {
     Usage($$phProperties{'Program'});
   }
@@ -160,6 +160,20 @@ BEGIN
 
   ####################################################################
   #
+  # HarnessType, '-t', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'HarnessType'} = (exists($hOptions{'t'})) ? $hOptions{'t'} : "4";
+
+  if ($$phProperties{'HarnessType'} !~ /^[34]$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid harness type ($$$phProperties{'HarnessType'}). Type must be 3 or 4.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
   # WorkDir, '-w', is optional.
   #
   ####################################################################
@@ -199,7 +213,11 @@ BEGIN
 
   require $$phProperties{'SrcDir'} . "/" . $$phProperties{'HarnessFile'};
 
-  foreach my $sDir ("..", "../..", "../../..")
+  my @aDirs = ("..", "../..", "../../..");
+
+  push(@aDirs, "../../../..") if ($$phProperties{'HarnessType'} == 4);
+
+  foreach my $sDir (@aDirs)
   {
     my $sHarnessFile = $$phProperties{'SrcDir'} . "/" . $sDir . "/" . $$phProperties{'HarnessFile'};
 
@@ -423,7 +441,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-d debug-level] [-s src-dir] [-w work-dir] -m {check|clean|setup} -p target-program\n";
+  print STDERR "Usage: $sProgram [-d debug-level] [-s src-dir] [-t {3|4}] [-w work-dir] -m {check|clean|setup} -p target-program\n";
   print STDERR "\n";
   exit(1);
 }

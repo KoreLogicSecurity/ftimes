@@ -1,0 +1,114 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# CreateConfig
+#
+######################################################################
+
+sub CreateConfig
+{
+  my ($sFile, $phProperties) = @_;
+
+  if (!defined($sFile))
+  {
+    return undef;
+  }
+
+  my $sAnalyzeBlockSize = "";
+  my $sAnalyzeCarrySize = "";
+  my $sCompress = "";
+  my $sDigString = "";
+  my $sFieldMask = "";
+
+  if (defined($$phProperties{'BlockSize'}) && $$phProperties{'BlockSize'} ne "default")
+  {
+    $sAnalyzeBlockSize = "AnalyzeBlockSize=$$phProperties{'BlockSize'}";
+  }
+  if (defined($$phProperties{'CarrySize'}) && $$phProperties{'CarrySize'} ne "default")
+  {
+    $sAnalyzeCarrySize = "AnalyzeCarrySize=$$phProperties{'CarrySize'}";
+  }
+  if (defined($$phProperties{'Compress'}) && $$phProperties{'Compress'} =~ /^[Yy]$/)
+  {
+    $sCompress = "Compress=Y";
+  }
+  if (defined($$phProperties{'DigString'}))
+  {
+    $sDigString = "$$phProperties{'DigString'}";
+  }
+  if (defined($$phProperties{'FieldMask'}))
+  {
+    $sFieldMask = "FieldMask=$$phProperties{'FieldMask'}";
+  }
+
+  if (!open(CH, "> $sFile"))
+  {
+    return undef;
+  }
+
+  print CH <<EOF;
+# Common Properties
+AnalyzeRemoteFiles=Y
+Basename=-
+# Test-specific Properties
+$sAnalyzeBlockSize
+$sAnalyzeCarrySize
+$sCompress
+$sDigString
+$sFieldMask
+EOF
+
+  close(CH);
+}
+
+
+######################################################################
+#
+# GetToolName
+#
+######################################################################
+
+sub GetToolName
+{
+  return "ftimes";
+}
+
+
+######################################################################
+#
+# GetToolVersion
+#
+######################################################################
+
+sub GetToolVersion
+{
+  my ($phProperties) = @_;
+
+  my $sVersion;
+
+  if (!open(PH, "$$phProperties{'TargetProgram'} --version |"))
+  {
+    return undef;
+  }
+  while (my $sLine = <PH>)
+  {
+    $sLine =~ s/[\r\n]*$//;
+    if ($sLine =~ /^(ftimes \d+\.\d+\.\d+ .* ?(?:32|64)[ -]bit)$/)
+    {
+      $sVersion = $1;
+    }
+  }
+  close(PH);
+
+  return $sVersion;
+}
+
+1;

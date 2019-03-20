@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: xmagic.c,v 1.31 2006/04/16 05:08:07 mavrik Exp $
+ * $Id: xmagic.c,v 1.50 2006/07/17 05:40:52 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -23,7 +23,336 @@
 
 int                 giSystemByteOrder = -1;
 K_UINT08            gaui08ByteOrderMagic[4] = {0x01, 0x02, 0x03, 0x04};
-XMAGIC             *gpsXMagicTree;
+
+/*-
+ ***********************************************************************
+ *
+ * XMagicComputePercentage
+ *
+ ***********************************************************************
+ */
+double
+XMagicComputePercentage(unsigned char *pucBuffer, int iLength, int iType)
+{
+  double              dSum = 0.0;
+  double              dTotal = 0.0;
+  int                 aiCodeCounts[XMAGIC_PERCENT_1BYTE_CODES];
+  int                 i = 0;
+  int               (*piRoutine)();
+
+  /*-
+   *********************************************************************
+   *
+   * Clear the code counts array.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < XMAGIC_PERCENT_1BYTE_CODES; i++)
+  {
+    aiCodeCounts[i] = 0;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Tally up the the code counts.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < iLength; i++)
+  {
+    aiCodeCounts[pucBuffer[i]]++;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Compute the percentage.
+   *
+   *********************************************************************
+   */
+  switch (iType)
+  {
+  case XMAGIC_PERCENT_CTYPE_ALNUM:
+    piRoutine = isalnum;
+    break;
+  case XMAGIC_PERCENT_CTYPE_ALPHA:
+    piRoutine = isalpha;
+    break;
+  case XMAGIC_PERCENT_CTYPE_ASCII:
+    piRoutine = isascii;
+    break;
+  case XMAGIC_PERCENT_CTYPE_CNTRL:
+    piRoutine = iscntrl;
+    break;
+  case XMAGIC_PERCENT_CTYPE_DIGIT:
+    piRoutine = isdigit;
+    break;
+  case XMAGIC_PERCENT_CTYPE_LOWER:
+    piRoutine = islower;
+    break;
+  case XMAGIC_PERCENT_CTYPE_PRINT:
+    piRoutine = isprint;
+    break;
+  case XMAGIC_PERCENT_CTYPE_PUNCT:
+    piRoutine = ispunct;
+    break;
+  case XMAGIC_PERCENT_CTYPE_SPACE:
+    piRoutine = isspace;
+    break;
+  case XMAGIC_PERCENT_CTYPE_UPPER:
+    piRoutine = isupper;
+    break;
+  default:
+    return 0.0;
+    break;
+  }
+
+  for (i = 0; i < XMAGIC_PERCENT_1BYTE_CODES; i++)
+  {
+    dTotal += (double) aiCodeCounts[i];
+    if (piRoutine(i))
+    {
+      dSum += (double) aiCodeCounts[i];
+    }
+  }
+
+
+  return (dTotal == 0) ? 0.0 : dSum / dTotal * 100.0;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * XMagicComputeRowAverage1
+ *
+ ***********************************************************************
+ */
+double
+XMagicComputeRowAverage1(unsigned char *pucBuffer, int iLength)
+{
+  int                 aiCodeCounts[XMAGIC_ROW_AVERAGE_1_CODES];
+  int                 i = 0;
+  double              dAverage = 0.0;
+  double              dSum = 0.0;
+
+  /*-
+   *********************************************************************
+   *
+   * Clear the code counts array.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < XMAGIC_ROW_AVERAGE_1_CODES; i++)
+  {
+    aiCodeCounts[i] = 0;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Tally up the the code counts.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < iLength; i++)
+  {
+    aiCodeCounts[pucBuffer[i]]++;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Compute the average.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < XMAGIC_ROW_AVERAGE_1_CODES; i++)
+  {
+    dSum += (double) (i * aiCodeCounts[i]);
+  }
+  dAverage = dSum / iLength;
+
+  return dAverage;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * XMagicComputeRowAverage2
+ *
+ ***********************************************************************
+ */
+double
+XMagicComputeRowAverage2(unsigned char *pucBuffer, int iLength)
+{
+  int                 aiCodeCounts[XMAGIC_ROW_AVERAGE_2_CODES];
+  int                 i = 0;
+  double              dAverage = 0.0;
+  double              dSum = 0.0;
+
+  /*-
+   *********************************************************************
+   *
+   * Clear the code counts array.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < XMAGIC_ROW_AVERAGE_2_CODES; i++)
+  {
+    aiCodeCounts[i] = 0;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Tally up the the code counts.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < iLength - 1; i++)
+  {
+    aiCodeCounts[(pucBuffer[i] << 8) | pucBuffer[i + 1]]++;
+  }
+  aiCodeCounts[(pucBuffer[i] << 8) | pucBuffer[0]]++;
+
+  /*-
+   *********************************************************************
+   *
+   * Compute the average.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < XMAGIC_ROW_AVERAGE_2_CODES; i++)
+  {
+    dSum += (double) (i * aiCodeCounts[i]);
+  }
+  dAverage = dSum / iLength;
+
+  return dAverage;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * XMagicComputeRowEntropy1
+ *
+ ***********************************************************************
+ */
+double
+XMagicComputeRowEntropy1(unsigned char *pucBuffer, int iLength)
+{
+  int                 aiCodeCounts[XMAGIC_ROW_ENTROPY_1_CODES];
+  int                 i = 0;
+  double              dEntropy = 0.0;
+  double              dProbability = 0.0;
+
+  /*-
+   *********************************************************************
+   *
+   * Clear the code counts array.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < XMAGIC_ROW_ENTROPY_1_CODES; i++)
+  {
+    aiCodeCounts[i] = 0;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Tally up the the code counts.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < iLength; i++)
+  {
+    aiCodeCounts[pucBuffer[i]]++;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Compute the entropy.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < XMAGIC_ROW_ENTROPY_1_CODES; i++)
+  {
+    if (aiCodeCounts[i] > 0)
+    {
+      dProbability = (double) aiCodeCounts[i] / iLength;
+      dEntropy -= dProbability * 3.32192809488736234787 * log10(dProbability);
+    }
+  }
+
+  return dEntropy;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * XMagicComputeRowEntropy2
+ *
+ ***********************************************************************
+ */
+double
+XMagicComputeRowEntropy2(unsigned char *pucBuffer, int iLength)
+{
+  int                 aiCodeCounts[XMAGIC_ROW_ENTROPY_2_CODES];
+  int                 i = 0;
+  double              dEntropy = 0.0;
+  double              dProbability = 0.0;
+
+  /*-
+   *********************************************************************
+   *
+   * Clear the code counts array.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < XMAGIC_ROW_ENTROPY_2_CODES; i++)
+  {
+    aiCodeCounts[i] = 0;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Tally up the the code counts.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < iLength - 1; i++)
+  {
+    aiCodeCounts[(pucBuffer[i] << 8) | pucBuffer[i + 1]]++;
+  }
+  aiCodeCounts[(pucBuffer[i] << 8) | pucBuffer[0]]++;
+
+  /*-
+   *********************************************************************
+   *
+   * Compute the entropy.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < XMAGIC_ROW_ENTROPY_2_CODES; i++)
+  {
+    if (aiCodeCounts[i] > 0)
+    {
+      dProbability = (double) aiCodeCounts[i] / iLength;
+      dEntropy -= dProbability * 3.32192809488736234787 * log10(dProbability);
+    }
+  }
+
+  return dEntropy;
+}
+
 
 /*-
  ***********************************************************************
@@ -211,6 +540,30 @@ XMagicFormatDescription(void *pvValue, XMAGIC *psXMagic, char *pcDescription)
       free(pcNeutered);
     }
   }
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_MD5 ||
+    psXMagic->ui32Type == XMAGIC_SHA1
+  )
+  {
+    n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, psXMagic->pcHash);
+  }
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALNUM ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALPHA ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ASCII ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_CNTRL ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_DIGIT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_LOWER ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PRINT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PUNCT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_SPACE ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_UPPER
+  )
+  {
+    n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, psXMagic->dPercent);
+  }
 #ifdef USE_PCRE
   else if (psXMagic->ui32Type == XMAGIC_REGEXP)
   {
@@ -250,6 +603,22 @@ XMagicFormatDescription(void *pvValue, XMAGIC *psXMagic, char *pcDescription)
     }
   }
 #endif
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_1 ||
+    psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_2
+  )
+  {
+    n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, psXMagic->dAverage);
+  }
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_1 ||
+    psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_2
+  )
+  {
+    n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, psXMagic->dEntropy);
+  }
   else if (psXMagic->ui32Type == XMAGIC_DATE || psXMagic->ui32Type == XMAGIC_LEDATE || psXMagic->ui32Type == XMAGIC_BEDATE)
   {
     for (i = 0, pc = ctime((time_t *) pvValue); *pc; pc++)
@@ -286,6 +655,10 @@ XMagicFreeXMagic(XMAGIC *psXMagic)
 {
   if (psXMagic != NULL)
   {
+    if (psXMagic->pcHash != NULL)
+    {
+      free(psXMagic->pcHash);
+    }
     if (psXMagic->psPcre != NULL)
     {
       free(psXMagic->psPcre);
@@ -374,10 +747,20 @@ XMagicGetOffset(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
 
   pc = pcS;
 
-  while (*pc == '>')
+  while (*pc == '>' || *pc == '<')
   {
+    if (*pc == '<')
+    {
+      psXMagic->ui32FallbackCount++;
+    }
     psXMagic->ui32Level++;
     pc++;
+  }
+
+  if (psXMagic->ui32FallbackCount && psXMagic->ui32FallbackCount != psXMagic->ui32Level)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: FallbackCount = [%d] != [%d]: FallbackCount mismatch! Either use all '>'s or al '<'s for the test level.", acRoutine, psXMagic->ui32FallbackCount, psXMagic->ui32Level);
+    return ER_BadValue;
   }
 
   if (psXMagic->ui32Level > XMAGIC_MAX_LEVEL)
@@ -538,9 +921,13 @@ XMagicGetTestOperator(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
     {
       psXMagic->iOperator = XMAGIC_OP_LT;
     }
-    else if (strcasecmp(pcS, "=") == 0)
+    else if (strcasecmp(pcS, "==") == 0 || strcasecmp(pcS, "=") == 0) /* NOTE: The '=' operator is being phased out. */
     {
       psXMagic->iOperator = XMAGIC_OP_EQ;
+    }
+    else if (strcasecmp(pcS, "!=") == 0 || strcasecmp(pcS, "!") == 0) /* NOTE: The '!' operator is being phased out. */
+    {
+      psXMagic->iOperator = XMAGIC_OP_NE;
     }
     else if (strcasecmp(pcS, ">") == 0)
     {
@@ -553,6 +940,30 @@ XMagicGetTestOperator(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
     else
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: invalid string operator = [%s]", acRoutine, pcS);
+      return ER_BadMagicOperator;
+    }
+  }
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_MD5 ||
+    psXMagic->ui32Type == XMAGIC_SHA1
+  )
+  {
+    if (strcasecmp(pcS, "==") == 0 || strcasecmp(pcS, "=") == 0) /* NOTE: The '=' operator is being phased out. */
+    {
+      psXMagic->iOperator = XMAGIC_OP_EQ;
+    }
+    else if (strcasecmp(pcS, "!=") == 0 || strcasecmp(pcS, "!") == 0) /* NOTE: The '!' operator is being phased out. */
+    {
+      psXMagic->iOperator = XMAGIC_OP_NE;
+    }
+    else if (strcasecmp(pcS, "x") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_NOOP;
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: invalid hash operator = [%s]", acRoutine, pcS);
       return ER_BadMagicOperator;
     }
   }
@@ -574,6 +985,90 @@ XMagicGetTestOperator(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
     }
   }
 #endif
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALNUM ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALPHA ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ASCII ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_CNTRL ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_DIGIT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_LOWER ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PRINT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PUNCT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_SPACE ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_UPPER ||
+    psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_1 ||
+    psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_2 ||
+    psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_1 ||
+    psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_2
+  )
+  {
+    if (strcasecmp(pcS, "<") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_LT;
+    }
+    else if (strcasecmp(pcS, "<=") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_LE;
+    }
+    else if (strcasecmp(pcS, "==") == 0 || strcasecmp(pcS, "=") == 0) /* NOTE: The '=' operator is being phased out. */
+    {
+      psXMagic->iOperator = XMAGIC_OP_EQ;
+    }
+    else if (strcasecmp(pcS, "!=") == 0 || strcasecmp(pcS, "!") == 0) /* NOTE: The '!' operator is being phased out. */
+    {
+      psXMagic->iOperator = XMAGIC_OP_NE;
+    }
+    else if (strcasecmp(pcS, ">") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_GT;
+    }
+    else if (strcasecmp(pcS, ">=") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_GE;
+    }
+    else if (strcasecmp(pcS, "[]") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_GE_AND_LE;
+    }
+    else if (strcasecmp(pcS, "[)") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_GE_AND_LT;
+    }
+    else if (strcasecmp(pcS, "(]") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_GT_AND_LE;
+    }
+    else if (strcasecmp(pcS, "()") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_GT_AND_LT;
+    }
+    else if (strcasecmp(pcS, "][") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_LE_OR_GE;
+    }
+    else if (strcasecmp(pcS, "](") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_LE_OR_GT;
+    }
+    else if (strcasecmp(pcS, ")[") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_LT_OR_GE;
+    }
+    else if (strcasecmp(pcS, ")(") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_LT_OR_GT;
+    }
+    else if (strcasecmp(pcS, "x") == 0)
+    {
+      psXMagic->iOperator = XMAGIC_OP_NOOP;
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: invalid entropy/average/percent operator = [%s]", acRoutine, pcS);
+      return ER_BadMagicOperator;
+    }
+  }
   else
   {
     if (strcasecmp(pcS, "<") == 0)
@@ -588,7 +1083,7 @@ XMagicGetTestOperator(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
     {
       psXMagic->iOperator = XMAGIC_OP_NE;
     }
-    else if (strcasecmp(pcS, "=") == 0)
+    else if (strcasecmp(pcS, "==") == 0 || strcasecmp(pcS, "=") == 0) /* NOTE: The '=' operator is being phased out. */
     {
       psXMagic->iOperator = XMAGIC_OP_EQ;
     }
@@ -635,8 +1130,12 @@ XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
   const char          acRoutine[] = "XMagicGetTestValue()";
   char                acString[4 * XMAGIC_STRING_BUFSIZE];
   char               *pcEnd;
+  char               *pcTmp;
+  char               *pcTmpE;
+  char               *pcTmpS;
   int                 i;
   int                 iConverted;
+  int                 iLength;
 
   if (psXMagic->iOperator == XMAGIC_OP_NOOP)
   {
@@ -737,6 +1236,20 @@ XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
     memcpy(psXMagic->sValue.ui08String, acString, i);
 
   }
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_MD5 ||
+    psXMagic->ui32Type == XMAGIC_SHA1
+  )
+  {
+    psXMagic->iStringLength = strlen(pcS);
+    if (psXMagic->iStringLength > XMAGIC_STRING_BUFSIZE - 1)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: hash length > %d", acRoutine, XMAGIC_STRING_BUFSIZE - 1);
+      return ER;
+    }
+    strncpy(psXMagic->sValue.ui08String, pcS, psXMagic->iStringLength + 1);
+  }
 #ifdef USE_PCRE
   else if (psXMagic->ui32Type == XMAGIC_REGEXP)
   {
@@ -797,6 +1310,79 @@ XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
     }
   }
 #endif
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALNUM ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALPHA ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ASCII ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_CNTRL ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_DIGIT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_LOWER ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PRINT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PUNCT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_SPACE ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_UPPER ||
+    psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_1 ||
+    psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_2 ||
+    psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_1 ||
+    psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_2
+  )
+  {
+    switch (psXMagic->iOperator)
+    {
+    case XMAGIC_OP_GE_AND_LE:
+    case XMAGIC_OP_GE_AND_LT:
+    case XMAGIC_OP_GT_AND_LE:
+    case XMAGIC_OP_GT_AND_LT:
+    case XMAGIC_OP_LE_OR_GE:
+    case XMAGIC_OP_LE_OR_GT:
+    case XMAGIC_OP_LT_OR_GE:
+    case XMAGIC_OP_LT_OR_GT:
+      iLength = pcE - pcS;
+      pcTmp = calloc(iLength + 1, 1);
+      if (pcTmp == NULL)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+        return ER;
+      }
+      strncpy(pcTmp, pcS, iLength + 1);
+      pcTmpS = strstr(pcTmp, ",");
+      if (pcTmpS == NULL)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: missing lower/upper test value delimiter", acRoutine);
+        free(pcTmp);
+        return ER;
+      }
+      *pcTmpS++ = 0;
+      pcTmpE = pcTmp + iLength;
+      psXMagic->sValue.dUpperNumber = strtod(pcTmpS, &pcEnd);
+      if (pcEnd != pcTmpE || errno == ERANGE)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: failed to convert upper test value = [%s]", acRoutine, pcTmpS);
+        free(pcTmp);
+        return ER;
+      }
+      pcTmpE = pcTmpS - 1;
+      pcTmpS = pcTmp;
+      psXMagic->sValue.dLowerNumber = strtod(pcTmpS, &pcEnd);
+      if (pcEnd != pcTmpE || errno == ERANGE)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: failed to convert lower test value = [%s]", acRoutine, pcTmpS);
+        free(pcTmp);
+        return ER;
+      }
+      free(pcTmp);
+      break;
+    default:
+      psXMagic->sValue.dNumber = strtod(pcS, NULL);
+      if (errno == ERANGE)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: failed to convert test value = [%s]", acRoutine, pcS);
+        return ER;
+      }
+      break;
+    }
+  }
   else
   {
     psXMagic->sValue.ui32Number = strtoul(pcS, &pcEnd, 0);
@@ -851,7 +1437,6 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
     pcTmp--;
   }
 
-#ifdef USE_PCRE
   /*-
    *********************************************************************
    *
@@ -871,6 +1456,11 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
         snprintf(pcError, MESSAGE_SIZE, "%s: failed to convert type size = [%s]", acRoutine, (pcTmp + 1));
         return ER_BadValue;
       }
+      if (psXMagic->ui32Size <= 0)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: type size must be greater than zero", acRoutine);
+        return ER_BadValue;
+      }
       pcE = pcTmp;
       *pcE = 0; /* overwrite ':' with 0 */
       psXMagic->ui32Flags |= XMAGIC_HAVE_SIZE;
@@ -878,7 +1468,6 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
     }
     pcTmp--;
   }
-#endif
 
   /*-
    *********************************************************************
@@ -907,12 +1496,76 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
   {
     psXMagic->ui32Type = XMAGIC_STRING;
   }
+  else if (strcasecmp(pcS, "md5") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_MD5;
+  }
 #ifdef USE_PCRE
   else if (strcasecmp(pcS, "regexp") == 0)
   {
     psXMagic->ui32Type = XMAGIC_REGEXP;
   }
 #endif
+  else if (strcasecmp(pcS, "percent_ctype_alnum") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_PERCENT_CTYPE_ALNUM;
+  }
+  else if (strcasecmp(pcS, "percent_ctype_alpha") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_PERCENT_CTYPE_ALPHA;
+  }
+  else if (strcasecmp(pcS, "percent_ctype_ascii") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_PERCENT_CTYPE_ASCII;
+  }
+  else if (strcasecmp(pcS, "percent_ctype_cntrl") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_PERCENT_CTYPE_CNTRL;
+  }
+  else if (strcasecmp(pcS, "percent_ctype_digit") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_PERCENT_CTYPE_DIGIT;
+  }
+  else if (strcasecmp(pcS, "percent_ctype_lower") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_PERCENT_CTYPE_LOWER;
+  }
+  else if (strcasecmp(pcS, "percent_ctype_print") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_PERCENT_CTYPE_PRINT;
+  }
+  else if (strcasecmp(pcS, "percent_ctype_punct") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_PERCENT_CTYPE_PUNCT;
+  }
+  else if (strcasecmp(pcS, "percent_ctype_space") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_PERCENT_CTYPE_SPACE;
+  }
+  else if (strcasecmp(pcS, "percent_ctype_upper") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_PERCENT_CTYPE_UPPER;
+  }
+  else if (strcasecmp(pcS, "row_average_1") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_ROW_AVERAGE_1;
+  }
+  else if (strcasecmp(pcS, "row_average_2") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_ROW_AVERAGE_2;
+  }
+  else if (strcasecmp(pcS, "row_entropy_1") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_ROW_ENTROPY_1;
+  }
+  else if (strcasecmp(pcS, "row_entropy_2") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_ROW_ENTROPY_2;
+  }
+  else if (strcasecmp(pcS, "sha1") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_SHA1;
+  }
   else if (strcasecmp(pcS, "date") == 0)
   {
     psXMagic->ui32Type = XMAGIC_DATE;
@@ -953,28 +1606,66 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
     return ER_BadValue;
   }
 
+  if
+  (
+    ((psXMagic->ui32Flags & XMAGIC_HAVE_MASK) == XMAGIC_HAVE_MASK) &&
+    (
+      psXMagic->ui32Type == XMAGIC_MD5 ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALNUM ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALPHA ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ASCII ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_CNTRL ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_DIGIT ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_LOWER ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PRINT ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PUNCT ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_SPACE ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_UPPER ||
 #ifdef USE_PCRE
-  if (psXMagic->ui32Type == XMAGIC_REGEXP && (psXMagic->ui32Flags & XMAGIC_HAVE_MASK) == XMAGIC_HAVE_MASK)
+      psXMagic->ui32Type == XMAGIC_REGEXP ||
+#endif
+      psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_1 ||
+      psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_2 ||
+      psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_1 ||
+      psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_2 ||
+      psXMagic->ui32Type == XMAGIC_SHA1
+    )
+  )
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Mask values are not allowed for %s types.", acRoutine, pcS);
     return ER_BadValue;
   }
 
-  if (psXMagic->ui32Type != XMAGIC_REGEXP && (psXMagic->ui32Flags & XMAGIC_HAVE_SIZE) == XMAGIC_HAVE_SIZE)
+  if
+  (
+    ((psXMagic->ui32Flags & XMAGIC_HAVE_SIZE) == XMAGIC_HAVE_SIZE) &&
+    !
+    (
+      psXMagic->ui32Type == XMAGIC_MD5 ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALNUM ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALPHA ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ASCII ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_CNTRL ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_DIGIT ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_LOWER ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PRINT ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PUNCT ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_SPACE ||
+      psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_UPPER ||
+#ifdef USE_PCRE
+      psXMagic->ui32Type == XMAGIC_REGEXP ||
+#endif
+      psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_1 ||
+      psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_2 ||
+      psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_1 ||
+      psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_2 ||
+      psXMagic->ui32Type == XMAGIC_SHA1
+    )
+  )
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Size values are not allowed for %s types.", acRoutine, pcS);
     return ER_BadValue;
   }
-
-  if (psXMagic->ui32Type == XMAGIC_REGEXP && (psXMagic->ui32Flags & XMAGIC_HAVE_SIZE) == XMAGIC_HAVE_SIZE)
-  {
-    if (psXMagic->ui32Size > XMAGIC_REGEXP_CAPTURE_BUFSIZE)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Size value exceeds %d bytes.", acRoutine, XMAGIC_REGEXP_CAPTURE_BUFSIZE);
-      return ER_Length;
-    }
-  }
-#endif
 
   return ER_OK;
 }
@@ -1067,7 +1758,7 @@ XMagicGetValueOffset(unsigned char *pucBuffer, int iNRead, XMAGIC *psXMagic)
  *
  ***********************************************************************
  */
-int
+XMAGIC *
 XMagicLoadMagic(char *pcFilename, char *pcError)
 {
   const char          acRoutine[] = "XMagicLoadMagic()";
@@ -1085,7 +1776,7 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
   if ((pFile = fopen(pcFilename, "r")) == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): File = [%s]: %s", acRoutine, pcFilename, strerror(errno));
-    return ER_fopen;
+    return NULL;
   }
 
   for (acLine[0] = 0, iLineNumber = 1; fgets(acLine, XMAGIC_MAX_LINE, pFile) != NULL; acLine[0] = 0, iLineNumber++)
@@ -1101,7 +1792,8 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
     {
       fclose(pFile);
       snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: magic != [# XMagic]", acRoutine, pcFilename, iLineNumber);
-      return ER_XMagic;
+      XMagicFreeXMagic(psHead);
+      return NULL;
     }
 
     /*-
@@ -1127,7 +1819,8 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
     {
       fclose(pFile);
       snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
-      return ER;
+      XMagicFreeXMagic(psHead);
+      return NULL;
     }
 
     /*-
@@ -1143,14 +1836,16 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
       if (psXMagic == NULL)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-        return ER;
+        XMagicFreeXMagic(psHead);
+        return NULL;
       }
 
       if (XMagicParseLine(acLine, psXMagic, acLocalError) != ER_OK)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, acLocalError);
+        XMagicFreeXMagic(psHead);
         XMagicFreeXMagic(psXMagic);
-        return ER_XMagic;
+        return NULL;
       }
 
       if (psHead == NULL && psLast == NULL)
@@ -1188,8 +1883,9 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
           if ((psXMagic->ui32Level - psLast->ui32Level) > 1)
           {
             snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: test level(s) skipped", acRoutine, pcFilename, iLineNumber);
+            XMagicFreeXMagic(psHead);
             XMagicFreeXMagic(psXMagic);
-            return ER_XMagic;
+            return NULL;
           }
           psXMagic->psParent = psLast;
           psLast->psChild = psXMagic;
@@ -1220,8 +1916,9 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
           if (!iParentExists)
           {
             snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: missing parent magic", acRoutine, pcFilename, iLineNumber);
+            XMagicFreeXMagic(psHead);
             XMagicFreeXMagic(psXMagic);
-            return ER_XMagic;
+            return NULL;
           }
         }
       }
@@ -1232,13 +1929,12 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
   {
     fclose(pFile);
     snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: %s", acRoutine, pcFilename, iLineNumber, strerror(errno));
-    return ER_fgets;
+    XMagicFreeXMagic(psHead);
+    return NULL;
   }
   fclose(pFile);
 
-  gpsXMagicTree = psHead;
-
-  return ER_OK;
+  return psHead;
 }
 
 
@@ -1269,6 +1965,21 @@ XMagicNewXMagic(char *pcError)
     return NULL;
   }
 
+  /*
+   *********************************************************************
+   *
+   * Allocate and clear memory for the hash value.
+   *
+   *********************************************************************
+   */
+  psXMagic->pcHash = calloc(XMAGIC_MAX_HASH_LENGTH + 1, 1);
+  if (psXMagic->pcHash == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    XMagicFreeXMagic(psXMagic);
+    return NULL;
+  }
+
   /*-
    *********************************************************************
    *
@@ -1278,9 +1989,7 @@ XMagicNewXMagic(char *pcError)
    */
   psXMagic->ui32Mask = ~0;
   psXMagic->iOperator = XMAGIC_OP_EQ;
-#ifdef USE_PCRE
-  psXMagic->ui32Size = XMAGIC_REGEXP_CAPTURE_BUFSIZE;
-#endif
+  psXMagic->ui32Size = XMAGIC_SUBJECT_BUFSIZE;
 
   return psXMagic;
 }
@@ -1484,12 +2193,91 @@ XMagicSwapShort(K_UINT16 ui16Value, K_UINT32 ui32MagicType)
 /*-
  ***********************************************************************
  *
+ * XMagicTestAverage
+ *
+ ***********************************************************************
+ */
+int
+XMagicTestAverage(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, K_INT32 iOffset, char *pcError)
+{
+  switch (psXMagic->ui32Type)
+  {
+    case XMAGIC_ROW_AVERAGE_1:
+      psXMagic->dAverage = XMagicComputeRowAverage1(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength);
+      break;
+    case XMAGIC_ROW_AVERAGE_2:
+      psXMagic->dAverage = XMagicComputeRowAverage2(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength);
+      break;
+  default:
+    return 0;
+    break;
+  }
+
+  switch (psXMagic->iOperator)
+  {
+  case XMAGIC_OP_LT:
+    return (psXMagic->dAverage < psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_LE:
+    return (psXMagic->dAverage <= psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_GT:
+    return (psXMagic->dAverage > psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_GE:
+    return (psXMagic->dAverage >= psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_EQ:
+    return (psXMagic->dAverage == psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_NE:
+    return (psXMagic->dAverage != psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_GE_AND_LE:
+    return (psXMagic->dAverage >= psXMagic->sValue.dLowerNumber && psXMagic->dAverage <= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_GE_AND_LT:
+    return (psXMagic->dAverage >= psXMagic->sValue.dLowerNumber && psXMagic->dAverage < psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_GT_AND_LE:
+    return (psXMagic->dAverage > psXMagic->sValue.dLowerNumber && psXMagic->dAverage <= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_GT_AND_LT:
+    return (psXMagic->dAverage > psXMagic->sValue.dLowerNumber && psXMagic->dAverage <= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LE_OR_GE:
+    return (psXMagic->dAverage <= psXMagic->sValue.dLowerNumber || psXMagic->dAverage >= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LE_OR_GT:
+    return (psXMagic->dAverage <= psXMagic->sValue.dLowerNumber || psXMagic->dAverage > psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LT_OR_GE:
+    return (psXMagic->dAverage < psXMagic->sValue.dLowerNumber || psXMagic->dAverage >= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LT_OR_GT:
+    return (psXMagic->dAverage < psXMagic->sValue.dLowerNumber || psXMagic->dAverage > psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_NOOP:
+    return 1;
+    break;
+  default:
+    return 0;
+    break;
+  }
+
+  return 0; /* Not reached. */
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * XMagicTestBuffer
  *
  ***********************************************************************
  */
 int
-XMagicTestBuffer(unsigned char *pucBuffer, int iBufferLength, char *pcDescription, int iDescriptionLength, char *pcError)
+XMagicTestBuffer(XMAGIC *psXMagic, unsigned char *pucBuffer, int iBufferLength, char *pcDescription, int iDescriptionLength, char *pcError)
 {
   const char          acRoutine[] = "XMagicTestBuffer()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
@@ -1519,23 +2307,101 @@ XMagicTestBuffer(unsigned char *pucBuffer, int iBufferLength, char *pcDescriptio
    */
   iBytesUsed = 0;
   iBytesLeft = iDescriptionLength - 1;
-  iMatch = XMagicTestMagic(pucBuffer, iBufferLength, gpsXMagicTree, pcDescription, &iBytesUsed, &iBytesLeft, acLocalError);
-  if (iMatch == ER)
+  iMatch = XMagicTestMagic(psXMagic, pucBuffer, iBufferLength, pcDescription, &iBytesUsed, &iBytesLeft, acLocalError);
+  switch (iMatch)
   {
+  case XMAGIC_TEST_ERROR:
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
     return ER;
-  }
-
-  if (iMatch)
-  {
+    break;
+  case XMAGIC_TEST_MATCH:
     pcDescription[iBytesUsed] = 0;
-  }
-  else
-  {
+    break;
+  default:
     snprintf(pcDescription, iDescriptionLength, "%s", XMAGIC_DEFAULT);
+    break;
   }
 
   return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * XMagicTestEntropy
+ *
+ ***********************************************************************
+ */
+int
+XMagicTestEntropy(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, K_INT32 iOffset, char *pcError)
+{
+  switch (psXMagic->ui32Type)
+  {
+    case XMAGIC_ROW_ENTROPY_1:
+      psXMagic->dEntropy = XMagicComputeRowEntropy1(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength);
+      break;
+    case XMAGIC_ROW_ENTROPY_2:
+      psXMagic->dEntropy = XMagicComputeRowEntropy2(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength);
+      break;
+  default:
+    return 0;
+    break;
+  }
+
+  switch (psXMagic->iOperator)
+  {
+  case XMAGIC_OP_LT:
+    return (psXMagic->dEntropy < psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_LE:
+    return (psXMagic->dEntropy <= psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_GT:
+    return (psXMagic->dEntropy > psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_GE:
+    return (psXMagic->dEntropy >= psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_EQ:
+    return (psXMagic->dEntropy == psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_NE:
+    return (psXMagic->dEntropy != psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_GE_AND_LE:
+    return (psXMagic->dEntropy >= psXMagic->sValue.dLowerNumber && psXMagic->dEntropy <= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_GE_AND_LT:
+    return (psXMagic->dEntropy >= psXMagic->sValue.dLowerNumber && psXMagic->dEntropy < psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_GT_AND_LE:
+    return (psXMagic->dEntropy > psXMagic->sValue.dLowerNumber && psXMagic->dEntropy <= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_GT_AND_LT:
+    return (psXMagic->dEntropy > psXMagic->sValue.dLowerNumber && psXMagic->dEntropy <= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LE_OR_GE:
+    return (psXMagic->dEntropy <= psXMagic->sValue.dLowerNumber || psXMagic->dEntropy >= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LE_OR_GT:
+    return (psXMagic->dEntropy <= psXMagic->sValue.dLowerNumber || psXMagic->dEntropy > psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LT_OR_GE:
+    return (psXMagic->dEntropy < psXMagic->sValue.dLowerNumber || psXMagic->dEntropy >= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LT_OR_GT:
+    return (psXMagic->dEntropy < psXMagic->sValue.dLowerNumber || psXMagic->dEntropy > psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_NOOP:
+    return 1;
+    break;
+  default:
+    return 0;
+    break;
+  }
+
+  return 0; /* Not reached. */
 }
 
 
@@ -1547,7 +2413,7 @@ XMagicTestBuffer(unsigned char *pucBuffer, int iBufferLength, char *pcDescriptio
  ***********************************************************************
  */
 int
-XMagicTestFile(char *pcFilename, char *pcDescription, int iDescriptionLength, char *pcError)
+XMagicTestFile(XMAGIC *psXMagic, char *pcFilename, char *pcDescription, int iDescriptionLength, char *pcError)
 {
   const char          acRoutine[] = "XMagicTestFile()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
@@ -1595,7 +2461,7 @@ XMagicTestFile(char *pcFilename, char *pcDescription, int iDescriptionLength, ch
    *
    *********************************************************************
    */
-  iError = XMagicTestBuffer(aucBuffer, iNRead, pcDescription, iDescriptionLength, acLocalError);
+  iError = XMagicTestBuffer(psXMagic, aucBuffer, iNRead, pcDescription, iDescriptionLength, acLocalError);
   if (iError == ER)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -1614,53 +2480,277 @@ XMagicTestFile(char *pcFilename, char *pcDescription, int iDescriptionLength, ch
  ***********************************************************************
  */
 int
-XMagicTestMagic(unsigned char *pucBuffer, int iNRead, XMAGIC *psXMagic, char *pcDescription, int *iBytesUsed, int *iBytesLeft, char *pcError)
+XMagicTestMagic(XMAGIC *psXMagic, unsigned char *pucBuffer, int iNRead, char *pcDescription, int *iBytesUsed, int *iBytesLeft, char *pcError)
 {
   const char          acRoutine[] = "XMagicTestMagic()";
   char                acDescriptionLocal[XMAGIC_DESCRIPTION_BUFSIZE];
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 iMatch;
-  int                 iMatches;
-  K_INT32            i32AbsoluteOffset;
-  XMAGIC             *psMyXMagic;
+  int                 iChildMatch = 0;
+  int                 iLength = 0;
+  int                 iMatch = 0;
+  int                 iMatches = 0;
+  int                 iOriginalBytesUsed = *iBytesUsed;
+  int                 iOriginalBytesLeft = *iBytesLeft;
+  K_INT32            i32AbsoluteOffset = 0;
+  XMAGIC             *psMyXMagic = NULL;
 
-  for (iMatches = 0, psMyXMagic = psXMagic; psMyXMagic != NULL; psMyXMagic = psMyXMagic->psSibling)
+  /*-
+   *********************************************************************
+   *
+   * Traverse the magic tree. Recursively invoke this routine when a
+   * match is found and the child node is defined -- child magic may be
+   * used as a logical AND. Sibling magic, if it exists, must be tested
+   * whether or not a match was found with the previous sibling. This
+   * is necessary to preserve its traditional role as an accumulator.
+   * Sibling magic may also be used as a logical OR. However, if a test
+   * was defined to run in fallback mode, sibling magic will not be
+   * tested at any level except for level zero. In fallback mode, any
+   * child test that fails causes the entire test to fail, and any
+   * accumulated descriptions are discarded. Likewise, if the test for
+   * the deepest child in an ANDed chain passes, the entire test is
+   * considered a match.
+   *
+   *********************************************************************
+   */
+  for (psMyXMagic = psXMagic; psMyXMagic != NULL; psMyXMagic = psMyXMagic->psSibling)
   {
+    /*-
+     *******************************************************************
+     *
+     * Get the current absolute offset. If it's out of range or there
+     * was a computational error, it's considered a failed match. The
+     * offset can legitimately be out of range if the buffer is too
+     * small. If the fallback count is nonzero, clear any child data
+     * that has accumulated in the description buffer, and return to
+     * the parent. If the current level is zero, there should not be
+     * anything in the description buffer, so just continue with the
+     * next sibling.
+     *
+     *******************************************************************
+     */
     i32AbsoluteOffset = XMagicGetValueOffset(pucBuffer, iNRead, psMyXMagic);
     if (i32AbsoluteOffset < 0)
     {
-      continue; /* The offset is out of range, or there was a computational error. */
-    }
-
-    iMatch = XMagicTestValue(psMyXMagic, pucBuffer, iNRead, i32AbsoluteOffset, acDescriptionLocal, acLocalError);
-    if (iMatch == ER)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-      return ER;
-    }
-
-    if (iMatch)
-    {
-      *iBytesUsed += snprintf(&pcDescription[*iBytesUsed], *iBytesLeft, "%s", acDescriptionLocal);
-      *iBytesLeft -= *iBytesUsed;
-
-      if (psMyXMagic->psChild != NULL)
+      if (psMyXMagic->ui32Level == 0)
       {
-        XMagicTestMagic(pucBuffer, iNRead, psMyXMagic->psChild, pcDescription, iBytesUsed, iBytesLeft, acLocalError);
-      }
-
-      if (psXMagic->ui32Level == 0)
-      {
-        return 1;
+        continue; /* This is either mode, and we're at the top of the tree, so continue with the next sibling. */
       }
       else
       {
-        iMatches++;
+        if (psMyXMagic->ui32FallbackCount > 0)
+        {
+          iMatches = 0;
+          *iBytesUsed = iOriginalBytesUsed;
+          *iBytesLeft = iOriginalBytesLeft;
+          pcDescription[*iBytesUsed] = 0;
+          return XMAGIC_TEST_FALSE; /* This is fallback mode, and we're not at the top of the tree, so return. */
+        }
+        else
+        {
+          continue; /* This is accumulate mode, and we're not at the top of the tree, so continue with the next sibling. */
+        }
       }
+    }
+
+    /*-
+     *******************************************************************
+     *
+     * Test the value.
+     *
+     *******************************************************************
+     */
+    iMatch = XMagicTestValue(psMyXMagic, pucBuffer, iNRead, i32AbsoluteOffset, acDescriptionLocal, acLocalError);
+    switch (iMatch)
+    {
+    case XMAGIC_TEST_ERROR:
+      if (psMyXMagic->ui32Level == 0)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      }
+      else
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s", acLocalError);
+      }
+      return XMAGIC_TEST_ERROR;
+      break;
+    case XMAGIC_TEST_FALSE:
+      if (psMyXMagic->ui32Level == 0)
+      {
+        continue; /* This is either mode, and we're at the top of the tree, so continue with the next sibling. */
+      }
+      else
+      {
+        if (psMyXMagic->ui32FallbackCount > 0)
+        {
+          iMatches = 0;
+          *iBytesUsed = iOriginalBytesUsed;
+          *iBytesLeft = iOriginalBytesLeft;
+          pcDescription[*iBytesUsed] = 0;
+          return XMAGIC_TEST_FALSE; /* This is fallback mode, and we're not at the top of the tree, so return. */
+        }
+        else
+        {
+          continue; /* This is accumulate mode, and we're not at the top of the tree, so continue with the next sibling. */
+        }
+      }
+      break;
+    case XMAGIC_TEST_MATCH:
+      iMatches++;
+      iLength = snprintf(&pcDescription[*iBytesUsed], *iBytesLeft, "%s", acDescriptionLocal);
+      *iBytesUsed += iLength; 
+      *iBytesLeft -= iLength;
+      if (psMyXMagic->psChild != NULL)
+      {
+        iChildMatch = XMagicTestMagic(psMyXMagic->psChild, pucBuffer, iNRead, pcDescription, iBytesUsed, iBytesLeft, acLocalError);
+        switch (iChildMatch)
+        {
+        case XMAGIC_TEST_ERROR:
+          if (psMyXMagic->ui32Level == 0)
+          {
+            snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+          }
+          else
+          {
+            snprintf(pcError, MESSAGE_SIZE, "%s", acLocalError);
+          }
+          return XMAGIC_TEST_ERROR;
+          break;
+        case XMAGIC_TEST_FALSE:
+          if (psMyXMagic->ui32Level == 0)
+          {
+            if (psMyXMagic->psChild->ui32FallbackCount > 0)
+            {
+              iMatches = 0;
+              *iBytesUsed = iOriginalBytesUsed;
+              *iBytesLeft = iOriginalBytesLeft;
+              pcDescription[*iBytesUsed] = 0;
+              continue; /* This is fallback mode, and we're at the top of the tree, so continue with the next sibling. */
+            }
+            else
+            {
+              return XMAGIC_TEST_MATCH; /* This is accumulate mode, and we're at the top of the tree, so the overall result is a match. */
+            }
+          }
+          else
+          {
+            if (psMyXMagic->ui32FallbackCount > 0)
+            {
+              iMatches = 0;
+              *iBytesUsed = iOriginalBytesUsed;
+              *iBytesLeft = iOriginalBytesLeft;
+              pcDescription[*iBytesUsed] = 0;
+              return XMAGIC_TEST_FALSE; /* The is fallback mode, and we're not at the top of the tree, so return. */
+            }
+            else
+            {
+              continue; /* This is accumulate mode, and we're not at the top of the tree, so continue with the next sibling. */
+            }
+          }
+          break;
+        case XMAGIC_TEST_MATCH:
+          if (psMyXMagic->ui32Level == 0)
+          {
+            return XMAGIC_TEST_MATCH; /* This is either mode, and we're at the top of the tree, so the overall result is a match. */
+          }
+          else
+          {
+            if (psMyXMagic->ui32FallbackCount > 0)
+            {
+              return XMAGIC_TEST_MATCH; /* This is fallback mode, and we're not at the top of the tree, so return. */
+            }
+            else
+            {
+              continue; /* This is accumulate mode, and we're not at the top of the tree, so continue with the next sibling. */
+            }
+          }
+          break;
+        }
+      }
+      else
+      {
+        if (psMyXMagic->ui32Level == 0)
+        {
+          return XMAGIC_TEST_MATCH; /* This is either mode, and we're at the top of the tree, so the overall result is a match. */
+        }
+        else
+        {
+          if (psMyXMagic->ui32FallbackCount > 0)
+          {
+            return XMAGIC_TEST_MATCH; /* This is fallback mode, and we're not at the top of the tree, so return. */
+          }
+          else
+          {
+            continue; /* This is accumulate mode, and we're not at the top of the tree, so continue with the next sibling. */
+          }
+        }
+      }
+      break;
     }
   }
 
-  return (iMatches) ? 1 : 0;
+  return (iMatches) ? XMAGIC_TEST_MATCH : XMAGIC_TEST_FALSE;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * XMagicTestHash
+ *
+ ***********************************************************************
+ */
+int
+XMagicTestHash(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, K_INT32 iOffset, char *pcError)
+{
+  unsigned char       aucMd5[MD5_HASH_SIZE];
+  unsigned char       aucSha1[SHA1_HASH_SIZE];
+  unsigned char      *puc;
+  int                 i;
+  int                 iHashLength;
+  int                 n;
+
+  psXMagic->pcHash[0] = 0;
+
+  switch (psXMagic->ui32Type)
+  {
+  case XMAGIC_MD5:
+    MD5HashString(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength, aucMd5);
+    iHashLength = MD5_HASH_SIZE;
+    puc = aucMd5;
+    break;
+  case XMAGIC_SHA1:
+    SHA1HashString(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength, aucSha1);
+    iHashLength = SHA1_HASH_SIZE;
+    puc = aucSha1;
+    break;
+  default:
+    return 0;
+    break;
+  }
+
+  for (i = n = 0; i < iHashLength; i++)
+  {
+    n += sprintf(&psXMagic->pcHash[n], "%02x", puc[i]);
+  }
+  psXMagic->pcHash[n] = 0;
+
+  switch (psXMagic->iOperator)
+  {
+  case XMAGIC_OP_EQ:
+    return (strcasecmp(psXMagic->sValue.ui08String, psXMagic->pcHash) == 0) ? 1 : 0;
+    break;
+  case XMAGIC_OP_NE:
+    return (strcasecmp(psXMagic->sValue.ui08String, psXMagic->pcHash) == 0) ? 0 : 1;
+    break;
+  case XMAGIC_OP_NOOP:
+    return 1;
+    break;
+  default:
+    return 0;
+    break;
+  }
+
+  return 0; /* Not reached. */
 }
 
 
@@ -1707,6 +2797,74 @@ XMagicTestNumber(K_UINT32 ui32Value1, K_UINT32 ui32Value2, int iOperator)
     return 0;
     break;
   }
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * XMagicTestPercent
+ *
+ ***********************************************************************
+ */
+int
+XMagicTestPercent(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, K_INT32 iOffset, char *pcError)
+{
+  psXMagic->dPercent = XMagicComputePercentage(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength, psXMagic->ui32Type);
+
+  switch (psXMagic->iOperator)
+  {
+  case XMAGIC_OP_LT:
+    return (psXMagic->dPercent < psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_LE:
+    return (psXMagic->dPercent <= psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_GT:
+    return (psXMagic->dPercent > psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_GE:
+    return (psXMagic->dPercent >= psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_EQ:
+    return (psXMagic->dPercent == psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_NE:
+    return (psXMagic->dPercent != psXMagic->sValue.dNumber);
+    break;
+  case XMAGIC_OP_GE_AND_LE:
+    return (psXMagic->dPercent >= psXMagic->sValue.dLowerNumber && psXMagic->dPercent <= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_GE_AND_LT:
+    return (psXMagic->dPercent >= psXMagic->sValue.dLowerNumber && psXMagic->dPercent < psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_GT_AND_LE:
+    return (psXMagic->dPercent > psXMagic->sValue.dLowerNumber && psXMagic->dPercent <= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_GT_AND_LT:
+    return (psXMagic->dPercent > psXMagic->sValue.dLowerNumber && psXMagic->dPercent <= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LE_OR_GE:
+    return (psXMagic->dPercent <= psXMagic->sValue.dLowerNumber || psXMagic->dPercent >= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LE_OR_GT:
+    return (psXMagic->dPercent <= psXMagic->sValue.dLowerNumber || psXMagic->dPercent > psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LT_OR_GE:
+    return (psXMagic->dPercent < psXMagic->sValue.dLowerNumber || psXMagic->dPercent >= psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_LT_OR_GT:
+    return (psXMagic->dPercent < psXMagic->sValue.dLowerNumber || psXMagic->dPercent > psXMagic->sValue.dUpperNumber);
+    break;
+  case XMAGIC_OP_NOOP:
+    return 1;
+    break;
+  default:
+    return 0;
+    break;
+  }
+
+  return 0; /* Not reached. */
 }
 
 
@@ -1952,6 +3110,9 @@ XMagicTestString(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, K_INT3
   case XMAGIC_OP_EQ:
     return (iDelta == 0);
     break;
+  case XMAGIC_OP_NE:
+    return (iDelta != 0);
+    break;
   case XMAGIC_OP_GT:
     return (iDelta > 0);
     break;
@@ -2007,6 +3168,40 @@ XMagicTestValue(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, K_INT32
     iMatch = XMagicTestString(psXMagic, pucBuffer, iLength, iOffset, acLocalError);
     pvValue = (void *) (pucBuffer + iOffset);
   }
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_MD5 ||
+    psXMagic->ui32Type == XMAGIC_SHA1
+  )
+  {
+    iMatch = XMagicTestHash(psXMagic, pucBuffer, iLength, iOffset, acLocalError);
+    if (iMatch == ER)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return ER;
+    }
+  }
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALNUM ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ALPHA ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_ASCII ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_CNTRL ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_DIGIT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_LOWER ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PRINT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_PUNCT ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_SPACE ||
+    psXMagic->ui32Type == XMAGIC_PERCENT_CTYPE_UPPER
+  )
+  {
+    iMatch = XMagicTestPercent(psXMagic, pucBuffer, iLength, iOffset, acLocalError);
+    if (iMatch == ER)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return ER;
+    }
+  }
 #ifdef USE_PCRE
   else if (psXMagic->ui32Type == XMAGIC_REGEXP)
   {
@@ -2018,6 +3213,32 @@ XMagicTestValue(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, K_INT32
     }
   }
 #endif
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_1 ||
+    psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_2
+  )
+  {
+    iMatch = XMagicTestAverage(psXMagic, pucBuffer, iLength, iOffset, acLocalError);
+    if (iMatch == ER)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return ER;
+    }
+  }
+  else if
+  (
+    psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_1 ||
+    psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_2
+  )
+  {
+    iMatch = XMagicTestEntropy(psXMagic, pucBuffer, iLength, iOffset, acLocalError);
+    if (iMatch == ER)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return ER;
+    }
+  }
   else
   {
     switch (psXMagic->ui32Type)

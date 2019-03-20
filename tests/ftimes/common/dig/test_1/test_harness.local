@@ -1,0 +1,67 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "1";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "1_byte_normal",
+    2 => "2_byte_normal",
+    3 => "abc123_normal",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    '1_byte_normal'    => "tests normal dig offsets for '%00' through '%ff' using variable blocksize/carrysize",
+    '2_byte_normal'    => "tests normal dig offsets for '%00%00' through '%ff%ff' using variable blocksize/carrysize",
+    'abc123_normal'    => "tests normal dig offsets for 'abc123' using variable blocksize/carrysize",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+    'BlockSizes' => ["default:default", "512:128", "512:256", "1024:256", "1024:512", "4096:1024", "4096:2048", "8192:2048", "8192:4096"],
+  );
+
+1;

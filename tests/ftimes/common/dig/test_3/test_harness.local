@@ -1,0 +1,67 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2006/07/14 01:09:47 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "3";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "1_byte_regexp",
+    2 => "2_byte_regexp",
+    3 => "abc123_regexp",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    '1_byte_regexp'    => "tests regexp dig offsets for '[\\x00-\\xff]' using variable blocksize/carrysize",
+    '2_byte_regexp'    => "tests regexp dig offsets for '[\\x00-\\xff]{2}' using variable blocksize/carrysize",
+    'abc123_regexp'    => "tests regexp dig offsets for '(?i)(abc123)' using variable blocksize/carrysize",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+    'BlockSizes' => ["default:default", "512:128", "512:256", "1024:256", "1024:512", "4096:1024", "4096:2048", "8192:2048", "8192:4096"],
+  );
+
+1;

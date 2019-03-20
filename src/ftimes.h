@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.55 2006/04/16 20:45:17 mavrik Exp $
+ * $Id: ftimes.h,v 1.60 2006/07/18 19:49:54 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -18,7 +18,7 @@
  ***********************************************************************
  */
 #define PROGRAM_NAME "ftimes"
-#define VERSION "3.6.0"
+#define VERSION "3.7.0"
 
 #define LF            "\n"
 #define CRLF        "\r\n"
@@ -88,7 +88,7 @@ typedef enum _BOOL
 #define FTIMES_SEPARATOR                  "="
 
 #define FTIMES_MIN_BLOCK_SIZE              1
-#define FTIMES_MAX_BLOCK_SIZE ((1024)*(1024))
+#define FTIMES_MAX_BLOCK_SIZE     1073741824 /* 1 GB */
 
 #define FTIMES_MIN_STRING_REPEATS          0
 #define FTIMES_MAX_STRING_REPEATS 0x7fffffff
@@ -204,6 +204,9 @@ typedef struct _FILE_LIST
 
 #define MODES_AnalyzeBlockSize  ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_AnalyzeCarrySize  ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
+#ifdef USE_XMAGIC
+#define MODES_AnalyzeStepSize   ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
+#endif
 #define MODES_AnalyzeDeviceFiles ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_AnalyzeRemoteFiles ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_BaseName          ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_GETMODE))
@@ -214,6 +217,9 @@ typedef struct _FILE_LIST
 #define MODES_DigStringNormal   ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
 #ifdef USE_PCRE
 #define MODES_DigStringRegExp   ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
+#endif
+#ifdef USE_XMAGIC
+#define MODES_DigStringXMagic   ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
 #endif
 #define MODES_EnableRecursion   ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_Exclude           ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
@@ -255,6 +261,9 @@ typedef struct _FILE_LIST
 
 #define KEY_AnalyzeBlockSize    "AnalyzeBlockSize"
 #define KEY_AnalyzeCarrySize    "AnalyzeCarrySize"
+#ifdef USE_XMAGIC
+#define KEY_AnalyzeStepSize     "AnalyzeStepSize"
+#endif
 #define KEY_AnalyzeDeviceFiles  "AnalyzeDeviceFiles"
 #define KEY_AnalyzeRemoteFiles  "AnalyzeRemoteFiles"
 #define KEY_BaseName            "BaseName"
@@ -265,6 +274,9 @@ typedef struct _FILE_LIST
 #define KEY_DigStringNormal     "DigStringNormal"
 #ifdef USE_PCRE
 #define KEY_DigStringRegExp     "DigStringRegExp"
+#endif
+#ifdef USE_XMAGIC
+#define KEY_DigStringXMagic     "DigStringXMagic"
 #endif
 #define KEY_EnableRecursion     "EnableRecursion"
 #define KEY_Exclude             "Exclude"
@@ -309,6 +321,9 @@ typedef struct _CONTROLS_FOUND
 {
   BOOL                bAnalyzeBlockSizeFound;
   BOOL                bAnalyzeCarrySizeFound;
+#ifdef USE_XMAGIC
+  BOOL                bAnalyzeStepSizeFound;
+#endif
   BOOL                bAnalyzeDeviceFilesFound;
   BOOL                bAnalyzeRemoteFilesFound;
   BOOL                bBaseNameFound;
@@ -371,6 +386,9 @@ typedef struct _FTIMES_PROPERTIES
   ANALYSIS_STAGES     asAnalysisStages[MAX_ANALYSIS_STAGES];
   BOOL                bAnalyzeBlockSize;
   BOOL                bAnalyzeCarrySize;
+#ifdef USE_XMAGIC
+  BOOL                bAnalyzeStepSize;
+#endif
   BOOL                bAnalyzeDeviceFiles;
   BOOL                bAnalyzeRemoteFiles;
   BOOL                bCompress;
@@ -423,6 +441,9 @@ typedef struct _FTIMES_PROPERTIES
   HTTP_URL           *psPutURL;
   int                 iAnalyzeBlockSize;
   int                 iAnalyzeCarrySize;
+#ifdef USE_XMAGIC
+  int                 iAnalyzeStepSize;
+#endif
   int                 iImportRecursionLevel;
   int                 iLastAnalysisStage;
   int                 iLastRunModeStage;
@@ -446,6 +467,9 @@ typedef struct _FTIMES_PROPERTIES
   MD5_CONTEXT         sOutFileHashContext;
   time_t              tStartTime;
   unsigned long       ulFileSizeLimit;
+#ifdef USE_XMAGIC
+  XMAGIC             *psXMagic;
+#endif
 } FTIMES_PROPERTIES;
 
 /*-
@@ -468,9 +492,15 @@ K_UINT64            AnalyzeGetByteCount(void);
 int                 AnalyzeGetCarrySize(void);
 unsigned char      *AnalyzeGetDigSaveBuffer(int iCarrySize, char *pcError);
 K_UINT32            AnalyzeGetFileCount(void);
+#ifdef USE_XMAGIC
+int                 AnalyzeGetStepSize(void);
+#endif
 unsigned char      *AnalyzeGetWorkBuffer(int iBlockSize, char *pcError);
 void                AnalyzeSetBlockSize(int iBlockSize);
 void                AnalyzeSetCarrySize(int iCarrySize);
+#ifdef USE_XMAGIC
+void                AnalyzeSetStepSize(int iStepSize);
+#endif
 
 /*-
  ***********************************************************************

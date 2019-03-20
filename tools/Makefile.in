@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.6 2006/04/07 22:15:11 mavrik Exp $
+# $Id: Makefile.in,v 1.7 2006/05/26 19:38:24 mavrik Exp $
 #
 ########################################################################
 #
@@ -28,7 +28,7 @@ all test install clean:
 		if test $${i} != "-end-"; then\
 			subdir=`basename $${cwd}`/$${i};\
 			echo '===>' $${subdir};\
-			cd $${cwd}/$${i} && make $@;\
+			cd $${cwd}/$${i} && ${MAKE} $@;\
 		fi;\
 	done
 
@@ -37,7 +37,7 @@ clean-all:
 		if test $${i} != "-end-"; then\
 			subdir=`basename $${cwd}`/$${i};\
 			echo '===>' $${subdir};\
-			cd $${cwd}/$${i} && make $@;\
+			cd $${cwd}/$${i} && ${MAKE} $@;\
 		fi;\
 	done
 	rm -f Makefile

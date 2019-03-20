@@ -9,7 +9,7 @@ VPATH=@srcdir@
 
 INCLUDES_PREFIX=${PROJECT_ROOT}/Mk
 
-SUBDIRS=common @additional_testdirs@
+SUBDIRS=ftimes @additional_testdirs@
 
 all:
 

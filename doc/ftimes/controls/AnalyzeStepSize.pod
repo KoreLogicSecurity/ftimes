@@ -1,0 +1,14 @@
+=item B<AnalyzeStepSize>: [1-1048576]
+
+Applies to B<digfull>, B<diglean>.
+
+B<AnalyzeStepSize> is optional.  It instructs the analysis engine to
+step through the search buffer in increments of the specified size.
+Currently, this control may only be used in conjunction with the
+DigStringXMagic control.  Internally, B<AnalyzeStepSize> is capped to
+prevent its value from exceeding the value for B<AnalyzeBlockSize>.
+The default value for this control is 16384 (16 KB).
+
+Note: This control is only available if XMagic support was compiled
+into the binary.
+
