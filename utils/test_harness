@@ -1,0 +1,430 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness,v 1.5 2005/06/04 19:13:23 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2005-2005 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: A generic test harness.
+#
+######################################################################
+
+use strict;
+use File::Basename;
+use File::Path;
+use Getopt::Std;
+
+BEGIN
+{
+  my (%hProperties, %hTestNumbers, %hTestDescriptions, %hTestProperties, %hTestTargetValues);
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+
+  sub GetTestNumbers
+  {
+    return \%hTestNumbers;
+  }
+
+  sub GetTestDescriptions
+  {
+    return \%hTestDescriptions;
+  }
+
+  sub GetTestProperties
+  {
+    return \%hTestProperties;
+  }
+
+  sub GetTestTargetValues
+  {
+    return \%hTestTargetValues;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Set platform-specific variables.
+  #
+  ####################################################################
+
+  if ($^O =~ /MSWin32/i)
+  {
+    $$phProperties{'OsClass'} = "WINDOWS";
+    $$phProperties{'Newline'} = "\r\n";
+  }
+  else
+  {
+    $$phProperties{'OsClass'} = "UNIX";
+    $$phProperties{'Newline'} = "\n";
+  }
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts("d:m:p:s:w:", \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # DebugLevel, '-d', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'DebugLevel'} = (exists($hOptions{'d'})) ? $hOptions{'d'} : 1;
+
+  if ($$phProperties{'DebugLevel'} !~ /^\d+$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='The debug level ($$phProperties{'DebugLevel'}) is not valid.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # A RunMode, -m, is required.
+  #
+  ####################################################################
+
+  $$phProperties{'RunMode'} = (exists($hOptions{'m'})) ? $hOptions{'m'} : "unknown";
+
+  if ($$phProperties{'RunMode'} !~ /^(?:check|clean|setup)$/)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # A TargetProgram, -p, is required.
+  #
+  ####################################################################
+
+  my ($sTargetProgram);
+
+  $sTargetProgram = $$phProperties{'TargetProgram'} = (exists($hOptions{'p'})) ? $hOptions{'p'} : undef;
+
+  if (!defined($$phProperties{'TargetProgram'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+if ($$phProperties{'RunMode'} =~ /^check$/)
+{
+  if ($$phProperties{'OsClass'} =~ /^WINDOWS$/ && $sTargetProgram !~ /\.exe$/)
+  {
+    $sTargetProgram .= ".exe"
+  }
+  if (!-f $sTargetProgram || !-x _)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='The target program ($sTargetProgram) is not a file, does not exist, or is not executable.'\n";
+    exit(2);
+  }
+}
+
+  ####################################################################
+  #
+  # SrcDir, '-s', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'SrcDir'} = (exists($hOptions{'s'})) ? $hOptions{'s'} : ".";
+
+  ####################################################################
+  #
+  # WorkDir, '-w', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'WorkDir'} = (exists($hOptions{'w'})) ? $hOptions{'w'} : "work";
+
+  ####################################################################
+  #
+  # If there's any arguments left, it's an error.
+  #
+  ####################################################################
+
+  if (scalar(@ARGV) > 0)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Conditionally create a work directory.
+  #
+  ####################################################################
+
+  if ($$phProperties{'RunMode'} =~ /^setup$/)
+  {
+    CreateWorkArea($$phProperties{'WorkDir'});
+  }
+
+  ####################################################################
+  #
+  # Pull in local the test harness. Then, walk up the tree looking
+  # for additional harness files.
+  #
+  ####################################################################
+
+  $$phProperties{'HarnessFile'} = "test_harness.local";
+
+  require $$phProperties{'SrcDir'} . "/" . $$phProperties{'HarnessFile'};
+
+  foreach my $sDir ("..", "../..", "../../..")
+  {
+    my $sHarnessFile = $$phProperties{'SrcDir'} . "/" . $sDir . "/" . $$phProperties{'HarnessFile'};
+
+    if (-f $sHarnessFile)
+    {
+      require $sHarnessFile;
+    }
+  }
+
+  ####################################################################
+  #
+  # Run through the hitching routines.
+  #
+  ####################################################################
+
+  my ($phTestNumbers);
+
+  $phTestNumbers = GetTestNumbers();
+
+  foreach my $sSubTest (sort(keys(%$phTestNumbers)))
+  {
+    my $sRoutine = \&{("Hitch_" . $$phTestNumbers{$sSubTest})};
+    &$sRoutine();
+  }
+
+  ####################################################################
+  #
+  # Run through the mode-specific routines.
+  #
+  ####################################################################
+
+  my ($phTestDescriptions, $sErrors);
+
+  $phTestDescriptions = GetTestDescriptions();
+
+  $sErrors = 0;
+
+  foreach my $sSubTest (sort(keys(%$phTestNumbers)))
+  {
+    my $sRoutine = \&{(MakeModeName($$phProperties{'RunMode'}) . $$phTestNumbers{$sSubTest})};
+    my $sResults = &$sRoutine($phProperties);
+    if ($$phProperties{'DebugLevel'} >= 2)
+    {
+      printf("%s %s %s,%s,%s,%d.%d - %s\n",
+        $sResults,
+        $$phProperties{'RunMode'},
+        GetToolName(),
+        GetPlatformName(),
+        GetModeName(),
+        GetTestNumber(),
+        $sSubTest,
+        $$phTestDescriptions{$$phTestNumbers{$sSubTest}},
+        );
+    }
+    if ($sResults !~ /^(?:pass|skip)$/)
+    {
+      $sErrors++;
+    }
+  }
+
+  ####################################################################
+  #
+  # Print out the test results.
+  #
+  ####################################################################
+
+  if ($$phProperties{'DebugLevel'} >= 1)
+  {
+    printf("%s %s %s,%s,%s,%d\n",
+      ($sErrors == 0) ? "pass" : "fail",
+      $$phProperties{'RunMode'},
+      GetToolName(),
+      GetPlatformName(),
+      GetModeName(),
+      GetTestNumber(),
+      );
+  }
+
+  ####################################################################
+  #
+  # Conditionally, create a done file.
+  #
+  ####################################################################
+
+  if ($sErrors == 0)
+  {
+    CreateDoneFile($$phProperties{'RunMode'});
+  }
+
+  ####################################################################
+  #
+  # Cleanup and go home.
+  #
+  ####################################################################
+
+  exit(($sErrors == 0) ? 0 : 3);
+
+
+######################################################################
+#
+# CreateDoneFile
+#
+######################################################################
+
+sub CreateDoneFile
+{
+  my ($sRunMode) = @_;
+
+  if ($sRunMode =~ /^(?:clean|check|setup)$/)
+  {
+    my $sFile = "_" . $sRunMode . "_done";
+    if (!open(FH, "> $sFile"))
+    {
+      return undef;
+    }
+    close(FH);
+  }
+}
+
+
+######################################################################
+#
+# CreateWorkArea
+#
+######################################################################
+
+sub CreateWorkArea
+{
+  my ($sDir) = @_;
+
+  if (!-d $sDir)
+  {
+    mkdir($sDir, 0755);
+  }
+}
+
+
+######################################################################
+#
+# DebugPrint
+#
+######################################################################
+
+sub DebugPrint
+{
+  my ($sDebugLevel, $sMessage) = @_;
+
+  my $phProperties = GetProperties();
+
+  if ($$phProperties{'DebugLevel'} >= $sDebugLevel)
+  {
+    printf("     %s%s", $sMessage, $$phProperties{'Newline'});
+  }
+}
+
+
+######################################################################
+#
+# MakeModeName
+#
+######################################################################
+
+sub MakeModeName
+{
+  my ($sMode) = @_;
+
+  $sMode =~ s/^(.)(.*)$/uc($1).$2."_"/e;
+
+  return $sMode;
+}
+
+
+######################################################################
+#
+# MakeTestName
+#
+######################################################################
+
+sub MakeTestName
+{
+  my ($phProperties) = @_;
+
+  my ($sFile, $sName);
+
+  $sName = (caller(1))[3];
+  $sName =~ s/^.+(?:Check|Clean|Setup)_//;
+  $sFile = $$phProperties{'WorkDir'} . "/" . $sName;
+
+  return ($sFile, $sName);
+}
+
+
+######################################################################
+#
+# UnlinkDoneFile
+#
+######################################################################
+
+sub UnlinkDoneFile
+{
+  my ($sRunMode) = @_;
+
+  if ($sRunMode =~ /^(?:clean|check|setup)$/)
+  {
+    my $sFile = "_" . $sRunMode . "_done";
+    if (-f $sFile && !unlink($sFile))
+    {
+      return undef;
+    }
+  }
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-d debug-level] [-w work-dir] -m {check|clean|setup} -p target-program\n";
+  print STDERR "\n";
+  exit(1);
+}
+

@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.3 2004/04/04 07:09:49 mavrik Exp $
+# $Id: Makefile.in,v 1.5 2005/05/10 23:56:35 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2005 The FTimes Project, All Rights Reserved.
 #
 ########################################################################
 #
@@ -23,7 +23,7 @@ INSTALL			= @INSTALL@
 
 SUBDIRS			= @tool_subdirs@
 
-all install clean:
+all test install clean:
 	@cwd=`pwd`; for i in ${SUBDIRS} "-end-"; do\
 		if test $${i} != "-end-"; then\
 			subdir=`basename $${cwd}`/$${i};\

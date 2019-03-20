@@ -2,7 +2,7 @@
 ######################################################################
 ######################################################################
 #
-# $Id: maplean.cfg.sample,v 1.5 2004/04/23 22:14:07 mavrik Exp $
+# $Id: maplean.cfg.sample,v 1.7 2005/03/07 03:49:18 mavrik Exp $
 #
 ######################################################################
 ######################################################################
@@ -35,14 +35,17 @@
 #Include=                         # [<file>|<directory>|<link>]
 #Exclude=                         # [<file>|<directory>|<link>]
 #
+#AnalyzeBlockSize=16384           # [1-1048576]
 #AnalyzeDeviceFiles=N             # [Y|N]
 #AnalyzeRemoteFiles=N             # [Y|N]
 #Compress=N                       # [Y|N]
 #EnableRecursion=Y                # [Y|N]
+#ExcludesMustExist=N              # [Y|N]
 #FieldMask=                       # <mask> (e.g., all-magic)
 #FileSizeLimit=0                  # <integer>
 #HashDirectories=N                # [Y|N]
 #HashSymbolicLinks=N              # [Y|N]
+#IncludesMustExist=N              # [Y|N]
 #MagicFile=                       # <file>
 #NewLine=                         # [LF|CRLF]
 #RequirePrivilege=N               # [Y|N]

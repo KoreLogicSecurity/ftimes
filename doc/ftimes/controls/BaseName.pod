@@ -1,4 +1,4 @@
-=item B<BaseName>: <name>
+=item B<BaseName>: <name|->
 
 Applies to B<digfull>, B<diglean>, B<getmode>, B<mapfull>, B<maplean>,
 and B<putmode>.
@@ -13,7 +13,10 @@ format is one that matches the following regular expression:
 This is because nph-ftimes.cgi uses that expression to validate the
 CLIENTID parameter in GET/PING/PUT requests.  Typically, B<BaseName>
 and B<URLUsername> will be the same when basic authentication is
-enabled, but this is not a requirement.  If you're using FTimes in
-a lean mode, a good naming convention would be to use the hostname
-of the system being baselined.
+enabled, but this is not a requirement.
+
+If you're using FTimes in a lean mode, a good naming convention
+would be to use the hostname of the system being baselined.  Also,
+both lean modes allow you to specify a B<BaseName> value of '-'.
+This causes FTimes to write its output to stdout/stderr.
 

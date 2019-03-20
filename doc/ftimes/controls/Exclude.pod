@@ -2,11 +2,23 @@
 
 Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
 
-B<Exclude> is optional.  It specifies a directory, file, or symbolic
-link (UNIX only) to skip.  There can be as many excludes as you
-like, but each entry must be on a separate line in the config file.
-It is not necessary to exclude special file systems such as CDFS
-or PROCFS as B<FTimes> will detect their presence and automatically
-exclude them.  Each B<Exclude> must be specified as a full path.
-B<FTimes> will silently ignore an B<Exclude> if it does not exist.
+B<Exclude> controls are optional, and there is no predefined limit
+on the number that may be specified.  However, there can be only
+one B<Exclude> control/value pair per line.  It is not necessary
+to explicitly exclude special file systems such as PROCFS
+as B<FTimes> will detect their presence and automatically exclude
+them.  B<Exclude> values must be specified as a fully qualified
+path (see B<Include> control).  If B<ExcludesMustExist> is enabled,
+then each B<Exclude> must reference an existing file, directory,
+or symbolic link.  Otherwise, B<FTimes> will abort.
+
+Note: Symbolic links are not supported in WIN32-based file systems.
+
+Note: The exlude mechanism works on an exact match basis, but it
+can be used to produce a recursive effect.  For example, if you
+include '/' and exclude '/etc', then '/etc' and anything below it
+will not be processed.  However, if you include '/etc/hosts' and
+exclude '/etc', then '/etc/hosts' will not be processed because the
+recursive effect would not be in play, and there is no B<Exclude>
+that exactly matches it.
 

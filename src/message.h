@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: message.h,v 1.3 2004/04/04 07:09:49 mavrik Exp $
+ * $Id: message.h,v 1.5 2005/05/26 19:10:20 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -38,9 +38,9 @@
 #define MESSAGE_PROPERTY_STRING "<<<  PROPERTY  >>>"
 #define MESSAGE_MODEDATA_STRING "<<<  MODEDATA  >>>"
 #define MESSAGE_EXECDATA_STRING "<<<  EXECDATA  >>>"
-#define MESSAGE_WARNING_STRING  "***  ER->WARN  ***"
-#define MESSAGE_FAILURE_STRING  "***  ER->FAIL  ***"
-#define MESSAGE_CRITICAL_STRING "***  ER->CRIT  ***"
+#define MESSAGE_WARNING_STRING  "***  LOG_WARN  ***"
+#define MESSAGE_FAILURE_STRING  "***  LOG_FAIL  ***"
+#define MESSAGE_CRITICAL_STRING "***  LOG_CRIT  ***"
 
 
 /*-

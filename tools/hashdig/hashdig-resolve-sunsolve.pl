@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-resolve-sunsolve.pl,v 1.9 2004/04/20 19:04:05 mavrik Exp $
+# $Id: hashdig-resolve-sunsolve.pl,v 1.15 2005/06/03 21:20:22 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -42,14 +42,22 @@ use IO::Socket;
 
   my (%hOptions);
 
-  if (!getopts('d:f:k:r:s:w:', \%hOptions))
+  if (!getopts('ad:f:k:r:s:w:', \%hOptions))
   {
     Usage($sProgram);
   }
 
   ####################################################################
   #
-  # An output directory, '-d', is optional. Default value is "sunsolve".
+  # The AutoRecover flag, '-a', is optional.
+  #
+  ####################################################################
+
+  my $sAutoRecover = (exists($hOptions{'a'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # An output directory, '-d', is optional.
   #
   ####################################################################
 
@@ -80,7 +88,7 @@ use IO::Socket;
       print STDERR "$sProgram: File='$sFilename' Error='File must exist and be regular.'\n";
       exit(2);
     }
-    if (!open(FH, "<$sFilename"))
+    if (!open(FH, "< $sFilename"))
     {
       print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
       exit(2);
@@ -90,7 +98,7 @@ use IO::Socket;
 
   ####################################################################
   #
-  # A kidLimit, '-k', is optional. Default value is 5.
+  # A kidLimit, '-k', is optional.
   #
   ####################################################################
 
@@ -104,7 +112,7 @@ use IO::Socket;
 
   ####################################################################
   #
-  # A redoBlock, '-r', is optional. Default value is undefined.
+  # A redoBlock, '-r', is optional.
   #
   ####################################################################
 
@@ -118,7 +126,7 @@ use IO::Socket;
 
   ####################################################################
   #
-  # A sleepInterval, '-s', is optional. Default value is 0.
+  # A sleepInterval, '-s', is optional.
   #
   ####################################################################
 
@@ -132,7 +140,7 @@ use IO::Socket;
 
   ####################################################################
   #
-  # A warningLimit, '-w', is optional. Default value is 1.
+  # A warningLimit, '-w', is optional.
   #
   ####################################################################
 
@@ -161,7 +169,7 @@ use IO::Socket;
   #
   ####################################################################
 
-  if (defined($sRedoBlock))
+  if (defined($sRedoBlock) || $sAutoRecover)
   {
     if (!-d $sOutDir)
     {
@@ -211,6 +219,13 @@ use IO::Socket;
             }
           }
         }
+        if ($sAutoRecover && BlockIsGood($sOutDir, $sBlock, $sMD5Hashes, \$sErrorMessage))
+        {
+          print STDERR "$sProgram: Block='$sBlock' Warning='Block skipped: file exists and is not empty.'\n";
+          $sMD5Hashes = "";
+          $sBlock++;
+          next;
+        }
         $sKidPid = SunFingerPrintLookup($sOutDir, $sBlock, $sMD5Hashes, $sRedoBlock, \$sErrorMessage);
         if (!defined($sKidPid))
         {
@@ -247,14 +262,21 @@ use IO::Socket;
 
   if ($sCount && length($sMD5Hashes))
   {
-    $sKidPid = SunFingerPrintLookup($sOutDir, $sBlock, $sMD5Hashes, $sRedoBlock, \$sErrorMessage);
-    if (!defined($sKidPid))
+    if ($sAutoRecover && BlockIsGood($sOutDir, $sBlock, $sMD5Hashes, \$sErrorMessage))
     {
-      print STDERR "$sProgram: $sErrorMessage\n";
+      print STDERR "$sProgram: Block='$sBlock' Warning='Block skipped: file exists and is not empty.'\n";
     }
     else
     {
-      push(@aKidPids, $sKidPid);
+      $sKidPid = SunFingerPrintLookup($sOutDir, $sBlock, $sMD5Hashes, $sRedoBlock, \$sErrorMessage);
+      if (!defined($sKidPid))
+      {
+        print STDERR "$sProgram: $sErrorMessage\n";
+      }
+      else
+      {
+        push(@aKidPids, $sKidPid);
+      }
     }
     $sMD5Hashes = "";
   }
@@ -268,6 +290,28 @@ use IO::Socket;
   WaitLoop();
 
   1;
+
+
+######################################################################
+#
+# BlockIsGood
+#
+######################################################################
+
+sub BlockIsGood
+{
+  my ($sOutDir, $sBlock, $sMD5Hashes, $psErrorMessage) = @_;
+
+  my $sGetFile = sprintf("%s/hashdig-getblock.%06d", $sOutDir, $sBlock);
+  my $sOutFile = sprintf("%s/hashdig-sunsolve.%06d", $sOutDir, $sBlock);
+
+  if (!-s $sGetFile || !-s $sOutFile)
+  {
+    return 0;
+  }
+
+  1;
+}
 
 
 ######################################################################
@@ -299,9 +343,9 @@ sub SunFingerPrintLookup
 
   if ($sKidPid == 0)
   {
-    if (!defined($sRedoBlock) || !-f $sGetFile)
+    if (!defined($sRedoBlock) || !-f $sGetFile || !-s _)
     {
-      if (!open(FH, ">$sGetFile"))
+      if (!open(FH, "> $sGetFile"))
       {
         print STDERR "SunFingerPrintLookup(): Block='$sBlock' Error='$!'\n";
         exit(2);
@@ -309,7 +353,7 @@ sub SunFingerPrintLookup
       print FH $sMD5Hashes;
       close(FH);
     }
-    if (!open(FH, ">$sOutFile"))
+    if (!open(FH, "> $sOutFile"))
     {
       print STDERR "SunFingerPrintLookup(): Block='$sBlock' Error='$!'\n";
       exit(2);
@@ -407,7 +451,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-d dir] [-k count] [-r block] [-s count] [-w count] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-a] [-d dir] [-k count] [-r block] [-s count] [-w count] -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -433,7 +477,7 @@ hashdig-resolve-sunsolve.pl - Resolve hashes against Sun's Solaris Fingerprint D
 
 =head1 SYNOPSIS
 
-B<hashdig-resolve-sunsolve.pl> B<[-d dir]> B<[-k count]> B<[-w count]> B<[-r block]> B<[-s count]> B<-f {file|-}>
+B<hashdig-resolve-sunsolve.pl> B<[-a]> B<[-d dir]> B<[-k count]> B<[-w count]> B<[-r block]> B<[-s count]> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
@@ -460,6 +504,16 @@ raw HTML output returned by Sun's website.
 =head1 OPTIONS
 
 =over 4
+
+=item B<-a>
+
+Enables auto-recover mode. Individual requests can fail from time
+to time, or the job may have been aborted or killed prior to
+completion. This option allows you to continue the resolution process
+where the last job left off. Along the way, it'll redo any getblocks
+that produced no output. The original output B<dir> must exist, and
+be specified if not the default value. More importantly, the original
+input must be used for this mode to work as intended.
 
 =item B<-d dir>
 

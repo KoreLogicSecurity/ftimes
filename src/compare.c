@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.c,v 1.13 2004/04/24 06:25:13 mavrik Exp $
+ * $Id: compare.c,v 1.15 2005/04/02 18:08:24 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -1043,7 +1043,7 @@ ComparePreprocessLine(FILE *pFile, int iToLower, char *pcLine, int *piLength, un
   /*-
    *********************************************************************
    *
-   * Extract the name, and calculate it's hash.
+   * Extract the name, and calculate its hash.
    *
    *********************************************************************
    */

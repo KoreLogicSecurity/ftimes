@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.c,v 1.12 2004/04/25 15:22:57 mavrik Exp $
+ * $Id: dig.c,v 1.19 2005/04/14 04:12:01 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -13,141 +13,143 @@
 
 #ifdef WIN32
 static char           gacNewLine[NEWLINE_LENGTH] = CRLF;
-#endif
-#ifdef UNIX
+#else
 static char           gacNewLine[NEWLINE_LENGTH] = LF;
 #endif
-static DIG_SEARCH_LIST *gppsSearchList[256];
+static DIG_STRING *gppsSearchListNormal[DIG_MAX_CHAINS];
+static DIG_STRING *gppsSearchListNoCase[DIG_MAX_CHAINS];
+#ifdef USE_PCRE
+static DIG_STRING *gppsSearchListRegExp[DIG_MIN_CHAINS]; /* There is only one index for this chain. */
+#endif
 static FILE          *gpFile;
 static int            giMatchLimit;
 static int            giMaxStringLength;
-static int            giStringCount;
+static int            giSaveLength;
 static MD5_CONTEXT   *gpsMD5Context;
 
+static char gacDigStringTypes[][DIG_MAX_TYPE_SIZE] =
+{
+  { "normal" },
+  { "nocase" },
+#ifdef USE_PCRE
+  { "regexp" },
+#endif
+  { "" } /* Used by DigGetStringType() when an invalid type is specified. */
+};
+static const int giDigStringTypesLength = sizeof(gacDigStringTypes) / sizeof(gacDigStringTypes[0]);
+
+static unsigned char gaucBase16[] = "0123456789abcdef";
 
 /*-
  ***********************************************************************
  *
- * DigAddString
+ * DigAddDigString
  *
  ***********************************************************************
  */
 int
-DigAddString(char *pcString, char *pcError)
+DigAddDigString(char *pcString, int iType, char *pcError)
 {
-  const char          acRoutine[] = "DigAddString()";
+  const char          acRoutine[] = "DigAddDigString()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char               *pcUnEscaped;
-  int                 iLength;
-  DIG_SEARCH_LIST    *pListNew;
-  DIG_SEARCH_LIST    *pListCurrent;
-  DIG_SEARCH_LIST    *pListTail;
+  DIG_STRING         *psCurrent;
+  DIG_STRING         *psDigString;
+  DIG_STRING         *psHead;
+  DIG_STRING         *psTail;
+  int                 iError;
 
   /*-
    *********************************************************************
    *
-   * Check the string's length.
+   * Allocate and initialize a new DigString.
    *
    *********************************************************************
    */
-  iLength = strlen(pcString);
-  if (iLength < 1)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length must be greater than zero.", acRoutine, iLength);
-    return ER_Length;
-  }
-  if (iLength > DIG_MAX_STRING_SIZE - 1)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length exceeds %d bytes.", acRoutine, iLength, DIG_MAX_STRING_SIZE - 1);
-    return ER_Length;
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * Unescape the string.
-   *
-   *********************************************************************
-   */
-  pcUnEscaped = HTTPUnEscape(pcString, &iLength, acLocalError);
-  if (pcUnEscaped == NULL)
+  psDigString = DigNewDigString(pcString, iType, acLocalError);
+  if (psDigString == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    return ER_BadValue;
+    return ER;
   }
 
   /*-
    *********************************************************************
    *
-   * Allocate memory for a new list element. The caller is expected to
-   * free this memory.
+   * If the chain is empty, just insert the new DigString and return.
    *
    *********************************************************************
    */
-  pListNew = pListTail = (DIG_SEARCH_LIST *) malloc(sizeof(DIG_SEARCH_LIST));
-  if (pListNew == NULL)
+  switch (iType)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
-    HTTPFreeData(pcUnEscaped);
-    return ER_BadHandle;
+#ifdef USE_PCRE
+  case DIG_STRING_TYPE_REGEXP:
+    psHead = DigGetSearchList(iType, DIG_FIRST_CHAIN_INDEX);
+    break;
+#endif
+  default:
+    psHead = DigGetSearchList(iType, psDigString->pucDecodedString[0]);
+    DigSetMaxStringLength(psDigString->iDecodedLength); /* Update the max string length. */
+    break;
   }
-  memset(pListNew, 0, sizeof(DIG_SEARCH_LIST));
-
-  /*-
-   *********************************************************************
-   *
-   * Find a place for this string in the list. Don't add duplicates.
-   *
-   *********************************************************************
-   */
-  pListCurrent = gppsSearchList[(unsigned char) pcUnEscaped[0]];
-  if (pListCurrent == NULL)
+  if (psHead == NULL)
   {
-    gppsSearchList[(unsigned char) pcUnEscaped[0]] = pListNew;
-  }
-  else
-  {
-    for ( ; pListCurrent != NULL; pListCurrent = pListCurrent->psNext)
+    iError = DigSetSearchList(psDigString, acLocalError);
+    if (iError != ER_OK)
     {
-      if (pListCurrent->psNext == NULL)
-      {
-        pListTail = pListCurrent;
-      }
-      if (memcmp(pListCurrent->acRawString, pcUnEscaped, iLength) == 0 && pListCurrent->iLength == iLength)
-      {
-        free(pListNew);
-        HTTPFreeData(pcUnEscaped);
-        return ER_OK; /* Duplicate */
-      }
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return ER;
     }
-    pListTail->psNext = pListNew;
+    return ER_OK;
   }
 
   /*-
    *********************************************************************
    *
-   * Add the string to the list.
+   * Otherwise, append the new DigString to the end of the chain, but
+   * don't add duplicates.
    *
    *********************************************************************
    */
-  pListTail = pListNew;
-  strncpy(pListTail->acEscString, pcString, DIG_MAX_STRING_SIZE);
-  memcpy(pListTail->acRawString, (unsigned char *) pcUnEscaped, iLength);
-  pListTail->iHits = 0;
-  pListTail->iHitsPerFile = 0;
-  pListTail->iLength = iLength;
-  pListTail->psNext = NULL;
-
-  if (iLength > giMaxStringLength)
+  for (psCurrent = psTail = psHead; psCurrent != NULL; psCurrent = psCurrent->psNext)
   {
-    giMaxStringLength = iLength;
+    if (psCurrent->psNext == NULL)
+    {
+      psTail = psCurrent;
+    }
+    if (psCurrent->iDecodedLength == psDigString->iDecodedLength && memcmp(psCurrent->pucDecodedString, psDigString->pucDecodedString, psDigString->iDecodedLength) == 0)
+    {
+      snprintf(acLocalError, MESSAGE_SIZE, "Type = [%s], String = [%s]: Ignoring duplicate string.", DigGetStringType(iType), pcString);
+      ErrorHandler(ER_Warning, acLocalError, ERROR_WARNING);
+      DigFreeDigString(psDigString);
+      return ER_OK; /* Duplicates are not considered an error. */
+    }
   }
-  giStringCount++;
-
-  HTTPFreeData(pcUnEscaped);
+  psTail->psNext = psDigString;
 
   return ER_OK;
 }
+
+
+#ifdef USE_PCRE
+/*-
+ ***********************************************************************
+ *
+ * DigAdjustRegExpOffsets
+ *
+ ***********************************************************************
+ */
+void
+DigAdjustRegExpOffsets(int iTrimSize)
+{
+  DIG_STRING         *psDigString;
+
+  for (psDigString = DigGetSearchList(DIG_STRING_TYPE_REGEXP, DIG_FIRST_CHAIN_INDEX); psDigString != NULL; psDigString = psDigString->psNext)
+  {
+    psDigString->iOffset = (psDigString->iLastOffset > iTrimSize) ? psDigString->iLastOffset - iTrimSize : 0;
+    psDigString->iLastOffset = 0;
+  }
+}
+#endif
 
 
 /*-
@@ -160,14 +162,19 @@ DigAddString(char *pcString, char *pcError)
 void
 DigClearCounts(void)
 {
-  int                 i;
-  DIG_SEARCH_LIST    *psSearchList;
+  int                 iIndex;
+  int                 iType;
+  DIG_STRING         *psDigString;
 
-  for (i = 0; i < 256; i++)
+  for (iType = DIG_STRING_TYPE_NORMAL; iType < DIG_STRING_TYPE_NOMORE; iType++)
   {
-    for (psSearchList = gppsSearchList[i]; psSearchList != NULL; psSearchList = psSearchList->psNext)
+    for (iIndex = DIG_FIRST_CHAIN_INDEX; iIndex <= DIG_FINAL_CHAIN_INDEX; iIndex++)
     {
-      psSearchList->iHitsPerFile = 0;
+      for (psDigString = DigGetSearchList(iType, iIndex); psDigString != NULL; psDigString = psDigString->psNext)
+      {
+        psDigString->iHitsPerStream = 0;
+        psDigString->iHitsPerBuffer = 0;
+      }
     }
   }
 }
@@ -186,21 +193,25 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
   const char          acRoutine[] = "DigDevelopOutput()";
   char                acOffset[FTIMES_MAX_64BIT_SIZE];
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 iIndex;
+  char               *pc;
+  int                 i;
   int                 iError;
+  int                 iIndex;
+  int                 iLimit;
 
   /*-
    *********************************************************************
-   * 
-   * name          1 (for quote) + (3 * FTIMES_MAX_PATH) + 1 (for quote)
+   *
+   * name          (3 * FTIMES_MAX_PATH) + 2 (for quotes)
+   * type          DIG_MAX_TYPE_SIZE
    * offset        FTIMES_MAX_64BIT_SIZE
-   * string        DIG_MAX_STRING_SIZE
-   * |'s           2
+   * string        (3 * DIG_MAX_STRING_SIZE)
+   * |'s           3
    * newline       2
    *
    *********************************************************************
    */
-  char acOutput[(3 * FTIMES_MAX_PATH) + FTIMES_MAX_64BIT_SIZE + DIG_MAX_STRING_SIZE + 6];
+  char acOutput[(3 * FTIMES_MAX_PATH) + DIG_MAX_TYPE_SIZE + FTIMES_MAX_64BIT_SIZE + (3 * DIG_MAX_STRING_SIZE) + 7];
 
   /*-
    *********************************************************************
@@ -214,11 +225,23 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
   /*-
    *********************************************************************
    *
+   * Type = type
+   *
+   *********************************************************************
+   */
+  iIndex += sprintf(&acOutput[iIndex], "|%s", DigGetStringType(psSearchData->iType));
+
+  /*-
+   *********************************************************************
+   *
    * Offset = offset
    *
    *********************************************************************
    */
-#ifdef UNIX
+#ifdef WIN32
+  iIndex += snprintf(&acOutput[iIndex], FTIMES_MAX_64BIT_SIZE, "|%I64u", (K_UINT64) psSearchData->ui64Offset);
+  snprintf(acOffset, FTIMES_MAX_64BIT_SIZE, "%I64u", (K_UINT64) psSearchData->ui64Offset);
+#else
 #ifdef USE_AP_SNPRINTF
   iIndex += snprintf(&acOutput[iIndex], FTIMES_MAX_64BIT_SIZE, "|%qu", (unsigned long long) psSearchData->ui64Offset);
   snprintf(acOffset, FTIMES_MAX_64BIT_SIZE, "%qu", (unsigned long long) psSearchData->ui64Offset);
@@ -226,10 +249,6 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
   iIndex += snprintf(&acOutput[iIndex], FTIMES_MAX_64BIT_SIZE, "|%llu", (unsigned long long) psSearchData->ui64Offset);
   snprintf(acOffset, FTIMES_MAX_64BIT_SIZE, "%llu", (unsigned long long) psSearchData->ui64Offset);
 #endif
-#endif
-#ifdef WIN32
-  iIndex += snprintf(&acOutput[iIndex], FTIMES_MAX_64BIT_SIZE, "|%I64u", (K_UINT64) psSearchData->ui64Offset);
-  snprintf(acOffset, FTIMES_MAX_64BIT_SIZE, "%I64u", (K_UINT64) psSearchData->ui64Offset);
 #endif
 
   /*-
@@ -239,7 +258,25 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
    *
    *********************************************************************
    */
-  iIndex += sprintf(&acOutput[iIndex], "|%s", psSearchData->pcString);
+  acOutput[iIndex++] = '|';
+  iLimit = (psSearchData->iLength < DIG_MAX_STRING_SIZE) ? psSearchData->iLength : DIG_MAX_STRING_SIZE;
+  for (i = 0, pc = psSearchData->pucData; i < iLimit; i++, pc++)
+  {
+    if (*pc == '%' || *pc == '+' || !isprint((int) *pc))
+    {
+      acOutput[iIndex++] = '%';
+      acOutput[iIndex++] = gaucBase16[((*pc >> 4) & 0x0f)];
+      acOutput[iIndex++] = gaucBase16[((*pc >> 0) & 0x0f)];
+    }
+    else if (*pc == ' ')
+    {
+      acOutput[iIndex++] = '+';
+    }
+    else
+    {
+      acOutput[iIndex++] = *pc;
+    }
+  }
 
   /*-
    *********************************************************************
@@ -280,6 +317,41 @@ DigDevelopOutput(DIG_SEARCH_DATA *psSearchData, char *pcError)
 /*-
  ***********************************************************************
  *
+ * DigFreeDigString
+ *
+ ***********************************************************************
+ */
+void
+DigFreeDigString(DIG_STRING *psDigString)
+{
+  if (psDigString != NULL)
+  {
+    if (psDigString->pucEncodedString != NULL)
+    {
+      free(psDigString->pucEncodedString);
+    }
+    if (psDigString->pucDecodedString != NULL)
+    {
+      free(psDigString->pucDecodedString);
+    }
+#ifdef USE_PCRE
+    if (psDigString->psPcre != NULL)
+    {
+      pcre_free(psDigString->psPcre);
+    }
+    if (psDigString->psPcreExtra != NULL)
+    {
+      pcre_free(psDigString->psPcreExtra);
+    }
+#endif
+    free(psDigString);
+  }
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * DigGetMatchLimit
  *
  ***********************************************************************
@@ -304,6 +376,19 @@ DigGetMaxStringLength(void)
   return giMaxStringLength;
 }
 
+/*-
+ ***********************************************************************
+ *
+ * DigGetSaveLength
+ *
+ ***********************************************************************
+ */
+int
+DigGetSaveLength(void)
+{
+  return giSaveLength;
+}
+
 
 /*-
  ***********************************************************************
@@ -312,10 +397,36 @@ DigGetMaxStringLength(void)
  *
  ***********************************************************************
  */
-DIG_SEARCH_LIST *
-DigGetSearchList(int iIndex)
+DIG_STRING *
+DigGetSearchList(int iType, int iIndex)
 {
-  return (iIndex >= 0 && iIndex <= 255) ? gppsSearchList[iIndex] : NULL;
+  switch (iType)
+  {
+  case DIG_STRING_TYPE_NORMAL:
+    return (iIndex >= DIG_FIRST_CHAIN_INDEX && iIndex <= DIG_FINAL_CHAIN_INDEX) ? gppsSearchListNormal[iIndex] : NULL;
+    break;
+  case DIG_STRING_TYPE_NOCASE:
+    return (iIndex >= DIG_FIRST_CHAIN_INDEX && iIndex <= DIG_FINAL_CHAIN_INDEX) ? gppsSearchListNoCase[iIndex] : NULL;
+    break;
+#ifdef USE_PCRE
+  /*-
+   *********************************************************************
+   *
+   * Note: Various routines (e.g., DigGetStringCount) iterate over a
+   * number of index values. Therefore, this code must return a pointer
+   * to the RegExp search list when the caller supplies an index value
+   * of DIG_FIRST_CHAIN_INDEX, and it must return NULL in any other case.
+   *
+   *********************************************************************
+   */
+  case DIG_STRING_TYPE_REGEXP:
+    return (iIndex == DIG_FIRST_CHAIN_INDEX) ? gppsSearchListRegExp[iIndex] : NULL;
+    break;
+#endif
+  default:
+    return NULL;
+    break;
+  }
 }
 
 
@@ -329,7 +440,22 @@ DigGetSearchList(int iIndex)
 int
 DigGetStringCount(void)
 {
-  return giStringCount;
+  int                 iIndex;
+  int                 iStringCount = 0;
+  int                 iType;
+  DIG_STRING         *psDigString;
+
+  for (iType = DIG_STRING_TYPE_NORMAL; iType < DIG_STRING_TYPE_NOMORE; iType++)
+  {
+    for (iIndex = DIG_FIRST_CHAIN_INDEX; iIndex <= DIG_FINAL_CHAIN_INDEX; iIndex++)
+    {
+      for (psDigString = DigGetSearchList(iType, iIndex); psDigString != NULL; psDigString = psDigString->psNext)
+      {
+        iStringCount++;
+      }
+    }
+  }
+  return iStringCount;
 }
 
 
@@ -343,21 +469,39 @@ DigGetStringCount(void)
 int
 DigGetStringsMatched(void)
 {
-  int                 i;
-  int                 iMatched;
-  DIG_SEARCH_LIST    *psSearchList;
+  int                 iIndex;
+  int                 iMatched = 0;
+  int                 iType;
+  DIG_STRING         *psDigString;
 
-  for (i = 0, iMatched = 0; i < 256; i++)
+  for (iType = DIG_STRING_TYPE_NORMAL; iType < DIG_STRING_TYPE_NOMORE; iType++)
   {
-    for (psSearchList = gppsSearchList[i]; psSearchList != NULL; psSearchList = psSearchList->psNext)
+    for (iIndex = DIG_FIRST_CHAIN_INDEX; iIndex <= DIG_FINAL_CHAIN_INDEX; iIndex++)
     {
-      if (psSearchList->iHits > 0)
+      for (psDigString = DigGetSearchList(iType, iIndex); psDigString != NULL; psDigString = psDigString->psNext)
       {
-        iMatched++;
+        if (psDigString->iHitsPerJob > 0)
+        {
+          iMatched++;
+        }
       }
     }
   }
   return iMatched;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * DigGetStringType
+ *
+ ***********************************************************************
+ */
+char *
+DigGetStringType(int iType)
+{
+  return (iType >= 0 && iType < giDigStringTypesLength) ? gacDigStringTypes[iType] : gacDigStringTypes[giDigStringTypesLength - 1];
 }
 
 
@@ -371,21 +515,188 @@ DigGetStringsMatched(void)
 K_UINT64
 DigGetTotalMatches(void)
 {
-  int                 i;
-  K_UINT64            ui64Matches;
-  DIG_SEARCH_LIST    *psSearchList;
+  int                 iIndex;
+  int                 iType;
+  K_UINT64            ui64Matches = 0;
+  DIG_STRING         *psDigString;
 
-  for (i = 0, ui64Matches = 0; i < 256; i++)
+  for (iType = DIG_STRING_TYPE_NORMAL; iType < DIG_STRING_TYPE_NOMORE; iType++)
   {
-    for (psSearchList = gppsSearchList[i]; psSearchList != NULL; psSearchList = psSearchList->psNext)
+    for (iIndex = DIG_FIRST_CHAIN_INDEX; iIndex <= DIG_FINAL_CHAIN_INDEX; iIndex++)
     {
-      if (psSearchList->iHits > 0)
+      for (psDigString = DigGetSearchList(iType, iIndex); psDigString != NULL; psDigString = psDigString->psNext)
       {
-        ui64Matches += psSearchList->iHits;
+        if (psDigString->iHitsPerJob > 0)
+        {
+          ui64Matches += psDigString->iHitsPerJob;
+        }
       }
     }
   }
   return ui64Matches;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * DigNewDigString
+ *
+ ***********************************************************************
+ */
+DIG_STRING *
+DigNewDigString(char *pcString, int iType, char *pcError)
+{
+  const char          acRoutine[] = "DigNewDigString()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  unsigned char      *pucDecodedString;
+  unsigned char      *pucEncodedString;
+  int                 i;
+  int                 iLength;
+  DIG_STRING         *psDigString;
+#ifdef USE_PCRE
+  const char         *pcPcreError = NULL;
+  int                 iError;
+  int                 iPcreErrorOffset;
+#endif
+
+  /*-
+   *********************************************************************
+   *
+   * Check that the input string is not NULL and that it has length.
+   *
+   *********************************************************************
+   */
+  if (pcString == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: NULL input. That shouldn't happen.", acRoutine);
+    return NULL;
+  }
+
+  iLength = strlen(pcString);
+  if (iLength < 1)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length must be greater than zero.", acRoutine, iLength);
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Allocate memory for a new DigString. The caller should free this
+   * memory with DigFreeDigString().
+   *
+   *********************************************************************
+   */
+  psDigString = calloc(sizeof(DIG_STRING), 1);
+  if (psDigString == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Allocate memory and insert the encoded/decoded strings. The decode
+   * step is not used for RegExp strings, but go through the motions
+   * anyway so that all strings are handled the same way. This adds to
+   * the workload, but avoids some special case code.
+   *
+   *********************************************************************
+   */
+  pucEncodedString = calloc(iLength + 1, 1);
+  if (pucEncodedString == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    DigFreeDigString(psDigString);
+    return NULL;
+  }
+  strncpy(pucEncodedString, pcString, iLength + 1);
+  psDigString->pucEncodedString = pucEncodedString;
+  psDigString->iEncodedLength = iLength;
+
+  pucDecodedString = HTTPUnEscape(pcString, &iLength, acLocalError);
+  if (pucDecodedString == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    DigFreeDigString(psDigString);
+    return NULL;
+  }
+  psDigString->pucDecodedString = pucDecodedString;
+  psDigString->iDecodedLength = iLength;
+
+  /*-
+   *********************************************************************
+   *
+   * Initialize the structure according to the string's type.
+   *
+   *********************************************************************
+   */
+  switch (iType)
+  {
+  case DIG_STRING_TYPE_NORMAL:
+    break;
+  case DIG_STRING_TYPE_NOCASE:
+    for (i = 0; i < psDigString->iDecodedLength; i++)
+    {
+      psDigString->pucDecodedString[i] = tolower(psDigString->pucDecodedString[i]);
+    }
+    break;
+#ifdef USE_PCRE
+  case DIG_STRING_TYPE_REGEXP:
+    /*-
+     *******************************************************************
+     *
+     * Compile and study the regular expression. Then, make sure that
+     * there's exactly one capturing subpattern. Compile-time options
+     * (?imsx) are not set here because the user can specify them as
+     * needed in the dig strings.
+     *
+     *******************************************************************
+     */
+    psDigString->psPcre = pcre_compile(pcString, 0, &pcPcreError, &iPcreErrorOffset, NULL);
+    if (psDigString->psPcre == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: pcre_compile(): %s", acRoutine, pcPcreError);
+      DigFreeDigString(psDigString);
+      return NULL;
+    }
+    psDigString->psPcreExtra = pcre_study(psDigString->psPcre, 0, &pcPcreError);
+    if (pcPcreError != NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: pcre_study(): %s", acRoutine, pcPcreError);
+      DigFreeDigString(psDigString);
+      return NULL;
+    }
+    iError = pcre_fullinfo(psDigString->psPcre, psDigString->psPcreExtra, PCRE_INFO_CAPTURECOUNT, (void *) &psDigString->iCaptureCount);
+    if (iError == ER_OK)
+    {
+      if (psDigString->iCaptureCount > PCRE_MAX_CAPTURE_COUNT)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: Invalid capture count [%d]. The maximum number of capturing '()' subpatterns allowed is %d. Use '(?:)' if grouping is required.", acRoutine, psDigString->iCaptureCount, PCRE_MAX_CAPTURE_COUNT);
+        DigFreeDigString(psDigString);
+        return NULL;
+      }
+    }
+    else
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: pcre_fullinfo(): Unexpected return value [%d]. That shouldn't happen.", acRoutine, iError);
+      DigFreeDigString(psDigString);
+      return NULL;
+    }
+    break;
+#endif
+  default:
+    snprintf(pcError, MESSAGE_SIZE, "%s: Invalid type [%d]. That shouldn't happen.", acRoutine, iType);
+    DigFreeDigString(psDigString);
+    return NULL;
+    break;
+  }
+  psDigString->iType = iType;
+  psDigString->psNext = NULL;
+
+  return psDigString;
 }
 
 
@@ -397,46 +708,217 @@ DigGetTotalMatches(void)
  ***********************************************************************
  */
 int
-DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, K_UINT64 ui64AbsoluteOffset, char *pcFilename, char *pcError)
+DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType, K_UINT64 ui64AbsoluteOffset, char *pcFilename, char *pcError)
 {
   const char          acRoutine[] = "DigSearchData()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 iError;
-  int                 iLength;
-  int                 iStringLength;
-  DIG_SEARCH_LIST    *psSearchList;
+  int                 iError = 0;
+  int                 i = 0;
+  int                 iBytesLeft = iDataLength;
+  int                 iMatch = 0;
+  int                 iMinSearchLength = 0;
+  int                 iMaxStringLength = DigGetMaxStringLength();
+  int                 iOffset = 0;
+  int                 iSaveLength = DigGetSaveLength();
+  DIG_STRING         *psDigString;
   DIG_SEARCH_DATA     sSearchData;
+#ifdef USE_PCRE
+  int                 iDone = 0;
+  int                 iMatchLength = 0;
+  int                 iMatchOffset = 0;
+  int                 iPcreOVector[PCRE_OVECTOR_ARRAY_SIZE];
+#endif
 
-  iLength = iDataLength;
-  iStringLength = iStopShort ? giMaxStringLength : 1;
+  iMinSearchLength = iStopShort ? iMaxStringLength : 1;
 
-  while (iLength >= iStringLength)
+  switch (iType)
   {
-    for ((psSearchList = gppsSearchList[*pucData]); psSearchList != NULL; psSearchList = psSearchList->psNext)
+  case DIG_STRING_TYPE_NORMAL:
+    /*-
+     *******************************************************************
+     *
+     * Advance the pointer to compensate for the save buffer.
+     *
+     *******************************************************************
+     */
+    if (ui64AbsoluteOffset != 0)
     {
-      if (
-           (giMatchLimit == 0 || psSearchList->iHitsPerFile < giMatchLimit) &&
-           memcmp(psSearchList->acRawString, pucData, psSearchList->iLength) == 0 &&
-           iLength >= psSearchList->iLength
-         )
+      iOffset = (iSaveLength - iMaxStringLength) + 1;
+      pucData += iOffset;
+      iBytesLeft -= iOffset;
+    }
+    while (iBytesLeft >= iMinSearchLength)
+    {
+      for ((psDigString = gppsSearchListNormal[*pucData]); psDigString != NULL; psDigString = psDigString->psNext)
       {
-        psSearchList->iHits++;
-        psSearchList->iHitsPerFile++;
-
-        sSearchData.pcFile = pcFilename;
-        sSearchData.ui64Offset = ui64AbsoluteOffset + iDataLength - iLength;
-        sSearchData.pcString = psSearchList->acEscString;
-
-        iError = DigDevelopOutput(&sSearchData, acLocalError);
-        if (iError != ER_OK)
+        if (giMatchLimit == 0 || psDigString->iHitsPerStream < giMatchLimit)
         {
-          snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-          return iError;
+          if (
+               iBytesLeft >= psDigString->iDecodedLength &&
+               psDigString->pucDecodedString[psDigString->iDecodedLength - 1] == pucData[psDigString->iDecodedLength - 1] && /* If the last bytes don't match, there's no point in continuing. */
+               memcmp(psDigString->pucDecodedString, pucData, psDigString->iDecodedLength) == 0
+             )
+          {
+            psDigString->iHitsPerJob++;
+            psDigString->iHitsPerStream++;
+            psDigString->iHitsPerBuffer++;
+
+            sSearchData.pcFile = pcFilename;
+            sSearchData.pucData = pucData;
+            sSearchData.iLength = psDigString->iDecodedLength;
+            sSearchData.iType = psDigString->iType;
+            sSearchData.ui64Offset = ui64AbsoluteOffset + iDataLength - iBytesLeft;
+
+            iError = DigDevelopOutput(&sSearchData, acLocalError);
+            if (iError != ER_OK)
+            {
+              snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+              return iError;
+            }
+          }
+        }
+      }
+      iBytesLeft--;
+      pucData++;
+    }
+    break;
+  case DIG_STRING_TYPE_NOCASE:
+    /*-
+     *******************************************************************
+     *
+     * Advance the pointer to compensate for the save buffer.
+     *
+     *******************************************************************
+     */
+    if (ui64AbsoluteOffset != 0)
+    {
+      iOffset = (iSaveLength - iMaxStringLength) + 1;
+      pucData += iOffset;
+      iBytesLeft -= iOffset;
+    }
+    while (iBytesLeft >= iMinSearchLength)
+    {
+      for ((psDigString = gppsSearchListNoCase[tolower(*pucData)]); psDigString != NULL; psDigString = psDigString->psNext)
+      {
+        if (giMatchLimit == 0 || psDigString->iHitsPerStream < giMatchLimit)
+        {
+          for (i = 0, iMatch = 1; i < psDigString->iDecodedLength && iMatch; i++) /* FIXME Searching in reverse order here would probably speed things up. */
+          {
+            if (pucData[i] >= 'A' && pucData[i] <= 'Z')
+            {
+              iMatch = (pucData[i] == psDigString->pucDecodedString[i] || (pucData[i] + 0x20) == psDigString->pucDecodedString[i]) ? 1 : 0;
+            }
+            else if (pucData[i] >= 'a' && pucData[i] <= 'z')
+            {
+              iMatch = (pucData[i] == psDigString->pucDecodedString[i] || (pucData[i] - 0x20) == psDigString->pucDecodedString[i]) ? 1 : 0;
+            }
+            else
+            {
+              iMatch = (pucData[i] == psDigString->pucDecodedString[i]) ? 1 : 0;
+            }
+          }
+          if (iMatch && iBytesLeft >= psDigString->iDecodedLength)
+          {
+            psDigString->iHitsPerJob++;
+            psDigString->iHitsPerStream++;
+            psDigString->iHitsPerBuffer++;
+
+            sSearchData.pcFile = pcFilename;
+            sSearchData.pucData = pucData;
+            sSearchData.iLength = psDigString->iDecodedLength;
+            sSearchData.iType = psDigString->iType;
+            sSearchData.ui64Offset = ui64AbsoluteOffset + iDataLength - iBytesLeft;
+
+            iError = DigDevelopOutput(&sSearchData, acLocalError);
+            if (iError != ER_OK)
+            {
+              snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+              return iError;
+            }
+          }
+        }
+      }
+      iBytesLeft--;
+      pucData++;
+    }
+    break;
+#ifdef USE_PCRE
+  case DIG_STRING_TYPE_REGEXP:
+    for ((psDigString = gppsSearchListRegExp[DIG_FIRST_CHAIN_INDEX]); psDigString != NULL; psDigString = psDigString->psNext)
+    {
+      iDone = 0;
+      iOffset = psDigString->iOffset;
+      while (!iDone && (giMatchLimit == 0 || psDigString->iHitsPerStream < giMatchLimit))
+      {
+        /*-
+         ***************************************************************
+         *
+         * The PCRE_NOTEMPTY option is used here to squash any attempts
+         * to match empty strings (e.g., (A*) or (a?b?)) and to prevent
+         * infinite loops.
+         *
+         ***************************************************************
+         */
+        iError = pcre_exec(psDigString->psPcre, psDigString->psPcreExtra, pucData, iDataLength, iOffset, PCRE_NOTEMPTY, iPcreOVector, PCRE_OVECTOR_ARRAY_SIZE);
+        if (iError < 0)
+        {
+          if (iError == PCRE_ERROR_NOMATCH)
+          {
+            iDone = 1;
+          }
+          else
+          {
+            snprintf(pcError, MESSAGE_SIZE, "%s: pcre_exec(): Unexpected return value [%d]. That shouldn't happen.", acRoutine, iError);
+            return ER;
+          }
+        }
+        else
+        {
+          if (iError == 0) /* There's a match, but also an overflow. */
+          {
+            snprintf(pcError, MESSAGE_SIZE, "%s: pcre_exec(): Unexpected return value [%d]. That shouldn't happen.", acRoutine, iError);
+            return ER;
+          }
+
+          if (psDigString->iCaptureCount == 1)
+          {
+            iMatchLength = iPcreOVector[PCRE_CAPTURE_INDEX_1H] - iPcreOVector[PCRE_CAPTURE_INDEX_1L];
+            iMatchOffset = iPcreOVector[PCRE_CAPTURE_INDEX_1L];
+          }
+          else
+          {
+            iMatchLength = iPcreOVector[PCRE_CAPTURE_INDEX_0H] - iPcreOVector[PCRE_CAPTURE_INDEX_0L];
+            iMatchOffset = iPcreOVector[PCRE_CAPTURE_INDEX_0L];
+          }
+
+          psDigString->iHitsPerJob++;
+          psDigString->iHitsPerStream++;
+          psDigString->iHitsPerBuffer++;
+          psDigString->iLastOffset = iMatchOffset + iMatchLength;
+
+          sSearchData.pcFile = pcFilename;
+          sSearchData.pucData = pucData + iMatchOffset;
+          sSearchData.iLength = iMatchLength;
+          sSearchData.iType = psDigString->iType;
+          sSearchData.ui64Offset = ui64AbsoluteOffset + iMatchOffset;
+
+          iError = DigDevelopOutput(&sSearchData, acLocalError);
+          if (iError != ER_OK)
+          {
+            snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+            return iError;
+          }
+
+          iOffset = iPcreOVector[PCRE_CAPTURE_INDEX_0H]; /* The next place to continue searching. */
         }
       }
     }
-    iLength--;
-    pucData++;
+    break;
+#endif
+  default:
+    snprintf(pcError, MESSAGE_SIZE, "%s: Invalid type [%d]. That shouldn't happen.", acRoutine, iType);
+    return ER;
+    break;
   }
   return ER_OK;
 }
@@ -473,6 +955,23 @@ DigSetMatchLimit(int iMatchLimit)
 /*-
  ***********************************************************************
  *
+ * DigSetMaxStringLength
+ *
+ ***********************************************************************
+ */
+void
+DigSetMaxStringLength(int iStringLength)
+{
+  if (iStringLength > giMaxStringLength)
+  {
+    giMaxStringLength = iStringLength;
+  }
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * DigSetNewLine
  *
  ***********************************************************************
@@ -495,6 +994,61 @@ void
 DigSetOutputStream(FILE *pFile)
 {
   gpFile = pFile;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * DigSetSaveLength
+ *
+ ***********************************************************************
+ */
+void
+DigSetSaveLength(int iSaveLength)
+{
+  giSaveLength = iSaveLength;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * DigSetSearchList
+ *
+ ***********************************************************************
+ */
+int
+DigSetSearchList(DIG_STRING *psDigString, char *pcError)
+{
+  const char          acRoutine[] = "DigSetSearchList()";
+
+  if (psDigString == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: NULL input. That shouldn't happen.", acRoutine);
+    return ER;
+  }
+
+  switch (psDigString->iType)
+  {
+  case DIG_STRING_TYPE_NORMAL:
+    gppsSearchListNormal[psDigString->pucDecodedString[0]] = psDigString;
+    break;
+  case DIG_STRING_TYPE_NOCASE:
+    gppsSearchListNoCase[psDigString->pucDecodedString[0]] = psDigString;
+    break;
+#ifdef USE_PCRE
+  case DIG_STRING_TYPE_REGEXP:
+    gppsSearchListRegExp[DIG_FIRST_CHAIN_INDEX] = psDigString;
+    break;
+#endif
+  default:
+    snprintf(pcError, MESSAGE_SIZE, "%s: Invalid type [%d]. That shouldn't happen.", acRoutine, psDigString->iType);
+    return ER;
+    break;
+  }
+
+  return ER_OK;
 }
 
 
@@ -530,7 +1084,7 @@ DigWriteHeader(FILE *pFile, char *pcNewLine, char *pcError)
    *
    *********************************************************************
    */
-  iIndex = sprintf(acHeaderData, "name|offset|string%s", pcNewLine);
+  iIndex = sprintf(acHeaderData, "name|type|offset|string%s", pcNewLine);
 
   /*-
    *********************************************************************

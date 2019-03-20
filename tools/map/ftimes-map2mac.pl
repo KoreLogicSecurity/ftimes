@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-map2mac.pl,v 1.9 2004/04/21 01:29:59 mavrik Exp $
+# $Id: ftimes-map2mac.pl,v 1.17 2005/05/30 23:35:35 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -45,7 +45,7 @@ use Getopt::Std;
 
   if ($sRunMode =~ /^(-e|--extsort)$/)
   {
-    if (!getopts('df:rs:T:w', \%hOptions))
+    if (!getopts('df:mqrs:T:w', \%hOptions))
     {
       Usage($sProgram);
     }
@@ -53,7 +53,7 @@ use Getopt::Std;
   }
   elsif ($sRunMode =~ /^(-i|--intsort)$/)
   {
-    if (!getopts('df:rw', \%hOptions))
+    if (!getopts('df:mqrw', \%hOptions))
     {
       Usage($sProgram);
     }
@@ -66,7 +66,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Decode flag, '-d', is optional. Default value is 0.
+  # The Decode flag, '-d', is optional.
   #
   ####################################################################
 
@@ -95,7 +95,7 @@ use Getopt::Std;
     }
     if (-f $sFilename)
     {
-      if (!open(FH, $sFilename))
+      if (!open(FH, "< $sFilename"))
       {
         print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
         exit(2);
@@ -115,7 +115,27 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Reverse flag, '-r', is optional. Default value is 0.
+  # The UseMilliSeconds flag, '-m', is optional.
+  #
+  ####################################################################
+
+  my ($sUseMilliSeconds);
+
+  $sUseMilliSeconds = (exists($hOptions{'m'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # The BeQuiet flag, '-q', is optional.
+  #
+  ####################################################################
+
+  my ($sBeQuiet);
+
+  $sBeQuiet = (exists($hOptions{'q'})) ? 1 : 0;
+
+  ####################################################################
+  #
+  # The Reverse flag, '-r', is optional.
   #
   ####################################################################
 
@@ -125,7 +145,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Sort flag, '-s', is optional. Default value is "sort".
+  # The Sort flag, '-s', is optional.
   #
   ####################################################################
 
@@ -135,8 +155,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The TmpDir flag, '-T', is optional. Default value is $TMPDIR,
-  # or if that is not defined, fall back to "/tmp".
+  # The TmpDir flag, '-T', is optional.
   #
   ####################################################################
 
@@ -146,7 +165,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Windows flag, '-w', is optional. Default value is 0.
+  # The Windows flag, '-w', is optional.
   #
   ####################################################################
 
@@ -171,7 +190,7 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my (@aFields, $sHeader, $sNIndex, $sMIndex, $sAIndex, $sCIndex, $sChIndex);
+  my (@aFields, $sHeader, $sNIndex, $sMIndex, $sMmsIndex, $sAIndex, $sAmsIndex, $sCIndex, $sCmsIndex, $sHIndex, $sHmsIndex);
 
   if (!defined($sHeader = <$sFileHandle>))
   {
@@ -179,7 +198,7 @@ use Getopt::Std;
     exit(2);
   }
   $sHeader =~ s/[\r\n]+$//;
-  @aFields = split(/\|/, $sHeader);
+  @aFields = split(/\|/, $sHeader, -1);
   for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
   {
     if ($aFields[$sIndex] eq "name")
@@ -200,12 +219,38 @@ use Getopt::Std;
     }
     elsif ($aFields[$sIndex] eq "chtime")
     {
-      $sChIndex = $sIndex;
+      $sHIndex = $sIndex;
+    }
+    elsif ($aFields[$sIndex] eq "mms")
+    {
+      $sMmsIndex = $sIndex;
+    }
+    elsif ($aFields[$sIndex] eq "ams")
+    {
+      $sAmsIndex = $sIndex;
+    }
+    elsif ($aFields[$sIndex] eq "cms")
+    {
+      $sCmsIndex = $sIndex;
+    }
+    elsif ($aFields[$sIndex] eq "chms")
+    {
+      $sHmsIndex = $sIndex;
     }
   }
   if ($sWindows)
   {
-    if (!defined($sNIndex) || !defined($sMIndex) || !defined($sAIndex) || !defined($sCIndex) || !defined($sChIndex))
+    if (
+         !defined($sNIndex) ||
+         !defined($sMIndex) ||
+         !defined($sAIndex) ||
+         !defined($sCIndex) ||
+         !defined($sHIndex) ||
+         ($sUseMilliSeconds && !defined($sMmsIndex)) ||
+         ($sUseMilliSeconds && !defined($sAmsIndex)) ||
+         ($sUseMilliSeconds && !defined($sCmsIndex)) ||
+         ($sUseMilliSeconds && !defined($sHmsIndex))
+       )
     {
       print STDERR "$sProgram: File='$sFilename' Error='Missing one or more required header fields.'\n";
       exit(2);
@@ -233,7 +278,7 @@ use Getopt::Std;
     {
       $sCommand .= " -r";
     }
-    if (!open(SH, "|$sCommand"))
+    if (!open(SH, "| $sCommand"))
     {
       print STDERR "$sProgram: Command='$sCommand' Error='$!'\n";
       exit(2);
@@ -246,30 +291,52 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($sMAC, $sName, %hUnique);
+  my (%hUnique);
 
   if ($sWindows)
   {
     while (my $sLine = <$sFileHandle>)
     {
       $sLine =~ s/[\r\n]+$//;
-      @aFields = split(/\|/, $sLine);
-      foreach my $sTime (@aFields[$sMIndex, $sAIndex, $sCIndex, $sChIndex])
+      @aFields = split(/\|/, $sLine, -1);
+
+      my ($sMTime, $sATime, $sCTime, $sHTime, $sMACH, $sName);
+
+      if ($sUseMilliSeconds)
       {
-        $sMAC  = ($sTime eq $aFields[$sMIndex]) ? "M" : ".";
-        $sMAC .= ($sTime eq $aFields[$sAIndex]) ? "A" : ".";
-        $sMAC .= ($sTime eq $aFields[$sCIndex]) ? "C" : ".";
-        $sMAC .= ($sTime eq $aFields[$sChIndex]) ? "H" : ".";
+        $sMTime = $aFields[$sMIndex] . ((length($aFields[$sMmsIndex])) ? ("." . sprintf("%03d", $aFields[$sMmsIndex])) : "");
+        $sATime = $aFields[$sAIndex] . ((length($aFields[$sAmsIndex])) ? ("." . sprintf("%03d", $aFields[$sAmsIndex])) : "");
+        $sCTime = $aFields[$sCIndex] . ((length($aFields[$sCmsIndex])) ? ("." . sprintf("%03d", $aFields[$sCmsIndex])) : "");
+        $sHTime = $aFields[$sHIndex] . ((length($aFields[$sHmsIndex])) ? ("." . sprintf("%03d", $aFields[$sHmsIndex])) : "");
+      }
+      else
+      {
+        $sMTime = $aFields[$sMIndex];
+        $sATime = $aFields[$sAIndex];
+        $sCTime = $aFields[$sCIndex];
+        $sHTime = $aFields[$sHIndex];
+      }
+
+      foreach my $sTime ($sMTime, $sATime, $sCTime, $sHTime)
+      {
+        $sMACH  = ($sTime eq $sMTime) ? "M" : ".";
+        $sMACH .= ($sTime eq $sATime) ? "A" : ".";
+        $sMACH .= ($sTime eq $sCTime) ? "C" : ".";
+        $sMACH .= ($sTime eq $sHTime) ? "H" : ".";
         $sName = ($sDecode) ? URLDecode($aFields[$sNIndex]) : $aFields[$sNIndex];
         $sName =~ s/^"//;
         $sName =~ s/"$//;
+        if (length($sTime) == 0 && !$sBeQuiet)
+        {
+          print STDERR "$sProgram: Name='$sName' Warning='Missing timestamp'\n";
+        }
         if ($sRunMode =~ /^extsort$/)
         {
-          print SH "$sTime|$sMAC|$sName\n";
+          print SH "$sTime|$sMACH|$sName\n";
         }
         else
         {
-          $hUnique{"$sTime|$sMAC|$sName"}++;
+          $hUnique{"$sTime|$sMACH|$sName"}++;
         }
       }
     }
@@ -279,7 +346,10 @@ use Getopt::Std;
     while (my $sLine = <$sFileHandle>)
     {
       $sLine =~ s/[\r\n]+$//;
-      @aFields = split(/\|/, $sLine);
+      @aFields = split(/\|/, $sLine, -1);
+
+      my ($sMAC, $sName);
+
       foreach my $sTime (@aFields[$sMIndex, $sAIndex, $sCIndex])
       {
         $sMAC  = ($sTime eq $aFields[$sMIndex]) ? "M" : ".";
@@ -288,6 +358,10 @@ use Getopt::Std;
         $sName = ($sDecode) ? URLDecode($aFields[$sNIndex]) : $aFields[$sNIndex];
         $sName =~ s/^"//;
         $sName =~ s/"$//;
+        if (length($sTime) == 0 && !$sBeQuiet)
+        {
+          print STDERR "$sProgram: Name='$sName' Warning='Missing timestamp'\n";
+        }
         if ($sRunMode =~ /^extsort$/)
         {
           print SH "$sTime|$sMAC|$sName\n";
@@ -355,8 +429,8 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram {-e|--extsort} [-d] [-r] [-s file] [-T dir] [-w] -f {file|-}\n";
-  print STDERR "       $sProgram {-i|--intsort} [-d] [-r] [-w] -f {file|-}\n";
+  print STDERR "Usage: $sProgram {-e|--extsort} [-d] [-m] [-q] [-r] [-s file] [-T dir] [-w] -f {file|-}\n";
+  print STDERR "       $sProgram {-i|--intsort} [-d] [-m] [-q] [-r] [-w] -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -370,24 +444,24 @@ ftimes-map2mac.pl - Create MAC/MACH timelines using FTimes map data
 
 =head1 SYNOPSIS
 
-B<ftimes-map2mac.pl> B<{-e|--extsort}> B<[-d]> B<[-r]> B<[-s file]> B<[-T dir]> B<[-w]> B<-f {file|-}>
+B<ftimes-map2mac.pl> B<{-e|--extsort}> B<[-d]> B<[-m]> B<[-q]> B<[-r]> B<[-s file]> B<[-T dir]> B<[-w]> B<-f {file|-}>
 
-B<ftimes-map2mac.pl> B<{-i|--intsort}> B<[-d]> B<[-r]> B<[-w]> B<-f {file|-}>
+B<ftimes-map2mac.pl> B<{-i|--intsort}> B<[-d]> B<[-m]> B<[-q]> B<[-r]> B<[-w]> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
 This utility takes FTimes map data as input and produces a MAC or
 MACH timeline as output. The letters M, A, and C, have the usual
-meanings -- i.e. mtime, atime, and ctime. The H in MACH stands for
+meanings -- i.e., mtime, atime, and ctime. The H in MACH stands for
 chtime which is NTFS specific. Output is written to stdout and has
 the following format:
 
     datetime|mac/mach|name
 
-Two sorting methods are supported: external and internal.  The
+Two sorting methods are supported: external and internal. The
 internal sorting method constructs timelines entirely within core
-memory.  While this method is self-contained, its effectiveness
-deteriorates as the amount of data increases.  The external sorting
+memory. While this method is self-contained, its effectiveness
+deteriorates as the amount of data increases. The external sorting
 method, on the other hand, requires an external sort utility, but
 it is generally faster and can handle large data sets more effectively.
 The external sorting method was designed to work with GNU sort.
@@ -404,6 +478,16 @@ Enables URL decoding of filenames.
 
 Specifies the name of the input file. A value of '-' will cause the
 program to read from stdin.
+
+=item B<-m>
+
+Causes milliseconds to be included in the timeline. This option is
+specific to Windows NT/2K map data, and it is silently ignored if
+C<-w> is not specified also.
+
+=item B<-q>
+
+Don't report errors (i.e., be quiet) while processing files.
 
 =item B<-r>
 

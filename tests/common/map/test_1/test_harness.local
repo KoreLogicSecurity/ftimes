@@ -1,0 +1,73 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.4 2005/06/05 16:25:11 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "1";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "null",
+    2 => "alphabet",
+    3 => "alphanumeric",
+    4 => "1024_As",
+    5 => "1024_binary",
+    6 => "nsrl_md5_vectors",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'null'             => "tests MD5 of an empty file using default blocksize",
+    'alphabet'         => "tests MD5 of alphabet using default blocksize",
+    'alphanumeric'     => "tests MD5 of alphanumeric using default blocksize",
+    '1024_As'          => "tests MD5 of 1024 A's using default blocksize",
+    '1024_binary'      => "tests MD5 of 1024 bytes mod 256 using default blocksize",
+    'nsrl_md5_vectors' => "tests MD5 of NSRL's customized test vectors using default blocksize",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+    'BlockSizes' => ["default"],
+  );
+
+1;

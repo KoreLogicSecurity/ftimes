@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.14 2004/04/22 02:19:09 mavrik Exp $
+ * $Id: analyze.c,v 1.23 2005/04/29 15:20:16 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -19,11 +19,30 @@
  ***********************************************************************
  */
 #define ANALYZE_READ_BUFSIZE 0x4000
-#define ANALYZE_FIRST_BUFFER      1
-#define ANALYZE_FINAL_BUFFER      2
+#define ANALYZE_BLOCK_MULTIPLIER  3
+#define ANALYZE_BLOCK_SIZE   0x4000
+#define ANALYZE_CARRY_SIZE   0x0400
+#define ANALYZE_FIRST_BLOCK       1
+#define ANALYZE_FINAL_BLOCK       2
 
 static K_UINT32       gui32Files;
 static K_UINT64       gui64Bytes;
+static int            giAnalyzeBlockSize = ANALYZE_BLOCK_SIZE;
+static int            giAnalyzeCarrySize = ANALYZE_CARRY_SIZE;
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeGetBlockSize
+ *
+ ***********************************************************************
+ */
+int
+AnalyzeGetBlockSize(void)
+{
+  return giAnalyzeBlockSize;
+}
 
 
 /*-
@@ -43,6 +62,56 @@ AnalyzeGetByteCount(void)
 /*-
  ***********************************************************************
  *
+ * AnalyzeGetCarrySize
+ *
+ ***********************************************************************
+ */
+int
+AnalyzeGetCarrySize(void)
+{
+  return giAnalyzeCarrySize;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeGetDigSaveBuffer
+ *
+ ***********************************************************************
+ */
+unsigned char *
+AnalyzeGetDigSaveBuffer(int iCarrySize, char *pcError)
+{
+  const char          acRoutine[] = "AnalyzeGetDigSaveBuffer()";
+  static unsigned char *pucBuffer = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Allocate iCarrySize bytes of memory for use as a save buffer.
+   * This memory should not be freed -- i.e., it should be allocated
+   * once and remain active until the program exits.
+   *
+   *********************************************************************
+   */
+  if (pucBuffer == NULL)
+  {
+    pucBuffer = calloc(iCarrySize, 1);
+    if (pucBuffer == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+      return NULL;
+    }
+  }
+
+  return pucBuffer;
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * AnalyzeGetFileCount
  *
  ***********************************************************************
@@ -51,6 +120,48 @@ K_UINT32
 AnalyzeGetFileCount(void)
 {
   return gui32Files;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeGetWorkBuffer
+ *
+ ***********************************************************************
+ */
+unsigned char *
+AnalyzeGetWorkBuffer(int iBlockSize, char *pcError)
+{
+  const char          acRoutine[] = "AnalyzeGetWorkBuffer()";
+  static unsigned char *pucBuffer = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Allocate (ANALYZE_BLOCK_MULTIPLIER * iBlockSize) bytes of memory
+   * for use as a work buffer. If the memory was previously allocated,
+   * then just zero it out. This memory should not be freed -- i.e.,
+   * it should be allocated once and remain active until the program
+   * exits.
+   *
+   *********************************************************************
+   */
+  if (pucBuffer == NULL)
+  {
+    pucBuffer = calloc((ANALYZE_BLOCK_MULTIPLIER * iBlockSize), 1);
+    if (pucBuffer == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+      return NULL;
+    }
+  }
+  else
+  {
+    memset(pucBuffer, 0, (ANALYZE_BLOCK_MULTIPLIER * iBlockSize));
+  }
+
+  return pucBuffer;
 }
 
 
@@ -99,19 +210,27 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
   const char          acRoutine[] = "AnalyzeFile()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
   int                 i;
-  int                 iBufferType;
+  int                 iBlockSize = AnalyzeGetBlockSize();
+  int                 iBlockTag;
   int                 iError;
   int                 iNRead;
-  unsigned char       ucBuffer[3 * ANALYZE_READ_BUFSIZE];
+  unsigned char      *pucBuffer = NULL;
 #ifdef WINNT
-  BOOL                bResult;
   char               *pcMessage;
   HANDLE              hFile;
-#else
-  FILE               *pFile;
+  int                 iFile;
 #endif
+  FILE               *pFile;
   K_UINT64            ui64FileSize;
 
+  /*-
+   *********************************************************************
+   *
+   * If the size of the specified file is greater than FileSizeLimit,
+   * set its hash to a predefined value and return.
+   *
+   *********************************************************************
+   */
 #ifdef WINNT
   ui64FileSize = (((K_UINT64) psFTData->dwFileSizeHigh) << 32) | psFTData->dwFileSizeLow;
 #else
@@ -123,8 +242,34 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
     return ER_OK;
   }
 
-  memset(ucBuffer, 0, 3 * ANALYZE_READ_BUFSIZE);
+  /*-
+   *********************************************************************
+   *
+   * Get a pointer to the work buffer.
+   *
+   *********************************************************************
+   */
+  pucBuffer = AnalyzeGetWorkBuffer(iBlockSize, acLocalError);
+  if (pucBuffer == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return ER;
+  }
 
+  /*-
+   *********************************************************************
+   *
+   * Open the specified file. Since CreateFile() yields better file
+   * access, it is the preferred open method on WINNT platforms. Once
+   * a valid handle has been obtained, convert it to a file descriptor
+   * so fread() may use it. The major benefit of this approach is that
+   * it leads to simplified logic -- i.e., it eliminates the need for
+   * multipe #ifdef statements to support platform-specific mechanics.
+   * It also simplifies the process for detecting EOF, which wasn't
+   * an issue until PCRE support was added.
+   *
+   *********************************************************************
+   */
 #ifdef WINNT
   hFile = CreateFile
           (
@@ -140,14 +285,26 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
   {
     ErrorFormatWin32Error(&pcMessage);
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, pcMessage);
-    return ER_CreateFile;
+    return ER;
+  }
+  iFile = _open_osfhandle((long) hFile, 0);
+  if (iFile == ER)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: open_osfhandle(): Handle association failed.", acRoutine);
+    return ER;
+  }
+  pFile = fdopen(iFile, "rb");
+  if (pFile == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: fdopen(): %s", acRoutine, strerror(errno));
+    return ER;
   }
 #else
   pFile = fopen(psFTData->pcRawPath, "rb");
   if (pFile == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
-    return ER_fopen;
+    snprintf(pcError, MESSAGE_SIZE, "%s: fopen(): %s", acRoutine, strerror(errno));
+    return ER;
   }
 #endif
 
@@ -163,27 +320,23 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
   /*-
    *********************************************************************
    *
-   * Initialize the buffer type. Each analysis stage executes different logic
-   * based on the value of this flag.
+   * Initialize the block tag. Each analysis stage executes different
+   * logic based on the value of this tag.
    *
    *********************************************************************
    */
-  iBufferType = ANALYZE_FIRST_BUFFER;
+  iBlockTag = ANALYZE_FIRST_BLOCK;
 
-  while ((iBufferType & ANALYZE_FINAL_BUFFER) != ANALYZE_FINAL_BUFFER)
+  while ((iBlockTag & ANALYZE_FINAL_BLOCK) != ANALYZE_FINAL_BLOCK)
   {
     /*-
      *******************************************************************
      *
-     * Read a hunk of data, and insert it in the middle of our buffer.
+     * Read a block of data, and insert it in the middle of our buffer.
      *
      *******************************************************************
      */
-#ifdef WINNT
-    bResult = ReadFile(hFile, &ucBuffer[ANALYZE_READ_BUFSIZE], ANALYZE_READ_BUFSIZE, &iNRead, NULL);
-#else
-    iNRead = fread(&ucBuffer[ANALYZE_READ_BUFSIZE], 1, ANALYZE_READ_BUFSIZE, pFile);
-#endif
+    iNRead = fread(&pucBuffer[iBlockSize], 1, iBlockSize, pFile);
 
     /*-
      *******************************************************************
@@ -201,53 +354,39 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
      *
      *******************************************************************
      */
-#ifdef WINNT
-    if (!bResult)
-    {
-      ErrorFormatWin32Error(&pcMessage);
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, pcMessage);
-      CloseHandle(hFile);
-      return ER_ReadFile;
-    }
-#else
     if (ferror(pFile))
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
       fclose(pFile);
-      return ER_fread;
-    }
+#ifdef WINNT
+      CloseHandle(hFile);
 #endif
+      return ER;
+    }
 
     /*-
      *******************************************************************
      *
-     * If EOF was reached, update the buffer type.
+     * If EOF was reached, update the block tag.
      *
      *******************************************************************
      */
-#ifdef WINNT
-    if (iNRead == 0)
-    {
-      iBufferType |= ANALYZE_FINAL_BUFFER;
-    }
-#else
     if (feof(pFile))
     {
-      iBufferType |= ANALYZE_FINAL_BUFFER;
+      iBlockTag |= ANALYZE_FINAL_BLOCK;
     }
-#endif
 
     /*-
      *******************************************************************
      *
      * Run through the defined analysis stages. Warn the user if a
-     * stage fails, and keep on going.
+     * stage fails, but keep going.
      *
      *******************************************************************
      */
     for (i = 0; i < psProperties->iLastAnalysisStage; i++)
     {
-      iError = psProperties->asAnalysisStages[i].piRoutine(&ucBuffer[ANALYZE_READ_BUFSIZE], iNRead, iBufferType, ANALYZE_READ_BUFSIZE, psFTData, acLocalError);
+      iError = psProperties->asAnalysisStages[i].piRoutine(&pucBuffer[iBlockSize], iNRead, iBlockTag, iBlockSize, psFTData, acLocalError);
       if (iError != ER_OK)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -258,19 +397,18 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
     /*-
      *******************************************************************
      *
-     * Update the buffer type.
+     * Update the block tag.
      *
      *******************************************************************
      */
-    if ((iBufferType & ANALYZE_FIRST_BUFFER) == ANALYZE_FIRST_BUFFER)
+    if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
     {
-      iBufferType ^= ANALYZE_FIRST_BUFFER;
+      iBlockTag ^= ANALYZE_FIRST_BLOCK;
     }
   }
+  fclose(pFile);
 #ifdef WINNT
   CloseHandle(hFile);
-#else
-  fclose(pFile);
 #endif
 
   return ER_OK;
@@ -301,18 +439,18 @@ AnalyzeEnableDigestEngine(FTIMES_PROPERTIES *psProperties)
  ***********************************************************************
  */
 int
-AnalyzeDoDigest(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+AnalyzeDoDigest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
   static MD5_CONTEXT sFileMD5Context;
 
-  if ((iBufferType & ANALYZE_FIRST_BUFFER) == ANALYZE_FIRST_BUFFER)
+  if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
   {
     MD5Alpha(&sFileMD5Context);
   }
 
   MD5Cycle(&sFileMD5Context, pucBuffer, iBufferLength);
 
-  if ((iBufferType & ANALYZE_FINAL_BUFFER) == ANALYZE_FINAL_BUFFER)
+  if ((iBlockTag & ANALYZE_FINAL_BLOCK) == ANALYZE_FINAL_BLOCK)
   {
     MD5Omega(&sFileMD5Context, psFTData->aucFileMD5);
   }
@@ -345,16 +483,20 @@ AnalyzeEnableDigEngine(FTIMES_PROPERTIES *psProperties)
  ***********************************************************************
  */
 int
-AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
   const char          acRoutine[] = "AnalyzeDoDig()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
   unsigned char      *pucToSearch;
+#ifdef USE_PCRE
+  int                 iBlockSize = AnalyzeGetBlockSize();
+#endif
+  int                 iCarrySize = AnalyzeGetCarrySize();
   int                 iError;
-  int                 iStopShort;
-  int                 iMaxStringLength;
   int                 iNToSearch;
-  static unsigned char aucSave[ANALYZE_READ_BUFSIZE];
+  int                 iStopShort;
+  int                 iType;
+  unsigned char      *pucSaveBuffer = NULL;
   static int          iNToSave;
   static int          iSaveOffset;
   static K_UINT64     ui64AbsoluteOffset;
@@ -362,12 +504,26 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
   /*-
    *********************************************************************
    *
-   * If this is the final buffer, clear the stop short flag. Otherwise,
-   * set the flag and make sure that we have nonzero length buffer.
+   * Get a pointer to the save buffer.
    *
    *********************************************************************
    */
-  if ((iBufferType & ANALYZE_FINAL_BUFFER) == ANALYZE_FINAL_BUFFER)
+  pucSaveBuffer = AnalyzeGetDigSaveBuffer(iCarrySize, acLocalError);
+  if (pucSaveBuffer == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * If this is the final block, clear the stop short flag. Otherwise,
+   * set the flag and make sure that we have a nonzero length.
+   *
+   *********************************************************************
+   */
+  if ((iBlockTag & ANALYZE_FINAL_BLOCK) == ANALYZE_FINAL_BLOCK)
   {
     iStopShort = 0;
   }
@@ -375,8 +531,8 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
   {
     if (iBufferLength == 0)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: A zero length buffer is illegal unless it is marked as the final buffer.", acRoutine);
-      return ER_Length;
+      snprintf(pcError, MESSAGE_SIZE, "%s: A zero length block is illegal unless it is tagged as the final block.", acRoutine);
+      return ER;
     }
     iStopShort = 1;
   }
@@ -384,43 +540,47 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
   /*-
    *********************************************************************
    *
-   * If this is the first buffer, initialize. Otherwise, prepend any
+   * If this is the first block, initialize. Otherwise, prepend any
    * saved data to the incoming buffer.
    *
    *********************************************************************
    */
-  if ((iBufferType & ANALYZE_FIRST_BUFFER) == ANALYZE_FIRST_BUFFER)
+  if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
   {
     DigClearCounts();
+
     /*-
      *******************************************************************
      *
-     * Check to see that there is enough overhead memory available. We
-     * set iNToSave to one less than the maximum search string because
-     * the search algorithm must stop searching after x bytes have been
-     * processed. Where
+     * Make sure that the max string length is less than or equal to
+     * the size of the save buffer. The dig algorithm stops searching
+     * after x bytes have been processed. Where
      *
      *   x = (bufsize - (maxstring - 1))
      *
-     * For example, if bufsize = 16 and maxstring = 6, then all but the
-     * last 5 bytes can be searched (i.e. to stay in bounds). Therefore,
-     * the search routine must stop searching when it reaches byte 11.
+     * For example, if bufsize = 16 and maxstring = 6, then all but
+     * the last 5 bytes may be searched (i.e., to stay in bounds). Thus,
+     * the search routine needs to stop searching when it reaches byte
+     * 11.
      *
-     * If no search strings were defined, maxstring should be zero. In
-     * that case, iNToSave must not be allowed to go negative.
+     * If no search strings were defined, maxstring should be zero.
+     *
+     * There is no case where iNToSave should be set to a negative
+     * value.
      *
      *******************************************************************
      */
-    iMaxStringLength = DigGetMaxStringLength();
-    if (iMaxStringLength <= iBufferOverhead)
+    if (DigGetMaxStringLength() <= iCarrySize)
     {
-      iNToSave = (iMaxStringLength <= 0) ? 0 : iMaxStringLength - 1;
+      iNToSave = iCarrySize;
+      DigSetSaveLength(iCarrySize);
     }
     else
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Not enough overhead to perform analysis.", acRoutine);
-      return ER_Overflow;
+      snprintf(pcError, MESSAGE_SIZE, "%s: Not enough overhead (save buffer) to perform analysis.", acRoutine);
+      return ER;
     }
+
     ui64AbsoluteOffset = 0;
     pucToSearch = pucBuffer;
     iNToSearch = iBufferLength;
@@ -428,7 +588,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
   else
   {
     pucToSearch = pucBuffer - iNToSave;
-    memcpy(pucToSearch, aucSave, iNToSave);
+    memcpy(pucToSearch, pucSaveBuffer, iNToSave);
     iNToSearch = iBufferLength + iNToSave;
   }
 
@@ -439,23 +599,25 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
    *
    *********************************************************************
    */
-  iError = DigSearchData(pucToSearch, iNToSearch, iStopShort, ui64AbsoluteOffset, psFTData->pcNeuteredPath, acLocalError);
-  if (iError != ER_OK)
+  for (iType = DIG_STRING_TYPE_NORMAL; iType < DIG_STRING_TYPE_NOMORE; iType++)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    return iError;
+    iError = DigSearchData(pucToSearch, iNToSearch, iStopShort, iType, ui64AbsoluteOffset, psFTData->pcNeuteredPath, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return iError;
+    }
   }
 
   /*-
    *********************************************************************
    *
-   * Save any data that could not be fully searched. The amount of data
-   * saved is equal to the the length of the longest search string.
+   * Save any data that could not be fully searched.
    *
    *********************************************************************
    */
   iSaveOffset = iNToSearch - iNToSave;
-  memcpy(aucSave, &pucToSearch[iSaveOffset], iNToSave);
+  memcpy(pucSaveBuffer, &pucToSearch[iSaveOffset], iNToSave);
 
   /*-
    *********************************************************************
@@ -467,7 +629,7 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
    *
    *********************************************************************
    */
-  if ((iBufferType & ANALYZE_FIRST_BUFFER) == ANALYZE_FIRST_BUFFER)
+  if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
   {
     ui64AbsoluteOffset += iBufferLength - iNToSave;
   }
@@ -475,6 +637,25 @@ AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int i
   {
     ui64AbsoluteOffset += iBufferLength;
   }
+
+#ifdef USE_PCRE
+  /*-
+   *********************************************************************
+   *
+   * Update dig offsets. The trim size is equal to the block size in
+   * all but the first block.
+   *
+   *********************************************************************
+   */
+  if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
+  {
+    DigAdjustRegExpOffsets(iBlockSize - iCarrySize);
+  }
+  else
+  {
+    DigAdjustRegExpOffsets(iBlockSize);
+  }
+#endif
 
   return ER_OK;
 }
@@ -589,7 +770,7 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
   const char          acRoutine[] = "AnalyzeDoXMagic()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
@@ -602,7 +783,7 @@ AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBufferType, in
    *
    *********************************************************************
    */
-  if ((iBufferType & ANALYZE_FIRST_BUFFER) == ANALYZE_FIRST_BUFFER)
+  if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
   {
     iError = XMagicTestBuffer(pucBuffer, iBufferLength, psFTData->acType, FTIMES_FILETYPE_BUFSIZE, acLocalError);
     if (iError == ER)
@@ -615,3 +796,31 @@ AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBufferType, in
   return ER_OK;
 }
 #endif
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeSetBlockSize
+ *
+ ***********************************************************************
+ */
+void
+AnalyzeSetBlockSize(int iBlockSize)
+{
+  giAnalyzeBlockSize = iBlockSize;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeSetCarrySize
+ *
+ ***********************************************************************
+ */
+void
+AnalyzeSetCarrySize(int iCarrySize)
+{
+  giAnalyzeCarrySize = iCarrySize;
+}

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: error.h,v 1.7 2004/04/22 02:19:10 mavrik Exp $
+ * $Id: error.h,v 1.9 2005/04/02 18:08:24 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -56,32 +56,26 @@ enum InternalErrors
   ER_MissingControl,
   ER_NQIF,
   ER_NeuterPathname,
-  ER_NoPrivilege,
   ER_NothingToDo,
   ER_NullFields,
   ER_Overflow,
   ER_ReadFile,
   ER_ReadPropertiesFile,
   ER_Special,
-  ER_SupportAddListItem,
   ER_URLGetRequest,
   ER_URLPingRequest,
   ER_URLPutRequest,
   ER_Usage,
   ER_Warning,
   ER_XMagic,
-  ER_chdir,
   ER_execlp,
   ER_fgets,
   ER_fopen,
   ER_fread,
-  ER_fwrite,
-  ER_getcwd,
   ER_lstat,
   ER_opendir,
   ER_readdir,
-  ER_readlink,
-  ER_unlink
+  ER_readlink
 };
 
 enum ErrorLevels

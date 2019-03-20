@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sys-includes.h,v 1.8 2004/04/04 07:09:49 mavrik Exp $
+ * $Id: sys-includes.h,v 1.10 2005/05/10 23:30:00 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -19,6 +19,7 @@
 #include <windows.h>
 #include <winsock.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <direct.h>
 #include <time.h>
 #include <process.h>

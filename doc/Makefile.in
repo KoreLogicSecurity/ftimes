@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.10 2004/04/04 07:09:48 mavrik Exp $
+# $Id: Makefile.in,v 1.12 2005/05/10 23:56:35 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+# Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
 #
 ########################################################################
 #
@@ -28,6 +28,8 @@ ALL_HTML_FILES		= ftimes.html
 ALL_MAN1_FILES		= ftimes.1
 
 all:
+
+test:
 
 install: install-man
 

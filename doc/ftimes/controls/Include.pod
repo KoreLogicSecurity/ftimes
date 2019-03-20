@@ -2,23 +2,30 @@
 
 Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
 
-B<Include> controls are optional.  There can be as many includes
-as you like, but each entry must be on a separate line.  If no
-B<Include> controls are specified, B<FTimes> will attempt to map
-the entire system.
+B<Include> controls are optional, and there is no predefined limit
+on the number that may be specified.  However, there can be only
+one B<Include> control/value pair per line.  If no B<Include>
+controls are specified, B<FTimes> will attempt to map the entire
+system.  If B<IncludesMustExist> is enabled, then each B<Include>
+must reference an existing file, directory, or symbolic link.
+Otherwise, B<FTimes> will abort.
 
 B<Include> values must be a regular file, directory, or symbolic
-link (UNIX only) specified as a full path.  For WIN32 file systems
-this control value must begin with a drive letter [a-z,A-Z] followed
-by a colon and the target path (e.g., "c:\temp").  For UNIX file
-systems this control value must begin with a "/" (e.g., "/tmp").
+link specified as a fully qualified path.  For WIN32 file systems,
+this means that each B<Include> must begin with a drive designator
+([A-Za-z]:) and be followed by the target path (e.g., 'c:\temp').
+For UNIX file systems, each B<Include> must begin with a forward
+slash (e.g., '/tmp').
 
-Note: You should take care not to include file systems that reside
-on remote shares as B<FTimes> may attempt to map them.  To prevent
-this from happening, you can either exclude the remote file system
-or disable B<MapRemoteFiles>.
+Note: Symbolic links are not supported in WIN32-based file systems.
+
+Note: Take care when including file systems that reside on remote
+shares because B<FTimes> may attempt to map them.  To prevent this
+from happening, you can either exclude the remote file system or
+disable B<MapRemoteFiles>.
 
 Note: Directory hashing only applies to directories.  This means
-that file includes are treated as isolated objects apart from any
-specific tree.
+that each file B<Include> is treated as an isolated object apart
+from any specific tree.  The exception to this is any B<Include>
+that gets automatically pruned because it's part of a larger branch.
 

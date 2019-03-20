@@ -60,7 +60,7 @@ map file.
 This file contains magic tests and descriptions.  The magic format
 used by B<FTimes> is XMagic.  B<FTimes> searches up to three
 locations for magic: (1) the location specified by the B<MagicFile>
-control, (2) /usr/local/integrity/etc/xmagic or c:\integrity\etc\xmagic,
+control, (2) /usr/local/ftimes/etc/xmagic or c:\ftimes\etc\xmagic,
 and (3) the current working directory.  B<FTimes> will not abort,
 if a suitable file is not found, but magic output will be limited.
 

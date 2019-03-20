@@ -1,0 +1,11 @@
+=item B<DigStringNormal>: <string>
+
+Applies to B<digauto>, B<digfull>, and B<diglean>.
+
+B<DigStringNormal> is conditionally required.  It specifies a search
+string.  This string must be URL encoded if it contains '%', '+',
+' ', or any non-printable characters.  When in doubt about whether
+or not a value should be encoded, encode it.  To encode a character,
+convert its hex value according to the format %HH where H is a hex
+digit.  Spaces may alternatively be encoded as '+'.
+

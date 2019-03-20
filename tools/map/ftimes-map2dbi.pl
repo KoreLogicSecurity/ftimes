@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-map2dbi.pl,v 1.2 2004/04/04 07:40:06 mavrik Exp $
+# $Id: ftimes-map2dbi.pl,v 1.6 2005/06/06 20:43:46 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2002-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2002-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -34,7 +34,7 @@ use Getopt::Std;
   ####################################################################
 
   my $sDBRegex       = qq(^[A-Za-z][A-Za-z0-9_]*\$);
-  my $sHostnameRegex = qq(^[\\w\\.-]{1,32}\$);
+  my $sHostnameRegex = qq(^[\\w\\.-]{1,64}\$);
   my $sMaxRowsRegex  = qq(^\\d+\$);
 
   ####################################################################
@@ -46,34 +46,34 @@ use Getopt::Std;
   my %hTableLayout =
   (
   # Common fields
-    'hostname'      => "varbinary(32) not null",
+    'hostname'      => "varbinary(64) not null",
     'category'      => "varbinary(32) not null",
     'name'          => "blob not null, index name_index (name(255))",
     'atime'         => "datetime null, index atime_index (atime)",
     'mtime'         => "datetime null, index mtime_index (mtime)",
     'ctime'         => "datetime null, index ctime_index (ctime)",
-    'size'          => "bigint unsigned null",
-    'magic'         => "text null",
+    'size'          => "bigint unsigned null, index size_index (size)",
+    'magic'         => "text null, index magic_index (magic)",
     'md5'           => "varbinary(32) not null, index md5_index (md5)",
     'namemd5'       => "varbinary(32) not null",
   # UNIX-Specific fields
     'dev'           => "int unsigned null",
-    'inode'         => "int unsigned null",
-    'mode'          => "varbinary(8) null",
+    'inode'         => "int unsigned null, index inode_index (inode)",
+    'mode'          => "varbinary(8) null, index mode_index (mode)",
     'nlink'         => "int unsigned null",
-    'uid'           => "int unsigned null",
-    'gid'           => "int unsigned null",
+    'uid'           => "int unsigned null, index uid_index (uid)",
+    'gid'           => "int unsigned null, index gid_index (gid)",
     'rdev'          => "int unsigned null",
   # WIN32-Specific fields
     'volume'        => "bigint unsigned null",
-    'findex'        => "bigint unsigned null",
+    'findex'        => "bigint unsigned null, index findex_index (findex)",
     'attributes'    => "int null",
     'ams'           => "int null",
     'mms'           => "int null",
     'cms'           => "int null",
     'chtime'        => "datetime null, index chtime_index (chtime)",
     'chms'          => "int null",
-    'altstreams'    => "int null"
+    'altstreams'    => "int null, index altstreams_index (altstreams)"
   );
 
   ####################################################################
@@ -91,7 +91,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The ForceWrite, '-F', flag is optional. Default value is zero.
+  # The ForceWrite, '-F', flag is optional.
   #
   ####################################################################
 
@@ -99,7 +99,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # A Database, '-d', is optional. Default value is 'ftimes'.
+  # A Database, '-d', is optional.
   #
   ####################################################################
 
@@ -169,7 +169,7 @@ use Getopt::Std;
     $sFilename = $hOptions{'f'};
     if (-f $sFilename)
     {
-      if (!open(IN, $sFilename))
+      if (!open(IN, "< $sFilename"))
       {
         print STDERR "$sProgram: Filename='$sFilename' Error='$!'\n";
         exit(1);
@@ -252,13 +252,13 @@ use Getopt::Std;
 
   umask(022);
 
-  if (!open(OUT, ">$sOutFile"))
+  if (!open(OUT, "> $sOutFile"))
   {
     print STDERR "$sProgram: Filename='$sOutFile' Error='$!'\n";
     exit(1);
   }
 
-  if (!open(SQL, ">$sSQLFile"))
+  if (!open(SQL, "> $sSQLFile"))
   {
     print STDERR "$sProgram: Filename='$sSQLFile' Error='$!'\n";
     exit(1);

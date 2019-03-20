@@ -1,0 +1,10 @@
+=item B<DigStringNoCase>: <string>
+
+Applies to B<digauto>, B<digfull>, and B<diglean>.
+
+B<DigStringNoCase> is conditionally required.  It specifies a case
+insensitive search string.  This string must be URL encoded in the
+same manner as a normal B<DigString> -- refer to that control
+description for the details.  Internally, all alpha characters
+(i.e., [A-Za-z]) are converted to lower case.
+

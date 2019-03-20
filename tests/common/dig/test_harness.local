@@ -1,0 +1,83 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.2 2005/05/12 02:25:59 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# CreateConfig
+#
+######################################################################
+
+sub CreateConfig
+{
+  my ($sFile, $sBlockSize, $sDigString) = @_;
+
+  if (!defined($sFile))
+  {
+    return undef;
+  }
+
+  if (!defined($sBlockSize))
+  {
+    return undef;
+  }
+
+  my $sAnalyzeBlockSize;
+
+  my $sAnalyzeCarrySize;
+
+  if ($sBlockSize =~ /^default$/)
+  {
+    $sAnalyzeBlockSize="";
+    $sAnalyzeCarrySize="";
+  }
+  elsif ($sBlockSize =~ /^(\d+)\/(\d+)$/)
+  {
+    $sAnalyzeBlockSize="AnalyzeBlockSize=$1";
+    $sAnalyzeCarrySize="AnalyzeCarrySize=$2";
+  }
+  else
+  {
+    $sAnalyzeBlockSize="AnalyzeBlockSize=$sBlockSize";
+    $sAnalyzeCarrySize="";
+  }
+
+  if (!defined($sDigString))
+  {
+    return undef;
+  }
+
+  if (!open(CH, "> $sFile"))
+  {
+    return undef;
+  }
+
+  print CH <<EOF;
+Basename=-
+$sAnalyzeBlockSize
+$sAnalyzeCarrySize
+AnalyzeRemoteFiles=Y
+$sDigString
+EOF
+
+  close(CH);
+}
+
+
+######################################################################
+#
+# GetModeName
+#
+######################################################################
+
+sub GetModeName
+{
+  return "dig";
+}
+
+1;

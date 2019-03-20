@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: map.c,v 1.33 2004/04/24 06:25:13 mavrik Exp $
+ * $Id: map.c,v 1.35 2005/04/02 18:08:25 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -253,7 +253,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, unsigned cha
   /*-
    *********************************************************************
    *
-   * Note: errno is cleared before each readdir() call so that it's
+   * Note: errno is cleared before each readdir() call so that its
    * value can be checked after the function returns. Read the comment
    * that follows this loop for more details.
    *
@@ -1303,7 +1303,7 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, MD5_CONTE
     if (i != iLength)
     {
       char *pcStream = SupportNeuterStringW(pFSI->StreamName, iLength, acLocalError);
-      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s], NeuteredWideStream = [%s]: Stream skipped because it's name contains Unicode or Unsafe characters.", acRoutine, psFTData->pcNeuteredPath, (pcStream == NULL) ? "" : pcStream);
+      snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s], NeuteredWideStream = [%s]: Stream skipped because its name contains Unicode or Unsafe characters.", acRoutine, psFTData->pcNeuteredPath, (pcStream == NULL) ? "" : pcStream);
       MEMORY_FREE(pcStream);
       ErrorHandler(ER_Length, pcError, ERROR_FAILURE);
       continue;

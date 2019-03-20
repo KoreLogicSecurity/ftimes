@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-filter.pl,v 1.9 2004/04/21 01:29:59 mavrik Exp $
+# $Id: hashdig-filter.pl,v 1.13 2005/05/27 00:54:48 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -43,7 +43,6 @@ use Getopt::Std;
   my @aBinDirs =
      (
        "/bin/",
-       "/kernel/",
        "/kvm/",
        "/opt/bin/",
        "/opt/local/bin/",
@@ -53,7 +52,6 @@ use Getopt::Std;
        "/sbin/",
        "/usr/bin/",
        "/usr/ccs/bin/",
-       "/usr/kernel/",
        "/usr/kvm/",
        "/usr/local/bin/",
        "/usr/local/sbin/",
@@ -92,6 +90,14 @@ use Getopt::Std;
        "/usr/ucblib/"
      );
 
+  my @aKernelDirs =
+     (
+       "/kernel/",
+       "/modules/",
+       "/usr/kernel/",
+       "/usr/modules/"
+     );
+
   my @aManDirs =
      (
        "/opt/man/",
@@ -119,7 +125,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Prefix flag, '-p', is optional. Default value is "".
+  # The Prefix flag, '-p', is optional.
   #
   ####################################################################
 
@@ -149,6 +155,7 @@ use Getopt::Std;
   my $sDevRegex = '\|(?:' . $sPrefix . join('|' . $sPrefix, @aDevDirs) . ')';
   my $sEtcRegex = '\|(?:' . $sPrefix . join('|' . $sPrefix, @aEtcDirs) . ')';
   my $sLibRegex = '\|(?:' . $sPrefix . join('|' . $sPrefix, @aLibDirs) . ')';
+  my $sKernelRegex = '\|(?:' . $sPrefix . join('|' . $sPrefix, @aKernelDirs) . ')';
   my $sManRegex = '\|(?:' . $sPrefix . join('|' . $sPrefix, @aManDirs) . ')';
 
   ####################################################################
@@ -159,7 +166,7 @@ use Getopt::Std;
 
   my (@aHandles, %hHandleList);
 
-  @aHandles = ("bin", "dev", "etc", "lib", "man", "other");
+  @aHandles = ("bin", "dev", "etc", "lib", "kernel", "man", "other");
 
   foreach my $sInputFile (@ARGV)
   {
@@ -169,7 +176,7 @@ use Getopt::Std;
     #
     ##################################################################
 
-    if (!open(FH, "<$sInputFile"))
+    if (!open(FH, "< $sInputFile"))
     {
       print STDERR "$sProgram: File='$sInputFile' Error='$!'\n";
       next;
@@ -193,6 +200,7 @@ use Getopt::Std;
     my $sDevCounter = 0;
     my $sEtcCounter = 0;
     my $sLibCounter = 0;
+    my $sKernelCounter = 0;
     my $sManCounter = 0;
     my $sOtherCounter = 0;
     my $sAllCounter = 0;
@@ -223,6 +231,12 @@ use Getopt::Std;
         $sHandle = $hHandleList{'lib'};
         print $sHandle "$sRecord\n";
         $sLibCounter++;
+      }
+      elsif ($sRecord =~ /$sKernelRegex/o)
+      {
+        $sHandle = $hHandleList{'kernel'};
+        print $sHandle "$sRecord\n";
+        $sKernelCounter++;
       }
       elsif ($sRecord =~ /$sManRegex/o)
       {
@@ -264,6 +278,7 @@ use Getopt::Std;
     push(@aCounts, "dev='$sDevCounter'");
     push(@aCounts, "etc='$sEtcCounter'");
     push(@aCounts, "lib='$sLibCounter'");
+    push(@aCounts, "kernel='$sKernelCounter'");
     push(@aCounts, "man='$sManCounter'");
     push(@aCounts, "other='$sOtherCounter'");
     print "File='$sInputFile' ", join(' ', @aCounts), "\n";
@@ -355,7 +370,7 @@ following format:
 
 The naming convention for output files is:
 
-    <filename>.{bin|dev|etc|lib|man|other}
+    <filename>.{bin|dev|etc|lib|kernel|man|other}
 
 Any input that does not match one of the defined filters is written
 to the 'other' file.

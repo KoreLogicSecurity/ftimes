@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-stat.pl,v 1.2 2004/02/27 19:57:31 mavrik Exp $
+# $Id: hashdig-stat.pl,v 1.4 2005/05/27 00:54:48 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2004-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2004-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -198,7 +198,7 @@ sub ProcessHDFile
   #
   ####################################################################
 
-  if (!open(FH, "<$sFile"))
+  if (!open(FH, "< $sFile"))
   {
     $$psError = $!;
     return undef;

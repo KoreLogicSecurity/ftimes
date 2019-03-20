@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.13 2004/04/04 07:09:48 mavrik Exp $
+# $Id: Makefile.in,v 1.15 2005/05/10 23:56:34 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+# Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
 #
 ########################################################################
 #
@@ -26,6 +26,7 @@ SUBDIRS			=\
 			doc\
 			etc\
 			src\
+			tests\
 			tools
 
 CONFIGURE_FILES		=\
@@ -36,6 +37,11 @@ CONFIGURE_FILES		=\
 			configure.lineno
 
 all:
+	@cwd=`pwd`; for i in ${SUBDIRS}; do\
+		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
+	done
+
+test:
 	@cwd=`pwd`; for i in ${SUBDIRS}; do\
 		echo '===>' $${i} && cd $${cwd}/$${i} && make $@ ;\
 	done

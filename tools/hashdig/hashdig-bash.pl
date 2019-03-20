@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-bash.pl,v 1.11 2004/04/21 01:29:58 mavrik Exp $
+# $Id: hashdig-bash.pl,v 1.13 2005/05/27 00:50:00 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -49,7 +49,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Iterator flag, '-i', is optional. Default value is undef.
+  # The Iterator flag, '-i', is optional.
   #
   ####################################################################
 

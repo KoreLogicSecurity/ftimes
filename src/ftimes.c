@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.c,v 1.15 2004/04/23 02:57:44 mavrik Exp $
+ * $Id: ftimes.c,v 1.18 2005/04/02 18:08:24 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -243,13 +243,12 @@ FTimesNewProperties(char *pcError)
    *
    *********************************************************************
    */
-  psProperties = (FTIMES_PROPERTIES *) malloc(sizeof(FTIMES_PROPERTIES));
+  psProperties = (FTIMES_PROPERTIES *) calloc(sizeof(FTIMES_PROPERTIES), 1);
   if (psProperties == NULL)
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
     return NULL;
   }
-  memset(psProperties, 0, sizeof(FTIMES_PROPERTIES));
 
   /*
    *********************************************************************
@@ -330,6 +329,16 @@ FTimesNewProperties(char *pcError)
    *********************************************************************
    */
   psProperties->bEnableRecursion = TRUE;
+
+  /*-
+   *********************************************************************
+   *
+   * Initialize AnalyzeBlockSize and AnalyzeCarrySize variables.
+   *
+   *********************************************************************
+   */
+  psProperties->iAnalyzeBlockSize = AnalyzeGetBlockSize();
+  psProperties->iAnalyzeCarrySize = AnalyzeGetCarrySize();
 
 #ifdef USE_SSL
   /*-

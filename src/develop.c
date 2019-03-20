@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: develop.c,v 1.15 2004/04/23 02:51:12 mavrik Exp $
+ * $Id: develop.c,v 1.17 2005/05/10 23:43:18 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -1278,12 +1278,12 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   unsigned long       ulTempCTimeSeconds;
   unsigned long       ulTempChTimeSeconds;
   unsigned long       ulLeft;
-  unsigned __int64    ui64ATime;
-  unsigned __int64    ui64MTime;
-  unsigned __int64    ui64CTime;
-  unsigned __int64    ui64ChTime;
-  unsigned __int64    ui64FileIndex;
-  unsigned __int64    ui64FileSize;
+  unsigned __int64    ui64ATime = 0;
+  unsigned __int64    ui64MTime = 0;
+  unsigned __int64    ui64CTime = 0;
+  unsigned __int64    ui64ChTime = 0;
+  unsigned __int64    ui64FileIndex = 0;
+  unsigned __int64    ui64FileSize = 0;
   static char         acLastName[4 * FTIMES_MAX_PATH]; /* This is an encoded name. */
   static DWORD        dwLastVolumeSerialNumber;
   static DWORD        dwLastFileIndexHigh;

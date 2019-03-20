@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.11 2004/04/23 21:32:11 mavrik Exp $
+# $Id: Makefile.vs,v 1.15 2005/05/07 18:50:45 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+# Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
 #
 ########################################################################
 #
@@ -15,13 +15,22 @@
 BUILD_TYPE		= RELEASE	# [RELEASE|DEBUG]
 PLATFORM_TYPE		= WINNT		# [WINNT|WIN98]
 USE_CGI			= N		# [Y|N]
+USE_PCRE		= Y		# [Y|N]
 USE_SSL			= Y		# [Y|N]
-USE_STATIC_SSL_LIBS	= N		# [Y|N]
+USE_STATIC_SSL_LIBS	= Y		# [Y|N]
 USE_XMAGIC		= N		# [Y|N]
 
-INSTALL_DIR		= C:\Integrity
+INSTALL_DIR		= C:\FTimes
 SOURCE_DIR		= src
 OBJECT_DIR		= build
+
+!IF "$(USE_PCRE)" == "Y" || "$(USE_PCRE)" == "y"
+PCRE_DIR		= C:\Pcre
+PCRE_LIB_DIR		= $(PCRE_DIR)\lib
+PCRE_INC_DIR		= $(PCRE_DIR)\include
+PCRE_COMPILER_FLAGS	= /D USE_PCRE /I"$(PCRE_INC_DIR)"
+PCRE_LINKER_FLAGS	= /libpath:"$(PCRE_LIB_DIR)" pcre.lib pcreposix.lib
+!ENDIF
 
 !IF "$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y"
 SSL_DIR			= C:\OpenSSL
@@ -59,6 +68,7 @@ COMPILER_FLAGS		=\
 !ELSE
 			/D WINNT\
 !ENDIF
+			$(PCRE_COMPILER_FLAGS)\
 			$(SSL_COMPILER_FLAGS)\
 			$(XMAGIC_COMPILER_FLAGS)\
 			/Fo"$(OBJECT_DIR)\\"\
@@ -133,6 +143,7 @@ LINKER_FLAGS		=\
 			/nologo\
 			/subsystem:console\
 			/machine:I386\
+			$(PCRE_LINKER_FLAGS)\
 			$(SSL_LINKER_FLAGS)\
 			advapi32.lib\
 			wsock32.lib\

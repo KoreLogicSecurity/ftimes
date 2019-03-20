@@ -1,0 +1,46 @@
+######################################################################
+#
+# $Id: common-tests.mk.in,v 1.2 2005/06/05 16:01:00 mavrik Exp $
+#
+######################################################################
+#
+# Purpose: Common guts for all test Makefiles.
+#
+######################################################################
+
+WORKDIR=work
+
+TARGET_PROGRAM=${FTIMES}
+
+CHECK_DEBUG_LEVEL?=2
+
+CLEAN_DEBUG_LEVEL?=0
+
+SETUP_DEBUG_LEVEL?=0
+
+all: _check_done
+
+_clean_done:
+	@perl ${TEST_HARNESS} -m clean -w ${WORKDIR} -p ${TARGET_PROGRAM} -d ${CLEAN_DEBUG_LEVEL} -s ${PROJECT_SRCDIR}
+
+clean: _clean_done
+	@rm -f _config _check_done _clean_done _setup_done
+	@rm -rf ${WORKDIR}
+
+clean-all: clean
+	@rm -f _clean_done
+
+_setup_done:
+	@perl ${TEST_HARNESS} -m setup -w ${WORKDIR} -p ${TARGET_PROGRAM} -d ${SETUP_DEBUG_LEVEL} -s ${PROJECT_SRCDIR}
+
+setup: _setup_done
+
+_check_done: _setup_done
+	@perl ${TEST_HARNESS} -m check -w ${WORKDIR} -p ${TARGET_PROGRAM} -d ${CHECK_DEBUG_LEVEL} -s ${PROJECT_SRCDIR}
+
+check: _check_done
+
+test: _check_done
+
+include ${INCLUDES_PREFIX}/common.mk
+

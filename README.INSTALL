@@ -14,7 +14,7 @@
 
 1.1 Revision
 
-  $Id: README.INSTALL,v 1.6 2004/04/24 04:41:56 mavrik Exp $
+  $Id: README.INSTALL,v 1.10 2005/05/12 15:37:23 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -26,7 +26,9 @@
   Section 2 .................... Building FTimes
   Section 2.1 .................. Requirements
   Section 2.2 .................. Unpack the Source Archive
-  Section 2.3 .................. Verify Installation of OpenSSL
+  Section 2.3 .................. Verify Installation of Optional Components
+  Section 2.3.1 ................ Verify Installation of PCRE
+  Section 2.3.2 ................ Verify Installation of OpenSSL
   Section 2.4 .................. UNIX Build Instructions
   Section 2.4.1 ................ UNIX Build Gotchas
   Section 2.5 .................. Windows NT/2K Build Instructions
@@ -106,9 +108,9 @@
 
   Building FTimes in a UNIX environments requires at least the
   following tools: make, gcc, and possibly autoconf.  For Windows
-  NT/2K environments Visual Studio is required.  By default, SSL
-  support is enabled in FTimes.  This means that OpenSSL must be
-  be installed and/or available on the build system.
+  NT/2K environments Visual Studio is required.  By default, PCRE
+  and SSL support is enabled in FTimes.  This means that PCRE and
+  OpenSSL must be be installed and/or available on the build system.
 
 2.2 Unpack the Source Archive
 
@@ -133,11 +135,20 @@
 
     > winzip32.exe -min -e <archive>
 
-2.3 Verify Installation of OpenSSL
+2.3 Verify Installation of Optional Components
+
+2.3.1 Verify Installation of PCRE
+
+  By default, PCRE support is enabled in FTimes.  This means that
+  PCRE libraries must be installed and/or available on the build
+  system.  The PCRE project is located at http://www.pcre.org.
+  Refer to PCRE's documentation for details on how to do this.
+
+2.3.2 Verify Installation of OpenSSL
 
   By default, SSL support is enabled in FTimes.  This means that
   OpenSSL must be installed and/or available on the build system.
-  The OpenSSL Web site is located at http://www.openssl.org.  Refer
+  The OpenSSL project is located at http://www.openssl.org.  Refer
   to OpenSSL's documentation for details on how to do this.
 
 2.4 UNIX Build Instructions
@@ -149,25 +160,30 @@
 
     $ ./configure && make
 
-  By default, SSL support is enabled.  This means that the configure
-  script will attempt to locate OpenSSL on your system.  If OpenSSL
-  is not found in one of several common locations, the script will
-  abort.  To override this behavior and explicitly specify OpenSSL's
-  location, use the --with-ssl=DIR option.  For example, if your
-  copy of OpenSSL was installed in /usr/local/my_openssl, the build
-  sequence would be as follows:
+  By default, PCRE and SSL support is enabled.  This means that the
+  configure script will attempt to locate PCRE and OpenSSL components
+  (e.g., libraries and include files) on your system.  If either
+  of these components are not found in one of several common
+  locations, the script will abort.  To override that behavior, you
+  can specify alternate locations using the --with-pcre=DIR and
+  --with-ssl=DIR configure options.  For example, if your copy of
+  OpenSSL was installed in /usr/local/my_openssl, the build sequence
+  would be as follows:
 
     $ ./configure --with-ssl=/usr/local/my_openssl && make
 
-  To disable SSL support altogether, use the --without-ssl option
-  as follows:
+  To disable SSL support, use the --without-ssl option as follows:
 
     $ ./configure --without-ssl && make
+
+  To disable PCRE support, use the --without-pcre option as follows:
+
+    $ ./configure --without-pcre && make
 
   FTimes also supports file typing via XMagic.  If this capability
   is desired, pass the --enable-xmagic flag to configure.
 
-  FTimes' default installation directory is /usr/local/integrity.
+  The default FTimes installation directory is /usr/local/ftimes.
   If you want to install in a different location, set the --prefix
   configure option.  For example, if you wanted to install in the
   directory /usr/local/my_ftimes, the build sequence would be as
@@ -181,8 +197,9 @@
     $ ./configure --help
 
   When the software has been built to your satisfaction, it can be
-  installed with the following command:
+  tested and installed with the following commands:
 
+    # make test
     # make install
 
 2.4.1 UNIX Build Gotchas
@@ -207,23 +224,29 @@
     > set LIB
     > set INCLUDE
 
-  If neither of those variables are defined or you are in doubt,
-  run VCVARS32.BAT.  Usually, this script is kept in Visual Studio's
+  If neither of those variables is defined or you are in doubt, run
+  VCVARS32.BAT.  Usually, this script is kept in Visual Studio's
   bin directory.  Once you have located the script, simply execute
   it.
 
-  Because SSL support is enabled by default, you need to make sure
-  that the SSL_DIR macro in Makefile.vs has an appropriate value.
-  Basically, Makefile.vs was written with the assumption that your
-  version of OpenSSL was installed in C:\OpenSSL.  Adjust SSL_DIR
-  as necessary, if this is not the case.
+  Because PCRE and SSL support is enabled by default, you need to
+  make sure that the PCRE_DIR and SSL_DIR macros in Makefile.vs
+  have appropriate values.  Basically, Makefile.vs was written with
+  the assumption that your versions of PCRE and OpenSSL were installed
+  in C:\PCRE and C:\OpenSSL, respectively.  Adjust these macros as
+  necessary, if this is not the case.
 
-  Assuming that 1) you do need to run VCVARS32.BAT and 2) the OpenSSL
-  libraries and header files are installed in C:\OpenSSL, the build
-  sequence would be as follows:
+  Assuming that 1) you do need to run VCVARS32.BAT and 2) the PCRE
+  and OpenSSL libraries and header files are installed in the default
+  locations, the build sequence would be as follows:
 
     > VCVARS32.BAT
     > nmake -f Makefile.vs
+
+  If you don't want PCRE support, set the USE_PCRE macro to 'N'.
+  This can be done from the command line as follows:
+
+    > nmake -f Makefile.vs USE_PCRE=N
 
   If you don't want SSL support, set the USE_SSL macro to 'N'.  This
   can be done from the command line as follows:
@@ -249,7 +272,7 @@
 
     > nmake -f Makefile.vs install
 
-  FTimes' default installation directory is C:\Integrity.  If you
+  FTimes' default installation directory is C:\FTimes.  If you
   want to install in a different location, adjust the FTIMES_DIR
   macro as appropriate -- either in the makefile or on the command
   line.  For example, to install FTimes in the 'Program Files'
@@ -271,6 +294,10 @@
 
   This will ensure that everything is rebuilt correctly.  In certain
   situations, build problems could arise if this is not done.
+
+  You may have trouble linking against static OpenSSL libraries.
+  If that happens check to see if the OpenSSL Makefile (ms\nt.mak)
+  is using /MT -- by default it uses /MD (as of openssl-0.9.7f).
 
 3 Web Server Configuration
 
@@ -302,7 +329,7 @@
   FTimes request processing.  Each top-level directory is explained
   in the following paragraphs.
 
-  integrity
+  ftimes
     |
     - incoming
     |   |
@@ -472,7 +499,7 @@
 
   Next, you need to create the following tree structure:
 
-  integrity
+  ftimes
     |
     - incoming
     |
@@ -481,7 +508,7 @@
     - profiles
 
   By default, nph-ftimes.cgi expects to find this tree in the root
-  directory (i.e., /integrity).  If a different location is desired,
+  directory (i.e., /var/ftimes).  If a different location is desired,
   modify the BaseDirectory property in nph-ftimes.cfg as appropriate.
   Otherwise, use the following command sequence to create the tree.
   However, before doing this, you need to determine the uid and/or
@@ -489,18 +516,18 @@
   runs in the context of the www user.  If your configuration is
   different, replace www with the appropriate username as necessary.
 
-    # mkdir -m 755 /integrity
-    # chown 0:0 /integrity
-    # cd /integrity
+    # mkdir -m 755 /var/ftimes
+    # chown 0:0 /var/ftimes
+    # cd /var/ftimes
     # mkdir -m 755 incoming logfiles profiles
     # chown www:0 incoming
 
   Finally, you need to create the nph-ftimes log file.  This is
   done as follows:
 
-    # touch /integrity/logfiles/nph-ftimes.log
-    # chown www:0 /integrity/logfiles/nph-ftimes.log
-    # chmod 644 /integrity/logfiles/nph-ftimes.log
+    # touch /var/ftimes/logfiles/nph-ftimes.log
+    # chown www:0 /var/ftimes/logfiles/nph-ftimes.log
+    # chmod 644 /var/ftimes/logfiles/nph-ftimes.log
 
   The final configuration objective to establish an access control
   mechanism.
@@ -575,11 +602,11 @@
   The directories may be created as follows:
 
     # umask 22
-    # cd /integrity/profiles
+    # cd /var/ftimes/profiles
     # mkdir -p -m 755 client_1/cfgfiles
     # chown -R 0:0 client_1
 
-  Go to /integrity/profiles/client_1/cfgfiles and create mapfull.cfg.
+  Go to /var/ftimes/profiles/client_1/cfgfiles and create mapfull.cfg.
   Make sure you replace <password> with its real value.  Also, don't
   forget to modify URLPutURL as appropriate.
 
@@ -618,7 +645,7 @@
     --- get.cfg ---
 
   To avoid having to type a long path each time you invoke FTimes,
-  you may want to add /usr/local/integrity/bin to your path.
+  you may want to add /usr/local/ftimes/bin to your path.
 
 3.3.3 Test Client-Server Connectivity
 

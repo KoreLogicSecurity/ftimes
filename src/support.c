@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: support.c,v 1.16 2004/04/22 20:34:00 mavrik Exp $
+ * $Id: support.c,v 1.22 2005/04/02 18:08:26 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -93,11 +93,11 @@ SupportAddListItem(char *pcPath, FILE_LIST *psHead, char *pcError)
  ***********************************************************************
  */
 int
-SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcError)
+SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcListName, char *pcError)
 {
   const char          acRoutine[] = "SupportAddToList()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  char                acPathLocal[FTIMES_MAX_PATH];
+  char                acLocalPath[FTIMES_MAX_PATH];
   int                 i;
   int                 iLength;
   FILE_LIST          *psHead;
@@ -105,17 +105,34 @@ SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcError)
   /*-
    *********************************************************************
    *
-   * Copy pcPath into acPathLocal removing extra slashes along the way.
+   * Make sure that we have the start of a full path.
    *
    *********************************************************************
    */
-  for (i = 0, iLength = 0, memset(acPathLocal, 0, FTIMES_MAX_PATH); i < (int) strlen(pcPath); i++)
+#ifdef WIN32
+    if (!(isalpha((int) pcPath[0]) && pcPath[1] == ':'))
+#else
+    if (pcPath[0] != FTIMES_SLASHCHAR)
+#endif
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: List = [%s], Item = [%s]: A full path is required.", acRoutine, pcListName, pcPath);
+      return ER;
+    }
+
+  /*-
+   *********************************************************************
+   *
+   * Copy pcPath into acLocalPath removing extra slashes along the way.
+   *
+   *********************************************************************
+   */
+  for (i = 0, iLength = 0, memset(acLocalPath, 0, FTIMES_MAX_PATH); i < (int) strlen(pcPath); i++)
   {
     if (i > 0 && pcPath[i] == FTIMES_SLASHCHAR && pcPath[i - 1] == FTIMES_SLASHCHAR)
     {
       continue;
     }
-    acPathLocal[iLength++] = pcPath[i];
+    acLocalPath[iLength++] = pcPath[i];
   }
 
   /*-
@@ -125,11 +142,11 @@ SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcError)
    *
    *********************************************************************
    */
-  if (strcmp(acPathLocal, FTIMES_SLASH) != 0)
+  if (strcmp(acLocalPath, FTIMES_SLASH) != 0)
   {
-    while (acPathLocal[iLength - 1] == FTIMES_SLASHCHAR && iLength > 1)
+    while (acLocalPath[iLength - 1] == FTIMES_SLASHCHAR && iLength > 1)
     {
-      acPathLocal[--iLength] = 0;
+      acLocalPath[--iLength] = 0;
     }
   }
 
@@ -140,19 +157,23 @@ SupportAddToList(char *pcPath, FILE_LIST **ppsList, char *pcError)
    *
    *********************************************************************
    */
-  if (SupportMatchExclude(*ppsList, acPathLocal) == NULL)
+  if (SupportMatchExclude(*ppsList, acLocalPath) == NULL)
   {
-    psHead = SupportAddListItem(acPathLocal, *ppsList, acLocalError);
+    psHead = SupportAddListItem(acLocalPath, *ppsList, acLocalError);
     if (psHead == NULL)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-      return ER_SupportAddListItem;
+      snprintf(pcError, MESSAGE_SIZE, "%s: List = [%s], Item = [%s]: %s", acRoutine, pcListName, pcPath, acLocalError);
+      return ER;
     }
-
     if (*ppsList == NULL)
     {
       *ppsList = psHead;
     }
+  }
+  else
+  {
+    snprintf(acLocalError, MESSAGE_SIZE, "List = [%s], Item = [%s]: Ignoring duplicate item.", pcListName, pcPath);
+    ErrorHandler(ER_Warning, acLocalError, ERROR_WARNING);
   }
 
   return ER_OK;
@@ -247,6 +268,32 @@ SupportAdjustPrivileges(LPCTSTR lpcPrivilege)
   return TRUE;
 }
 #endif
+
+
+/*-
+ ***********************************************************************
+ *
+ * SupportCheckList
+ *
+ ***********************************************************************
+ */
+int
+SupportCheckList(FILE_LIST *psHead, char *pcListName, char *pcError)
+{
+  const char          acRoutine[] = "SupportCheckList()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  FILE_LIST          *psList;
+
+  for (psList = psHead; psList != NULL; psList = psList->psNext)
+  {
+    if (SupportGetFileType(psList->acPath, acLocalError) == FTIMES_FILETYPE_ERROR)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: List = [%s], Item = [%s]: %s", acRoutine, pcListName, psList->acPath, acLocalError);
+      return ER;
+    }
+  }
+  return ER_OK;
+}
 
 
 /*-
@@ -423,7 +470,7 @@ SupportEraseFile(char *pcName, char *pcError)
   if (unlink(pcName) != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
-    return ER_unlink;
+    return ER;
   }
 
   return ER_OK;
@@ -498,7 +545,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Directory = [%s]: %s", acRoutine, pcPath, strerror(errno));
     free(pcTempPath);
-    return ER_getcwd;
+    return ER;
   }
 
   /*-
@@ -514,7 +561,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
     snprintf(pcError, MESSAGE_SIZE, "%s: Directory = [%s]: %s", acRoutine, pcPath, strerror(errno));
     free(pcTempPath);
     free(pcCwdDir); /* Created by getcwd() */
-    return ER_chdir;
+    return ER;
   }
 
   pcNewDir = getcwd(pcFullPath, iFullPathSize);
@@ -523,7 +570,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
     snprintf(pcError, MESSAGE_SIZE, "%s: Directory = [%s]: %s", acRoutine, pcPath, strerror(errno));
     free(pcTempPath);
     free(pcCwdDir); /* Created by getcwd() */
-    return ER_getcwd;
+    return ER;
   }
 
   /*-
@@ -552,7 +599,7 @@ SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, ch
     snprintf(pcError, MESSAGE_SIZE, "%s: Directory = [%s]: %s", acRoutine, pcPath, strerror(errno));
     free(pcTempPath);
     free(pcCwdDir); /* Created by getcwd() */
-    return ER_chdir;
+    return ER;
   }
 
   free(pcTempPath);
@@ -623,10 +670,10 @@ SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceE
 #endif
   }
 
-  switch (SupportGetFileType(pcPath))
+  switch (SupportGetFileType(pcPath, acLocalError))
   {
   case FTIMES_FILETYPE_ERROR:
-    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, pcPath, strerror(errno));
+    snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, pcPath, acLocalError);
     return ER_BadValue;
     break;
 
@@ -770,13 +817,15 @@ SupportFreeData(void *pcData)
  ***********************************************************************
  */
 int
-SupportGetFileType(char *pcPath)
+SupportGetFileType(char *pcPath, char *pcError)
 {
+  const char          acRoutine[] = "SupportGetFileType()";
   struct stat         sStatEntry;
 
 #ifdef UNIX
   if (lstat(pcPath, &sStatEntry) == ER)
   {
+    snprintf(pcError, MESSAGE_SIZE, "%s: lstat(): %s", acRoutine, strerror(errno));
     return FTIMES_FILETYPE_ERROR;
   }
 
@@ -831,6 +880,7 @@ SupportGetFileType(char *pcPath)
 
     if (stat(acWorkingPath, &sStatEntry) == ER)
     {
+      snprintf(pcError, MESSAGE_SIZE, "%s: stat(): %s", acRoutine, strerror(errno));
       return FTIMES_FILETYPE_ERROR;
     }
   }
@@ -838,6 +888,7 @@ SupportGetFileType(char *pcPath)
   {
     if (stat(pcPath, &sStatEntry) == ER)
     {
+      snprintf(pcError, MESSAGE_SIZE, "%s: stat(): %s", acRoutine, strerror(errno));
       return FTIMES_FILETYPE_ERROR;
     }
   }
@@ -910,16 +961,24 @@ SupportGetMyVersion(void)
 {
 #define MAX_VERSION_LENGTH 256
   static char         acMyVersion[MAX_VERSION_LENGTH] = "NA";
+  int                 iIndex = 0;
+  int                 iLength = MAX_VERSION_LENGTH;
 
-#ifdef USE_SSL
-  snprintf(acMyVersion, MAX_VERSION_LENGTH, "%s %s ssl %d bit",
-#else
-  snprintf(acMyVersion, MAX_VERSION_LENGTH, "%s %s %d bit",
+  iIndex += snprintf(&acMyVersion[iIndex], iLength, "%s %s", PROGRAM_NAME, VERSION);
+  iLength -= iIndex;
+#ifdef USE_PCRE
+  iIndex += snprintf(&acMyVersion[iIndex], iLength, " pcre");
+  iLength -= strlen(" pcre");
 #endif
-    PROGRAM_NAME,
-    VERSION,
-    (int) (sizeof(&SupportGetMyVersion) * 8)
-    );
+#ifdef USE_SSL
+  iIndex += snprintf(&acMyVersion[iIndex], iLength, " ssl");
+  iLength -= strlen(" ssl");
+#endif
+#ifdef USE_XMAGIC
+  iIndex += snprintf(&acMyVersion[iIndex], iLength, " xmagic");
+  iLength -= strlen(" xmagic");
+#endif
+  iIndex += snprintf(&acMyVersion[iIndex], iLength, " %d bit", (int) (sizeof(&SupportGetMyVersion) * 8));
   return acMyVersion;
 }
 
@@ -1342,21 +1401,23 @@ SupportNeuterStringW(unsigned short *pusData, int iLength, char *pcError)
  ***********************************************************************
  */
 FILE_LIST *
-SupportPruneList(FILE_LIST *psList)
+SupportPruneList(FILE_LIST *psList, char *pcListName)
 {
-  const char          acRoutine[] = "SupportPruneList()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
   FILE_LIST          *psListHead;
   FILE_LIST          *psListTree;
   FILE_LIST          *psListKill;
 
+  /*-
+   *********************************************************************
+   *
+   * If there's nothing to prune, just return.
+   *
+   *********************************************************************
+   */
   if (psList == NULL)
   {
-    return NULL;
-  }
-  else
-  {
-    psListHead = psList;
+    return psList;
   }
 
   /*-
@@ -1364,27 +1425,29 @@ SupportPruneList(FILE_LIST *psList)
    *
    * Eliminate any subtree components from the tree list. For example,
    * /usr/local would be eliminated from /usr. We also eliminate any
-   * duplicate entries in the process.
+   * duplicate entries in the process. However, there should not be any
+   * duplicates because they should have been automatically pruned as
+   * the list was being created.
    *
    *********************************************************************
    */
-  for (psListTree = psListHead; psListTree->psNext != NULL;)
+  for (psListTree = psListHead = psList; psListTree->psNext != NULL;)
   {
     psListKill = SupportMatchSubTree(psListTree->psNext, psListTree);
 
     /*-
      *******************************************************************
      *
-     * When a match is found, we have to perform another search to
-     * ensure that there are no more matches further down in the list.
-     * This is done implicitly by setting psListTree to psListHead after
-     * the drop.
+     * When a match is found, another search is performed to ensure
+     * that there are no more matches further down in the list. This is
+     * done implicitly by setting psListTree to psListHead after the
+     * drop.
      *
      *******************************************************************
      */
     if (psListKill != NULL)
     {
-      snprintf(acLocalError, MESSAGE_SIZE, "%s: Item = [%s]: Dropping redundant entry.", acRoutine, psListKill->acPath);
+      snprintf(acLocalError, MESSAGE_SIZE, "List = [%s], Item = [%s]: Pruning item because it is part of a larger branch.", pcListName, psListKill->acPath);
       ErrorHandler(ER_Warning, acLocalError, ERROR_WARNING);
       psListHead = SupportDropListItem(psListHead, psListKill);
       psListTree = psListHead;
@@ -1401,7 +1464,7 @@ SupportPruneList(FILE_LIST *psList)
 /*-
  ***********************************************************************
  *
- * RequirePrivilege
+ * SupportRequirePrivilege
  *
  ***********************************************************************
  */
@@ -1416,7 +1479,7 @@ SupportRequirePrivilege(char *pcError)
   if (SupportSetPrivileges(acLocalError) != ER_OK)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
-    return ER_NoPrivilege;
+    return ER;
   }
 #endif
 
@@ -1424,7 +1487,7 @@ SupportRequirePrivilege(char *pcError)
   if (getuid() != 0)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Need root privilege to continue.", acRoutine);
-    return ER_NoPrivilege;
+    return ER;
   }
 #endif
 
@@ -1531,7 +1594,7 @@ SupportWriteData(FILE *pFile, char *pcData, int iLength, char *pcError)
   if (iNWritten != iLength)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
-    return ER_fwrite;
+    return ER;
   }
   fflush(pFile);
   return ER_OK;

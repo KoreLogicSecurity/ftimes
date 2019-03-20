@@ -1,0 +1,9 @@
+=item B<ExcludesMustExist>: [Y|N]
+
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+
+B<ExcludesMustExist> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to check that every B<Exclude> exists prior to
+mapping or digging.  If this control is enabled and any B<Exclude>
+does not exist, B<FTimes> will abort.  The default value is 'N'.
+

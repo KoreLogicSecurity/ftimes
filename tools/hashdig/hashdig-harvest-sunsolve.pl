@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-harvest-sunsolve.pl,v 1.8 2004/04/21 01:29:59 mavrik Exp $
+# $Id: hashdig-harvest-sunsolve.pl,v 1.12 2005/05/30 23:35:35 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -48,7 +48,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Category flag, '-c', is optional. Default value is "K".
+  # The Category flag, '-c', is optional.
   #
   ####################################################################
 
@@ -79,7 +79,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The BeQuiet flag, '-q', is optional. Default value is 0.
+  # The BeQuiet flag, '-q', is optional.
   #
   ####################################################################
 
@@ -89,7 +89,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Sort flag, '-s', is optional. Default value is "sort".
+  # The Sort flag, '-s', is optional.
   #
   ####################################################################
 
@@ -99,7 +99,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The TmpDir flag, '-T', is optional. Default value is $TMPDIR,
+  # The TmpDir flag, '-T', is optional.
   # or if that is not defined, fall back to "/tmp".
   #
   ####################################################################
@@ -161,7 +161,7 @@ use Getopt::Std;
   {
     $sCommand .= " -o $sFilename";
   }
-  if (!open(SH, "|$sCommand"))
+  if (!open(SH, "| $sCommand"))
   {
     print STDERR "$sProgram: Command='$sCommand' Error='$!'\n";
     exit(2);
@@ -175,7 +175,7 @@ use Getopt::Std;
 
   foreach my $sInputFile (@aFiles)
   {
-    if (!open(FH, "<$sInputFile"))
+    if (!open(FH, "< $sInputFile"))
     {
       if (!$sBeQuiet)
       {
@@ -272,7 +272,7 @@ the program to write to stdout.
 
 =item B<-q>
 
-Don't report errors (i.e. be quiet) while processing files.
+Don't report errors (i.e., be quiet) while processing files.
 
 =item B<-s file>
 

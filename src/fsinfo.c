@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.13 2004/04/22 02:19:10 mavrik Exp $
+ * $Id: fsinfo.c,v 1.18 2005/05/20 13:57:42 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -28,7 +28,7 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "NFS",
   "NTFS",
   "NTFS_Remote",
-  "TMP",
+  "TMPFS",
   "UFS",
   "AIX",
   "JFS",
@@ -36,7 +36,10 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "FFS",
   "REISER",
   "HFS",
-  "VXFS"
+  "VXFS",
+  "SMB",
+  "CDFS",
+  "DEVFS"
 };
 
 
@@ -76,8 +79,10 @@ GetFileSystemType(char *pcPath, char *pcError)
     case MNT_NFS3:
       return FSTYPE_NFS3;
       break;
-    case MNT_SFS:
     case MNT_CDROM:
+      return FSTYPE_CDFS;
+      break;
+    case MNT_SFS:
     case MNT_CACHEFS:
     case MNT_AUTOFS:
     default:
@@ -131,6 +136,15 @@ GetFileSystemType(char *pcPath, char *pcError)
       break;
     case REISERFS_SUPER_MAGIC:
       return FSTYPE_REISER;
+      break;
+    case SMB_SUPER_MAGIC:
+      return FSTYPE_SMB;
+      break;
+    case ISOFS_SUPER_MAGIC:
+      return FSTYPE_CDFS;
+      break;
+    case TMPFS_SUPER_MAGIC:
+      return FSTYPE_TMPFS;
       break;
     default:
       snprintf(pcError, MESSAGE_SIZE, "%s: FileSystem = [0x%lx]: Unsupported file system.", acRoutine, (long) sStatFS.f_type);
@@ -215,7 +229,7 @@ GetFileSystemType(char *pcPath, char *pcError)
     }
     else if (strstr(acFSName, "TMP") != NULL)
     {
-      return FSTYPE_TMP;
+      return FSTYPE_TMPFS;
     }
     else if (strstr(acFSName, "FFS") != NULL)
     {
@@ -228,6 +242,18 @@ GetFileSystemType(char *pcPath, char *pcError)
     else if (strstr(acFSName, "VXFS") != NULL)
     {
       return FSTYPE_VXFS;
+    }
+    else if (strstr(acFSName, "SMBFS") != NULL)
+    {
+      return FSTYPE_SMB;
+    }
+    else if (strstr(acFSName, "CD9660") != NULL || strstr(acFSName, "HSFS"))
+    {
+      return FSTYPE_CDFS;
+    }
+    else if (strstr(acFSName, "DEVFS") != NULL)
+    {
+      return FSTYPE_DEVFS;
     }
     else
     {
@@ -318,6 +344,10 @@ GetFileSystemType(char *pcPath, char *pcError)
     else if (strstr(acFSName, "FAT") != NULL && uiDriveType != DRIVE_REMOTE)
     {
       return FSTYPE_FAT;
+    }
+    else if (strstr(acFSName, "CDFS") != NULL)
+    {
+      return FSTYPE_CDFS;
     }
     else
     {

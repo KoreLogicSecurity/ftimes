@@ -1,0 +1,29 @@
+######################################################################
+#
+# $Id: Makefile.in,v 1.1 2005/05/24 18:25:40 mavrik Exp $
+#
+######################################################################
+
+PROJECT_ROOT=..
+
+PROJECT_SRCDIR=@srcdir@
+
+PROJECT_TOPDIR=@top_srcdir@
+
+VPATH=@srcdir@
+
+INCLUDES_PREFIX=${PROJECT_ROOT}/Mk
+
+SUBDIRS=common
+
+all:
+
+check clean clean-all setup test:
+	@cwd=`pwd`; for subdir in ${SUBDIRS}; do\
+		${SUBDIR_TRACE} && ${SUBDIR_MAKE} ;\
+	done
+
+install:
+
+include ${INCLUDES_PREFIX}/common.mk
+

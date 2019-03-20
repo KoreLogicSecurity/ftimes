@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.9 2004/04/04 07:09:48 mavrik Exp $
+# $Id: Makefile.in,v 1.15 2005/05/24 18:17:53 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+# Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
 #
 ########################################################################
 #
@@ -12,34 +12,53 @@
 #
 ########################################################################
 
-#.SILENT:
-
-prefix			= @prefix@
-exec_prefix		= @exec_prefix@
 bindir			= @bindir@
-srcdir			= @srcdir@
-VPATH			= ${srcdir}
-
+CC			= @CC@
+CFLAGS			= @CFLAGS@
+exec_prefix		= @exec_prefix@
+EXTENSION		= @extension@
 INSTALL			= @INSTALL@
+prefix			= @prefix@
+PROGRAM			= ftimes${EXTENSION}
+VPATH			= @srcdir@
 
-SSL_DIRECTORY		= @ssldir@
-SSL_INCLUDES		= @ssl_incs@
-SSL_SOURCES		= @ssl_srcs@
-SSL_LFLAGS		= @ssllibflags@
-SSL_IFLAGS		= @sslincflags@
+AP_DEFS			=
+AP_INCFLAGS		=
+AP_INCS			= @ap_incs@
+AP_LIBFLAGS		=
+AP_LIBS			=
+AP_OBJS			= ${AP_SRCS:.c=.o}
+AP_SRCS			= @ap_srcs@
 
-AP_INCLUDES		= @ap_incs@
-AP_SOURCES		= @ap_srcs@
+PCRE_DEFS		=
+PCRE_INCFLAGS		= @pcre_incflags@
+PCRE_INCS		= @pcre_incs@
+PCRE_LIBFLAGS		= @pcre_libflags@
+PCRE_LIBS		=
+PCRE_OBJS		= ${PCRE_SRCS:.c=.o}
+PCRE_SRCS		= @pcre_srcs@
 
-XMAGIC_INCLUDES		= @xmagic_incs@
-XMAGIC_SOURCES		= @xmagic_srcs@
+SSL_DEFS		=
+SSL_INCFLAGS		= @ssl_incflags@
+SSL_INCS		= @ssl_incs@
+SSL_LIBFLAGS		= @ssl_libflags@
+SSL_LIBS		=
+SSL_OBJS		= ${SSL_SRCS:.c=.o}
+SSL_SRCS		= @ssl_srcs@
 
-FTIMES_LFLAGS		= ${LIBS} ${SSL_LFLAGS}
-FTIMES_IFLAGS		= -I. ${SSL_IFLAGS}
+XMAGIC_DEFS		=
+XMAGIC_INCFLAGS		=
+XMAGIC_INCS		= @xmagic_incs@
+XMAGIC_LIBFLAGS		=
+XMAGIC_LIBS		=
+XMAGIC_OBJS		= ${XMAGIC_SRCS:.c=.o}
+XMAGIC_SRCS		= @xmagic_srcs@
 
-FTIMES_INCLUDES		=\
+DEFS			= @DEFS@
+INCFLAGS		= -I. ${PCRE_INCFLAGS} ${SSL_INCFLAGS}
+INCS			=\
 			all-includes.h\
-			${AP_INCLUDES}\
+			${AP_INCS}\
 			app-includes.h\
 			compare.h\
 			config.h\
@@ -52,13 +71,17 @@ FTIMES_INCLUDES		=\
 			ktypes.h\
 			md5.h\
 			message.h\
+			${PCRE_INCS}\
 			socket.h\
-			${SSL_INCLUDES}\
+			${SSL_INCS}\
 			sys-includes.h\
-			${XMAGIC_INCLUDES}
-FTIMES_SOURCES		=\
+			${XMAGIC_INCS}
+LIBFLAGS		= ${LIBS} ${PCRE_LIBFLAGS} ${SSL_LIBFLAGS}
+LIBS			= @LIBS@
+OBJS			= ${SRCS:.c=.o}
+SRCS			=\
 			analyze.c\
-			${AP_SOURCES}\
+			${AP_SRCS}\
 			cfgtest.c\
 			cmpmode.c\
 			compare.c\
@@ -76,41 +99,33 @@ FTIMES_SOURCES		=\
 			mapmode.c\
 			md5.c\
 			message.c\
+			${PCRE_SRCS}\
 			properties.c\
 			putmode.c\
 			socket.c\
-			${SSL_SOURCES}\
+			${SSL_SRCS}\
 			support.c\
 			time.c\
 			url.c\
-			${XMAGIC_SOURCES}
-FTIMES_OBJECTS		= ${FTIMES_SOURCES:.c=.o}
-FTIMES_EXECUTEABLE	= ftimes
+			${XMAGIC_SRCS}
 
-DEFS			= @DEFS@
-LIBS			= @LIBS@
-CFLAGS			= @CFLAGS@
-CC			= @CC@
+all: ${PROGRAM}
 
-BIN_FILES		= ${FTIMES_EXECUTEABLE}
+test:: ${PROGRAM}
 
-all: ${FTIMES_EXECUTEABLE}
-
-install: ${BIN_FILES}
+install: ${PROGRAM}
 	@umask 22; if [ ! -d ${bindir} ]; then mkdir -p ${bindir}; fi
-	@for i in ${BIN_FILES}; do\
-		${INSTALL} -m 755 $$i ${bindir};\
-	done
+	@${INSTALL} -m 755 ${PROGRAM} ${bindir}
 
 clean:
-	rm -f ${FTIMES_EXECUTEABLE} ${FTIMES_OBJECTS} ${FTIMES_EXECUTEABLE}.core core
+	rm -f ${PROGRAM} ${OBJS} ${PROGRAM}.core core
 
 clean-all: clean
 	rm -f Makefile config.h
 
-${FTIMES_EXECUTEABLE}: ${FTIMES_INCLUDES} ${FTIMES_OBJECTS}
-	${CC} ${FTIMES_OBJECTS} ${CFLAGS} -o ${FTIMES_EXECUTEABLE} ${FTIMES_IFLAGS} ${FTIMES_LFLAGS}
+${PROGRAM}: ${INCS} ${OBJS}
+	${CC} ${OBJS} ${CFLAGS} -o ${PROGRAM} ${INCFLAGS} ${LIBFLAGS}
 
 .c.o:
-	${CC} ${CFLAGS} ${FTIMES_IFLAGS} -c $<
+	${CC} ${CFLAGS} ${INCFLAGS} -c $<
 

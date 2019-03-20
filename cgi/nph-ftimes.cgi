@@ -1,15 +1,16 @@
 #!/usr/bin/perl
 ######################################################################
 #
-# $Id: nph-ftimes.cgi,v 1.10 2004/04/23 21:32:13 mavrik Exp $
+# $Id: nph-ftimes.cgi,v 1.19 2005/05/08 16:29:08 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+# Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
 #
 ######################################################################
 
 use strict;
+use Fcntl qw(:flock);
 
 ######################################################################
 #
@@ -129,11 +130,11 @@ sub CompareMasks
   #
   ####################################################################
 
-  if ($sRequiredMask !~ /^(all|none)([+-][a-z]+)*$/)
+  if ($sRequiredMask !~ /^(all|none)([+-][\w]+)*$/)
   {
     return undef;
   }
-  if ($sSuppliedMask !~ /^(all|none)([+-][a-z]+)*$/)
+  if ($sSuppliedMask !~ /^(all|none)([+-][\w]+)*$/)
   {
     return undef;
   }
@@ -289,14 +290,14 @@ sub CreateRunTimeEnvironment
     'DataType'  => qq(&DATATYPE=(dig|map)),
     'DateTime'  => qq(&DATETIME=(\\d{14})),
     'EOL'       => qq(\$),
-    'FieldMask' => qq(&FIELDMASK=([a-zA-Z+-]{1,512})),
+    'FieldMask' => qq(&FIELDMASK=([\\w+-]{1,512})),
     'LogLength' => qq(&LOGLENGTH=(\\d{1,20})), # 18446744073709551615
     'MD5'       => qq(&MD5=([0-9a-fA-F]{32})),
     'OutLength' => qq(&OUTLENGTH=(\\d{1,20})), # 18446744073709551615
     'Request'   => qq(&REQUEST=(Map(?:Full|Lean)Config|Dig(?:Full|Lean)Config)),
     'RunType'   => qq(&RUNTYPE=(baseline|linktest|snapshot)),
     'SOL'       => qq(^),
-    'Version'   => qq(VERSION=(ftimes[\\w .]{1,64})),
+    'Version'   => qq(VERSION=(ftimes[\\w ().]{1,64})),
   );
 
   $$phProperties{'GETRegex'} =
@@ -368,9 +369,9 @@ sub CreateRunTimeEnvironment
   #
   ####################################################################
 
-  my (%hSiteProperties, $sLocalError);
+  my (%hGlobalConfigTemplate, $sLocalError);
 
-  %hSiteProperties =
+  %hGlobalConfigTemplate = # This is the set of site-wide properties.
   (
     'BaseDirectory'     => qq(^(?:[A-Za-z]:)?/[\\w-./]+\$),
     'CapContentLength'  => qq(^[YyNn]\$),
@@ -379,12 +380,13 @@ sub CreateRunTimeEnvironment
     'RequireMask'       => qq(^[YyNn]\$),
     'RequireMatch'      => qq(^[YyNn]\$),
     'RequireUser'       => qq(^[YyNn]\$),
-    'RequiredDigMask'   => qq(^[a-zA-Z+-]{1,512}\$),
-    'RequiredMapMask'   => qq(^[a-zA-Z+-]{1,512}\$),
+    'RequiredDigMask'   => qq(^[\\w+-]{1,512}\$),
+    'RequiredMapMask'   => qq(^[\\w+-]{1,512}\$),
     'UseGMT'            => qq(^[YyNn]\$),
   );
+  $$phProperties{'GlobalConfigTemplate'} = { %hGlobalConfigTemplate };
 
-  GetSiteProperties($phProperties, \%hSiteProperties, \$sLocalError);
+  GetGlobalConfigProperties($phProperties, \%hGlobalConfigTemplate, \$sLocalError);
 
   ####################################################################
   #
@@ -403,7 +405,7 @@ sub CreateRunTimeEnvironment
   #
   ####################################################################
 
-  if (!defined(VerifyRunTimeEnvironment($phProperties, \%hSiteProperties, \$sLocalError)))
+  if (!defined(VerifyRunTimeEnvironment($phProperties, \%hGlobalConfigTemplate, \$sLocalError)))
   {
     $$psError = $sLocalError;
     return undef;
@@ -441,7 +443,7 @@ sub GetKeysAndValues
   #
   ####################################################################
 
-  if (!open(FH, "<$sFile"))
+  if (!open(FH, "< $sFile"))
   {
     $$psError = "File ($sFile) could not be opened ($!)" if (defined($psError));
     return undef;
@@ -449,7 +451,9 @@ sub GetKeysAndValues
 
   ####################################################################
   #
-  # Read properties file. Ignore comments and blank lines.
+  # Read properties file. Ignore case (when evaluating keys), unknown
+  # keys, comments, and blank lines. Note: If $phValidKeys is empty,
+  # then nothing will be returned.
   #
   ####################################################################
 
@@ -484,11 +488,11 @@ sub GetKeysAndValues
 
 ######################################################################
 #
-# GetSiteProperties
+# GetGlobalConfigProperties
 #
 ######################################################################
 
-sub GetSiteProperties
+sub GetGlobalConfigProperties
 {
   my ($phProperties, $phSiteProperties, $psError) = @_;
 
@@ -498,12 +502,12 @@ sub GetSiteProperties
   #
   ####################################################################
 
-  $$phProperties{'BaseDirectory'} = "/integrity";
+  $$phProperties{'BaseDirectory'} = "/var/ftimes";
 
   ####################################################################
   #
-  # When active, CapContentLength forces the script to abort when the
-  # client-supplied ContentLength exceeds MaxContentLength.
+  # CapContentLength forces the script to abort when ContentLength
+  # exceeds MaxContentLength.
   #
   ####################################################################
 
@@ -518,6 +522,16 @@ sub GetSiteProperties
   ####################################################################
 
   $$phProperties{'EnableLogging'} = "Y"; # [Y|N]
+
+  ####################################################################
+  #
+  # MaxContentLength specifies the largest upload in bytes the script
+  # will accept. If CapContentLength is disabled, this control has no
+  # effect.
+  #
+  ####################################################################
+
+  $$phProperties{'MaxContentLength'} = 100000000; # 100 MB
 
   ####################################################################
   #
@@ -541,8 +555,8 @@ sub GetSiteProperties
 
   ####################################################################
   #
-  # When active, RequireUser forces the script to abort if RemoteUser
-  # has not been set.
+  # RequireUser forces the script to abort unless RemoteUser has been
+  # set.
   #
   ####################################################################
 
@@ -563,15 +577,6 @@ sub GetSiteProperties
   ####################################################################
 
   $$phProperties{'RequiredMapMask'} = "all-magic";
-
-  ####################################################################
-  #
-  # MaxContentLength defines the largest ContentLength that will be
-  # allowed.
-  #
-  ####################################################################
-
-  $$phProperties{'MaxContentLength'} = 100000000; # 100 MB
 
   ####################################################################
   #
@@ -679,13 +684,15 @@ sub LogMessage
   #
   ####################################################################
 
-  if (!open(LH, ">>" . $$phProperties{'LogFile'}))
+  if (!open(LH, ">> " . $$phProperties{'LogFile'}))
   {
     print STDERR $sLogMessage, $$phProperties{'Newline'};
     return undef;
   }
   binmode(LH);
+  flock(LH, LOCK_EX);
   print LH $sLogMessage, $$phProperties{'Newline'};
+  flock(LH, LOCK_UN);
   close(LH);
 
   1;
@@ -766,7 +773,7 @@ sub ProcessGetRequest
     $sGetFile = $$phProperties{'ProfilesDirectory'} . "/" . $$phProperties{'ClientId'} . "/" . "cfgfiles" . "/" . $$phProperties{'ClientFilename'};
     if (-e $sGetFile)
     {
-      if (!open(FH, "<$sGetFile"))
+      if (!open(FH, "< $sGetFile"))
       {
         $$psError = "Requested file ($sGetFile) could not be opened ($!)";
         return 457;
@@ -989,11 +996,28 @@ sub ProcessPutRequest
     #
     ##################################################################
 
-    my ($sLogFile, $sOutFile, $sRdyFile);
+    my ($sLckFile, $sLogFile, $sOutFile, $sRdyFile);
 
+    $sLckFile = $$phProperties{'IncomingDirectory'} . "/" . $$phProperties{'ClientFilename'} . ".lck";
     $sLogFile = $$phProperties{'IncomingDirectory'} . "/" . $$phProperties{'ClientFilename'} . ".log";
     $sOutFile = $$phProperties{'IncomingDirectory'} . "/" . $$phProperties{'ClientFilename'} . "." . $$phProperties{'ClientDataType'};
     $sRdyFile = $$phProperties{'IncomingDirectory'} . "/" . $$phProperties{'ClientFilename'} . ".rdy";
+
+    ##################################################################
+    #
+    # Create a group lockfile and lock it. The purpose of the lock
+    # is to prevent other instances of this script from writing to
+    # any of the output files (.log, .{dig|map}, .rdy).
+    #
+    ##################################################################
+
+    if (!open(LH, "> $sLckFile"))
+    {
+      $$psError = "File ($sLckFile) could not be opened ($!)";
+      SysReadWrite(\*STDIN, undef, $$phProperties{'ContentLength'}, undef); # Slurp up data to prevent a broken pipe.
+      return 500;
+    }
+    flock(LH, LOCK_EX);
 
     ##################################################################
     #
@@ -1005,15 +1029,16 @@ sub ProcessPutRequest
     {
       if (-e $sPutFile)
       {
-        SysReadWrite(\*STDIN, undef, $$phProperties{'ContentLength'}, undef); # Slurp up data to prevent a broken pipe.
         $$psError = "File ($sPutFile) already exists";
+        SysReadWrite(\*STDIN, undef, $$phProperties{'ContentLength'}, undef); # Slurp up data to prevent a broken pipe.
+        flock(LH, LOCK_UN); close(LH); unlink($sLckFile); # Unlock, close, and remove the group lockfile.
         return 451;
       }
     }
 
     ##################################################################
     #
-    # Write output files (log, out, rdy) to disk.
+    # Write the output files (.{dig|map}, .log, .rdy) to disk.
     #
     ##################################################################
 
@@ -1024,36 +1049,43 @@ sub ProcessPutRequest
 
     foreach my $sPutFile ($sLogFile, $sOutFile, $sRdyFile)
     {
-      if (!open(FH, ">$sPutFile"))
+      if (!open(FH, "> $sPutFile"))
       {
-        SysReadWrite(\*STDIN, undef, $$phProperties{'ContentLength'}, undef); # Slurp up data to prevent a broken pipe.
         $$psError = "File ($sPutFile) could not be opened ($!)";
+        SysReadWrite(\*STDIN, undef, $$phProperties{'ContentLength'}, undef); # Slurp up data to prevent a broken pipe.
+        flock(LH, LOCK_UN); close(LH); unlink($sLckFile); # Unlock, close, and remove the group lockfile.
         return 500;
       }
       binmode(FH);
+      flock(FH, LOCK_EX);
       if ($sPutFile eq $sRdyFile)
       {
-        print FH "+", $$phProperties{'Newline'};
+        foreach my $sKey (sort(keys(%{$$phProperties{'GlobalConfigTemplate'}})))
+        {
+          print FH $sKey, "=", $$phProperties{$sKey}, $$phProperties{'Newline'};
+        }
       }
       else
       {
         my $sByteCount = SysReadWrite(\*STDIN, \*FH, $hStreamLengths{$sPutFile}, \$sLocalError);
         if (!defined($sByteCount))
         {
-          close(FH);
           $$psError = $sLocalError;
+          flock(FH, LOCK_UN); close(FH);
+          flock(LH, LOCK_UN); close(LH); unlink($sLckFile); # Unlock, close, and remove the group lockfile.
           return 500;
         }
         if ($sByteCount != $hStreamLengths{$sPutFile})
         {
-          close(FH);
           $$psError = "Stream length ($hStreamLengths{$sPutFile}) does not equal number of bytes processed ($sByteCount) for output file ($sPutFile)";
+          flock(FH, LOCK_UN); close(FH);
+          flock(LH, LOCK_UN); close(LH); unlink($sLckFile); # Unlock, close, and remove the group lockfile.
           return 456;
         }
       }
-      close(FH);
+      flock(FH, LOCK_UN); close(FH);
     }
-
+    flock(LH, LOCK_UN); close(LH); unlink($sLckFile); # Unlock, close, and remove the group lockfile.
     $$psError = "Success";
     return 200;
   }

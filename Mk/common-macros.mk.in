@@ -1,0 +1,32 @@
+######################################################################
+#
+# $Id: common-macros.mk.in,v 1.1 2005/05/24 18:25:40 mavrik Exp $
+#
+######################################################################
+#
+# Purpose: Common macros for all Makefiles.
+#
+######################################################################
+
+MAKE=make -s
+
+FTIMES=${PROJECT_ROOT}/src/ftimes
+
+TEST_HARNESS=${PROJECT_TOPDIR}/utils/test_harness
+
+INDENT=
+
+INDENT_PADDING= #+++++
+
+MACROS= INDENT=${INDENT}${INDENT_PADDING}
+
+PROJECT_DEFAULT_INSTALL_ROOT=/usr/local/ftimes
+
+SUBDIR_MAKE=cd $${cwd}/$${subdir} && ${MAKE} $@ ${MACROS}
+
+SUBDIR_TRACE=echo "${INDENT}===> $${subdir}" | perl -pe 's/^([+]+)/pack("C*", map(ord($$_)-11, split("", $$1)))/eg;'
+
+TARGET_MAKE=cd $${cwd}/$${target} && ${MAKE} $@ ${MACROS}
+
+TARGET_TRACE=echo "${INDENT}---> $${target}" | perl -pe 's/^([+]+)/pack("C*", map(ord($$_)-11, split("", $$1)))/eg;'
+

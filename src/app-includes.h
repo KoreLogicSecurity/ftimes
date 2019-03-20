@@ -1,15 +1,19 @@
 /*-
  ***********************************************************************
  *
- * $Id: app-includes.h,v 1.11 2004/04/04 07:09:49 mavrik Exp $
+ * $Id: app-includes.h,v 1.13 2005/04/02 18:08:23 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "ktypes.h"
+
+#ifdef USE_PCRE
+#include <pcre.h>
+#endif
 
 #ifdef USE_SSL
 #include "ssl.h"

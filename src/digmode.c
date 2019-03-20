@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: digmode.c,v 1.20 2004/04/25 15:49:49 mavrik Exp $
+ * $Id: digmode.c,v 1.24 2005/04/02 18:08:24 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -46,7 +46,7 @@ DigModeProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, cha
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
         return iError;
       }
-      iError = SupportAddToList(psProperties->acConfigFile, &psProperties->psExcludeList, acLocalError);
+      iError = SupportAddToList(psProperties->acConfigFile, &psProperties->psExcludeList, "Exclude", acLocalError);
       if (iError != ER_OK)
       {
         snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -152,10 +152,10 @@ DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
       return iError;
     }
 
-    iError = SupportAddToList(acMapItem, &psProperties->psIncludeList, acLocalError);
+    iError = SupportAddToList(acMapItem, &psProperties->psIncludeList, "Include", acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Item = [%s]: %s", acRoutine, acMapItem, acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return iError;
     }
   }
@@ -187,6 +187,7 @@ int
 DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   const char          acRoutine[] = "DigModeCheckDependencies()";
+  int                 iLargestDigString = DigGetMaxStringLength();
 #ifdef USE_SSL
   char                acLocalError[MESSAGE_SIZE] = { 0 };
 #endif
@@ -195,6 +196,33 @@ DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: Need at least one DigString.", acRoutine);
     return ER_MissingControl;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * The carry size must not be larger than the block size.
+   *
+   *********************************************************************
+   */
+  if (psProperties->iAnalyzeCarrySize > psProperties->iAnalyzeBlockSize)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: AnalyzeCarrySize (%d) must not exceed AnalyzeBlockSize (%d).", acRoutine, psProperties->iAnalyzeCarrySize, psProperties->iAnalyzeBlockSize);
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * The largest normal/nocase dig string must not be larger than the
+   * carry size.
+   *
+   *********************************************************************
+   */
+  if (iLargestDigString > psProperties->iAnalyzeCarrySize)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: The largest DigStringNormal/DigStringNoCase value (%d) must not exceed AnalyzeCarrySize (%d).", acRoutine, iLargestDigString, psProperties->iAnalyzeCarrySize);
+    return ER;
   }
 
   if (psProperties->iRunMode == FTIMES_DIGFULL)
@@ -327,17 +355,42 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * Prune the Include and Exclude lists.
+   * Prune the Include list.
    *
    *********************************************************************
    */
-  psProperties->psExcludeList = SupportPruneList(psProperties->psExcludeList);
-
-  psProperties->psIncludeList = SupportPruneList(psProperties->psIncludeList);
+  psProperties->psIncludeList = SupportPruneList(psProperties->psIncludeList, "Include");
   if (psProperties->psIncludeList == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: There's nothing left to process in the Include list.", acRoutine);
     return ER_NothingToDo;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally check the Include and Exclude lists.
+   *
+   *********************************************************************
+   */
+  if (psProperties->bExcludesMustExist)
+  {
+    iError = SupportCheckList(psProperties->psExcludeList, "Exclude", acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return iError;
+    }
+  }
+
+  if (psProperties->bIncludesMustExist)
+  {
+    iError = SupportCheckList(psProperties->psIncludeList, "Include", acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return iError;
+    }
   }
 
   /*-
@@ -356,10 +409,10 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
       return iError;
     }
 
-    iError = SupportAddToList(psProperties->acLogFileName, &psProperties->psExcludeList, acLocalError);
+    iError = SupportAddToList(psProperties->acLogFileName, &psProperties->psExcludeList, "Exclude", acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: LogFile = [%s]: %s", acRoutine, psProperties->acLogFileName, acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return iError;
     }
 
@@ -396,10 +449,10 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
       return iError;
     }
 
-    iError = SupportAddToList(psProperties->acOutFileName, &psProperties->psExcludeList, acLocalError);
+    iError = SupportAddToList(psProperties->acOutFileName, &psProperties->psExcludeList, "Exclude", acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: OutFile = [%s]: %s", acRoutine, psProperties->acOutFileName, acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return iError;
     }
 

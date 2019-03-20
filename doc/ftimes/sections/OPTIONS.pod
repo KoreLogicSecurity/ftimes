@@ -22,8 +22,8 @@ than Landmark.  The default B<LogLevel> is Landmark.
 
 Enforce strict testing.  This requires that specified directories
 and files exist on the system running the test.  Controls affected
-by this option include: B<LogDir>, B<OutDir>, B<Include>, B<Exclude>,
-B<SSLPublicCertFile>, B<SSLPrivateKeyFile>, and B<SSLBundledCAsFile>.
+by this option include: B<LogDir>, B<OutDir>, B<SSLPublicCertFile>,
+B<SSLPrivateKeyFile>, and B<SSLBundledCAsFile>.
 
 =back
 

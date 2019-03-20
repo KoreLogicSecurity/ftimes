@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.30 2004/04/24 06:26:52 mavrik Exp $
+ * $Id: ftimes.h,v 1.42 2005/06/16 18:17:19 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -18,7 +18,7 @@
  ***********************************************************************
  */
 #define PROGRAM_NAME "ftimes"
-#define VERSION "3.4.0"
+#define VERSION "3.5.0"
 
 #define LF            "\n"
 #define CRLF        "\r\n"
@@ -87,15 +87,19 @@ typedef enum _BOOL
 #define FTIMES_DOTDOT                    ".."
 #define FTIMES_SEPARATOR                  "="
 
+#define FTIMES_MIN_BLOCK_SIZE              1
+#define FTIMES_MAX_BLOCK_SIZE ((1024)*(1024))
+
 #define FTIMES_MIN_STRING_REPEATS          0
 #define FTIMES_MAX_STRING_REPEATS 0x7fffffff
+
+#define FTIMES_MIN_FILE_SIZE_LIMIT         0
+#define FTIMES_MAX_FILE_SIZE_LIMIT        ~0
+
 #define FTIMES_MAX_HOSTNAME_LENGTH       256
 #define FTIMEX_MAX_MD5_LENGTH (((MD5_HASH_SIZE)*2)+1)
 #define FTIMES_MAX_USERNAME_LENGTH        32
 #define FTIMES_MAX_PASSWORD_LENGTH        32
-
-#define FTIMES_MIN_FILE_SIZE_LIMIT         0
-#define FTIMES_MAX_FILE_SIZE_LIMIT        ~0
 
 #define FTIMES_MAX_LINE                 8192
 
@@ -234,6 +238,8 @@ typedef struct _MASK_TABLE
 #define FTIMES_PUTMODE 0x00000400
 #define FTIMES_VERSION 0x00000800
 
+#define MODES_AnalyzeBlockSize  ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
+#define MODES_AnalyzeCarrySize  ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
 #define MODES_AnalyzeDeviceFiles ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_AnalyzeRemoteFiles ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_BaseName          ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
@@ -242,8 +248,14 @@ typedef struct _MASK_TABLE
 #define MODES_DataType          ((FTIMES_PUTMODE))
 #define MODES_DateTime          ((FTIMES_PUTMODE))
 #define MODES_DigString         ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
+#define MODES_DigStringNoCase   ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
+#define MODES_DigStringNormal   ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
+#ifdef USE_PCRE
+#define MODES_DigStringRegExp   ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN))
+#endif
 #define MODES_EnableRecursion   ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_Exclude           ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
+#define MODES_ExcludesMustExist ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_FieldMask         ((FTIMES_CMPMODE) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_PUTMODE))
 #define MODES_FileSizeLimit     ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_GetAndExec        ((FTIMES_GETMODE))
@@ -252,6 +264,7 @@ typedef struct _MASK_TABLE
 #define MODES_HashSymbolicLinks ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_Import            ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
 #define MODES_Include           ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
+#define MODES_IncludesMustExist ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_LogDir            ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_LogFileName       ((FTIMES_PUTMODE))
 #define MODES_MagicFile         ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
@@ -282,6 +295,8 @@ typedef struct _MASK_TABLE
 #define MODES_SSLVerifyPeerCert ((FTIMES_DIGFULL) | (FTIMES_MAPFULL) | (FTIMES_PUTMODE) | (FTIMES_GETMODE))
 #endif
 
+#define KEY_AnalyzeBlockSize    "AnalyzeBlockSize"
+#define KEY_AnalyzeCarrySize    "AnalyzeCarrySize"
 #define KEY_AnalyzeDeviceFiles  "AnalyzeDeviceFiles"
 #define KEY_AnalyzeRemoteFiles  "AnalyzeRemoteFiles"
 #define KEY_BaseName            "BaseName"
@@ -290,8 +305,14 @@ typedef struct _MASK_TABLE
 #define KEY_DataType            "DataType"
 #define KEY_DateTime            "DateTime"
 #define KEY_DigString           "DigString"
+#define KEY_DigStringNoCase     "DigStringNoCase"
+#define KEY_DigStringNormal     "DigStringNormal"
+#ifdef USE_PCRE
+#define KEY_DigStringRegExp     "DigStringRegExp"
+#endif
 #define KEY_EnableRecursion     "EnableRecursion"
 #define KEY_Exclude             "Exclude"
+#define KEY_ExcludesMustExist   "ExcludesMustExist"
 #define KEY_FieldMask           "FieldMask"
 #define KEY_FileSizeLimit       "FileSizeLimit"
 #define KEY_GetAndExec          "GetAndExec"
@@ -300,6 +321,7 @@ typedef struct _MASK_TABLE
 #define KEY_HashSymbolicLinks   "HashSymbolicLinks"
 #define KEY_Import              "Import"
 #define KEY_Include             "Include"
+#define KEY_IncludesMustExist   "IncludesMustExist"
 #define KEY_LogDir              "LogDir"
 #define KEY_LogFileName         "LogFileName"
 #define KEY_MagicFile           "MagicFile"
@@ -333,6 +355,8 @@ typedef struct _MASK_TABLE
 
 typedef struct _CONTROLS_FOUND
 {
+  BOOL                bAnalyzeBlockSizeFound;
+  BOOL                bAnalyzeCarrySizeFound;
   BOOL                bAnalyzeDeviceFilesFound;
   BOOL                bAnalyzeRemoteFilesFound;
   BOOL                bBaseNameFound;
@@ -341,12 +365,14 @@ typedef struct _CONTROLS_FOUND
   BOOL                bDataTypeFound;
   BOOL                bDateTimeFound;
   BOOL                bEnableRecursionFound;
+  BOOL                bExcludesMustExistFound;
   BOOL                bFieldMaskFound;
   BOOL                bFileSizeLimitFound;
   BOOL                bGetAndExecFound;
   BOOL                bGetFileNameFound;
   BOOL                bHashDirectoriesFound;
   BOOL                bHashSymbolicLinksFound;
+  BOOL                bIncludesMustExistFound;
   BOOL                bLogDirFound;
   BOOL                bLogFileNameFound;
   BOOL                bMagicFileFound;
@@ -397,13 +423,17 @@ typedef struct _FTIMES_PROPERTIES
 {
 #define MAX_ANALYSIS_STAGES 32
   ANALYSIS_STAGES     asAnalysisStages[MAX_ANALYSIS_STAGES];
+  BOOL                bAnalyzeBlockSize;
+  BOOL                bAnalyzeCarrySize;
   BOOL                bAnalyzeDeviceFiles;
   BOOL                bAnalyzeRemoteFiles;
   BOOL                bCompress;
   BOOL                bEnableRecursion;
+  BOOL                bExcludesMustExist;
   BOOL                bGetAndExec;
   BOOL                bHashDirectories;
   BOOL                bHashSymbolicLinks;
+  BOOL                bIncludesMustExist;
   BOOL                bRequirePrivilege;
   BOOL                bURLCreateConfig;
   BOOL                bURLPutSnapshot;
@@ -449,6 +479,8 @@ typedef struct _FTIMES_PROPERTIES
   RUNMODE_STAGES      sRunModeStages[MAX_RUNMODE_STAGES];
   HTTP_URL           *psGetURL;
   HTTP_URL           *psPutURL;
+  int                 iAnalyzeBlockSize;
+  int                 iAnalyzeCarrySize;
   int                 iImportRecursionLevel;
   int                 iLastAnalysisStage;
   int                 iLastRunModeStage;
@@ -481,16 +513,21 @@ typedef struct _FTIMES_PROPERTIES
  *
  ***********************************************************************
  */
-int                 AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *pcError);
-int                 AnalyzeDoDigest(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
-int                 AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
-int                 AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBufferType, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
-
+int                 AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
+int                 AnalyzeDoDigest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
+int                 AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
+void                AnalyzeEnableDigEngine(FTIMES_PROPERTIES *psProperties);
 void                AnalyzeEnableDigestEngine(FTIMES_PROPERTIES *psProperties);
 int                 AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError);
-void                AnalyzeEnableDigEngine(FTIMES_PROPERTIES *psProperties);
-K_UINT32            AnalyzeGetFileCount(void);
+int                 AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *pcError);
+int                 AnalyzeGetBlockSize(void);
 K_UINT64            AnalyzeGetByteCount(void);
+int                 AnalyzeGetCarrySize(void);
+unsigned char      *AnalyzeGetDigSaveBuffer(int iCarrySize, char *pcError);
+K_UINT32            AnalyzeGetFileCount(void);
+unsigned char      *AnalyzeGetWorkBuffer(int iBlockSize, char *pcError);
+void                AnalyzeSetBlockSize(int iBlockSize);
+void                AnalyzeSetCarrySize(int iCarrySize);
 
 /*-
  ***********************************************************************
@@ -642,10 +679,11 @@ int                 PropertiesTestFile(FTIMES_PROPERTIES *psProperties, char *pc
  ***********************************************************************
  */
 FILE_LIST          *SupportAddListItem(char *pcPath, FILE_LIST *psHead, char *pcError);
-int                 SupportAddToList(char *pcPath, FILE_LIST **ppList, char *pcError);
+int                 SupportAddToList(char *pcPath, FILE_LIST **ppList, char *pcListName, char *pcError);
 #ifdef WIN32
 BOOL                SupportAdjustPrivileges(LPCTSTR lpcPrivilege);
 #endif
+int                 SupportCheckList(FILE_LIST *psHead, char *pcListName, char *pcError);
 int                 SupportChopEOLs(char *pcLine, int iStrict, char *pcError);
 void                SupportDisplayRunStatistics(FTIMES_PROPERTIES *psProperties);
 FILE_LIST          *SupportDropListItem(FILE_LIST *psHead, FILE_LIST *psDrop);
@@ -653,7 +691,7 @@ int                 SupportEraseFile(char *pcName, char *pcError);
 int                 SupportExpandDirectoryPath(char *pcPath, char *pcFullPath, int iFullPathSize, char *pcError);
 int                 SupportExpandPath(char *pcPath, char *pcFullPath, int iFullPathSize, int iForceExpansion, char *pcError);
 void                SupportFreeData(void *pcData);
-int                 SupportGetFileType(char *pcPath);
+int                 SupportGetFileType(char *pcPath, char *pcError);
 char               *SupportGetHostname(void);
 char               *SupportGetMyVersion(void);
 char               *SupportGetSystemOS(void);
@@ -665,7 +703,7 @@ char               *SupportNeuterString(char *pcData, int iLength, char *pcError
 #ifdef WIN32
 char               *SupportNeuterStringW(unsigned short *pusData, int iLength, char *pcError);
 #endif
-FILE_LIST          *SupportPruneList(FILE_LIST *psList);
+FILE_LIST          *SupportPruneList(FILE_LIST *psList, char *pcListName);
 int                 SupportRequirePrivilege(char *pcError);
 int                 SupportSetLogLevel(char *pcLevel, int *piLevel, char *pcError);
 #ifdef WIN32

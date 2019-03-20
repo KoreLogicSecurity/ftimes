@@ -10,8 +10,8 @@ configuration files are described in the CONFIGURATION CONTROLS
 section of this document.  The B<level> option is described in the
 OPTIONS section of this document.  The B<list> option specifies
 one or more directories, files, or symbolic links that are to be
-scanned.  Collectively, these items represent an Include list.
-See the Include control for more information.
+scanned.  Collectively, these items represent an B<Include> list.
+See the B<Include> control for more information.
 
 =over 5
 
@@ -73,16 +73,17 @@ B<maplean>) with B<Compress> enabled.  Output is written to stdout.
 
 =item B<--digauto> B<file> B<[-l level]> B<[list]>
 
-Use default configuration settings to search an Include list for
+Use default configuration settings to search an B<Include> list for
 a set of user defined strings.  These strings are defined in B<file>
-according to the syntax for the B<DigString> control.  If B<list>
-is not specified, B<FTimes> will search the entire system including
-remote shares or mount points.  Any device files specifically
-included in the B<list> will be searched (i.e., B<AnalyzeDeviceFiles>
-is always enabled in this mode of operation).  Output is written
-to stdout and has the following format.
+according to the syntax for the B<DigStringNormal>, B<DigStringNoCase>,
+and B<DigStringRegExp> controls.  If B<list> is not specified,
+B<FTimes> will search the entire system including remote shares or
+mount points.  Any device files specifically included in the B<list>
+will be searched (i.e., B<AnalyzeDeviceFiles> is always enabled in
+this mode of operation).  Output is written to stdout and has the
+following format.
 
-    name|offset|string
+    name|type|offset|string
 
 The offset field, represented as a decimal value, contains the
 location in the file identified by name where the specified string
@@ -90,10 +91,10 @@ was found.
 
 =item B<--digfull> B<file> B<[-l level]> B<[list]>
 
-Use the configuration settings in B<file> to search an Include list
-for a set of user defined strings.  The Include list may be specified
+Use the configuration settings in B<file> to search an B<Include> list
+for a set of user defined strings.  The B<Include> list may be specified
 by a combination of B<Include> controls and B<list> arguments.  If
-an Include list is not specified, B<FTimes> will search the entire
+an B<Include> list is not specified, B<FTimes> will search the entire
 system.  Remote shares or mount points will only be searched if
 B<AnalyzeRemoteFiles> is enabled.  Any device files specifically
 included in the B<list> will only be searched if B<AnalyzeDeviceFiles>
@@ -101,10 +102,10 @@ is enabled.
 
 =item B<--diglean> B<file> B<[-l level]> B<[list]>
 
-Use the configuration settings in B<file> to search an Include list
-for a set of user defined strings.  The Include list may be specified
+Use the configuration settings in B<file> to search an B<Include> list
+for a set of user defined strings.  The B<Include> list may be specified
 by a combination of B<Include> controls and B<list> arguments.  If
-an Include list is not specified, B<FTimes> will search the entire
+an B<Include> list is not specified, B<FTimes> will search the entire
 system.  Remote shares or mount points will only be searched if
 B<AnalyzeRemoteFiles> is enabled.  Any device files specifically
 included in the B<list> will only be searched if B<AnalyzeDeviceFiles>
@@ -131,7 +132,7 @@ B<FTimes> writes the downloaded information to the file specified by B<GetFileNa
 
 =item *
 
-B<FTimes> restarts in B<digfull>, B<diglean>, B<mapfull>, or B<maplean> using the downloaded information as it's new configuration file
+B<FTimes> restarts in B<digfull>, B<diglean>, B<mapfull>, or B<maplean> using the downloaded information as its new configuration file
 
 =back
 
@@ -143,7 +144,7 @@ B<GetFileName> is specified.
 
 =item B<--mapauto> B<mask> B<[-l level]> B<[list]>
 
-Use default configuration settings to map an Include list according
+Use default configuration settings to map an B<Include> list according
 to the specified B<mask> where mask identifies the attributes to
 be collected.  If B<list> is not specified, B<FTimes> will map the
 entire system including remote shares or mount points.  Any device
@@ -157,9 +158,9 @@ for the B<FieldMask> control.
 
 =item B<--mapfull> B<file> B<[-l level]> B<[list]>
 
-Use configuration settings in B<file> to map an Include list.  The
-Include list may be specified by a combination of B<Include> controls
-and B<list> arguments.  If an Include list is not specified,
+Use configuration settings in B<file> to map an B<Include> list.  The
+B<Include> list may be specified by a combination of B<Include> controls
+and B<list> arguments.  If an B<Include> list is not specified,
 B<FTimes> will map the entire system.  Remote shares or mount points
 will only be mapped if B<AnalyzeRemoteFiles> is enabled.  Any device
 files specifically included in the B<list> will only be mapped
@@ -167,9 +168,9 @@ if B<AnalyzeDeviceFiles> is enabled.
 
 =item B<--maplean> B<file> B<[-l level]> B<[list]>
 
-Use configuration settings in B<file> to map an Include list.  The
-Include list may be specified by a combination of B<Include> controls
-and B<list> arguments.  If an Include list is not specified, B<FTimes>
+Use configuration settings in B<file> to map an B<Include> list.  The
+B<Include> list may be specified by a combination of B<Include> controls
+and B<list> arguments.  If an B<Include> list is not specified, B<FTimes>
 will map the entire system.  Remote shares or mount points will
 only be mapped if B<AnalyzeRemoteFiles> is enabled.  Any device
 files specifically included in the B<list> will only be mapped

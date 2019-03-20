@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-weed.pl,v 1.8 2004/04/21 01:29:59 mavrik Exp $
+# $Id: hashdig-weed.pl,v 1.12 2005/05/30 23:35:35 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -86,7 +86,7 @@ use Getopt::Std;
       print STDERR "$sProgram: File='$sFilename' Error='File must exist and be regular.'\n";
       exit(2);
     }
-    if (!open(FH, "<$sFilename"))
+    if (!open(FH, "< $sFilename"))
     {
       print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
       exit(2);
@@ -96,7 +96,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The BeQuiet flag, '-q', is optional. Default value is 0.
+  # The BeQuiet flag, '-q', is optional.
   #
   ####################################################################
 
@@ -237,7 +237,7 @@ program to read from stdin.
 
 =item B<-q>
 
-Don't report errors (i.e. be quiet) while processing input.
+Don't report errors (i.e., be quiet) while processing input.
 
 =back
 

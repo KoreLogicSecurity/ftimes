@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-bind.pl,v 1.15 2004/04/26 03:13:52 mavrik Exp $
+# $Id: hashdig-bind.pl,v 1.21 2005/05/30 23:35:35 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -42,7 +42,7 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('f:qrt:', \%hOptions))
+  if (!getopts('d:f:h:n:qrt:', \%hOptions))
   {
     Usage($sProgram);
   }
@@ -72,7 +72,7 @@ use Getopt::Std;
       print STDERR "$sProgram: File='$sFilename' Error='File must exist and be regular.'\n";
       exit(2);
     }
-    if (!open(FH, "<$sFilename"))
+    if (!open(FH, "< $sFilename"))
     {
       print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
       exit(2);
@@ -82,7 +82,40 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The BeQuiet flag, '-q', is optional. Default value is 0.
+  # A Delimiter, '-d', optional.
+  #
+  ####################################################################
+
+  my ($sDelimiter);
+
+  $sDelimiter = (exists($hOptions{'d'})) ? $hOptions{'d'} : "|";
+
+  if ($sDelimiter !~ /^(\\t|[ ,;|])$/)
+  {
+    print STDERR "$sProgram: Delimiter='$sDelimiter' Error='Invalid delimiter.'\n";
+    exit(2);
+  }
+  $hProperties{'Delimiter'} = $sDelimiter;
+
+  ####################################################################
+  #
+  # A HashField, '-h', is optional.
+  #
+  ####################################################################
+
+  $hProperties{'HashField'} = (exists($hOptions{'h'})) ? $hOptions{'h'} : "hash";
+
+  ####################################################################
+  #
+  # A NameField, '-n', is optional.
+  #
+  ####################################################################
+
+  $hProperties{'NameField'} = (exists($hOptions{'n'})) ? $hOptions{'n'} : "name";
+
+  ####################################################################
+  #
+  # The BeQuiet flag, '-q', is optional.
   #
   ####################################################################
 
@@ -90,7 +123,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The ReverseFormat flag, '-r', is optional. Default value is 0.
+  # The ReverseFormat flag, '-r', is optional.
   #
   ####################################################################
 
@@ -129,6 +162,14 @@ use Getopt::Std;
   if ($sFileType =~ /^FTIMES$/i)
   {
     $sBindFile = \&BindFTimesFile;
+  }
+  elsif ($sFileType =~ /^FTK$/i)
+  {
+    $sBindFile = \&BindFTKFile;
+  }
+  elsif ($sFileType =~ /^GENERIC$/i)
+  {
+    $sBindFile = \&BindGenericFile;
   }
   elsif ($sFileType =~ /^(KG|KNOWNGOODS)$/i)
   {
@@ -226,7 +267,7 @@ sub BindFTimesFile
   #
   ####################################################################
 
-  if (!open(FH, "<$sFilename"))
+  if (!open(FH, "< $sFilename"))
   {
     if (!$$phProperties{'BeQuiet'})
     {
@@ -393,6 +434,310 @@ sub BindFTimesFile
 
 ######################################################################
 #
+# BindFTKFile
+#
+######################################################################
+
+sub BindFTKFile
+{
+  my ($sFilename, $phProperties) = @_;
+
+  ####################################################################
+  #
+  # Open input file.
+  #
+  ####################################################################
+
+  if (!open(FH, "< $sFilename"))
+  {
+    if (!$$phProperties{'BeQuiet'})
+    {
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
+    }
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Process header.
+  #
+  ####################################################################
+
+  my (@aFields, $sHashIndex, $sHeader, $sModeIndex, $sNameIndex);
+
+  $sHeader = <FH>;
+  if (defined($sHeader))
+  {
+    $sHeader =~ s/[\r\n]+$//;
+    @aFields = split(/\t/, $sHeader, -1);
+    for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
+    {
+      if ($aFields[$sIndex] =~ /^MD5 Hash$/o)
+      {
+        $sHashIndex = $sIndex;
+      }
+      elsif ($aFields[$sIndex] =~ /^Full Path$/o)
+      {
+        $sNameIndex = $sIndex;
+      }
+    }
+
+    if (!defined($sHashIndex) || !defined($sNameIndex))
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
+      }
+      close(FH);
+      return undef;
+    }
+  }
+  else
+  {
+    if (!$$phProperties{'BeQuiet'})
+    {
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='' Error='Header did not parse properly.'\n";
+    }
+    close(FH);
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Open output files.
+  #
+  ####################################################################
+
+  my (@aHandles, %hHandleList);
+
+  @aHandles = ("a", "i", "k", "u");
+
+  if (!defined(OpenFileHandles($sFilename, \@aHandles, \%hHandleList)))
+  {
+    if (!$$phProperties{'BeQuiet'})
+    {
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='Unable to create one or more output files.'\n";
+    }
+    close(FH);
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Process records.
+  #
+  ####################################################################
+
+  my ($sCategory, $sCategoryHandle, $sCombinedHandle, $sHash);
+
+  $sCombinedHandle = $hHandleList{'a'};
+
+  while (my $sRecord = <FH>)
+  {
+    $sRecord =~ s/[\r\n]+$//;
+    @aFields = split(/\t/, $sRecord, -1);
+    if (defined($aFields[$sHashIndex]) && defined($aFields[$sNameIndex]))
+    {
+      $sHash = lc($aFields[$sHashIndex]);
+
+      if ($hHashUList{$sHash})
+      {
+        $sCategory = "U";
+        $sCategoryHandle = $hHandleList{'u'};
+      }
+      elsif ($hHashKList{$sHash})
+      {
+        $sCategory = "K";
+        $sCategoryHandle = $hHandleList{'k'};
+      }
+      else
+      {
+        $sCategory = "I";
+        $sCategoryHandle = $hHandleList{'i'};
+      }
+
+      print $sCombinedHandle "$sCategory|$sHash|$aFields[$sNameIndex]\n";
+      print $sCategoryHandle "$sCategory|$sHash|$aFields[$sNameIndex]\n";
+    }
+    else
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # Cleanup.
+  #
+  ####################################################################
+
+  foreach my $sHandle (keys(%hHandleList))
+  {
+    close($hHandleList{$sHandle});
+  }
+  close(FH);
+
+  return 1;
+}
+
+
+######################################################################
+#
+# BindGenericFile
+#
+######################################################################
+
+sub BindGenericFile
+{
+  my ($sFilename, $phProperties) = @_;
+
+  ####################################################################
+  #
+  # Open input file.
+  #
+  ####################################################################
+
+  if (!open(FH, "< $sFilename"))
+  {
+    if (!$$phProperties{'BeQuiet'})
+    {
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='$!'\n";
+    }
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Process header.
+  #
+  ####################################################################
+
+  my (@aFields, $sHashIndex, $sHeader, $sModeIndex, $sNameIndex);
+
+  $sHeader = <FH>;
+  if (defined($sHeader))
+  {
+    $sHeader =~ s/[\r\n]+$//;
+    @aFields = split(/[$$phProperties{'Delimiter'}]/, $sHeader, -1);
+    for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
+    {
+      if ($aFields[$sIndex] =~ /^$$phProperties{'HashField'}$/o)
+      {
+        $sHashIndex = $sIndex;
+      }
+      elsif ($aFields[$sIndex] =~ /^$$phProperties{'NameField'}$/o)
+      {
+        $sNameIndex = $sIndex;
+      }
+    }
+
+    if (!defined($sHashIndex) || !defined($sNameIndex))
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
+      }
+      close(FH);
+      return undef;
+    }
+  }
+  else
+  {
+    if (!$$phProperties{'BeQuiet'})
+    {
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Header='' Error='Header did not parse properly.'\n";
+    }
+    close(FH);
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Open output files.
+  #
+  ####################################################################
+
+  my (@aHandles, %hHandleList);
+
+  @aHandles = ("a", "i", "k", "u");
+
+  if (!defined(OpenFileHandles($sFilename, \@aHandles, \%hHandleList)))
+  {
+    if (!$$phProperties{'BeQuiet'})
+    {
+      print STDERR "$$phProperties{'program'}: File='$sFilename' Error='Unable to create one or more output files.'\n";
+    }
+    close(FH);
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Process records.
+  #
+  ####################################################################
+
+  my ($sCategory, $sCategoryHandle, $sCombinedHandle, $sHash);
+
+  $sCombinedHandle = $hHandleList{'a'};
+
+  while (my $sRecord = <FH>)
+  {
+    $sRecord =~ s/[\r\n]+$//;
+    @aFields = split(/[$$phProperties{'Delimiter'}]/, $sRecord, -1);
+    if (defined($aFields[$sHashIndex]) && defined($aFields[$sNameIndex]))
+    {
+      $sHash = lc($aFields[$sHashIndex]);
+
+      if ($hHashUList{$sHash})
+      {
+        $sCategory = "U";
+        $sCategoryHandle = $hHandleList{'u'};
+      }
+      elsif ($hHashKList{$sHash})
+      {
+        $sCategory = "K";
+        $sCategoryHandle = $hHandleList{'k'};
+      }
+      else
+      {
+        $sCategory = "I";
+        $sCategoryHandle = $hHandleList{'i'};
+      }
+
+      print $sCombinedHandle "$sCategory|$sHash|$aFields[$sNameIndex]\n";
+      print $sCategoryHandle "$sCategory|$sHash|$aFields[$sNameIndex]\n";
+    }
+    else
+    {
+      if (!$$phProperties{'BeQuiet'})
+      {
+        print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
+      }
+    }
+  }
+
+  ####################################################################
+  #
+  # Cleanup.
+  #
+  ####################################################################
+
+  foreach my $sHandle (keys(%hHandleList))
+  {
+    close($hHandleList{$sHandle});
+  }
+  close(FH);
+
+  return 1;
+}
+
+
+######################################################################
+#
 # BindKnownGoodsFile
 #
 ######################################################################
@@ -407,7 +752,7 @@ sub BindKnownGoodsFile
   #
   ####################################################################
 
-  if (!open(FH, "<$sFilename"))
+  if (!open(FH, "< $sFilename"))
   {
     if (!$$phProperties{'BeQuiet'})
     {
@@ -572,7 +917,7 @@ sub BindMD5File
   #
   ####################################################################
 
-  if (!open(FH, "<$sFilename"))
+  if (!open(FH, "< $sFilename"))
   {
     if (!$$phProperties{'BeQuiet'})
     {
@@ -686,7 +1031,7 @@ sub BindMD5SumFile
   #
   ####################################################################
 
-  if (!open(FH, "<$sFilename"))
+  if (!open(FH, "< $sFilename"))
   {
     if (!$$phProperties{'BeQuiet'})
     {
@@ -838,7 +1183,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-q] [-r] -t type -f {hashdig-file|-} file [file ...]\n";
+  print STDERR "Usage: $sProgram [-d delimiter] [-h hash-field] [-n name-field] [-q] [-r] -t type -f {hashdig-file|-} file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -852,7 +1197,7 @@ hashdig-bind.pl - Bind resolved hashes to filenames
 
 =head1 SYNOPSIS
 
-B<hashdig-bind.pl> B<[-q]> B<[-r]> B<-t type> B<-f {hashdig-file|-}> B<file [file ...]>
+B<hashdig-bind.pl> B<[-d delimiter]> B<[-h hash-field]> B<[-n name-field]> B<[-q]> B<[-r]> B<-t type> B<-f {hashdig-file|-}> B<file [file ...]>
 
 =head1 DESCRIPTION
 
@@ -873,6 +1218,27 @@ The 'all' file is the sum of the other output files.
 
 =over 4
 
+=item B<-d delimiter>
+
+Specifies the input field delimiter. This option is ignored unless
+used in conjunction with the GENERIC data type. Valid delimiters
+include the following characters: tab '\t', space ' ', comma ',',
+semi-colon ';', and pipe '|'. The default delimiter is a pipe. Note
+that parse errors are likely to occur if the specified delimiter
+appears in any of the field values.
+
+=item B<-h hash-field>
+
+Specifies the name of the field that contains the hash value. This
+option is ignored unless used in conjunction with the GENERIC data
+type. The default value for this option is "hash".
+
+=item B<-n name-field>
+
+Specifies the name of the field that contains the name value. This
+option is ignored unless used in conjunction with the GENERIC data
+type. The default value for this option is "name".
+
 =item B<-f {hashdig-file|-}>
 
 Specifies the name of a HashDig file to use as the source of hashes.
@@ -883,19 +1249,19 @@ files have the following format:
 
 =item B<-q>
 
-Don't report errors (i.e. be quiet) while processing files.
+Don't report errors (i.e., be quiet) while processing files.
 
 =item B<-r>
 
-Accept HashDig records in reverse format (i.e. category|hash).
+Accept HashDig records in reverse format (i.e., category|hash).
 
 =item B<-t type>
 
 Specifies the type of subject files that are to be processed. All
 files processed in a given invocation must be of the same type.
-Currently, the following types are supported: FTIMES, KG|KNOWNGOODS,
-MD5, MD5DEEP, MD5SUM, and OPENSSL. The value for this option is not
-case sensitive.
+Currently, the following types are supported: FTIMES, FTK, GENERIC,
+KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM, and OPENSSL. The value for
+this option is not case sensitive.
 
 =back
 

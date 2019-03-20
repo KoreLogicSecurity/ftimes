@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: md5.c,v 1.6 2004/04/04 07:09:49 mavrik Exp $
+ * $Id: md5.c,v 1.11 2005/05/11 15:38:07 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2003-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -22,7 +22,9 @@ int
 MD5HashStream(FILE *pFile, unsigned char *pucMD5)
 {
   unsigned char       aucData[MD5_READ_SIZE];
+#ifdef MD5_PRE_MEMSET_MEMCPY
   int                 i;
+#endif
   int                 iNRead;
   MD5_CONTEXT         sMD5Context;
 
@@ -33,10 +35,14 @@ MD5HashStream(FILE *pFile, unsigned char *pucMD5)
   }
   if (ferror(pFile))
   {
+#ifdef MD5_PRE_MEMSET_MEMCPY
     for (i = 0; i < MD5_HASH_SIZE; i++)
     {
       pucMD5[i] = 0;
     }
+#else
+    memset(pucMD5, 0, MD5_HASH_SIZE);
+#endif
     return -1;
   }
   MD5Cycle(&sMD5Context, aucData, iNRead);
@@ -79,7 +85,9 @@ MD5HashString(unsigned char *pucData, int iLength, unsigned char *pucMD5)
 void
 MD5Alpha(MD5_CONTEXT *psMD5Context)
 {
+#ifdef MD5_PRE_MEMSET_MEMCPY
   int                 i;
+#endif
 
   psMD5Context->A = MD5_HA;
   psMD5Context->B = MD5_HB;
@@ -87,10 +95,14 @@ MD5Alpha(MD5_CONTEXT *psMD5Context)
   psMD5Context->D = MD5_HD;
   psMD5Context->ui64MessageLength = 0;
   psMD5Context->ui32ResidueLength = 0;
+#ifdef MD5_PRE_MEMSET_MEMCPY
   for (i = 0; i < MD5_HUNK_SIZE; i++)
   {
     psMD5Context->aucResidue[i] = 0;
   }
+#else
+  memset(psMD5Context->aucResidue, 0, MD5_HUNK_SIZE);
+#endif
 }
 
 
@@ -127,10 +139,14 @@ MD5Cycle(MD5_CONTEXT *psMD5Context, unsigned char *pucData, K_UINT32 ui32Length)
   {
     pucTemp = &psMD5Context->aucResidue[psMD5Context->ui32ResidueLength];
     psMD5Context->ui32ResidueLength += ui32Length;
+#ifdef MD5_PRE_MEMSET_MEMCPY
     while (ui32Length-- > 0)
     {
       *pucTemp++ = *pucData++;
     }
+#else
+    memcpy(pucTemp, pucData, ui32Length);
+#endif
     return;
   }
 
@@ -143,6 +159,7 @@ MD5Cycle(MD5_CONTEXT *psMD5Context, unsigned char *pucData, K_UINT32 ui32Length)
    */
   if (psMD5Context->ui32ResidueLength > 0)
   {
+#ifdef MD5_PRE_MEMSET_MEMCPY
     pucTemp = &psMD5Context->aucResidue[psMD5Context->ui32ResidueLength];
     ui32Length -= MD5_HUNK_SIZE - psMD5Context->ui32ResidueLength;
     ui32 = psMD5Context->ui32ResidueLength;
@@ -150,6 +167,12 @@ MD5Cycle(MD5_CONTEXT *psMD5Context, unsigned char *pucData, K_UINT32 ui32Length)
     {
       *pucTemp++ = *pucData++;
     }
+#else
+    ui32 = MD5_HUNK_SIZE - psMD5Context->ui32ResidueLength; /* Note: This ui32 holds a different value than the one in the MD5_PRE_MEMSET_MEMCPY code. */
+    ui32Length -= ui32;
+    memcpy(&psMD5Context->aucResidue[psMD5Context->ui32ResidueLength], pucData, ui32);
+    pucData += ui32;
+#endif
     MD5Grind(psMD5Context, psMD5Context->aucResidue);
     psMD5Context->ui32ResidueLength = 0;
   }
@@ -169,10 +192,14 @@ MD5Cycle(MD5_CONTEXT *psMD5Context, unsigned char *pucData, K_UINT32 ui32Length)
   }
   pucTemp = psMD5Context->aucResidue;
   psMD5Context->ui32ResidueLength = ui32Length;
+#ifdef MD5_PRE_MEMSET_MEMCPY
   while (ui32Length-- > 0)
   {
     *pucTemp++ = *pucData++;
   }
+#else
+  memcpy(pucTemp, pucData, ui32Length);
+#endif
 }
 
 
@@ -196,17 +223,25 @@ MD5Omega(MD5_CONTEXT *psMD5Context, unsigned char *pucMD5)
   psMD5Context->aucResidue[psMD5Context->ui32ResidueLength] = 0x80;
   if (psMD5Context->ui32ResidueLength++ >= (MD5_HUNK_SIZE - 8))
   {
+#ifdef MD5_PRE_MEMSET_MEMCPY
     while (psMD5Context->ui32ResidueLength < MD5_HUNK_SIZE)
     {
       psMD5Context->aucResidue[psMD5Context->ui32ResidueLength++] = 0;
     }
+#else
+    memset(&psMD5Context->aucResidue[psMD5Context->ui32ResidueLength], 0, MD5_HUNK_SIZE - psMD5Context->ui32ResidueLength);
+#endif
     MD5Grind(psMD5Context, psMD5Context->aucResidue);
     psMD5Context->ui32ResidueLength = 0;
   }
+#ifdef MD5_PRE_MEMSET_MEMCPY
   while (psMD5Context->ui32ResidueLength < (MD5_HUNK_SIZE - 8))
   {
     psMD5Context->aucResidue[psMD5Context->ui32ResidueLength++] = 0;
   }
+#else
+  memset(&psMD5Context->aucResidue[psMD5Context->ui32ResidueLength], 0, (MD5_HUNK_SIZE - 8) - psMD5Context->ui32ResidueLength);
+#endif
 
   /*-
    *********************************************************************

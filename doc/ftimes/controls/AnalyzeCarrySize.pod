@@ -1,0 +1,14 @@
+=item B<AnalyzeCarrySize>: [1-1048576]
+
+Applies to B<digfull>, B<diglean>.
+
+B<AnalyzeCarrySize> is optional.  It instructs the analysis engine
+to use the specified block size (in bytes) when saving (or carrying)
+data from one dig operation to the next.  The default value for
+this control is 1024 (1 KB).
+
+Note: The value for this control must not exceed B<AnalyzeBlockSize>,
+and it must be equal to or larger than the maximum string length
+for normal and case insenstive strings.  If either condition is not
+met, the program will abort.
+

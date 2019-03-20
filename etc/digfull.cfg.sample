@@ -2,7 +2,7 @@
 ######################################################################
 ######################################################################
 #
-# $Id: digfull.cfg.sample,v 1.4 2004/04/23 22:14:05 mavrik Exp $
+# $Id: digfull.cfg.sample,v 1.8 2005/03/07 03:49:18 mavrik Exp $
 #
 ######################################################################
 ######################################################################
@@ -35,12 +35,18 @@
 #Include=                         # [<file>|<directory>|<link>]
 #Exclude=                         # [<file>|<directory>|<link>]
 #
-#DigString=                       # <string>
+#DigStringNormal=                 # <string>
+#DigStringNoCase=                 # <string>
+#DigStringRegExp=                 # <regexp>
 #
+#AnalyzeBlockSize=16384           # [1-1048576]
+#AnalyzeCarrySize=1024            # [1-1048576]
 #AnalyzeDeviceFiles=N             # [Y|N]
 #AnalyzeRemoteFiles=N             # [Y|N]
 #EnableRecursion=Y                # [Y|N]
+#ExcludesMustExist=N              # [Y|N]
 #FileSizeLimit=0                  # <integer>
+#IncludesMustExist=N              # [Y|N]
 #MatchLimit=0                     # <integer>
 #NewLine=                         # [LF|CRLF]
 #RequirePrivilege=N               # [Y|N]

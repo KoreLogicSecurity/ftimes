@@ -1,21 +1,22 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hipdig.pl,v 1.20 2004/04/26 20:12:46 mavrik Exp $
+# $Id: hipdig.pl,v 1.32 2005/06/03 17:13:24 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
-# Purpose: Dig for hostnames, IPs, or encrypted passwords.
+# Purpose: Dig for hosts, IPs, passwords, and more...
 #
 ######################################################################
 
 use strict;
 use File::Basename;
 use Getopt::Std;
+use vars qw($sDigStringRegExp);
 
 ######################################################################
 #
@@ -41,26 +42,43 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('DHhqRrs:t:', \%hOptions))
+  if (!getopts('D:HhqRrs:t:x', \%hOptions))
   {
     Usage($sProgram);
   }
 
   ####################################################################
   #
-  # The DumpDomainInformation flag, '-D', is optional.
+  # The DumpType flag, '-D', is optional.
   #
   ####################################################################
 
-  if (exists($hOptions{'D'}))
+  my ($sDumpType);
+
+  $sDumpType = (exists($hOptions{'D'})) ? $hOptions{'D'} : undef;
+
+  if (defined($sDumpType))
   {
-    DumpDomainInformation(0);
-    exit(0);
+    if ($sDumpType =~ /^DOMAIN|HOST$/i)
+    {
+      DumpDomainInformation(0);
+      exit(0);
+    }
+    elsif ($sDumpType =~ /^(SSN|SOCIAL)$/i)
+    {
+      DumpSSNInformation();
+      exit(0);
+    }
+    else
+    {
+      print STDERR "$sProgram: DumpType='$sDumpType' Error='Invalid dump type.'\n";
+      exit(2);
+    }
   }
 
   ####################################################################
   #
-  # The PrintHex flag, '-H', is optional. Default value is 0.
+  # The PrintHex flag, '-H', is optional.
   #
   ####################################################################
 
@@ -70,7 +88,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The PrintHeader flag, '-h', is optional. Default value is 0.
+  # The PrintHeader flag, '-h', is optional.
   #
   ####################################################################
 
@@ -80,7 +98,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The BeQuiet flag, '-q', is optional. Default value is 0.
+  # The BeQuiet flag, '-q', is optional.
   #
   ####################################################################
 
@@ -102,7 +120,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The RegularOnly flag, '-r', is optional. Default value is 0.
+  # The RegularOnly flag, '-r', is optional.
   #
   ####################################################################
 
@@ -112,7 +130,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The SaveLength flag, '-s', is optional. Default value is 64.
+  # The SaveLength flag, '-s', is optional.
   #
   ####################################################################
 
@@ -128,51 +146,66 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The DigType flag, '-t', is optional. Default value is "IP".
+  # The DigType flag, '-t', is optional.
   #
   ####################################################################
 
   my ($sDigType, $sDigRoutine);
 
-  $sDigType = (exists($hOptions{'t'})) ? uc($hOptions{'t'}) : "IP";
+  $sDigType = (exists($hOptions{'t'})) ? $hOptions{'t'} : "IP";
 
-  if ($sDigType =~ /^IP$/)
+  if ($sDigType =~ /^\s*CUSTOM\s*=\s*(.+)\s*$/i)
   {
-    $sDigRoutine = \&Dig4IPs;
+    $sDigStringRegExp = $1;
+    $sDigRoutine = \&Dig4Custom;
   }
-  elsif ($sDigType =~ /^HOST$/)
+  elsif ($sDigType =~ /^HOST$/i)
   {
     $sDigRoutine = \&Dig4Domains;
   }
-  elsif ($sDigType =~ /^(PASS|PASSWORD)$/)
+  elsif ($sDigType =~ /^IP$/i)
+  {
+    $sDigRoutine = \&Dig4IPs;
+  }
+  elsif ($sDigType =~ /^(PASS|PASSWORD)$/i)
   {
     $sDigRoutine = \&Dig4Passwords;
   }
-  elsif ($sDigType =~ /^(T1|TRACK1)$/)
+  elsif ($sDigType =~ /^(SSN|SOCIAL)$/i)
+  {
+    $sDigRoutine = \&Dig4SSN;
+  }
+  elsif ($sDigType =~ /^(T1|TRACK1)$/i)
   {
     $sDigRoutine = \&Dig4Track1;
   }
-  elsif ($sDigType =~ /^(T1S|TRACK1-STRICT)$/)
+  elsif ($sDigType =~ /^(T1S|TRACK1-STRICT)$/i)
   {
     $sDigRoutine = \&Dig4Track1Strict;
   }
-  elsif ($sDigType =~ /^(T2|TRACK2)$/)
+  elsif ($sDigType =~ /^(T2|TRACK2)$/i)
   {
     $sDigRoutine = \&Dig4Track2;
   }
-  elsif ($sDigType =~ /^(T2S|TRACK2-STRICT)$/)
+  elsif ($sDigType =~ /^(T2S|TRACK2-STRICT)$/i)
   {
     $sDigRoutine = \&Dig4Track2Strict;
-  }
-  elsif ($sDigType =~ /^(SSN|SOCIAL)$/)
-  {
-    $sDigRoutine = \&Dig4SSN;
   }
   else
   {
     print STDERR "$sProgram: DigType='$sDigType' Error='Invalid dig type.'\n";
     exit(2);
   }
+
+  ####################################################################
+  #
+  # The Expert flag, '-x', is optional.
+  #
+  ####################################################################
+
+  my ($sExpert);
+
+  $sExpert = (exists($hOptions{'x'})) ? 1 : 0;
 
   ####################################################################
   #
@@ -187,6 +220,26 @@ use Getopt::Std;
 
   ####################################################################
   #
+  # Check/Finalize custom dig string expression. If expert mode is
+  # not enabled, wrap the expression in '()'s to preserve $1. Then,
+  # eval the expression to ensure that Perl groks it.
+  #
+  ####################################################################
+
+  if (defined($sDigStringRegExp))
+  {
+    $sDigStringRegExp = "($sDigStringRegExp)" if (!$sExpert);
+    eval { "This is a test." =~ m/$sDigStringRegExp/gso; };
+    if ($@)
+    {
+      chomp($@);
+      print STDERR "$sProgram: Error='Expression check failed: $@'\n";
+      exit(2);
+    }
+  }
+
+  ####################################################################
+  #
   # Set print format.
   #
   ####################################################################
@@ -195,11 +248,11 @@ use Getopt::Std;
 
   if ($sPrintHex)
   {
-    $sFormat = "\"%s\"|0x%x|%s\n";
+    $sFormat = "\"%s\"|regexp|0x%x|%s\n";
   }
   else
   {
-    $sFormat = "\"%s\"|%d|%s\n";
+    $sFormat = "\"%s\"|regexp|%d|%s\n";
   }
 
   ####################################################################
@@ -210,7 +263,7 @@ use Getopt::Std;
 
   if ($sPrintHeader)
   {
-    print "name|offset|string\n";
+    print "name|type|offset|string\n";
   }
 
   ####################################################################
@@ -230,7 +283,7 @@ use Getopt::Std;
       next;
     }
 
-    if (!open(FH, "<$sFile"))
+    if (!open(FH, "< $sFile"))
     {
       if (!$sBeQuiet)
       {
@@ -290,6 +343,42 @@ use Getopt::Std;
   ####################################################################
 
   1;
+
+
+######################################################################
+#
+# Dig4Custom
+#
+######################################################################
+
+sub Dig4Custom
+{
+  my ($psData, $sDataOffset, $sReadOffset, $sFilename, $sFormat) = @_;
+
+  ####################################################################
+  #
+  # Select user-defined strings. Set the g flag to match all values
+  # in the buffer. Set the s flag to ignore newline boundaries. Set
+  # the o flag to compile the expression once. Note: The expression
+  # is expected to have at least one set of capturing parentheses.
+  #
+  ####################################################################
+
+  my ($sAbsoluteOffset, $sAdjustment, $sMatchOffset);
+
+  $sAdjustment = 0; # No adjustment is required -- this is a custom dig.
+
+  $sMatchOffset = 0;
+
+  while ($$psData =~ m/$sDigStringRegExp/gso)
+  {
+    $sMatchOffset = pos($$psData);
+    $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
+  }
+
+  return $sMatchOffset;
+}
 
 
 ######################################################################
@@ -360,7 +449,7 @@ sub Dig4Domains
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -408,7 +497,7 @@ sub Dig4IPs
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -454,7 +543,7 @@ sub Dig4Passwords
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -514,7 +603,7 @@ sub Dig4Track1
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -536,7 +625,7 @@ sub Dig4Track1Strict
   # The Track1 format is described in the Dig4Track1 routine. This
   # routine matches fields 1 through 11. To reduce false positives,
   # the expression for field 10 does not allow separators or sentinels
-  # (i.e. '^', '%', or '?') -- this is based on the assumption that
+  # (i.e., '^', '%', or '?') -- this is based on the assumption that
   # they are reserved characters.
   #
   ####################################################################
@@ -567,7 +656,7 @@ sub Dig4Track1Strict
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -621,7 +710,7 @@ sub Dig4Track2
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -643,7 +732,7 @@ sub Dig4Track2Strict
   # The Track2 format is described in the Dig4Track2 routine. This
   # routine matches fields 1 through 8. To reduce false positives,
   # the expression for field 7 does not allow separators or sentinels
-  # (i.e. '=', ';', or '?') -- this is based on the assumption that
+  # (i.e., '=', ';', or '?') -- this is based on the assumption that
   # they are reserved characters.
   #
   ####################################################################
@@ -671,7 +760,7 @@ sub Dig4Track2Strict
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -721,7 +810,7 @@ sub Dig4SSN
   {
     $sMatchOffset = pos($$psData);
     $sAbsoluteOffset = ($sReadOffset - $sDataOffset) + ($sMatchOffset - (length($1) + $sAdjustment));
-    printf("$sFormat", $sFilename, $sAbsoluteOffset, $1);
+    printf("$sFormat", $sFilename, $sAbsoluteOffset, UrlEncode($1));
   }
 
   return $sMatchOffset;
@@ -1049,6 +1138,128 @@ sub DumpDomainInformation
 
 ######################################################################
 #
+# DumpSSNInformation
+#
+######################################################################
+
+sub DumpSSNInformation
+{
+
+  ####################################################################
+  #
+  # Social Security Area List.
+  #
+  ####################################################################
+
+  my %hSSNAreaList =
+  (
+    '001-003' => 'New Hampshire',
+    '004-007' => 'Maine',
+    '008-009' => 'Vermont',
+    '010-034' => 'Massachusetts',
+    '035-039' => 'Rhode Island',
+    '040-049' => 'Connecticut',
+    '050-134' => 'New York',
+    '135-158' => 'New Jersey',
+    '159-211' => 'Pennsylvania',
+    '212-220' => 'Maryland',
+    '221-222' => 'Delaware',
+    '223-231' => 'Virginia',
+    '232'     => 'North Carolina',
+    '232-236' => 'West Virginia',
+    '237-246' => '',
+    '247-251' => 'South Carolina',
+    '252-260' => 'Georgia',
+    '261-267' => 'Florida',
+    '268-302' => 'Ohio',
+    '303-317' => 'Indiana',
+    '318-361' => 'Illinois',
+    '362-386' => 'Michigan',
+    '387-399' => 'Wisconsin',
+    '400-407' => 'Kentucky',
+    '408-415' => 'Tennessee',
+    '416-424' => 'Alabama',
+    '425-428' => 'Mississippi',
+    '429-432' => 'Arkansas',
+    '433-439' => 'Louisiana',
+    '440-448' => 'Oklahoma',
+    '449-467' => 'Texas',
+    '468-477' => 'Minnesota',
+    '478-485' => 'Iowa',
+    '486-500' => 'Missouri',
+    '501-502' => 'North Dakota',
+    '503-504' => 'South Dakota',
+    '505-508' => 'Nebraska',
+    '509-515' => 'Kansas',
+    '516-517' => 'Montana',
+    '518-519' => 'Idaho',
+    '520'     => 'Wyoming',
+    '521-524' => 'Colorado',
+    '525,585' => 'New Mexico',
+    '526-527' => 'Arizona',
+    '528-529' => 'Utah',
+    '530'     => 'Nevada',
+    '531-539' => 'Washington',
+    '540-544' => 'Oregon',
+    '545-573' => 'California',
+    '574'     => 'Alaska',
+    '575-576' => 'Hawaii',
+    '577-579' => 'District of Columbia',
+    '580'     => 'Virgin Islands',
+    '580-584' => 'Puerto Rico',
+    '586'     => 'American Samoa, Guam, and Philippine Islands',
+    '587-588' => '',
+    '589-595' => '',
+    '596-599' => '',
+    '600-601' => '',
+    '602-626' => '',
+    '627-645' => '',
+    '646-647' => '',
+    '648-649' => '',
+    '650-653' => '',
+    '654-658' => '',
+    '659-665' => '',
+    '667-675' => '',
+    '676-679' => '',
+    '680'     => '',
+    '681-690' => '',
+    '691-699' => '',
+    '700-728' => 'Railroad Board',
+    '729-733' => 'Enumeration at Entry',
+    '750-751' => '',
+    '752-755' => '',
+    '756-763' => '',
+    '764-765' => '',
+    '766-772' => '',
+  );
+
+  foreach my $sSSNArea (sort(keys(%hSSNAreaList)))
+  {
+    print "$sSSNArea|$hSSNAreaList{$sSSNArea}\n";
+  }
+
+  return 1;
+}
+
+
+######################################################################
+#
+# UrlEncode
+#
+######################################################################
+
+sub UrlEncode
+{
+  my ($sData) = @_;
+
+  $sData =~ s/([^ -\$&-*,-{}~])/sprintf("%%%02x",unpack('C',$1))/seg;
+  $sData =~ s/ /+/sg;
+  return $sData;
+}
+
+
+######################################################################
+#
 # Usage
 #
 ######################################################################
@@ -1057,7 +1268,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-D] [-H] [-h] [-q] [-R] [-r] [-s length] [-t type] file [file ...]\n";
+  print STDERR "Usage: $sProgram [-HhqRrx] [-D type] [-s length] [-t {type|custom=regexp}] file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -1067,11 +1278,11 @@ sub Usage
 
 =head1 NAME
 
-hipdig.pl - Dig for hostnames, IPs, or encrypted passwords
+hipdig.pl - Dig for hosts, IPs, passwords, and more...
 
 =head1 SYNOPSIS
 
-B<hipdig.pl> B<[-D]> B<[-H]> B<[-h]> B<[-q]> B<[-R]> B<[-r]> B<[-s length]> B<[-t type]> B<file [file ...]>
+B<hipdig.pl> B<[-HhqRrx]> B<[-D type]> B<[-s length]> B<[-t {type|custom=regexp}]> B<file [file ...]>
 
 =head1 DESCRIPTION
 
@@ -1079,7 +1290,9 @@ This utility performs regular expression searches across one or
 more files. Output is written to stdout in FTimes dig format which
 has the following fields:
 
-    name|offset|string
+    name|type|offset|string
+
+where string is the URL encoded form of the raw data.
 
 Feeding the output of this utility to ftimes-dig2ctx.pl allows you
 to extract a variable amount of context surrounding each hit.
@@ -1090,7 +1303,8 @@ to extract a variable amount of context surrounding each hit.
 
 =item B<-D>
 
-Dump known domain information to stdout and exit.
+Dump the specified type information to stdout and exit. Currently,
+the following types are supported: DOMAIN|HOST and SSN|SOCIAL.
 
 =item B<-H>
 
@@ -1103,7 +1317,7 @@ Print a header line.
 
 =item B<-q>
 
-Don't report errors (i.e. be quiet) while processing files.
+Don't report errors (i.e., be quiet) while processing files.
 
 =item B<-R>
 
@@ -1118,13 +1332,40 @@ Operate on regular files only.
 Specifies the save length. This is the maximum number of bytes to
 carry over from one search buffer to the next.
 
-=item B<-t type>
+=item B<-t {type|custom=regexp}>
 
 Specifies the type of search that is to be conducted. Currently,
-the following types are supported: HOST, IP, PASS|PASSWORD, SSN|SOCIAL,
-T1|TRACK1, T1S|TRACK1-STRICT, T2|TRACK2, and T2S|TRACK2-STRICT.
-The default value is IP.  The value for this option is not case
-sensitive.
+the following types are supported: CUSTOM, HOST, IP, PASS|PASSWORD,
+SSN|SOCIAL, T1|TRACK1, T1S|TRACK1-STRICT, T2|TRACK2, and
+T2S|TRACK2-STRICT.  The default value is IP.  The value for this
+option is not case sensitive.
+
+If the specified type is CUSTOM, then it must be accompanied by a
+valid regular expression. The required format for this argument is:
+
+    custom = <regexp>
+
+Any whitespace surrounding these tokens is ignored, but whitespace
+within <regexp> is not.  Proper quoting is essential when specifying
+custom expressions.  When in doubt, use single quotes like so:
+
+    'custom=(?i)abc123'
+
+Custom expressions are automatically wrapped in a single set of
+capturing parentheses.  Therefore, the value of $1 (i.e., the entire
+pattern) is copied directly to the output stream.  You can control
+which subpattern constitutes $1 by enabling expert mode (see B<-x>).
+
+=item B<-x>
+
+Enable expert mode.  When this mode is active, custom expressions
+are not automatically wrapped in a single set of capturing parentheses.
+However, since $1 is still required, you must specify at least one
+set of capturing parentheses in your expression.  For example, the
+following expression allows you to match on the string '123' when
+it is prefixed by any form of 'abc' or 'def':
+
+    'custom=(?i)(?:abc|def)(123)'
 
 =back
 

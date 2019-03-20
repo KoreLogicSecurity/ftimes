@@ -73,7 +73,7 @@ output to ensure that snapshot was uploaded successfully.
 =head2 Example 2. Using dig mode to search for strings
 
 This example demonstrates how to to search files and directories
-for a set of HEX/ASCII strings.
+for a set of HEX/ASCII and regular expression strings.
 
 Given that the target file system is C</disk1>, and the list of
 strings to to be sought are:
@@ -81,11 +81,20 @@ strings to to be sought are:
     String1 = /dev/ptyqa
     String2 = 0xda 0xbe
     String3 = 0x00 A 0x00 A 0x00 A 0x00 A
+    String4 = A date of the form <YYYY-MM-DD HH:MM:SS>
+    String5 = Line oriented IP addresses of the form <BOL|tab><192.168.1.*><tab|EOL>
 
-These strings are expressed as ASCII, HEX, and HEX/ASCII, respectively
-(ignoring white space).  Assume that the required B<MatchLimit> is
-three.  That is to say, no more than three matches per file of any
-single string should be recorded.
+where
+
+    BOL = Beginning Of Line
+    EOL = End Of Line
+
+Strings 1-3 are expressed as (ignore whitespace) ASCII, HEX, and
+HEX/ASCII, respectively.  Strings 4 and 5, on the other hand, are
+textual descriptions that must be translated into regular expressions.
+Assume that the required B<MatchLimit> is three.  That is to say,
+no more than three matches per file of any single string should be
+recorded.
 
 The following config file contains those directives required to
 search all files in /disk1.
@@ -94,18 +103,29 @@ search all files in /disk1.
     BaseName=digger
     OutDir=.
     MatchLimit=3
-    DigString=/dev/ptyqa
-    DigString=%da%be
-    DigString=%00A%00A%00A%00A
+    DigStringNormal=/dev/ptyqa
+    DigStringNormal=%da%be
+    DigStringNoCase=%00A%00A%00A%00A
+    DigStringRegExp=\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}
+    DigStringRegExp=(?m)(?:^|\t)(192\.168\.1\.\d{1,3})(?=\t|$)
     Include=/disk1
     --- example2.cfg ---
 
-Observe that strings two and three are URL encoded.  Read the
-B<DigString> control description for more details on URL encoding.
+Observe that strings two and three are URL encoded and that string
+three will be processed in a case insensitive manner.  Read the
+B<DigStringNormal> control description for more details on URL
+encoding.  Also notice that the fourth and fifth strings correspond
+to Perl compatible regular expressions -- these types of dig strings
+are available if you compiled B<FTimes> with PCRE support.  With
+B<DigStringRegExp> patterns, however, you must specify no more than
+one capturing '()' subpattern.  You can use '(?:)' if you require
+additional parentheses for grouping purposes.  If you do not specify
+a capturing subpattern, then the entire match will be captured.  In
+this particular case, only the IP address will be captured.
 
 At this point B<FTimes> may be run as follows:
 
-    ftimes --digfull example2.cfg
+    ftimes --diglean example2.cfg
 
 If spontaneity is desired over strict configuration, switch to the
 B<digauto> mode of operation.  In this mode elaborate config files
@@ -116,10 +136,10 @@ The output, if any, can be piped into other tools that take their
 input on stdin.
 
     --- strings.cfg ---
-    DigString=This+box+is+0wn3d
-    DigString=3l33t
-    DigString=175.20.1.7
-    DigString=hacklist@foo.bar.com
+    DigStringNormal=This+box+is+0wn3d
+    DigStringNormal=3l33t
+    DigStringNormal=175.20.1.7
+    DigStringNormal=hacklist@foo.bar.com
     --- strings.cfg ---
 
     ftimes --digauto strings.cfg example2.image | some-other-tool
@@ -237,9 +257,9 @@ you'll need three additional PEM encoded files: Public Certificate,
 Private Key, and Bundled Certificate Authorities.  Assume that
 these files are located on the target system as follows:
 
-    /usr/local/integrity/etc/PublicCert.pem
-    /usr/local/integrity/etc/PrivateKey.pem
-    /usr/local/integrity/etc/BundledCAs.pem
+    /usr/local/ftimes/etc/PublicCert.pem
+    /usr/local/ftimes/etc/PrivateKey.pem
+    /usr/local/ftimes/etc/BundledCAs.pem
 
 Armed with that information, the following config file may be
 constructed.
@@ -253,11 +273,11 @@ constructed.
     URLUsername=client_1
     URLPassword=password
     SSLUseCertificate=Y
-    SSLPublicCertFile=/usr/local/integrity/etc/PublicCert.pem
-    SSLPrivateKeyFile=/usr/local/integrity/etc/PrivateKey.pem
+    SSLPublicCertFile=/usr/local/ftimes/etc/PublicCert.pem
+    SSLPrivateKeyFile=/usr/local/ftimes/etc/PrivateKey.pem
     SSLPassPhrase=passphrase
     SSLVerifyPeerCert=Y
-    SSLBundledCAsFile=/usr/local/integrity/etc/BundledCAs.pem
+    SSLBundledCAsFile=/usr/local/ftimes/etc/BundledCAs.pem
     SSLExpectedPeerCN=www.integrity.net
     SSLMaxChainLength=2
     --- example5.cfg ---

@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-make.pl,v 1.10 2004/04/21 01:29:59 mavrik Exp $
+# $Id: hashdig-make.pl,v 1.14 2005/05/30 23:35:35 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -63,7 +63,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The ForceNew flag, '-F', is optional. Default value is 0.
+  # The ForceNew flag, '-F', is optional.
   #
   ####################################################################
 
@@ -73,7 +73,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The InsertOnly flag, '-i', is optional. Default value is 0.
+  # The InsertOnly flag, '-i', is optional.
   #
   ####################################################################
 
@@ -83,7 +83,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The BeQuiet flag, '-q', is optional. Default value is 0.
+  # The BeQuiet flag, '-q', is optional.
   #
   ####################################################################
 
@@ -93,7 +93,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The ReverseFormat flag, '-r', is optional. Default value is 0.
+  # The ReverseFormat flag, '-r', is optional.
   #
   ####################################################################
 
@@ -151,7 +151,7 @@ use Getopt::Std;
 
   foreach my $sHDFile (@ARGV)
   {
-    if (!open(FH, "<$sHDFile"))
+    if (!open(FH, "< $sHDFile"))
     {
       if (!$sBeQuiet)
       {
@@ -309,11 +309,11 @@ disables update tracking.
 
 =item B<-q>
 
-Don't report errors (i.e. be quiet) while processing files.
+Don't report errors (i.e., be quiet) while processing files.
 
 =item B<-r>
 
-Accept records in the reverse HashDig format (i.e. category|hash).
+Accept records in the reverse HashDig format (i.e., category|hash).
 
 =back
 

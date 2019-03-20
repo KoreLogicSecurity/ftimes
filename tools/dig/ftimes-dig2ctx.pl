@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-dig2ctx.pl,v 1.9 2004/04/26 03:22:44 mavrik Exp $
+# $Id: ftimes-dig2ctx.pl,v 1.21 2005/06/03 16:30:37 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2002-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2002-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -15,6 +15,7 @@
 
 use strict;
 use File::Basename;
+use File::Path;
 use Getopt::Std;
 
 ######################################################################
@@ -41,9 +42,11 @@ use Getopt::Std;
 
   my $sContextRegex = qq(^\\d+\$);
   my $sIgnoreRegex  = qq(^\\d+\$);
-  my $sLineRegex    = qq(^"(.+)"\\|(\\d+|0x[0-9A-Fa-f]+)\\|(.+)\$);
+  my $sOldLineRegex = qq(^"(.+)"\\|(\\d+|0x[0-9A-Fa-f]+)\\|(.+)\$); # FTimes Releases < 3.5.0
+  my $sLineRegex    = qq(^"(.+)"\\|(normal|nocase|regexp)\\|(\\d+|0x[0-9A-Fa-f]+)\\|(.+)\$);
   my $sPrefixRegex  = qq(^\\d+\$);
-  my $sSchemeRegex  = qq(^hex|url\$);
+  my $sSchemeRegex  = qq(^(file|hex|url)\$);
+  my $sHeaderRegex  = qq(^name\|(?:type\|)?offset\|string\$);
 
   ####################################################################
   #
@@ -53,7 +56,7 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('c:e:f:hi:l:p:r:', \%hOptions))
+  if (!getopts('c:d:e:f:hi:l:p:r:', \%hOptions))
   {
     Usage($sProgram);
   }
@@ -71,6 +74,14 @@ use Getopt::Std;
     print STDERR "$sProgram: ContextLength='$sReqContextLength' Error='Invalid context length.'\n";
     exit(2);
   }
+
+  ####################################################################
+  #
+  # An output directory, '-d', is optional.
+  #
+  ####################################################################
+
+  my $sOutDir = (exists($hOptions{'d'})) ? $hOptions{'d'} : "digtree";
 
   ####################################################################
   #
@@ -93,7 +104,7 @@ use Getopt::Std;
     }
     if (-f $sFilename)
     {
-      if (!open(FH, $sFilename))
+      if (!open(FH, "< $sFilename"))
       {
         print STDERR "$sProgram: File='$sFilename' Error='$!'\n";
         exit(2);
@@ -113,19 +124,18 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # An EncodingScheme, '-e', is optional, but must be {hex|url}.
+  # An EncodingScheme, '-e', is optional, but must be {file|hex|url}.
   #
   ####################################################################
 
   my $sEncodingScheme = (exists($hOptions{'e'})) ? $hOptions{'e'} : "url";
 
-  $sEncodingScheme =~ tr/A-Z/a-z/;
-
-  if ($sEncodingScheme !~ /$sSchemeRegex/)
+  if ($sEncodingScheme !~ /$sSchemeRegex/i)
   {
-    print STDERR "$sProgram: EncodingScheme='$sEncodingScheme' Error='Invalid encoding scheme.'\n";
+    print STDERR "$sProgram: EncodingScheme='$sEncodingScheme' Error='Invalid encoding scheme. Use {file|hex|url}.'\n";
     exit(2);
   }
+  $sEncodingScheme =~ tr/A-Z/a-z/;
 
   ####################################################################
   #
@@ -198,6 +208,18 @@ use Getopt::Std;
 
   ####################################################################
   #
+  # Create output directory, if necessary.
+  #
+  ####################################################################
+
+  if ($sEncodingScheme =~ /^file$/ && (-d $sOutDir || !mkdir($sOutDir, 0755)))
+  {
+    print STDERR "$sProgram: Directory='$sOutDir' Error='Directory exists or could not be created.'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
   # Skip ignore lines.
   #
   ####################################################################
@@ -236,20 +258,39 @@ use Getopt::Std;
     #
     ##################################################################
 
-    my ($sAdjOffset, $sDigFile, $sDigOffset, $sDigString, $sRawFile, $sRawLength);
+    my ($sAdjOffset, $sDigFile, $sDigOffset, $sDigString, $sDigType, $sRawFile, $sRawLength);
 
     $sLine =~ s/[\r\n]+$//;
-    if ($sLine !~ /$sLineRegex/)
+    if ($sLine =~ /$sLineRegex/)
+    {
+      $sDigFile = $1;
+      $sDigType = $2;
+      $sDigOffset = $3;
+      $sDigString = $4;
+    }
+    elsif ($sLine =~ /$sOldLineRegex/) # FTimes Releases < 3.5.0
+    {
+      $sDigFile = $1;
+      $sDigOffset = $2;
+      $sDigString = $3;
+    }
+    elsif ($sLine =~ /$sHeaderRegex/)
+    {
+      next;
+    }
+    else
     {
       print STDERR "$sProgram: LineNumber='$sLineNumber' Line='$sLine' Error='Line did not parse properly.'\n";
       next;
     }
-    next if $hBlackListed{$1};
 
-    $sDigFile   = $1;
-    $sRawFile   = URLDecode($sDigFile);
-    $sDigOffset = $2;
-    $sDigString = $3;
+    $sRawFile = URLDecode($sDigFile);
+    if ($hBlackListed{$sDigFile})
+    {
+      print STDERR "$sProgram: LineNumber='$sLineNumber' Line='$sLine' Warning='File has been blacklisted due to previous errors.'\n";
+      next;
+    }
+
     $sRawLength = length(URLDecode($sDigString));
 
     $sDigOffset = oct($sDigOffset) if ($sDigOffset =~ /^0x/);
@@ -263,7 +304,7 @@ use Getopt::Std;
     if ($sDigFile ne $sLastFile)
     {
       close($sRawHandle) if (defined($sRawHandle));
-      if (!open(RAW, "<$sRawFile"))
+      if (!open(RAW, "< $sRawFile"))
       {
         print STDERR "$sProgram: LineNumber='$sLineNumber' URLFilename='$sDigFile' Error='$!'\n";
         $hBlackListed{$sDigFile} = 1;
@@ -277,20 +318,31 @@ use Getopt::Std;
 
     ##################################################################
     #
-    # Calculate the next seek offset, and seek to it.
+    # Calculate the next seek offset (+/-), and seek to it.
     #
     ##################################################################
 
-    my ($sAdjPrefixLength);
+    my ($sAdjPrefixLength, $sTmpOffset);
 
     $sAdjOffset = ($sDigOffset < $sReqPrefixLength) ? 0 : $sDigOffset - $sReqPrefixLength;
 
     $sAdjPrefixLength = $sDigOffset - $sAdjOffset;
 
-    if (!seek($sRawHandle, $sAdjOffset - $sLastOffset, 1))
+    $sTmpOffset = $sAdjOffset - $sLastOffset;
+
+    while ($sTmpOffset != 0)
     {
-      print STDERR "$sProgram: LineNumber='$sLineNumber' URLFilename='$sDigFile' Offset='$sAdjOffset' Error='$!'\n";
-      $hBlackListed{$sDigFile} = 1;
+      my $sToSeek = (abs($sTmpOffset) > 0x7fffffff) ? ($sTmpOffset >= 0) ? 0x7fffffff : -0x7fffffff : $sTmpOffset;
+      if (!seek($sRawHandle, $sToSeek, 1))
+      {
+        print STDERR "$sProgram: LineNumber='$sLineNumber' URLFilename='$sDigFile' Offset='$sAdjOffset' Error='$!'\n";
+        $hBlackListed{$sDigFile} = 1;
+        last;
+      }
+      $sTmpOffset -= $sToSeek;
+    }
+    if ($hBlackListed{$sDigFile})
+    {
       $sLastFile = '';
       close($sRawHandle);
       next;
@@ -407,7 +459,29 @@ use Getopt::Std;
 
     my ($sEncodedData);
 
-    if ($sEncodingScheme eq "hex")
+    if ($sEncodingScheme eq "file")
+    {
+      my ($sDir, $sName);
+      $sName = $sDigFile;
+      $sName =~ s/^(?:[A-Za-z]:)?[\/\\]+//; # Remove leading path information.
+      $sName =~ s/^[.]{2}([\/\\])/%2e%2e$1/g; # Remove leading "..".
+      $sName =~ s/([\/\\])[.]{2}$/$1%2e%2e/g; # Remove trailing "..".
+      $sName =~ s/([\/\\])[.]{2}([\/\\])/$1%2e%2e$2/g; # Remove embedded "..".
+      $sName =~ s/([\/\\])[.]{2}([\/\\])/$1%2e%2e$2/g; # Remove embedded leftovers.
+      $sName = $sOutDir . "/" . $sName . "." . $sAdjOffset . "_" . ($sDigOffset - $sAdjOffset) . "_" . $sMHLength;
+      $sDir = dirname($sName);
+      if ((!-d $sDir && !mkpath($sDir, 0, 0755)) || !open(OUT, "> $sName"))
+      {
+        print STDERR "$sProgram: LineNumber='$sLineNumber' OutFilename='$sName' Error='$!'\n";
+        $hBlackListed{$sDigFile} = 1;
+        $sLastFile = '';
+        next;
+      }
+      print OUT $sRawLHData . $sRawMHData . $sRawRHData;
+      close(OUT);
+      $sEncodedData = $sName;
+    }
+    elsif ($sEncodingScheme eq "hex")
     {
       $sEncodedData = HexEncode($sRawLHData . $sRawMHData . $sRawRHData);
     }
@@ -485,7 +559,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-h] [-e {url|hex}] [-c max-length] [-p max-length] [-l regex] [-r regex] [-i count] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-h] [-d dir] [-e {file|hex|url}] [-c length] [-p length] [-l regex] [-r regex] [-i count] -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -495,17 +569,21 @@ sub Usage
 
 =head1 NAME
 
-ftimes-dig2ctx.pl.pl - Extract context around matched dig strings
+ftimes-dig2ctx.pl - Extract context around matched dig strings
 
 =head1 SYNOPSIS
 
-B<ftimes-dig2ctx.pl.pl> B<[-h]> B<[-e {url|hex}]> B<[-c max-length]> B<[-p max-length]> B<[-l regex]> B<[-r regex]> B<[-i count]> B<-f {file|-}>
+B<ftimes-dig2ctx.pl> B<[-h]> B<[-d dir]> B<[-e {file|hex|url}]> B<[-c length]> B<[-p length]> B<[-l regex]> B<[-r regex]> B<[-i count]> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
 This utility extracts a variable amount of context around matched
 dig strings using data collected with ftimes(1) or hipdig.pl. Data
 collected by either of these tools has the following format:
+
+    name|type|offset|string
+
+or for FTimes releases < 3.5.0
 
     name|offset|string
 
@@ -518,14 +596,35 @@ format:
 
 =over 4
 
-=item B<-c max-length>
+=item B<-c length>
 
-Specifies the maximum context length.
+Specifies the desired context length in bytes.  You may get less
+than this amount depending on where the match occurrs and the size
+of the input file.
 
-=item B<-e {url|hex}>
+=item B<-d dir>
+
+Specifies the name of the output directory.  The default name is
+digtree.  This option is ignored unless the encoding scheme, B<-e>,
+is set to file.  Note: The program will abort if the specified or
+default directory exists.
+
+=item B<-e {file|hex|url}>
 
 Specifies the type of encoding to use when printing the context
-(i.e. ctx_string).
+(i.e., ctx_string).
+
+If file is specified, then a new file containing the requested
+context in raw form will be created under the directory specified
+by the B<-d> option.  The name and location of this file will be
+listed in the ctx_string field.  The name format used for these
+files is as follows:
+
+  <relative_dig_name>.<ctx_offset>_<relative_dig_offset>_<mh_length>
+
+where <relative_dig_name> is the same as <dig_name> except that
+leading path information has been removed, and <relative_dig_offset>
+is the offset of the dig string in the newly created file.
 
 =item B<-f {file|-}>
 
@@ -545,9 +644,11 @@ Specifies the number of input lines to ignore.
 Specifies the left-hand boundary. This is a Perl regular expression
 that can be used to limit the amount of context returned.
 
-=item B<-p max-length>
+=item B<-p length>
 
-Specifies the maximum prefix length.
+Specifies the desired prefix length in bytes.  You may get less
+than this amount depending on where the match occurrs in the input
+file.
 
 =item B<-r regex>
 

@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-dump.pl,v 1.8 2004/04/21 01:29:59 mavrik Exp $
+# $Id: hashdig-dump.pl,v 1.11 2005/05/30 23:35:35 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2004 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2005 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -49,7 +49,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The Category flag, '-c', is optional. Default value is "A".
+  # The Category flag, '-c', is optional.
   #
   ####################################################################
 
@@ -65,7 +65,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The HashOnly flag, '-h', is optional. Default value is 0.
+  # The HashOnly flag, '-h', is optional.
   #
   ####################################################################
 
@@ -75,7 +75,7 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # The ReverseFormat flag, '-r', is optional. Default value is 0.
+  # The ReverseFormat flag, '-r', is optional.
   #
   ####################################################################
 
@@ -227,7 +227,7 @@ hashdig-resolve-sunsolve.pl.
 =item B<-r>
 
 Output hash and category information in the reverse HashDig format
-(i.e. category|hash). This option is silently ignored if B<-h> has
+(i.e., category|hash). This option is silently ignored if B<-h> has
 been specified.
 
 =back

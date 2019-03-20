@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: xmagic.h,v 1.11 2004/04/22 02:59:27 mavrik Exp $
+ * $Id: xmagic.h,v 1.13 2005/05/07 18:50:45 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -18,12 +18,12 @@
  ***********************************************************************
  */
 #ifdef UNIX
-#define XMAGIC_DEFAULT_LOCATION "/usr/local/integrity/etc/xmagic"
+#define XMAGIC_DEFAULT_LOCATION "/usr/local/ftimes/etc/xmagic"
 #define XMAGIC_CURRENT_LOCATION "./xmagic"
 #endif
 
 #ifdef WIN32
-#define XMAGIC_DEFAULT_LOCATION "c:\\integrity\\etc\\xmagic"
+#define XMAGIC_DEFAULT_LOCATION "c:\\ftimes\\etc\\xmagic"
 #define XMAGIC_CURRENT_LOCATION ".\\xmagic"
 #endif
 

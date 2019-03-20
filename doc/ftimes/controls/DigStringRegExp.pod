@@ -1,0 +1,17 @@
+=item B<DigStringRegExp>: <regexp>
+
+Applies to B<digauto>, B<digfull>, and B<diglean>.
+
+B<DigStringRegExp> is conditionally required.  It specifies a Perl
+compatible regular expression.  Unlike the strings specified in the
+B<DigString> and B<DigStringNoCase> controls, this string must not
+be URL encoded.  With B<DigStringRegExp> patterns, you must specify
+no more than one capturing '()' subpattern.  You can use '(?:)' if
+you require additional parentheses for grouping purposes.  If you
+do not specify a capturing subpattern, the entire match will be
+captured.
+
+Note: This control is only available if PCRE support was compiled
+into the binary.  As of version 3.5.0, PCRE support is enabled by
+default.
+

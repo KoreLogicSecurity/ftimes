@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: mapmode.c,v 1.19 2004/04/25 15:49:49 mavrik Exp $
+ * $Id: mapmode.c,v 1.23 2005/04/02 18:08:25 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2004 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2005 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -168,10 +168,10 @@ MapModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
       return iError;
     }
 
-    iError = SupportAddToList(acMapItem, &psProperties->psIncludeList, acLocalError);
+    iError = SupportAddToList(acMapItem, &psProperties->psIncludeList, "Include", acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Item = [%s]: %s", acRoutine, acMapItem, acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return iError;
     }
   }
@@ -221,6 +221,25 @@ MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
     snprintf(pcError, MESSAGE_SIZE, "%s: Missing FieldMask.", acRoutine);
     return ER_MissingControl;
   }
+
+#ifdef USE_XMAGIC
+  /*-
+   *********************************************************************
+   *
+   * Conditionally check that the block size is big enough to support
+   * Magic.
+   *
+   *********************************************************************
+   */
+  if ((psProperties->ulFieldMask & MAGIC_SET) == MAGIC_SET)
+  {
+    if (psProperties->iAnalyzeBlockSize < XMAGIC_READ_BUFSIZE)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: AnalyzeBlockSize (%d) must be at least %d bytes to support XMagic.", acRoutine, psProperties->iAnalyzeBlockSize, XMAGIC_READ_BUFSIZE);
+      return ER;
+    }
+  }
+#endif
 
   if (psProperties->iRunMode == FTIMES_MAPFULL)
   {
@@ -377,17 +396,42 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * Prune the Include and Exclude lists.
+   * Prune the Include list.
    *
    *********************************************************************
    */
-  psProperties->psExcludeList = SupportPruneList(psProperties->psExcludeList);
-
-  psProperties->psIncludeList = SupportPruneList(psProperties->psIncludeList);
+  psProperties->psIncludeList = SupportPruneList(psProperties->psIncludeList, "Include");
   if (psProperties->psIncludeList == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: There's nothing left to process in the Include list.", acRoutine);
     return ER_NothingToDo;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally check the Include and Exclude lists.
+   *
+   *********************************************************************
+   */
+  if (psProperties->bExcludesMustExist)
+  {
+    iError = SupportCheckList(psProperties->psExcludeList, "Exclude", acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return iError;
+    }
+  }
+
+  if (psProperties->bIncludesMustExist)
+  {
+    iError = SupportCheckList(psProperties->psIncludeList, "Include", acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return iError;
+    }
   }
 
   /*-
@@ -406,10 +450,10 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
       return iError;
     }
 
-    iError = SupportAddToList(psProperties->acLogFileName, &psProperties->psExcludeList, acLocalError);
+    iError = SupportAddToList(psProperties->acLogFileName, &psProperties->psExcludeList, "Exclude", acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: LogFile = [%s]: %s", acRoutine, psProperties->acLogFileName, acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return iError;
     }
 
@@ -446,10 +490,10 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
       return iError;
     }
 
-    iError = SupportAddToList(psProperties->acOutFileName, &psProperties->psExcludeList, acLocalError);
+    iError = SupportAddToList(psProperties->acOutFileName, &psProperties->psExcludeList, "Exclude", acLocalError);
     if (iError != ER_OK)
     {
-      snprintf(pcError, MESSAGE_SIZE, "%s: OutFile = [%s]: %s", acRoutine, psProperties->acOutFileName, acLocalError);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return iError;
     }
 
