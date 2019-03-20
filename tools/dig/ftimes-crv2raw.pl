@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-crv2raw.pl,v 1.4 2006/07/16 20:04:16 mavrik Exp $
+# $Id: ftimes-crv2raw.pl,v 1.6 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2006-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2006-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -206,7 +206,7 @@ use Getopt::Std;
 
   if ($sShowMapOutput)
   {
-    print STDOUT "name|size|sha1|md5\n";
+    print STDOUT "name|size|md5|sha1\n";
   }
 
   ####################################################################
@@ -839,7 +839,7 @@ Causes the carver to display various map attributes for each file
 carved.  This output is roughly equivalent to the following FTimes
 FieldMask:
 
-    none+size+sha1+md5
+    none+size+md5+sha1
 
 However, there are two differences between this output and regular
 FTimes output: the name field is not URL-encoded, and it may be

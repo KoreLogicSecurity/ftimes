@@ -2,7 +2,7 @@
 ######################################################################
 ######################################################################
 #
-# $Id: digfull.cfg.sample,v 1.10 2006/06/20 05:20:01 mavrik Exp $
+# $Id: digfull.cfg.sample,v 1.11 2006/08/29 19:55:32 mavrik Exp $
 #
 ######################################################################
 ######################################################################
@@ -34,6 +34,8 @@
 #Import=                          # <file>
 #Include=                         # [<file>|<directory>|<link>]
 #Exclude=                         # [<file>|<directory>|<link>]
+#IncludeFilter=                   # <regexp>
+#ExcludeFilter=                   # <regexp>
 #
 #DigStringNormal=                 # <string>
 #DigStringNoCase=                 # <string>

@@ -1,15 +1,15 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-map2dbi.pl,v 1.12 2006/04/07 22:15:12 mavrik Exp $
+# $Id: ftimes-map2dbi.pl,v 1.16 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2002-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2002-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
-# Purpose: Preprocess FTimes map data for MySQL db import.
+# Purpose: Preprocess FTimes map data for MySQL DB import.
 #
 ######################################################################
 
@@ -36,6 +36,7 @@ use Getopt::Std;
   my $sDBRegex       = qq(^[A-Za-z][A-Za-z0-9_]*\$);
   my $sHostnameRegex = qq(^[\\w\\.-]{1,64}\$);
   my $sMaxRowsRegex  = qq(^\\d+\$);
+  my $sTableRegex    = qq(^[A-Za-z][A-Za-z0-9_]*\$);
 
   ####################################################################
   #
@@ -53,8 +54,9 @@ use Getopt::Std;
     'mtime'         => "datetime null, index mtime_index (mtime)",
     'ctime'         => "datetime null, index ctime_index (ctime)",
     'size'          => "bigint unsigned null, index size_index (size)",
-    'sha1'          => "varbinary(40) not null, index sha1_index (sha1)",
     'md5'           => "varbinary(32) not null, index md5_index (md5)",
+    'sha1'          => "varbinary(40) not null, index sha1_index (sha1)",
+    'sha256'        => "varbinary(64) not null, index sha1_index (sha256)",
     'magic'         => "text null, index magic_index (magic)",
     'namemd5'       => "varbinary(32) not null",
   # UNIX-Specific fields
@@ -85,7 +87,7 @@ use Getopt::Std;
 
   my %hOptions;
 
-  if (!getopts('d:Ff:h:m:', \%hOptions))
+  if (!getopts('d:Ff:h:m:t:', \%hOptions))
   {
     Usage($sProgram);
   }
@@ -101,7 +103,7 @@ use Getopt::Std;
   if ($sDB !~ /$sDBRegex/)
   {
     print STDERR "$sProgram: Database='$hOptions{'d'}' Regex='$sDBRegex' Error='Invalid db name.'\n";
-    exit(1);
+    exit(2);
   }
 
   ####################################################################
@@ -123,7 +125,7 @@ use Getopt::Std;
   if (!exists $hOptions{'f'})
   {
     Usage($sProgram);
-    exit(1);
+    exit(2);
   }
   else
   {
@@ -133,7 +135,7 @@ use Getopt::Std;
       if (!open(IN, "< $sFilename"))
       {
         print STDERR "$sProgram: Filename='$sFilename' Error='$!'\n";
-        exit(1);
+        exit(2);
       }
       $sFileHandle = \*IN;
     }
@@ -142,9 +144,9 @@ use Getopt::Std;
       if ($sFilename ne '-')
       {
         print STDERR "$sProgram: Filename='$sFilename' Error='File not found.'\n";
-        exit(1);
+        exit(2);
       }
-      $sFilename = "snapshot";
+      $sFilename = "stdin";
       $sFileHandle = \*STDIN;
     }
   }
@@ -169,7 +171,7 @@ use Getopt::Std;
     else
     {
       print STDERR "$sProgram: Hostname='$sHostname' Regex='$sHostnameRegex' Error='Invalid hostname.'\n";
-      exit(1);
+      exit(2);
     }
   }
   else
@@ -188,7 +190,21 @@ use Getopt::Std;
   if ($sMaxRows !~ /$sMaxRowsRegex/)
   {
     print STDERR "$sProgram: MaxRows='$sMaxRows' Regex='$sMaxRowsRegex' Error='Invalid number.\n";
-    exit(1);
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # A Table, '-t', is optional.
+  #
+  ####################################################################
+
+  my $sTable = (exists $hOptions{'t'}) ? $hOptions{'t'} : "map";
+
+  if ($sTable !~ /$sTableRegex/)
+  {
+    print STDERR "$sProgram: Table='$sTable' Regex='$sTableRegex' Error='Invalid table name.'\n";
+    exit(2);
   }
 
   ##################################################################
@@ -200,13 +216,13 @@ use Getopt::Std;
   if (!$sForceWrite && -f $sSQLFile)
   {
     print STDERR "$sProgram: Filename='$sSQLFile' Error='Output file already exists.'\n";
-    exit(1);
+    exit(2);
   }
 
   if (!$sForceWrite && -f $sOutFile)
   {
     print STDERR "$sProgram: Filename='$sOutFile' Error='Output file already exists.'\n";
-    exit(1);
+    exit(2);
   }
 
   ##################################################################
@@ -220,7 +236,7 @@ use Getopt::Std;
   if (!defined ($sHeader = <$sFileHandle>))
   {
     print STDERR "$sProgram: Error='Header not defined.'\n";
-    exit(1);
+    exit(2);
   }
   $sHeader =~ s/[\r\n]+$//;
   @aHeaderFields = split(/\|/, $sHeader);
@@ -230,7 +246,7 @@ use Getopt::Std;
     if (!exists $hTableLayout{$aHeaderFields[$sIndex]})
     {
       print STDERR "$sProgram: Field='$aHeaderFields[$sIndex]' Error='Field not recognized.'\n";
-      exit(1);
+      exit(2);
     }
     if ($aHeaderFields[$sIndex] =~ /^name$/i)
     {
@@ -240,7 +256,7 @@ use Getopt::Std;
   if (!defined $sNameIndex && $sNameIndex != 0)
   {
     print STDERR "$sProgram: Header='$sHeader' Error='Invalid header or unable to locate the name field.'\n";
-    exit(1);
+    exit(2);
   }
   push(@aHeaderFields, "namemd5");
   unshift(@aHeaderFields, "hostname") if (defined $sHostname);
@@ -256,13 +272,13 @@ use Getopt::Std;
   if (!open(OUT, "> $sOutFile"))
   {
     print STDERR "$sProgram: Filename='$sOutFile' Error='$!'\n";
-    exit(1);
+    exit(2);
   }
 
   if (!open(SQL, "> $sSQLFile"))
   {
     print STDERR "$sProgram: Filename='$sSQLFile' Error='$!'\n";
-    exit(1);
+    exit(2);
   }
 
   ##################################################################
@@ -291,7 +307,7 @@ use Getopt::Std;
       print STDERR "$sProgram: Line='$sLine' HeaderFieldCount='$sHeaderFieldCount' DataFieldCount='$sDataFieldCount' Error='FieldCounts don't match.'\n";
       close($sFileHandle);
       close(OUT);
-      exit(1);
+      exit(2);
     }
     if (defined $sHostname)
     {
@@ -353,7 +369,7 @@ EOF
 
   if (!defined $sHostname)
   {
-    print SQL "DROP TABLE IF EXISTS snapshot;\n";
+    print SQL "DROP TABLE IF EXISTS $sTable;\n";
   }
   foreach my $sField (@aHeaderFields)
   {
@@ -366,7 +382,7 @@ EOF
   my $sInsertSpec = join(', ', @aHeaderFields);
 
   print SQL <<EOF;
-CREATE TABLE IF NOT EXISTS snapshot ($sCreateSpec) $sCreateOptions;
+CREATE TABLE IF NOT EXISTS $sTable ($sCreateSpec) $sCreateOptions;
 
 ######################################################################
 #
@@ -374,7 +390,7 @@ CREATE TABLE IF NOT EXISTS snapshot ($sCreateSpec) $sCreateOptions;
 #
 ######################################################################
 
-LOAD DATA INFILE '$sOutFile' INTO TABLE snapshot FIELDS TERMINATED BY '|' IGNORE 1 LINES ($sInsertSpec);
+LOAD DATA INFILE '$sOutFile' INTO TABLE $sTable FIELDS TERMINATED BY '|' IGNORE 1 LINES ($sInsertSpec);
 
 ######################################################################
 #
@@ -398,8 +414,9 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-F] [-d db] [-h host] [-m max-rows] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-F] [-d db] [-h host] [-m max-rows] [-t table] -f {file|-}\n";
   print STDERR "\n";
+  exit(1);
 }
 
 
@@ -407,11 +424,11 @@ sub Usage
 
 =head1 NAME
 
-ftimes-map2dbi.pl - Preprocess FTimes map data for MySQL db import
+ftimes-map2dbi.pl - Preprocess FTimes map data for MySQL DB import
 
 =head1 SYNOPSIS
 
-B<ftimes-map2dbi.pl> B<[-F]> B<[-d db]> B<[-h host]> B<[-m max-rows]> B<-f {file|-}>
+B<ftimes-map2dbi.pl> B<[-F]> B<[-d db]> B<[-h host]> B<[-m max-rows]> B<[-t table]> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
@@ -429,7 +446,7 @@ or in conjunction with the hostname field.
 =item B<-d db>
 
 Specifies the name of the database to create/use. This value is passed
-directly into the .sql file.
+directly into the .sql file. The default value is 'ftimes'.
 
 =item B<-F>
 
@@ -438,7 +455,9 @@ Force existing .sql and .dbi files to be truncated on open.
 =item B<-f {file|-}>
 
 Specifies the name of the input file. A value of '-' will cause the
-program to read from stdin.
+program to read from stdin. If input is read from stdin, the output
+files will be placed in the current directory and have a basename of
+'stdin'.
 
 =item B<-h host>
 
@@ -452,6 +471,11 @@ is not used.
 Limits the number of records that may be inserted into the specified
 database. This value is passed directly into the .sql file as
 MAX_ROWS.
+
+=item B<-t table>
+
+Specifies the name of the table to create/use. This value is passed
+directly into the .sql file. The default value is 'map'.
 
 =back
 

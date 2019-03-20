@@ -2,15 +2,16 @@
 1 Overview
 
   FTimes is a system baselining and evidence collection tool.  The
-  primary purpose of FTimes is to gather and/or develop information
-  about specified directories and files in a manner conducive to
-  intrusion analysis.  FTimes is available at:
+  primary purpose of FTimes is to gather and/or develop topographical
+  information and attributes about specified directories and files in
+  a manner conducive to intrusion and forensic analysis.  FTimes is
+  available at:
 
     http://ftimes.sourceforge.net/FTimes/
 
 1.1 Revision
 
-  $Id: README,v 1.7 2006/04/16 20:42:39 mavrik Exp $
+  $Id: README,v 1.8 2006/08/02 00:46:41 mavrik Exp $
 
 1.2 Table of Contents
 

@@ -18,7 +18,7 @@ Note: The exlude mechanism works on an exact match basis, but it
 can be used to produce a recursive effect.  For example, if you
 include '/' and exclude '/etc', then '/etc' and anything below it
 will not be processed.  However, if you include '/etc/hosts' and
-exclude '/etc', then '/etc/hosts' will not be processed because the
+exclude '/etc', then '/etc/hosts' will be processed because the
 recursive effect would not be in play, and there is no B<Exclude>
 that exactly matches it.
 

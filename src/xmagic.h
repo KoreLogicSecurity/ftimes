@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: xmagic.h,v 1.36 2006/06/28 22:52:23 mavrik Exp $
+ * $Id: xmagic.h,v 1.39 2007/02/23 00:22:36 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -35,10 +35,11 @@
 #define XMAGIC_ROW_AVERAGE_2_CODES  65536
 #define XMAGIC_ROW_ENTROPY_1_CODES    256
 #define XMAGIC_ROW_ENTROPY_2_CODES  65536
+#define XMAGIC_LOG2_OF_10 3.32192809488736234787 /* log2(10) = ln(10)/ln(2) */
 #define XMAGIC_LSB                      0
 #define XMAGIC_MSB                      1
 #define XMAGIC_READ_BUFSIZE        0x4000
-#define XMAGIC_MAX_HASH_LENGTH ((SHA1_HASH_SIZE)*2)
+#define XMAGIC_MAX_HASH_LENGTH ((SHA256_HASH_SIZE)*2)
 #define XMAGIC_MAX_LINE              8192
 #define XMAGIC_MAX_LEVEL              128
 #define XMAGIC_STRING_BUFSIZE          64
@@ -127,6 +128,7 @@ typedef enum _XMAGIC_TYPES
   XMAGIC_ROW_ENTROPY_1,
   XMAGIC_ROW_ENTROPY_2,
   XMAGIC_SHA1,
+  XMAGIC_SHA256,
   XMAGIC_SHORT,
   XMAGIC_STRING,
 } XMAGIC_TYPES;
@@ -178,7 +180,7 @@ typedef struct _XMAGIC_VALUE
  * dEntropy           Entropy computed over ui32Size bytes at i32XOffset
  * dPercent           Percent computed over ui32Size bytes at i32XOffset
  * iStringLength      Length of sValue.ui08String
- * pcHash             Computed hash (MD5, SHA1, etc.)
+ * pcHash             Computed hash (MD5, SHA1, SHA256, etc.)
  *
  ***********************************************************************
  */

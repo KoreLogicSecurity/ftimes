@@ -2,7 +2,7 @@
 ######################################################################
 ######################################################################
 #
-# $Id: mapfull.cfg.sample,v 1.9 2005/11/16 05:04:27 mavrik Exp $
+# $Id: mapfull.cfg.sample,v 1.10 2006/08/29 19:55:32 mavrik Exp $
 #
 ######################################################################
 ######################################################################
@@ -34,6 +34,8 @@
 #Import=                          # <file>
 #Include=                         # [<file>|<directory>|<link>]
 #Exclude=                         # [<file>|<directory>|<link>]
+#IncludeFilter=                   # <regexp>
+#ExcludeFilter=                   # <regexp>
 #
 #AnalyzeBlockSize=16384           # [1-1048576]
 #AnalyzeDeviceFiles=N             # [Y|N]

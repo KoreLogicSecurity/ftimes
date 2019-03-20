@@ -1,0 +1,9 @@
+=head1 DESCRIPTION
+
+B<TarMap> is a utility for mapping the files in a tar archive without
+having to unpack and write them to disk first.  The output produced by
+this utility is roughly equivalent to FTimes output produced with the
+following FieldMask:
+
+    none+size+md5+sha1
+

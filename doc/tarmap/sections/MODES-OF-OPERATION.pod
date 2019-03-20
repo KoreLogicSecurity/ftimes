@@ -1,0 +1,18 @@
+=head1 MODES OF OPERATION
+
+The modes of operation described in this section are mutually
+exclusive.  In other words, only one mode may be specified per
+invocation.
+
+=over 5
+
+=item B<{-m|--map}> B<{-f|--file}> B<file|->
+
+Map the contents of the specified B<file>.
+
+=item B<{-v|--version}>
+
+Display version information and exit.
+
+=back
+

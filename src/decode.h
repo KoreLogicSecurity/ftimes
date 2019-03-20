@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: decode.h,v 1.13 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: decode.h,v 1.15 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -28,7 +28,7 @@
 #define DECODE_CHECKPOINT_LENGTH 2
 #define DECODE_CHECKPOINT_STRING "00"
 #define DECODE_FIELDNAME_SIZE 32
-#define DECODE_FIELD_COUNT 24
+#define DECODE_FIELD_COUNT 25
 #ifndef FTIMES_MAX_LINE
 #define DECODE_MAX_LINE 8192
 #else
@@ -190,6 +190,7 @@ int                 DecodeProcessNada(DECODE_STATE *psDecodeState, char *pcToken
 int                 DecodeProcessName(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError);
 int                 DecodeProcessRDevice(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError);
 int                 DecodeProcessSha1(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError);
+int                 DecodeProcessSha256(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError);
 int                 DecodeProcessSize(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError);
 int                 DecodeProcessUserId(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError);
 int                 DecodeProcessVolume(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError);

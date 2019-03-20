@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-make.pl,v 1.15 2006/04/07 22:15:12 mavrik Exp $
+# $Id: hashdig-make.pl,v 1.19 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -42,9 +42,25 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('d:Fiqr', \%hOptions))
+  if (!getopts('a:d:Fiqr', \%hOptions))
   {
     Usage($sProgram);
+  }
+
+  ####################################################################
+  #
+  # A HashType, '-a', is optional. The 'a' is short for algorithm.
+  #
+  ####################################################################
+
+  my ($sHashType);
+
+  $sHashType = (exists($hOptions{'a'})) ? uc($hOptions{'a'}) : (defined($ENV{'HASH_TYPE'})) ? uc($ENV{'HASH_TYPE'}) : "MD5";
+
+  if ($sHashType !~ /^(MD5|SHA1|SHA256)$/)
+  {
+    print STDERR "$sProgram: HashType='$sHashType' Error='Invalid hash type.'\n";
+    exit(2);
   }
 
   ####################################################################
@@ -103,13 +119,35 @@ use Getopt::Std;
 
   if ($sReverseFormat)
   {
-    $sRecordRegex = qq(^([KU])\\|([0-9a-fA-F]{32})\$);
+    if ($sHashType =~ /^SHA1$/)
+    {
+      $sRecordRegex = qq(([KU])\\|([0-9a-fA-F]{40}));
+    }
+    elsif ($sHashType =~ /^SHA256$/)
+    {
+      $sRecordRegex = qq(([KU])\\|([0-9a-fA-F]{64}));
+    }
+    else # MD5
+    {
+      $sRecordRegex = qq(([KU])\\|([0-9a-fA-F]{32}));
+    }
     $sCIndex = 0;
     $sHIndex = 1;
   }
   else
   {
-    $sRecordRegex = qq(^([0-9a-fA-F]{32})\\|([KU])\$);
+    if ($sHashType =~ /^SHA1$/)
+    {
+      $sRecordRegex = qq(([0-9a-fA-F]{40})\\|([KU]));
+    }
+    elsif ($sHashType =~ /^SHA256$/)
+    {
+      $sRecordRegex = qq(([0-9a-fA-F]{64})\\|([KU]));
+    }
+    else # MD5
+    {
+      $sRecordRegex = qq(([0-9a-fA-F]{32})\\|([KU]));
+    }
     $sCIndex = 1;
     $sHIndex = 0;
   }
@@ -163,7 +201,7 @@ use Getopt::Std;
     {
       while (my $sRecord = <FH>)
       {
-        if (my @aFields = $sRecord =~ /$sRecordRegex/o)
+        if (my @aFields = $sRecord =~ /^$sRecordRegex$/o)
         {
           $aFields[$sHIndex] = lc($aFields[$sHIndex]);
           $hOnDiskList{$aFields[$sHIndex]} = $aFields[$sCIndex];
@@ -185,7 +223,7 @@ use Getopt::Std;
     {
       while (my $sRecord = <FH>)
       {
-        if (my @aFields = $sRecord =~ /$sRecordRegex/o)
+        if (my @aFields = $sRecord =~ /^$sRecordRegex$/o)
         {
           $aFields[$sHIndex] = lc($aFields[$sHIndex]);
           if (exists($hOnDiskList{$aFields[$sHIndex]}))
@@ -252,7 +290,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-F] [-i] [-q] [-r] -d db file [file ...]\n";
+  print STDERR "Usage: $sProgram [-Fiqr] [-a hash-type] -d db file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -266,11 +304,11 @@ hashdig-make.pl - Create or update a HashDig database
 
 =head1 SYNOPSIS
 
-B<hashdig-make.pl> B<[-F]> B<[-i]> B<[-q]> B<[-r]> B<-d db> B<file [file ...]>
+B<hashdig-make.pl> B<[-Fiqr]> B<[-a hash-type]> B<-d db> B<file [file ...]>
 
 =head1 DESCRIPTION
 
-This utility reads one or more HashDig files (see hashdig-harvest.pl)
+This utility reads one or more HashDig files (see hashdig-harvest(1))
 and creates or updates the specified HashDig database. A HashDig
 database is an ordered list of MD5 hashes -- each of which is tagged
 as known (K) or unknown (U). HashDig databases are implemented as
@@ -291,6 +329,14 @@ times.
 =head1 OPTIONS
 
 =over 4
+
+=item B<-a hash-type>
+
+Specifies the type of hashes that are to be processed. Currently, the
+following hash types (or algorithms) are supported: 'MD5', 'SHA1', and
+'SHA256'. The default hash type is that specified by the HASH_TYPE
+environment variable or 'MD5' if HASH_TYPE is not set. The value for
+this option is not case sensitive.
 
 =item B<-d db>
 
@@ -320,11 +366,14 @@ Accept records in the reverse HashDig format (i.e., category|hash).
 =head1 CAVEATS
 
 Databases created from the same input may yield different, but
-equivalent, db files.  Further, these db files may not be portable
+equivalent, DB files. Further, these DB files may not be portable
 across different platforms or operating systems. Therefore, the
 recommended method for exchanging or verifying a HashDig database
-is to dump it to a HashDig file (see hashdig-dump.pl) and operate
+is to dump it to a HashDig file (see hashdig-dump(1)) and operate
 on that instead.
+
+Take care to avoid mixing DB files that are based on different hash
+types. This can be easy to do if you're not careful.
 
 =head1 AUTHOR
 
@@ -332,7 +381,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-hashdig-bash.pl, hashdig-dump.pl, hashdig-harvest.pl, hashdig-harvest-sunsolve.pl, hashdig-weed.pl
+hashdig-bash(1), hashdig-dump(1), hashdig-harvest(1), hashdig-harvest-sunsolve(1), hashdig-weed(1)
 
 =head1 LICENSE
 

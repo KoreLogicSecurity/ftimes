@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: support.c,v 1.28 2006/05/03 21:26:28 mavrik Exp $
+ * $Id: support.c,v 1.30 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -1664,3 +1664,243 @@ SupportWriteData(FILE *pFile, char *pcData, int iLength, char *pcError)
 
   return ER_OK;
 }
+
+
+#ifdef USE_PCRE
+/*-
+ ***********************************************************************
+ *
+ * SupportAddFilter
+ *
+ ***********************************************************************
+ */
+int
+SupportAddFilter(char *pcFilter, FILTER_LIST **psHead, char *pcError)
+{
+  const char          acRoutine[] = "SupportAddFilter()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  FILTER_LIST        *psCurrent = NULL;
+  FILTER_LIST        *psFilter = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Allocate and initialize a new Filter.
+   *
+   *********************************************************************
+   */
+  psFilter = SupportNewFilter(pcFilter, acLocalError);
+  if (psFilter == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * If the head is NULL, insert the new filter and return. Otherwise,
+   * append the new filter to the end of the list.
+   *
+   *********************************************************************
+   */
+  if (*psHead == NULL)
+  {
+    *psHead = psFilter;
+  }
+  else
+  {
+    psCurrent = *psHead;
+    while (psCurrent != NULL)
+    {
+      if (psCurrent->psNext == NULL)
+      {
+        psCurrent->psNext = psFilter;
+        break;
+      }
+      psCurrent = psCurrent->psNext;
+    }
+  }
+
+  return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * SupportFreeFilter
+ *
+ ***********************************************************************
+ */
+void
+SupportFreeFilter(FILTER_LIST *psFilter)
+{
+  if (psFilter != NULL)
+  {
+    if (psFilter->pcFilter != NULL)
+    {
+      free(psFilter->pcFilter);
+    }
+    if (psFilter->psPcre != NULL)
+    {
+      pcre_free(psFilter->psPcre);
+    }
+    if (psFilter->psPcreExtra != NULL)
+    {
+      pcre_free(psFilter->psPcreExtra);
+    }
+    free(psFilter);
+  }
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * SupportMatchFilter
+ *
+ ***********************************************************************
+ */
+FILTER_LIST *
+SupportMatchFilter(FILTER_LIST *psFilterList, char *pcPath)
+{
+  FILTER_LIST        *psFilter;
+#ifndef PCRE_OVECTOR_ARRAY_SIZE
+#define PCRE_OVECTOR_ARRAY_SIZE 30
+#endif
+  int                 aiPcreOVector[PCRE_OVECTOR_ARRAY_SIZE];
+  int                 iError = 0;
+
+  for (psFilter = psFilterList; psFilter != NULL; psFilter = psFilter->psNext)
+  {
+    /*-
+     *******************************************************************
+     *
+     * PCRE_NOTEMPTY is used here to squash any attempts to match
+     * empty strings. Only unfettered matches will be accepted as
+     * valid. In particular, a return value of zero will be ignored
+     * eventhough it indicates there was a match. A value of zero
+     * would mean that there was an overflow in ovector, and that
+     * should never happen based on the restriction that no filter
+     * contain capturing subpatterns.
+     *
+     *******************************************************************
+     */
+    iError = pcre_exec(psFilter->psPcre, psFilter->psPcreExtra, pcPath, strlen(pcPath), 0, PCRE_NOTEMPTY, aiPcreOVector, PCRE_OVECTOR_ARRAY_SIZE);
+    if (iError > 0)
+    {
+      return psFilter;
+    }
+  }
+
+  return NULL;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * SupportNewFilter
+ *
+ ***********************************************************************
+ */
+FILTER_LIST *
+SupportNewFilter(char *pcFilter, char *pcError)
+{
+  const char          acRoutine[] = "SupportNewFilter()";
+  const char         *pcPcreError = NULL;
+  FILTER_LIST        *psFilter = NULL;
+  int                 iError = 0;
+  int                 iCaptureCount = 0;
+  int                 iLength = 0;
+  int                 iPcreErrorOffset = 0;
+
+  /*-
+   *********************************************************************
+   *
+   * Check that the input filter is not NULL and that it has length.
+   *
+   *********************************************************************
+   */
+  if (pcFilter == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: NULL input. That shouldn't happen.", acRoutine);
+    return NULL;
+  }
+
+  iLength = strlen(pcFilter);
+  if (iLength < 1)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: Length = [%d]: Length must be greater than zero.", acRoutine, iLength);
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Allocate memory for a new Filter. The caller should free this
+   * memory with SupportFreeFilter().
+   *
+   *********************************************************************
+   */
+  psFilter = calloc(sizeof(FILTER_LIST), 1);
+  if (psFilter == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    return NULL;
+  }
+
+  psFilter->pcFilter = calloc(iLength + 1, 1);
+  if (psFilter->pcFilter == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: calloc(): %s", acRoutine, strerror(errno));
+    return NULL;
+  }
+  strncpy(psFilter->pcFilter, pcFilter, iLength);
+
+  /*-
+   *********************************************************************
+   *
+   * Compile and study the regular expression. Then, make sure that
+   * there are no capturing subpatterns. Compile-time options (?imsx)
+   * are not set here because the user can specify them as needed in
+   * the filter.
+   *
+   *********************************************************************
+   */
+  psFilter->psPcre = pcre_compile(pcFilter, 0, &pcPcreError, &iPcreErrorOffset, NULL);
+  if (psFilter->psPcre == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: pcre_compile(): %s", acRoutine, pcPcreError);
+    SupportFreeFilter(psFilter);
+    return NULL;
+  }
+  psFilter->psPcreExtra = pcre_study(psFilter->psPcre, 0, &pcPcreError);
+  if (pcPcreError != NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: pcre_study(): %s", acRoutine, pcPcreError);
+    SupportFreeFilter(psFilter);
+    return NULL;
+  }
+  iError = pcre_fullinfo(psFilter->psPcre, psFilter->psPcreExtra, PCRE_INFO_CAPTURECOUNT, (void *) &iCaptureCount);
+  if (iError == ER_OK)
+  {
+    if (iCaptureCount != 0)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Invalid capture count [%d]. Capturing '()' subpatterns are not allowed in filters. Use '(?:)' if grouping is required.", acRoutine, iCaptureCount);
+      SupportFreeFilter(psFilter);
+      return NULL;
+    }
+  }
+  else
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: pcre_fullinfo(): Unexpected return value [%d]. That shouldn't happen.", acRoutine, iError);
+    SupportFreeFilter(psFilter);
+    return NULL;
+  }
+  psFilter->psNext = NULL;
+
+  return psFilter;
+}
+#endif

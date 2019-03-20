@@ -2,16 +2,16 @@
 1 Overview
 
   HashDig technology is a collection of utilities designed to help
-  practitioners automate the process of resolving MD5 hashes.  In
-  the early stages of an investigation, it is not typically possible
-  or practical to examine all subject files.  Therefore, practitioners
+  practitioners automate the process of resolving hashes.  In the
+  early stages of an investigation, it is not typically possible or
+  practical to examine all subject files.  Therefore, practitioners
   need reliable methods that can quickly reduce the number of files
-  requiring examination.  One such method is to group files into
-  two general categories: known and unknown.  This method can be
+  requiring examination.  One such method is to group files into two
+  general categories: known and unknown.  This method can be
   implemented quite effectively by manipulating hashes and comparing
   them to one or more reference databases.  Even that, however, can
-  take a significant amount of effort.  HashDig technology attempts
-  to reduce this burden through automation and the use of lightweight,
+  take a significant amount of effort.  HashDig technology attempts to
+  reduce this burden through automation and the use of lightweight,
   open, and verifiable techniques.
 
   HashDig technology was designed to work in conjunction with FTimes
@@ -20,15 +20,16 @@
   groper) utility because it performs a type of resolution.
 
   FTimes is a system baselining and evidence collection tool.  The
-  primary purpose of FTimes is to gather and/or develop information
-  about specified directories and files in a manner conducive to
-  intrusion analysis.  FTimes is available here:
+  primary purpose of FTimes is to gather and/or develop topographical
+  information and attributes about specified directories and files in
+  a manner conducive to intrusion and forensic analysis.  FTimes is
+  available at:
 
     http://ftimes.sourceforge.net/FTimes/
 
 1.1 Revision
 
-  $Id: README,v 1.14 2005/10/02 18:01:35 mavrik Exp $
+  $Id: README,v 1.19 2006/10/04 03:14:37 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -53,17 +54,24 @@
   Section 3.5 .................. Sorting and Filtering
   Section 4 .................... Supported File Formats
   Section 4.1 .................. FTimes
-  Section 4.2 .................. HashDig
-  Section 4.3 .................. HashKeeper
-  Section 4.4 .................. KnownGoods
-  Section 4.5 .................. MD5
-  Section 4.6 .................. MD5Deep
-  Section 4.7 .................. MD5Sum
-  Section 4.8 .................. NSRL1
-  Section 4.9 .................. NSRL2
-  Section 4.10 ................. OpenSSL
-  Section 4.11 ................. Plain
-  Section 4.12 ................. RPM
+  Section 4.2 .................. FTK
+  Section 4.3 .................. HashDig
+  Section 4.4 .................. HashKeeper
+  Section 4.5 .................. KnownGoods
+  Section 4.6 .................. MD5
+  Section 4.7 .................. MD5Deep
+  Section 4.8 .................. MD5Sum
+  Section 4.9 .................. NSRL1
+  Section 4.10 ................. NSRL2
+  Section 4.11 ................. OpenSSL
+  Section 4.12 ................. Plain
+  Section 4.13 ................. RPM
+  Section 4.14 ................. SHA1
+  Section 4.15 ................. SHA1Deep
+  Section 4.16 ................. SHA1Sum
+  Section 4.17 ................. SHA256
+  Section 4.18 ................. SHA256Deep
+  Section 4.19 ................. SHA256Sum
   Section 5 .................... Requirements
   Section 6 .................... License
 
@@ -76,10 +84,11 @@
   However, it's best to construct reference databases such that
   they only contain known hashes.
 
-  A HashDig database is an ordered list of MD5 hashes -- each of
-  which is tagged as known (K) or unknown (U).  HashDig databases
-  are implemented as BTrees and constructed using Perl's DB_File
-  module.  Enumerating these databases yields the following format:
+  A HashDig database is an ordered list of MD5, SHA1, or SHA256 hashes
+  -- each of which is tagged as known (K) or unknown (U).  HashDig
+  databases are implemented as BTrees and constructed using Perl's
+  DB_File module.  Enumerating these databases yields the following
+  format:
 
     hash|category
 
@@ -127,7 +136,7 @@
   role in hash resolution -- to the point that best practices will
   dictate their involvement in all but the most trivial cases.
 
-  To construct a reference database from NSRL data sets, run the
+  To construct an MD5 reference database from NSRL data sets, run the
   following commands:
 
     hashdig-harvest.pl -c k -t nsrl1 -o nsrl.hd NSRLFile.txt
@@ -141,7 +150,7 @@
 
     perldoc hashdig-make.pl
 
-  As additional NSRL data sets are released, any new hashes can be
+  As additional NSRL data sets are released, any new MD5 hashes can be
   merged into the existing database (i.e., nsrl.db) by rerunning the
   harvest and make utilities as follows:
 
@@ -174,7 +183,7 @@
 
     http://sunsolve.sun.com/pub-cgi/fileFingerprints.pl
 
-  To create a Sun reference database, you must first acquire some
+  To create an MD5 Sun reference database, you must first acquire some
   hashes -- Sun's online interface does not allow you to request
   hashes by filename.
 
@@ -182,7 +191,7 @@
   systems and resolve the collected hashes against Sun's online
   database.  Assuming the systems were baselined with FTimes and
   the corresponding map files are located in ${MAPS}, then the
-  following set of commands can be used to construct a reference
+  following set of commands can be used to construct an MD5 reference
   database:
 
     hashdig-harvest.pl -c u -t ftimes -o snapshot.hd ${MAPS}/*.map
@@ -199,7 +208,7 @@
   on the respective files.
 
   Each time you sling new hashes against Sun's online database, you
-  should take time to merge any resolved hashes into your existing
+  should take time to merge any resolved MD5 hashes into your existing
   reference database (i.e., sunsolve.db).  Assuming the newly resolved
   hashes are in sunsolve.hd.new, this can be done as follows:
 
@@ -210,18 +219,19 @@
 
 2.3 HashKeeper
 
-  To create a HashKeeper reference database, you must first download
-  some hash sets, which may be difficult to do these days.  Assuming
-  the hash sets you downloaded are located in ${HKS}, then the
-  following commands can be used to construct a reference database:
+  To create an MD5 HashKeeper reference database, you must first
+  download some hash sets, which may be difficult to do these days.
+  Assuming the hash sets you downloaded are located in ${HKS}, then
+  the following commands can be used to construct a reference
+  database:
 
     hashdig-harvest.pl -c k -t hk -o hk.hd ${HKS}/*.hsh
 
     hashdig-make.pl -F -i -d hk.db hk.hd
 
-  As additional hash sets are released, any new hashes can be merged
-  into the existing database (i.e., hk.db) by rerunning the harvest
-  and make utilities as follows:
+  As additional hash sets are released, any new MD5 hashes can be
+  merged into the existing database (i.e., hk.db) by rerunning the
+  harvest and make utilities as follows:
 
     hashdig-harvest.pl -c k -t hk -o hk.hd.new ${HKS}/*.hsh.new
 
@@ -237,18 +247,18 @@
 
     http://www.knowngoods.org/download.html
 
-  To create a KnownGoods reference database, you must first download
-  some hash sets.  Assuming the hash sets you downloaded are located
-  in ${KGS}, then the following commands can be used to construct
-  a reference database:
+  To create an MD5 KnownGoods reference database, you must first
+  download some hash sets.  Assuming the hash sets you downloaded are
+  located in ${KGS}, then the following commands can be used to
+  construct a reference database:
 
     hashdig-harvest.pl -c k -t kg -o kg.hd ${KGS}/*.txt
 
     hashdig-make.pl -F -i -d kg.db kg.hd
 
-  As additional hash sets are released, any new hashes can be merged
-  into the existing database (i.e., kg.db) by rerunning the harvest
-  and make utilities as follows:
+  As additional hash sets are released, any new MD5 hashes can be
+  merged into the existing database (i.e., kg.db) by rerunning the
+  harvest and make utilities as follows:
 
     hashdig-harvest.pl -c k -t kg -o kg.hd.new ${KGS}/*.txt.new
 
@@ -281,7 +291,7 @@
 
   Assuming the maps you collected for installation media, packages,
   and backups are located in ${MAPS}, then the following commands
-  can be used to construct a reference database:
+  can be used to construct an MD5 reference database:
 
     hashdig-harvest.pl -c k -t ftimes -o site.hd ${MAPS}/*.map
 
@@ -312,12 +322,20 @@
 
     hashdig-harvest.pl -c u -t ftimes -o subject.hd ${MAPS}/*.map
 
+  Note: If you are processing SHA1 or SHA256 hashes, you'll either
+  need to set the HASH_TYPE environment variable or use the '-a'
+  command line argument.  See the man page for details.
+
 3.2 Subject Database Construction
 
   Once hashes have been harvested, the subject database can be
   constructed.  This would be done with the following command:
 
     hashdig-make.pl -F -i -d subject.db subject.hd
+
+  Note: If you are processing SHA1 or SHA256 hashes, you'll either
+  need to set the HASH_TYPE environment variable or use the '-a'
+  command line argument.  See the man page for details.
 
   Keep a backup of this database for future reference as subsequent
   steps will alter its contents.
@@ -371,6 +389,10 @@
 
     hashdig-dump.pl subject.db | hashdig-bind.pl -t ftimes -f - ${MAPS}/*.map
 
+  Note: If you are processing SHA1 or SHA256 hashes, you'll either
+  need to set the HASH_TYPE environment variable or use the '-a'
+  command line argument.  See the man page for details.
+
 3.5 Sorting and Filtering
 
   As a followup step, the practitioner may decide that it's necessary
@@ -383,11 +405,12 @@
 4 Supported File Formats
 
   Currently, hashdig-harvest.pl supports the following formats:
-  FTIMES, HK|HASHKEEPER, KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM,
-  OPENSSL, NSRL1, NSRL2, PLAIN, and RPM.  Of these, hashdig-bind.pl
-  supports the following formats: FTIMES, KG|KNOWNGOODS, MD5,
-  MD5DEEP, MD5SUM, and OPENSSL.  The only format supported by
-  hashdig-make.pl is HASHDIG.
+  FTIMES, FTK, HK|HASHKEEPER, KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM,
+  OPENSSL, NSRL1, NSRL2, PLAIN, RPM, SHA1, SHA1DEEP, SHA1SUM, SHA256,
+  SHA256DEEP, and SHA256SUM.  Of these, hashdig-bind.pl supports the
+  following formats: FTIMES, FTK, KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM,
+  OPENSSL, SHA1, SHA1DEEP, SHA1SUM, SHA256, SHA256DEEP, and SHA256SUM.
+  The only format supported by hashdig-make.pl is HASHDIG.
 
   Details regarding each supported format are discussed in the
   following sections.
@@ -410,11 +433,11 @@
 
   Here's the typical UNIX format (i.e., FieldMask=all-magic):
 
-    name|dev|inode|mode|nlink|uid|gid|rdev|atime|mtime|ctime|size|sha1|md5
+    name|dev|inode|mode|nlink|uid|gid|rdev|atime|mtime|ctime|size|md5|sha1|sha256
 
   Here's the typical WIN32 format (i.e., FieldMask=all-magic):
 
-    name|volume|findex|attributes|atime|ams|mtime|mms|ctime|cms|chtime|chms|size|altstreams|sha1|md5
+    name|volume|findex|attributes|atime|ams|mtime|mms|ctime|cms|chtime|chms|size|altstreams|md5|sha1|sha256
 
   Note that filenames in FTimes output are and URL encoded.  Therefore,
   it may be necessary to insert a URL decoding stage at the appropriate
@@ -429,7 +452,56 @@
     return $rawString;
   }
 
-4.2 HashDig
+4.2 FTK
+
+  The FTK format refers to reference data sets distributed by the
+  Forensic Toolkit.
+
+  Here's the FTK format (presented vertically):
+
+    File Name
+    Full Path
+    Recycle Bin Original Name
+    Ext
+    File Type
+    Category
+    Subject
+    Cr Date
+    Mod Date
+    Acc Date
+    L-Size
+    P-Size
+    Children
+    Descendants
+    Enc
+    Del
+    Recyc
+    Idx
+    Sector
+    Cluster
+    Alt Name
+    Dup
+    RO
+    Sys
+    Hid
+    Item #
+    Cmp
+    KFF
+    Badxt
+    Emailed
+    Header
+    MD5 Hash
+    SHA Hash
+    Hash Set
+    Email Date
+    From
+    To
+    CC
+    Attachment Info
+
+  FTK fields are tab delimited.
+
+4.3 HashDig
 
   The HashDig format refers to data generated by hashdig-dump.pl,
   hashdig-harvest.pl, or hashdig-harvest-sunsolve.pl.
@@ -442,17 +514,30 @@
 
     category|hash
 
-4.3 HashKeeper
+4.4 HashKeeper
 
   The HashKeeper format refers to reference data sets distributed
   by the HashKeeper project and the National Software Reference
   Library (2.X series).
 
-  Here's the HashKeeper format:
+  Here's the HashKeeper format (presented vertically):
 
-    file_id,hashset_id,file_name,directory,hash,file_size,date_modified,time_modified,time_zone,comments,date_accessed,time_accessed
+    file_id
+    hashset_id
+    file_name
+    directory
+    hash
+    file_size
+    date_modified
+    time_modified
+    time_zone
+    comments
+    date_accessed
+    time_accessed
 
-4.4 KnownGoods
+  HashKeeper fields are tab delimited.
+
+4.5 KnownGoods
 
   The KnownGoods format refers to reference data sets distributed
   by the Known Goods project.
@@ -461,7 +546,7 @@
 
     ID,FILENAME,MD5,SHA-1,SIZE,TYPE,PLATFORM,PACKAGE
 
-4.5 MD5
+4.6 MD5
 
   The MD5 format refers to data collected with the md5 utility that
   is distributed with FreeBSD.
@@ -474,7 +559,7 @@
 
     MD5 (name) = hash
 
-4.6 MD5Deep
+4.7 MD5Deep
 
   The MD5Deep format refers to data collected with the md5deep
   utility which is located here:
@@ -489,7 +574,7 @@
 
     hash  name
 
-4.7 MD5Sum
+4.8 MD5Sum
 
   The MD5Sum format refers to data collected with the md5sum utility
   that is distributed with Linux.
@@ -502,7 +587,7 @@
 
     hash  name
 
-4.8 NSRL1
+4.9 NSRL1
 
   The NSRL1 format refers to reference data sets distributed by the
   National Software Reference Library (1.X series).
@@ -511,7 +596,7 @@
 
     SHA-1,FileName,FileSize,ProductCode,OpSystemCode,MD4,MD5,CRC32,SpecialCode
 
-4.9 NSRL2
+4.10 NSRL2
 
   The NSRL2 format refers to reference data sets distributed by the
   National Software Reference Library (2.X series).
@@ -520,7 +605,7 @@
 
     SHA-1,MD5,CRC32,FileName,FileSize,ProductCode,OpSystemCode,SpecialCode
 
-4.10 OpenSSL
+4.11 OpenSSL
 
   The OpenSSL format refers to data collected with the openssl
   utility which is located here:
@@ -531,20 +616,28 @@
 
     find /sbin /usr/bin /usr/sbin -type f -exec openssl md5 {} \;
 
-  Here's the OpenSSL format:
+  Here's the OpenSSL format for MD5s:
 
     MD5(name)= hash
 
-4.11 Plain
+  Here's the OpenSSL format for SHA1s:
 
-  The Plain format refers to input that consists of one MD5 hash
-  per line.
+    SHA1(name)= hash
+
+  Here's the OpenSSL format for SHA256s:
+
+    SHA256(name)= hash
+
+4.12 Plain
+
+  The Plain format refers to input that consists of one MD5, SHA1, or
+  SHA256 hash per line.
 
   Here's the Plain format:
 
     hash
 
-4.12 RPM
+4.13 RPM
 
   The RPM format refers to input created using RPM's query mode in
   conjunction with its dump option.
@@ -556,6 +649,88 @@
   Here's the RPM format:
 
     path size mtime md5sum mode owner group isconfig isdoc rdev symlink
+
+4.14 SHA1
+
+  The SHA1 format refers to data collected with the sha1 utility that
+  is distributed with FreeBSD.
+
+  Here's an example invocation:
+
+    find /sbin /usr/bin /usr/sbin -type f -exec sha1 {} \;
+
+  Here's the SHA1 format:
+
+    MD5 (name) = hash
+
+4.15 SHA1Deep
+
+  The SHA1Deep format refers to data collected with the sha1deep
+  utility which is located here:
+
+    http://md5deep.sourceforge.net/
+
+  Here's an example invocation:
+
+    sha1deep -r /sbin /usr/bin /usr/sbin
+
+  Here's the SHA1Deep format:
+
+    hash  name
+
+4.16 SHA1Sum
+
+  The SHA1Sum format refers to data collected with the sha1sum utility
+  that is distributed with Linux.
+
+  Here's an example invocation:
+
+    find /sbin /usr/bin /usr/sbin -type f -exec sha1sum {} \;
+
+  Here's the SHA1Sum format:
+
+    hash  name
+
+4.17 SHA256 
+
+  The SHA256 format refers to data collected with the sha256 utility
+  that is distributed with FreeBSD.
+
+  Here's an example invocation:
+
+    find /sbin /usr/bin /usr/sbin -type f -exec sha256 {} \;
+
+  Here's the SHA256 format:
+
+    MD5 (name) = hash
+
+4.18 SHA256Deep
+
+  The SHA256Deep format refers to data collected with the sha256deep
+  utility which is located here:
+
+    http://md5deep.sourceforge.net/
+
+  Here's an example invocation:
+
+    sha256deep -r /sbin /usr/bin /usr/sbin
+
+  Here's the SHA256Deep format:
+
+    hash  name
+
+4.19 SHA256Sum
+
+  The SHA256Sum format refers to data collected with the sha256sum
+  utility that is distributed with Linux.
+
+  Here's an example invocation:
+
+    find /sbin /usr/bin /usr/sbin -type f -exec sha256sum {} \;
+
+  Here's the SHA256Sum format:
+
+    hash  name
 
 5 Requirements
 

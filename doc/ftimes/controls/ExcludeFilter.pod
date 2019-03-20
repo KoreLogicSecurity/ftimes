@@ -1,0 +1,21 @@
+=item B<ExcludeFilter>: <regexp>
+
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+
+B<ExcludeFilter> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<ExcludeFilter> control/value pair per line.
+
+Each B<ExcludeFilter> must be specified as a Perl compatible regular
+expression with the exception that capturing '()' subpatterns and back
+references are not allowed.  You can use '(?:)' if you require
+parentheses for grouping purposes.
+
+Any path matched by an B<ExcludeFilter> will be rejected.  All other
+paths will be mapped subject to include filter processing.  If no
+exclude filters are specified, exclude filter processing is implicitly
+disabled.
+
+Note: This control is only available if PCRE support was compiled
+into the binary.
+

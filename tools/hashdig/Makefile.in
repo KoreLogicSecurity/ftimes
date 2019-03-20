@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.in,v 1.8 2006/04/07 22:15:12 mavrik Exp $
+# $Id: Makefile.in,v 1.10 2007/02/23 00:22:36 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2003-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
 #
 ########################################################################
 #
@@ -29,6 +29,7 @@ SCRIPT_FILES		=\
 			hashdig-bind.pl\
 			hashdig-dump.pl\
 			hashdig-filter.pl\
+			hashdig-find.pl\
 			hashdig-harvest.pl\
 			hashdig-harvest-sunsolve.pl\
 			hashdig-make.pl\

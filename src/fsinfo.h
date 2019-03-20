@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.h,v 1.19 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: fsinfo.h,v 1.25 2007/03/23 03:09:48 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -22,29 +22,34 @@
 enum eFSTypes
 {
   FSTYPE_UNSUPPORTED = 0,
-  FSTYPE_NA,
+  FSTYPE_AIX,
+  FSTYPE_CDFS,
+  FSTYPE_DATAPLOW_ZFS,
+  FSTYPE_DEVFS,
   FSTYPE_EXT2,
   FSTYPE_FAT,
   FSTYPE_FAT_REMOTE,
+  FSTYPE_FFS,
+  FSTYPE_HFS,
+  FSTYPE_JFS,
+  FSTYPE_NA,
   FSTYPE_NFS,
+  FSTYPE_NFS3,
   FSTYPE_NTFS,
+  FSTYPE_NTFS3G,
   FSTYPE_NTFS_REMOTE,
+  FSTYPE_NWCOMPAT,
+  FSTYPE_NWCOMPAT_REMOTE,
   FSTYPE_NWFS,
   FSTYPE_NWFS_REMOTE,
-  FSTYPE_TMPFS,
-  FSTYPE_UFS,
-  FSTYPE_AIX,
-  FSTYPE_JFS,
-  FSTYPE_NFS3,
-  FSTYPE_FFS,
-  FSTYPE_REISER,
-  FSTYPE_HFS,
-  FSTYPE_VXFS,
-  FSTYPE_SMB,
-  FSTYPE_CDFS,
-  FSTYPE_DEVFS,
-  FSTYPE_VZFS,
   FSTYPE_RAMFS,
+  FSTYPE_REISER,
+  FSTYPE_SMB,
+  FSTYPE_TMPFS,
+  FSTYPE_UDF,
+  FSTYPE_UFS,
+  FSTYPE_VXFS,
+  FSTYPE_VZFS,
   FSTYPE_XFS
 };
 
@@ -101,6 +106,9 @@ enum eFSTypes
 #endif
 #ifndef NTFS_SUPER_MAGIC
 #define NTFS_SUPER_MAGIC  0x5346544e
+#endif
+#ifndef NTFS3G_SUPER_MAGIC
+#define NTFS3G_SUPER_MAGIC 0x65735546
 #endif
 #ifndef PROC_SUPER_MAGIC
 #define PROC_SUPER_MAGIC      0x9fa0

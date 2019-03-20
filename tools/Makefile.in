@@ -1,44 +1,13 @@
-########################################################################
-#
-# $Id: Makefile.in,v 1.7 2006/05/26 19:38:24 mavrik Exp $
-#
-########################################################################
-#
-# Copyright 2003-2006 The FTimes Project, All Rights Reserved.
-#
-########################################################################
-#
-# Purpose: Makefile for the project's tools directory.
-#
-########################################################################
 
-#.SILENT:
+PROJECT_ROOT=..
 
-prefix			= @prefix@
-exec_prefix		= @exec_prefix@
-srcdir			= @srcdir@
-VPATH			= ${srcdir}
+PREFIX=@prefix@
 
-INSTALL			= @INSTALL@
+SRCDIR=@srcdir@
 
-SUBDIRS			= @tool_subdirs@
+VPATH=${SRCDIR}
 
-all test install clean:
-	@cwd=`pwd`; for i in ${SUBDIRS} "-end-"; do\
-		if test $${i} != "-end-"; then\
-			subdir=`basename $${cwd}`/$${i};\
-			echo '===>' $${subdir};\
-			cd $${cwd}/$${i} && ${MAKE} $@;\
-		fi;\
-	done
+SUBDIRS=@tool_subdirs@
 
-clean-all:
-	@cwd=`pwd`; for i in ${SUBDIRS} "-end-"; do\
-		if test $${i} != "-end-"; then\
-			subdir=`basename $${cwd}`/$${i};\
-			echo '===>' $${subdir};\
-			cd $${cwd}/$${i} && ${MAKE} $@;\
-		fi;\
-	done
-	rm -f Makefile
+include ${PROJECT_ROOT}/Mk/common-subdir.mk
 

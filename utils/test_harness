@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness,v 1.10 2006/07/14 00:30:36 mavrik Exp $
+# $Id: test_harness,v 1.12 2007/03/26 16:37:32 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2005-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2005-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -91,7 +91,7 @@ BEGIN
 
   my (%hOptions);
 
-  if (!getopts("d:m:p:s:t:w:", \%hOptions))
+  if (!getopts("d:l:m:p:s:t:w:", \%hOptions))
   {
     Usage($$phProperties{'Program'});
   }
@@ -109,6 +109,14 @@ BEGIN
     print STDERR "$$phProperties{'Program'}: Error='The debug level ($$phProperties{'DebugLevel'}) is not valid.'\n";
     exit(2);
   }
+
+  ####################################################################
+  #
+  # LibDir, '-s', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'LibDir'} = (exists($hOptions{'l'})) ? $hOptions{'l'} : ".";
 
   ####################################################################
   #
@@ -441,7 +449,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-d debug-level] [-s src-dir] [-t {3|4}] [-w work-dir] -m {check|clean|setup} -p target-program\n";
+  print STDERR "Usage: $sProgram [-d debug-level] [-l lib-dir] [-s src-dir] [-t {3|4}] [-w work-dir] -m {check|clean|setup} -p target-program\n";
   print STDERR "\n";
   exit(1);
 }

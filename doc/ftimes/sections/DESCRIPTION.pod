@@ -129,6 +129,7 @@ to the selected mode.
    DigStringXMagic    .  .  X  X  X  .  .  .  .  .
    EnableRecursion    .  .  .  X  X  .  .  X  X  .
    Exclude            .  .  .  X  X  .  .  X  X  .
+   ExcludeFilter      .  .  .  X  X  .  .  X  X  .
    ExcludesMustExist  .  .  .  X  X  .  .  X  X  .
    FieldMask          .  X  .  .  .  .  X  X  X  .
    FileSizeLimit      .  .  .  X  X  .  .  X  X  .
@@ -138,6 +139,7 @@ to the selected mode.
    HashSymbolicLinks  .  .  .  .  .  .  .  X  X  .
    Import             .  .  .  X  X  X  .  X  X  .
    Include            .  .  .  X  X  .  .  X  X  .
+   IncludeFilter      .  .  .  X  X  .  .  X  X  .
    IncludesMustExist  .  .  .  X  X  .  .  X  X  .
    LogDir             .  .  .  X  X  .  .  X  X  .
    MagicFile          .  .  .  .  .  .  .  X  X  .

@@ -1,0 +1,25 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${PREFIX}/man/man1
+
+HTML_FILE=ftimes-dig2ctx.html
+
+MAN_FILE=ftimes-dig2ctx.1
+
+MAN_TITLE=FTimes Documentation
+
+POD_FILE=ftimes-dig2ctx.pod
+
+SRC_FILE=${SRCDIR}/../../tools/dig/ftimes-dig2ctx.pl
+
+include ${PROJECT_ROOT}/Mk/common-doc-perl.mk
+

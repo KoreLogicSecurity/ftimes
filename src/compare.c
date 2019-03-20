@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.c,v 1.33 2006/04/07 22:15:10 mavrik Exp $
+ * $Id: compare.c,v 1.35 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -28,7 +28,7 @@ static CMP_PROPERTIES *gpsCmpProperties;
  ***********************************************************************
  */
 int
-CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char **ppcDecodeFields, char *pcError)
+CompareDecodeLine(char *pcLine, SNAPSHOT_CONTEXT *psBaseline, char **ppcDecodeFields, char *pcError)
 {
   const char          acRoutine[] = "CompareDecodeLine()";
   char                acTempLine[CMP_MAX_LINE] = { 0 };
@@ -93,7 +93,7 @@ CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char **ppcDecodeFiel
     for (i = 0, iFound = -1; i < iMaskTableLength; i++)
     {
       ul = 1 << i;
-      if (MASK_BIT_IS_SET(ulFieldsMask, ul))
+      if (MASK_BIT_IS_SET(psBaseline->ulFieldMask, ul))
       {
         iFound++;
       }
@@ -104,7 +104,7 @@ CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char **ppcDecodeFiel
     }
     if (i != iMaskTableLength)
     {
-      snprintf(ppcDecodeFields[i], CMP_MAX_LINE, "%s", pcHead);
+      snprintf(ppcDecodeFields[psBaseline->aiIndex2Map[iField]], CMP_MAX_LINE, "%s", pcHead);
     }
   }
 
@@ -264,7 +264,7 @@ CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapsh
       if (memcmp(psProperties->psBaselineNodes[iTempIndex].aucHash, psSnapshot->psCurrRecord->aucHash, MD5_HASH_SIZE) == 0)
       {
         iFound = psProperties->psBaselineNodes[iTempIndex].iFound = 1;
-        CompareDecodeLine(psProperties->psBaselineNodes[iTempIndex].pcData, psBaseline->ulFieldMask, ppcBaselineFields, acLocalError);
+        CompareDecodeLine(psProperties->psBaselineNodes[iTempIndex].pcData, psBaseline, ppcBaselineFields, acLocalError);
         sCompareData.ulChangedMask = 0;
         sCompareData.ulUnknownMask = 0;
         for (i = 0; i < iMaskTableLength; i++)

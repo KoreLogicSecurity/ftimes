@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-dig2ctx.pl,v 1.24 2006/06/24 21:00:17 mavrik Exp $
+# $Id: ftimes-dig2ctx.pl,v 1.26 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2002-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2002-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -617,7 +617,7 @@ B<ftimes-dig2ctx.pl> B<[-hLR]> B<[-d dir]> B<[-e {file|hex|url}]> B<[-c length]>
 =head1 DESCRIPTION
 
 This utility extracts a variable amount of context around matched
-dig strings using data collected with ftimes(1) or hipdig.pl. Data
+dig strings using data collected with ftimes(1) or hipdig(1). Data
 collected by either of these tools has the following format:
 
     name|type|offset|string
@@ -712,7 +712,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-ftimes(1), hipdig.pl
+ftimes(1), hipdig(1)
 
 =head1 LICENSE
 

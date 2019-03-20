@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: configure.in,v 1.43 2006/07/15 03:54:09 mavrik Exp $
+# $Id: configure.in,v 1.54 2007/01/02 22:34:13 mavrik Exp $
 #
 ########################################################################
 
@@ -12,7 +12,7 @@ dnl ####################################################################
 
 AC_INIT(src/ftimes.c)
 AC_PREREQ(2.53)
-AC_CONFIG_HEADERS(src/config.h)
+AC_CONFIG_AUX_DIR(utils)
 AC_PREFIX_DEFAULT(/usr/local/ftimes)
 cgidir='${exec_prefix}/cgi'
 docdir='${exec_prefix}/doc'
@@ -463,6 +463,10 @@ dnl # Check whether or not to install various tools.
 dnl #
 dnl ####################################################################
 
+doc_makefiles="doc/Makefile doc/ftimes/Makefile"
+doc_subdirs="ftimes"
+html_files="ftimes.html"
+man1_files="ftimes.1"
 tool_subdirs=
 tool_makefiles="tools/Makefile"
 
@@ -512,6 +516,11 @@ AC_ARG_WITH(dig-tools,
 )
 if test $install_dig -ne 0; then
   AC_MSG_RESULT(yes)
+  dig_list="ftimes-crv2dbi ftimes-crv2raw ftimes-dig2ctx ftimes-dig2dbi hipdig"
+  doc_subdirs="$doc_subdirs $dig_list"
+  doc_makefiles="$doc_makefiles "`{ for item in $dig_list ; do echo $item | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
+  html_files="$html_files "`{ for item in $dig_list ; do echo $item | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
+  man1_files="$man1_files "`{ for item in $dig_list ; do echo $item | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
   tool_subdirs="$tool_subdirs dig"
   tool_makefiles="$tool_makefiles tools/dig/Makefile"
   additional_testdirs="$additional_testdirs ftimes-crv2raw"
@@ -522,7 +531,6 @@ tests/ftimes-crv2raw/common/Makefile
 tests/ftimes-crv2raw/common/carve/Makefile
 tests/ftimes-crv2raw/common/carve/test_1/Makefile
 "
-
 else
   AC_MSG_RESULT(no)
 fi
@@ -550,6 +558,11 @@ AC_ARG_WITH(hashdig-tools,
 )
 if test $install_hashdig -ne 0; then
   AC_MSG_RESULT(yes)
+  hashdig_list="hashdig-bash hashdig-bind hashdig-dump hashdig-filter hashdig-find hashdig-harvest hashdig-harvest-sunsolve hashdig-make hashdig-resolve-sunsolve hashdig-stat hashdig-weed"
+  doc_subdirs="$doc_subdirs $hashdig_list"
+  doc_makefiles="$doc_makefiles "`{ for item in $hashdig_list ; do echo $item | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
+  html_files="$html_files "`{ for item in $hashdig_list ; do echo $item | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
+  man1_files="$man1_files "`{ for item in $hashdig_list ; do echo $item | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
   tool_subdirs="$tool_subdirs hashdig"
   tool_makefiles="$tool_makefiles tools/hashdig/Makefile"
 else
@@ -579,12 +592,28 @@ AC_ARG_WITH(map-tools,
 )
 if test $install_map -ne 0; then
   AC_MSG_RESULT(yes)
-  tool_subdirs="$tool_subdirs map"
-  tool_makefiles="$tool_makefiles tools/map/Makefile"
+  map_list="ftimes-cmp2dbi ftimes-map2dbi ftimes-map2mac tarmap"
+  doc_subdirs="$doc_subdirs $map_list"
+  doc_makefiles="$doc_makefiles "`{ for item in $map_list ; do echo $item | sed 's,^,doc/,; s,$,/Makefile,;' ; done ; } | tr '\n' ' '`
+  html_files="$html_files "`{ for item in $map_list ; do echo $item | sed 's/$/.html/;' ; done ; } | tr '\n' ' '`
+  man1_files="$man1_files "`{ for item in $map_list ; do echo $item | sed 's/$/.1/;' ; done ; } | tr '\n' ' '`
+  tool_subdirs="$tool_subdirs map tarmap"
+  tool_makefiles="$tool_makefiles tools/map/Makefile tools/tarmap/Makefile"
+  additional_testdirs="$additional_testdirs tarmap"
+  test_makefiles="
+$test_makefiles
+tests/tarmap/Makefile
+tests/tarmap/common/Makefile
+tests/tarmap/common/map/Makefile
+tests/tarmap/common/map/test_1/Makefile
+"
 else
   AC_MSG_RESULT(no)
 fi
 
+AC_SUBST(doc_subdirs)
+AC_SUBST(html_files)
+AC_SUBST(man1_files)
 AC_SUBST(tool_subdirs)
 
 dnl ####################################################################
@@ -597,10 +626,13 @@ AC_CONFIG_FILES(
   [
     Makefile
     Mk/common.mk
-    Mk/common-macros.mk
+    Mk/common-doc-c.mk
+    Mk/common-doc-perl.mk
+    Mk/common-src-c.mk
+    Mk/common-subdir.mk
     Mk/common-tests.mk
     $server_makefiles
-    doc/Makefile
+    $doc_makefiles
     etc/Makefile
     src/Makefile
     tests/Makefile
@@ -621,6 +653,8 @@ AC_CONFIG_FILES(
     tests/ftimes/common/map/test_2/Makefile
     tests/ftimes/common/map/test_3/Makefile
     tests/ftimes/common/map/test_4/Makefile
+    tests/ftimes/common/map/test_5/Makefile
+    tests/ftimes/common/map/test_6/Makefile
     tests/ftimes/common_windows_ads/Makefile
     tests/ftimes/common_windows_ads/map/Makefile
     tests/ftimes/common_windows_ads/map/test_1/Makefile
@@ -628,4 +662,22 @@ AC_CONFIG_FILES(
     $tool_makefiles
   ]
 )
+
+AC_CONFIG_HEADERS(  
+  [src/config.h],
+  [
+    for dir in $tool_subdirs ; do
+      case "${dir}" in
+      tarmap)
+        cp -f src/config.h tools/$dir/
+        ;;
+      *)
+        :
+        ;;
+      esac
+    done
+  ],  
+  [ tool_subdirs="$tool_subdirs" ]
+)
+
 AC_OUTPUT

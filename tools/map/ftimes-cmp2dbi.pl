@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-cmp2dbi.pl,v 1.2 2006/04/07 21:13:37 mavrik Exp $
+# $Id: ftimes-cmp2dbi.pl,v 1.6 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2006-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2006-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -36,6 +36,7 @@ use Getopt::Std;
   my $sDBRegex       = qq(^[A-Za-z][A-Za-z0-9_]*\$);
   my $sHostnameRegex = qq(^[\\w\\.-]{1,64}\$);
   my $sMaxRowsRegex  = qq(^\\d+\$);
+  my $sTableRegex    = qq(^[A-Za-z][A-Za-z0-9_]*\$);
 
   ####################################################################
   #
@@ -48,8 +49,8 @@ use Getopt::Std;
     'hostname'      => "varbinary(64) not null",
     'category'      => "enum('C', 'M', 'N', 'U', 'X') not null",
     'name'          => "blob not null, index name_index (name(255))",
-    'changed'       => "set ('dev', 'inode', 'volume', 'findex', 'mode', 'attributes', 'nlink', 'uid', 'gid', 'rdev', 'atime', 'ams', 'mtime', 'mms', 'ctime', 'cms', 'chtime', 'chms', 'size', 'altstreams', 'sha1', 'md5', 'magic')",
-    'unknown'       => "set ('dev', 'inode', 'volume', 'findex', 'mode', 'attributes', 'nlink', 'uid', 'gid', 'rdev', 'atime', 'ams', 'mtime', 'mms', 'ctime', 'cms', 'chtime', 'chms', 'size', 'altstreams', 'sha1', 'md5', 'magic')",
+    'changed'       => "set ('dev', 'inode', 'volume', 'findex', 'mode', 'attributes', 'nlink', 'uid', 'gid', 'rdev', 'atime', 'ams', 'mtime', 'mms', 'ctime', 'cms', 'chtime', 'chms', 'size', 'altstreams', 'md5', 'sha1', 'sha256', 'magic')",
+    'unknown'       => "set ('dev', 'inode', 'volume', 'findex', 'mode', 'attributes', 'nlink', 'uid', 'gid', 'rdev', 'atime', 'ams', 'mtime', 'mms', 'ctime', 'cms', 'chtime', 'chms', 'size', 'altstreams', 'md5', 'sha1', 'sha256', 'magic')",
     'namemd5'       => "varbinary(32) not null",
   );
 
@@ -61,7 +62,7 @@ use Getopt::Std;
 
   my %hOptions;
 
-  if (!getopts('d:Ff:h:m:', \%hOptions))
+  if (!getopts('d:Ff:h:m:t:', \%hOptions))
   {
     Usage($sProgram);
   }
@@ -77,7 +78,7 @@ use Getopt::Std;
   if ($sDB !~ /$sDBRegex/)
   {
     print STDERR "$sProgram: Database='$hOptions{'d'}' Regex='$sDBRegex' Error='Invalid db name.'\n";
-    exit(1);
+    exit(2);
   }
 
   ####################################################################
@@ -99,7 +100,7 @@ use Getopt::Std;
   if (!exists $hOptions{'f'})
   {
     Usage($sProgram);
-    exit(1);
+    exit(2);
   }
   else
   {
@@ -109,7 +110,7 @@ use Getopt::Std;
       if (!open(IN, "< $sFilename"))
       {
         print STDERR "$sProgram: Filename='$sFilename' Error='$!'\n";
-        exit(1);
+        exit(2);
       }
       $sFileHandle = \*IN;
     }
@@ -118,9 +119,9 @@ use Getopt::Std;
       if ($sFilename ne '-')
       {
         print STDERR "$sProgram: Filename='$sFilename' Error='File not found.'\n";
-        exit(1);
+        exit(2);
       }
-      $sFilename = "compare";
+      $sFilename = "stdin";
       $sFileHandle = \*STDIN;
     }
   }
@@ -145,7 +146,7 @@ use Getopt::Std;
     else
     {
       print STDERR "$sProgram: Hostname='$sHostname' Regex='$sHostnameRegex' Error='Invalid hostname.'\n";
-      exit(1);
+      exit(2);
     }
   }
   else
@@ -164,7 +165,21 @@ use Getopt::Std;
   if ($sMaxRows !~ /$sMaxRowsRegex/)
   {
     print STDERR "$sProgram: MaxRows='$sMaxRows' Regex='$sMaxRowsRegex' Error='Invalid number.\n";
-    exit(1);
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # A Table, '-t', is optional.
+  #
+  ####################################################################
+
+  my $sTable = (exists $hOptions{'t'}) ? $hOptions{'t'} : "map";
+
+  if ($sTable !~ /$sTableRegex/)
+  {
+    print STDERR "$sProgram: Table='$sTable' Regex='$sTableRegex' Error='Invalid table name.'\n";
+    exit(2);
   }
 
   ##################################################################
@@ -176,13 +191,13 @@ use Getopt::Std;
   if (!$sForceWrite && -f $sSQLFile)
   {
     print STDERR "$sProgram: Filename='$sSQLFile' Error='Output file already exists.'\n";
-    exit(1);
+    exit(2);
   }
 
   if (!$sForceWrite && -f $sOutFile)
   {
     print STDERR "$sProgram: Filename='$sOutFile' Error='Output file already exists.'\n";
-    exit(1);
+    exit(2);
   }
 
   ##################################################################
@@ -196,7 +211,7 @@ use Getopt::Std;
   if (!defined ($sHeader = <$sFileHandle>))
   {
     print STDERR "$sProgram: Error='Header not defined.'\n";
-    exit(1);
+    exit(2);
   }
   $sHeader =~ s/[\r\n]+$//;
   @aHeaderFields = split(/\|/, $sHeader);
@@ -206,7 +221,7 @@ use Getopt::Std;
     if (!exists $hTableLayout{$aHeaderFields[$sIndex]})
     {
       print STDERR "$sProgram: Field='$aHeaderFields[$sIndex]' Error='Field not recognized.'\n";
-      exit(1);
+      exit(2);
     }
     if ($aHeaderFields[$sIndex] =~ /^name$/i)
     {
@@ -216,7 +231,7 @@ use Getopt::Std;
   if (!defined $sNameIndex && $sNameIndex != 0)
   {
     print STDERR "$sProgram: Header='$sHeader' Error='Invalid header or unable to locate the name field.'\n";
-    exit(1);
+    exit(2);
   }
   push(@aHeaderFields, "namemd5");
   unshift(@aHeaderFields, "hostname") if (defined $sHostname);
@@ -232,13 +247,13 @@ use Getopt::Std;
   if (!open(OUT, "> $sOutFile"))
   {
     print STDERR "$sProgram: Filename='$sOutFile' Error='$!'\n";
-    exit(1);
+    exit(2);
   }
 
   if (!open(SQL, "> $sSQLFile"))
   {
     print STDERR "$sProgram: Filename='$sSQLFile' Error='$!'\n";
-    exit(1);
+    exit(2);
   }
 
   ##################################################################
@@ -267,7 +282,7 @@ use Getopt::Std;
       print STDERR "$sProgram: Line='$sLine' HeaderFieldCount='$sHeaderFieldCount' DataFieldCount='$sDataFieldCount' Error='FieldCounts don't match.'\n";
       close($sFileHandle);
       close(OUT);
-      exit(1);
+      exit(2);
     }
     if (defined $sHostname)
     {
@@ -329,7 +344,7 @@ EOF
 
   if (!defined $sHostname)
   {
-    print SQL "DROP TABLE IF EXISTS compare;\n";
+    print SQL "DROP TABLE IF EXISTS $sTable;\n";
   }
   foreach my $sField (@aHeaderFields)
   {
@@ -342,7 +357,7 @@ EOF
   my $sInsertSpec = join(', ', @aHeaderFields);
 
   print SQL <<EOF;
-CREATE TABLE IF NOT EXISTS compare ($sCreateSpec) $sCreateOptions;
+CREATE TABLE IF NOT EXISTS $sTable ($sCreateSpec) $sCreateOptions;
 
 ######################################################################
 #
@@ -350,7 +365,7 @@ CREATE TABLE IF NOT EXISTS compare ($sCreateSpec) $sCreateOptions;
 #
 ######################################################################
 
-LOAD DATA INFILE '$sOutFile' INTO TABLE compare FIELDS TERMINATED BY '|' IGNORE 1 LINES ($sInsertSpec);
+LOAD DATA INFILE '$sOutFile' INTO TABLE $sTable FIELDS TERMINATED BY '|' IGNORE 1 LINES ($sInsertSpec);
 
 ######################################################################
 #
@@ -374,8 +389,9 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-F] [-d db] [-h host] [-m max-rows] -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-F] [-d db] [-h host] [-m max-rows] [-t table] -f {file|-}\n";
   print STDERR "\n";
+  exit(1);
 }
 
 
@@ -383,11 +399,11 @@ sub Usage
 
 =head1 NAME
 
-ftimes-cmp2dbi.pl - Preprocess FTimes compare data for MySQL db import
+ftimes-cmp2dbi.pl - Preprocess FTimes compare data for MySQL DB import
 
 =head1 SYNOPSIS
 
-B<ftimes-map2dbi.pl> B<[-F]> B<[-d db]> B<[-h host]> B<[-m max-rows]> B<-f {file|-}>
+B<ftimes-cmp2dbi.pl> B<[-F]> B<[-d db]> B<[-h host]> B<[-m max-rows]> B<[-t table]> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
@@ -405,7 +421,7 @@ or in conjunction with the hostname field.
 =item B<-d db>
 
 Specifies the name of the database to create/use. This value is passed
-directly into the .sql file.
+directly into the .sql file. The default value is 'ftimes'.
 
 =item B<-F>
 
@@ -414,7 +430,9 @@ Force existing .sql and .dbi files to be truncated on open.
 =item B<-f {file|-}>
 
 Specifies the name of the input file. A value of '-' will cause the
-program to read from stdin.
+program to read from stdin. If input is read from stdin, the output
+files will be placed in the current directory and have a basename of
+'stdin'.
 
 =item B<-h host>
 
@@ -428,6 +446,11 @@ is not used.
 Limits the number of records that may be inserted into the specified
 database. This value is passed directly into the .sql file as
 MAX_ROWS.
+
+=item B<-t table>
+
+Specifies the name of the table to create/use. This value is passed
+directly into the .sql file. The default value is 'compare'.
 
 =back
 

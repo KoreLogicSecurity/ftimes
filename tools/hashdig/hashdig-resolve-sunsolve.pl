@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-resolve-sunsolve.pl,v 1.17 2006/04/07 22:15:12 mavrik Exp $
+# $Id: hashdig-resolve-sunsolve.pl,v 1.19 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -570,7 +570,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-hashdig-dump.pl, hashdig-harvest-sunsolve.pl
+hashdig-dump(1), hashdig-harvest-sunsolve(1)
 
 =head1 LICENSE
 

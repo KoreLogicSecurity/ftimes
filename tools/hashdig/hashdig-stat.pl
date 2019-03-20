@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-stat.pl,v 1.6 2006/04/07 22:15:12 mavrik Exp $
+# $Id: hashdig-stat.pl,v 1.10 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2004-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2004-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -189,6 +189,16 @@ sub ProcessDBFile
       $$psKCount++ if ($1 eq "K");
       $$psUCount++ if ($1 eq "U");
     }
+    elsif ($sHash =~ /^[0-9A-Fa-f]{40}$/ && $sCategory =~ /^([KU])$/)
+    {
+      $$psKCount++ if ($1 eq "K");
+      $$psUCount++ if ($1 eq "U");
+    }
+    elsif ($sHash =~ /^[0-9A-Fa-f]{64}$/ && $sCategory =~ /^([KU])$/)
+    {
+      $$psKCount++ if ($1 eq "K");
+      $$psUCount++ if ($1 eq "U");
+    }
     else
     {
       $$psICount++;
@@ -243,6 +253,26 @@ sub ProcessHDFile
       $$psUCount++ if ($1 eq "U");
     }
     elsif ($sLine =~ /^([KU])\|[0-9a-fA-F]{32}$/o)
+    {
+      $$psKCount++ if ($1 eq "K");
+      $$psUCount++ if ($1 eq "U");
+    }
+    elsif ($sLine =~ /^[0-9a-fA-F]{40}\|([KU])$/o)
+    {
+      $$psKCount++ if ($1 eq "K");
+      $$psUCount++ if ($1 eq "U");
+    }
+    elsif ($sLine =~ /^([KU])\|[0-9a-fA-F]{40}$/o)
+    {
+      $$psKCount++ if ($1 eq "K");
+      $$psUCount++ if ($1 eq "U");
+    }
+    elsif ($sLine =~ /^[0-9a-fA-F]{64}\|([KU])$/o)
+    {
+      $$psKCount++ if ($1 eq "K");
+      $$psUCount++ if ($1 eq "U");
+    }
+    elsif ($sLine =~ /^([KU])\|[0-9a-fA-F]{64}$/o)
     {
       $$psKCount++ if ($1 eq "K");
       $$psUCount++ if ($1 eq "U");
@@ -321,7 +351,7 @@ Andy Bair and Klayton Monroe
 
 =head1 SEE ALSO
 
-hashdig-dump.pl, hashdig-make.pl, hashdig-harvest.pl
+hashdig-dump(1), hashdig-make(1), hashdig-harvest(1)
 
 =head1 LICENSE
 

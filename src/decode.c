@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: decode.c,v 1.30 2006/04/07 22:15:10 mavrik Exp $
+ * $Id: decode.c,v 1.37 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -58,8 +58,9 @@ static DECODE_TABLE   gasDecodeTable[] = {
   { "z_chms",        "chms",        DecodeProcessChTimeMs             },
   { "z_size",        "size",        DecodeProcessSize                 },
   { "z_altstreams",  "altstreams",  DecodeProcessAlternateDataStreams },
-  { "z_sha1",        "sha1",        DecodeProcessSha1                 },
   { "z_md5",         "md5",         DecodeProcessMd5                  },
+  { "z_sha1",        "sha1",        DecodeProcessSha1                 },
+  { "z_sha256",      "sha256",      DecodeProcessSha256               },
   { "z_magic",       "magic",       DecodeProcessMagic                },
 };
 #define DECODE_TABLE_SIZE sizeof(gasDecodeTable) / sizeof(gasDecodeTable[0])
@@ -339,6 +340,8 @@ DecodeFormatTime(K_UINT32 *pui32Time, char *pcTime)
   int                 iCount = 0;
   K_UINT64            ui64Time = 0;
   SYSTEMTIME          sSystemTime;
+#else
+  time_t              tTime = (time_t) *pui32Time;
 #endif
 
   pcTime[0] = 0;
@@ -369,7 +372,7 @@ DecodeFormatTime(K_UINT32 *pui32Time, char *pcTime)
     return ER;
   }
 #else
-  iError = TimeFormatTime((time_t *) pui32Time, pcTime);
+  iError = TimeFormatTime(&tTime, pcTime);
   if (iError == ER)
   {
 /* FIXME Return an error message. */
@@ -1837,15 +1840,13 @@ DecodeProcessMd5(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *
 {
   const char          acRoutine[] = "DecodeProcessMd5()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 i = 0;
   int                 iError = 0;
-  int                 n = 0;
-  unsigned char       ucFileMd5[MD5_HASH_SIZE] = { 0 };
+  unsigned char       aucFileMd5[MD5_HASH_SIZE] = { 0 };
 
   if (iLength <= 0)
   {
     pcOutput[0] = 0;
-    return ER_OK;
+    return ER_OK; /* It's not an error if a value is missing. */
   }
 
   if (pcToken[0] == 'D' && pcToken[1] == 0)
@@ -1862,16 +1863,13 @@ DecodeProcessMd5(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *
   }
   else
   {
-    iError = DecodeGetBase64Hash(pcToken, ucFileMd5, iLength, acLocalError);
+    iError = DecodeGetBase64Hash(pcToken, aucFileMd5, iLength, acLocalError);
     if (iError == ER)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return ER;
     }
-    for (i = 0; i < MD5_HASH_SIZE; i++)
-    {
-      n += sprintf(&pcOutput[n], "%02x", ucFileMd5[i]);
-    }
+    MD5HashToHex(aucFileMd5, pcOutput);
   }
 
   return ER_OK;
@@ -2109,15 +2107,13 @@ DecodeProcessSha1(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char 
 {
   const char          acRoutine[] = "DecodeProcessSha1()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  int                 i = 0;
   int                 iError = 0;
-  int                 n = 0;
-  unsigned char       ucFileSha1[20] = { 0 };
+  unsigned char       aucFileSha1[SHA1_HASH_SIZE] = { 0 };
 
   if (iLength <= 0)
   {
     pcOutput[0] = 0;
-    return ER_OK;
+    return ER_OK; /* It's not an error if a value is missing. */
   }
 
   if (pcToken[0] == 'D' && pcToken[1] == 0)
@@ -2134,16 +2130,61 @@ DecodeProcessSha1(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char 
   }
   else
   {
-    iError = DecodeGetBase64Hash(pcToken, ucFileSha1, iLength, acLocalError);
+    iError = DecodeGetBase64Hash(pcToken, aucFileSha1, iLength, acLocalError);
     if (iError == ER)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
       return iError;
     }
-    for (i = 0; i < SHA1_HASH_SIZE; i++)
+    SHA1HashToHex(aucFileSha1, pcOutput);
+  }
+
+  return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * DecodeProcessSha256
+ *
+ ***********************************************************************
+ */
+int
+DecodeProcessSha256(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError)
+{
+  const char          acRoutine[] = "DecodeProcessSha256()";
+  char                acLocalError[MESSAGE_SIZE] = { 0 };
+  int                 iError = 0;
+  unsigned char       aucFileSha256[SHA256_HASH_SIZE] = { 0 };
+
+  if (iLength <= 0)
+  {
+    pcOutput[0] = 0;
+    return ER_OK; /* It's not an error if a value is missing. */
+  }
+
+  if (pcToken[0] == 'D' && pcToken[1] == 0)
+  {
+    snprintf(pcOutput, DECODE_MAX_LINE, "DIRECTORY");
+  }
+  else if (pcToken[0] == 'L' && pcToken[1] == 0)
+  {
+    snprintf(pcOutput, DECODE_MAX_LINE, "SYMLINK");
+  }
+  else if (pcToken[0] == 'S' && pcToken[1] == 0)
+  {
+    snprintf(pcOutput, DECODE_MAX_LINE, "SPECIAL");
+  }
+  else
+  {
+    iError = DecodeGetBase64Hash(pcToken, aucFileSha256, iLength, acLocalError);
+    if (iError == ER)
     {
-      n += sprintf(&pcOutput[n], "%02x", ucFileSha1[i]);
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return iError;
     }
+    SHA256HashToHex(aucFileSha256, pcOutput);
   }
 
   return ER_OK;

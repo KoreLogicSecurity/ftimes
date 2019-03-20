@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.23 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: fsinfo.c,v 1.29 2007/03/23 03:09:48 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -21,29 +21,34 @@
 char                gaacFSType[][FSINFO_MAX_STRING] =
 {
   "UNSUPPORTED",
-  "NA",
+  "AIX",
+  "CDFS",
+  "DATAPLOW_ZFS",
+  "DEVFS",
   "EXT2",
   "FAT",
   "FAT_Remote",
+  "FFS",
+  "HFS",
+  "JFS",
+  "NA",
   "NFS",
+  "NFS3",
   "NTFS",
+  "NTFS3G",
   "NTFS_Remote",
+  "NWCOMPAT",
+  "NWCOMPAT_Remote",
   "NWFS",
   "NWFS_Remote",
-  "TMPFS",
-  "UFS",
-  "AIX",
-  "JFS",
-  "NFS3",
-  "FFS",
-  "REISER",
-  "HFS",
-  "VXFS",
-  "SMB",
-  "CDFS",
-  "DEVFS",
-  "VZFS",
   "RAMFS",
+  "REISER",
+  "SMB",
+  "TMPFS",
+  "UDF",
+  "UFS",
+  "VXFS",
+  "VZFS",
   "XFS"
 };
 
@@ -139,6 +144,9 @@ GetFileSystemType(char *pcPath, char *pcError)
     case NTFS_SUPER_MAGIC:
       return FSTYPE_NTFS;
       break;
+    case NTFS3G_SUPER_MAGIC:
+      return FSTYPE_NTFS3G;
+      break;
     case REISERFS_SUPER_MAGIC:
       return FSTYPE_REISER;
       break;
@@ -221,6 +229,10 @@ GetFileSystemType(char *pcPath, char *pcError)
     {
       return FSTYPE_NTFS;
     }
+    else if (strstr(acFSName, "NTFS3G") != NULL)
+    {
+      return FSTYPE_NTFS3G;
+    }
     else if (strstr(acFSName, "DOS") != NULL)
     {
       return FSTYPE_FAT;
@@ -228,6 +240,10 @@ GetFileSystemType(char *pcPath, char *pcError)
     else if (strstr(acFSName, "FAT") != NULL)
     {
       return FSTYPE_FAT;
+    }
+    else if (strstr(acFSName, "UDF") != NULL)
+    {
+      return FSTYPE_UDF;
     }
     else if (strstr(acFSName, "UFS") != NULL)
     {
@@ -351,6 +367,10 @@ GetFileSystemType(char *pcPath, char *pcError)
     {
       return FSTYPE_NTFS;
     }
+    else if (strstr(acFSName, "NTFS3G") != NULL && uiDriveType != DRIVE_REMOTE)
+    {
+      return FSTYPE_NTFS3G;
+    }
     else if (strstr(acFSName, "FAT") != NULL && uiDriveType == DRIVE_REMOTE)
     {
       return FSTYPE_FAT_REMOTE;
@@ -362,6 +382,18 @@ GetFileSystemType(char *pcPath, char *pcError)
     else if (strstr(acFSName, "CDFS") != NULL)
     {
       return FSTYPE_CDFS;
+    }
+    else if (strstr(acFSName, "DATAPLOW_ZFS") != NULL)
+    {
+      return FSTYPE_DATAPLOW_ZFS;
+    }
+    else if (strstr(acFSName, "NWCOMPAT") != NULL && uiDriveType == DRIVE_REMOTE)
+    {
+      return FSTYPE_NWCOMPAT_REMOTE;
+    }
+    else if (strstr(acFSName, "NWCOMPAT") != NULL && uiDriveType != DRIVE_REMOTE)
+    {
+      return FSTYPE_NWCOMPAT;
     }
     else if (strstr(acFSName, "NWFS") != NULL && uiDriveType == DRIVE_REMOTE)
     {

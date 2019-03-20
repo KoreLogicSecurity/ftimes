@@ -1,6 +1,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% $Id: baselining.sty,v 1.4 2002/06/12 14:07:46 mavrik Exp $
+% $Id: baselining.sty,v 1.7 2006/09/17 12:38:19 mavrik Exp $
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -26,7 +26,8 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Screen/Print Layout
+% Screen/Print Layout: Change the first argument of RequirePackage
+% from 'print' to 'screen' to produce a screen-oriented layout.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -41,11 +42,12 @@
   \footskip=2em
   \IfFileExists{FTimes-Scroll-250x127-deb887.jpg}{\emblema{FTimes-Scroll-250x127-deb887.jpg}}{}
   \panelhomepagename{FTimes Website}
-  \urlid{ftimes.sourceforge.net}
+  \urlid{ftimes.sourceforge.net/FTimes/}
   \definecolor{buttonbackground}{rgb}{.933,.933,.933}
   \definecolor{buttonshadow}{rgb}{.500,.500,.500}
   \definecolor{website_bgcolor}{rgb}{.941,.941,.753}
   \backgroundcolor{website_bgcolor}
+  \overlay{overlay2.pdf}
 \end{screen}
 
 \begin{print}
@@ -82,7 +84,7 @@
     Sep\ \or
     Oct\ \or
     Nov\ \or
-    Dec\ 
+    Dec\
   \fi
 }
 
@@ -102,7 +104,7 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\RequirePackage{fancyheadings}
+\RequirePackage{fancyhdr}
 \pagestyle{fancy}
 \rhead{}
 \lhead{}

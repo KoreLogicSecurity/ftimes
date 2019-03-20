@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-filter.pl,v 1.14 2006/04/07 22:15:12 mavrik Exp $
+# $Id: hashdig-filter.pl,v 1.17 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -362,7 +362,7 @@ B<hashdig-filter.pl> B<[-p prefix]> B<file [file ...]>
 =head1 DESCRIPTION
 
 This utility filters filenames by directory type. Input is expected
-to be one or more files created by hashdig-bind.pl. Output is written
+to be one or more files created by hashdig-bind(1). Output is written
 to a set of files, in the current working directory, having the
 following format:
 
@@ -388,6 +388,8 @@ area or a subject's root file system is mounted on a forensic
 workstation. Trailing slashes are automatically pruned from the
 supplied prefix.
 
+=back
+
 =head1 CAVEATS
 
 Currently, this program is only useful for filtering UNIX filenames.
@@ -398,7 +400,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-hashdig-bind.pl
+hashdig-bind(1)
 
 =head1 LICENSE
 

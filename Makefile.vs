@@ -1,10 +1,10 @@
 ########################################################################
 #
-# $Id: Makefile.vs,v 1.22 2006/06/18 03:34:47 mavrik Exp $
+# $Id: Makefile.vs,v 1.24 2007/02/23 00:22:35 mavrik Exp $
 #
 ########################################################################
 #
-# Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+# Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
 #
 ########################################################################
 #
@@ -99,6 +99,7 @@ INCLUDES		=\
 			src\message.h\
 			src\native.h\
 			src\sha1.h\
+			src\sha256.h\
 			src\socket.h\
 			src\ssl.h\
 			src\ssl-pool.h\
@@ -127,6 +128,7 @@ OBJECTS			=\
 			"$(OBJECT_DIR)\message.obj"\
 			"$(OBJECT_DIR)\properties.obj"\
 			"$(OBJECT_DIR)\sha1.obj"\
+			"$(OBJECT_DIR)\sha256.obj"\
 			"$(OBJECT_DIR)\socket.obj"\
 !IF "$(USE_SSL)" == "Y" || "$(USE_SSL)" == "y"
 			"$(OBJECT_DIR)\ssl.obj"\
@@ -253,6 +255,8 @@ clean-all: clean
 "$(OBJECT_DIR)\properties.obj": src\properties.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\sha1.obj": src\sha1.c $(INCLUDES) "$(OBJECT_DIR)"
+
+"$(OBJECT_DIR)\sha256.obj": src\sha256.c $(INCLUDES) "$(OBJECT_DIR)"
 
 "$(OBJECT_DIR)\socket.obj": src\socket.c $(INCLUDES) "$(OBJECT_DIR)"
 

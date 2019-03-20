@@ -1,134 +1,105 @@
-########################################################################
-#
-# $Id: Makefile.in,v 1.20 2006/06/17 21:03:24 mavrik Exp $
-#
-########################################################################
-#
-# Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
-#
-########################################################################
-#
-# Purpose: Makefile for the project's src directory.
-#
-########################################################################
 
-bindir			= @bindir@
-CC			= @CC@
-CFLAGS			= @CFLAGS@
-exec_prefix		= @exec_prefix@
-EXTENSION		= @extension@
-INSTALL			= @INSTALL@
-prefix			= @prefix@
-PROGRAM			= ftimes${EXTENSION}
-VPATH			= @srcdir@
+PROJECT_ROOT=..
 
-AP_DEFS			=
-AP_INCFLAGS		=
-AP_INCS			= @ap_incs@
-AP_LIBFLAGS		=
-AP_LIBS			=
-AP_OBJS			= ${AP_SRCS:.c=.o}
-AP_SRCS			= @ap_srcs@
+PREFIX=@prefix@
 
-PCRE_DEFS		=
-PCRE_INCFLAGS		= @pcre_incflags@
-PCRE_INCS		= @pcre_incs@
-PCRE_LIBFLAGS		= @pcre_libflags@
-PCRE_LIBS		=
-PCRE_OBJS		= ${PCRE_SRCS:.c=.o}
-PCRE_SRCS		= @pcre_srcs@
+SRCDIR=@srcdir@
 
-SSL_DEFS		=
-SSL_INCFLAGS		= @ssl_incflags@
-SSL_INCS		= @ssl_incs@
-SSL_LIBFLAGS		= @ssl_libflags@
-SSL_LIBS		=
-SSL_OBJS		= ${SSL_SRCS:.c=.o}
-SSL_SRCS		= @ssl_srcs@
+VPATH=${SRCDIR}
 
-XMAGIC_DEFS		=
-XMAGIC_INCFLAGS		=
-XMAGIC_INCS		= @xmagic_incs@
-XMAGIC_LIBFLAGS		=
-XMAGIC_LIBS		=
-XMAGIC_OBJS		= ${XMAGIC_SRCS:.c=.o}
-XMAGIC_SRCS		= @xmagic_srcs@
+INSTALL=@INSTALL@
 
-DEFS			= @DEFS@
-INCFLAGS		= -I. ${PCRE_INCFLAGS} ${SSL_INCFLAGS}
-INCS			=\
-			all-includes.h\
-			${AP_INCS}\
-			app-includes.h\
-			compare.h\
-			config.h\
-			decode.h\
-			dig.h\
-			error.h\
-			fsinfo.h\
-			ftimes.h\
-			http.h\
-			ktypes.h\
-			mask.h\
-			md5.h\
-			message.h\
-			${PCRE_INCS}\
-			sha1.h\
-			socket.h\
-			${SSL_INCS}\
-			sys-includes.h\
-			${XMAGIC_INCS}
-LIBFLAGS		= ${LIBS} ${PCRE_LIBFLAGS} ${SSL_LIBFLAGS}
-LIBS			= -lm @LIBS@
-OBJS			= ${SRCS:.c=.o}
-SRCS			=\
-			analyze.c\
-			${AP_SRCS}\
-			cfgtest.c\
-			cmpmode.c\
-			compare.c\
-			decode.c\
-			decoder.c\
-			develop.c\
-			dig.c\
-			digmode.c\
-			error.c\
-			fsinfo.c\
-			ftimes.c\
-			getmode.c\
-			http.c\
-			map.c\
-			mapmode.c\
-			mask.c\
-			md5.c\
-			message.c\
-			${PCRE_SRCS}\
-			properties.c\
-			sha1.c\
-			socket.c\
-			${SSL_SRCS}\
-			support.c\
-			time.c\
-			url.c\
-			${XMAGIC_SRCS}
+INSTALL_PREFIX=${PREFIX}/bin
 
-all: ${PROGRAM}
+EXTENSION=@extension@
 
-test:: ${PROGRAM}
+AP_INCS=@ap_incs@
+AP_SRCS=@ap_srcs@
+AP_OBJS=${AP_SRCS:.c=.o}
 
-install: ${PROGRAM}
-	@umask 22; if [ ! -d ${bindir} ]; then mkdir -p ${bindir}; fi
-	@${INSTALL} -m 755 ${PROGRAM} ${bindir}
+PCRE_INCFLAGS=@pcre_incflags@
+PCRE_LIBFLAGS=@pcre_libflags@
 
-clean:
-	rm -f ${PROGRAM} ${OBJS} ${PROGRAM}.core core
+PCRE_INCS=@pcre_incs@
+PCRE_SRCS=@pcre_srcs@
+PCRE_OBJS=${PCRE_SRCS:.c=.o}
 
-clean-all: clean
-	rm -f Makefile config.h
+SSL_INCFLAGS=@ssl_incflags@
+SSL_LIBFLAGS=@ssl_libflags@
 
-${PROGRAM}: ${INCS} ${OBJS}
-	${CC} ${OBJS} ${CFLAGS} -o ${PROGRAM} ${INCFLAGS} ${LIBFLAGS}
+SSL_INCS=@ssl_incs@
+SSL_SRCS=@ssl_srcs@
+SSL_OBJS=${SSL_SRCS:.c=.o}
 
-.c.o:
-	${CC} ${CFLAGS} ${INCFLAGS} -c $<
+XMAGIC_INCS=@xmagic_incs@
+XMAGIC_SRCS=@xmagic_srcs@
+XMAGIC_OBJS=${XMAGIC_SRCS:.c=.o}
+
+INCS=\
+all-includes.h\
+${AP_INCS}\
+app-includes.h\
+compare.h\
+config.h\
+decode.h\
+dig.h\
+error.h\
+fsinfo.h\
+ftimes.h\
+http.h\
+ktypes.h\
+mask.h\
+md5.h\
+message.h\
+${PCRE_INCS}\
+sha1.h\
+sha256.h\
+socket.h\
+${SSL_INCS}\
+sys-includes.h\
+${XMAGIC_INCS}
+
+SRCS=\
+analyze.c\
+${AP_SRCS}\
+cfgtest.c\
+cmpmode.c\
+compare.c\
+decode.c\
+decoder.c\
+develop.c\
+dig.c\
+digmode.c\
+error.c\
+fsinfo.c\
+ftimes.c\
+getmode.c\
+http.c\
+map.c\
+mapmode.c\
+mask.c\
+md5.c\
+message.c\
+${PCRE_SRCS}\
+properties.c\
+sha1.c\
+sha256.c\
+socket.c\
+${SSL_SRCS}\
+support.c\
+time.c\
+url.c\
+${XMAGIC_SRCS}
+
+OBJS=${SRCS:.c=.o}
+
+INCFLAGS=-I. ${PCRE_INCFLAGS} ${SSL_INCFLAGS}
+
+LIBFLAGS=-lm @LIBS@ ${PCRE_LIBFLAGS} ${SSL_LIBFLAGS}
+
+CFLAGS=@CFLAGS@ @DEFS@
+
+TARGET=ftimes${EXTENSION}
+
+include ${PROJECT_ROOT}/Mk/common-src-c.mk
 

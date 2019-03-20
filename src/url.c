@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: url.c,v 1.15 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: url.c,v 1.17 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -405,7 +405,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
   const char          acRoutine[] = "URLPutRequest()";
   char                acLocalError[MESSAGE_SIZE] = { 0 };
   char                acQuery[1024];
-  char                acOutFileHash[FTIMEX_MAX_MD5_LENGTH];
+  char                acOutFileHash[FTIMES_MAX_MD5_LENGTH];
   char               *apcEscaped[8];
   char               *apcFilenames[2];
   unsigned char       uacMD5[MD5_HASH_SIZE];
@@ -468,10 +468,10 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
     for (n = 0; n < MD5_HASH_SIZE; n++)
     {
       sprintf(&acOutFileHash[n * 2], "%02x", uacMD5[n]);
-      acOutFileHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
+      acOutFileHash[FTIMES_MAX_MD5_LENGTH - 1] = 0;
     }
 
-    for (n = 0; n < FTIMEX_MAX_MD5_LENGTH - 1; n++)
+    for (n = 0; n < FTIMES_MAX_MD5_LENGTH - 1; n++)
     {
       if (acOutFileHash[n] != psProperties->acOutFileHash[n])
       {

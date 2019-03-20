@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.30 2006/06/20 18:42:07 mavrik Exp $
+ * $Id: analyze.c,v 1.33 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -265,6 +265,10 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char *p
     {
       memset(psFTData->aucFileSha1, 0xff, SHA1_HASH_SIZE);
     }
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+    {
+      memset(psFTData->aucFileSha256, 0xff, SHA256_HASH_SIZE);
+    }
     return ER_OK;
   }
 
@@ -463,6 +467,12 @@ AnalyzeEnableDigestEngine(FTIMES_PROPERTIES *psProperties)
     psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoDigest;
     psProperties->asAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoSha1Digest;
   }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+  {
+    strcpy(psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].acDescription, "Sha256Digest");
+    psProperties->asAnalysisStages[psProperties->iLastAnalysisStage].iError = ER_DoDigest;
+    psProperties->asAnalysisStages[psProperties->iLastAnalysisStage++].piRoutine = AnalyzeDoSha256Digest;
+  }
 }
 
 
@@ -516,6 +526,34 @@ AnalyzeDoSha1Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, 
   if ((iBlockTag & ANALYZE_FINAL_BLOCK) == ANALYZE_FINAL_BLOCK)
   {
     SHA1Omega(&sFileSha1Context, psFTData->aucFileSha1);
+  }
+
+  return ER_OK;
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * AnalyzeDoSha256Digest
+ *
+ ***********************************************************************
+ */
+int
+AnalyzeDoSha256Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError)
+{
+  static SHA256_CONTEXT sFileSha256Context;
+
+  if ((iBlockTag & ANALYZE_FIRST_BLOCK) == ANALYZE_FIRST_BLOCK)
+  {
+    SHA256Alpha(&sFileSha256Context);
+  }
+
+  SHA256Cycle(&sFileSha256Context, pucBuffer, iBufferLength);
+
+  if ((iBlockTag & ANALYZE_FINAL_BLOCK) == ANALYZE_FINAL_BLOCK)
+  {
+    SHA256Omega(&sFileSha256Context, psFTData->aucFileSha256);
   }
 
   return ER_OK;
@@ -740,7 +778,6 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
   unsigned char       aucMD5[MD5_HASH_SIZE];
   int                 i;
   int                 iError;
-  int                 iIndex;
   FILE               *pFile;
 
   /*-
@@ -798,11 +835,7 @@ AnalyzeEnableXMagicEngine(FTIMES_PROPERTIES *psProperties, char *pcError)
       {
         if ((pFile = fopen(psProperties->acMagicFileName, "rb")) != NULL && MD5HashStream(pFile, aucMD5) == ER_OK)
         {
-          for (iIndex = 0; iIndex < MD5_HASH_SIZE; iIndex++)
-          {
-            sprintf(&psProperties->acMagicHash[iIndex * 2], "%02x", aucMD5[iIndex]);
-          }
-          psProperties->acMagicHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
+          MD5HashToHex(aucMD5, psProperties->acMagicHash);
           fclose(pFile);
         }
         else

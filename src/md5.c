@@ -1,15 +1,76 @@
 /*-
  ***********************************************************************
  *
- * $Id: md5.c,v 1.12 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: md5.c,v 1.14 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2003-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
 #include "all-includes.h"
+
+static unsigned char  gaucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/*-
+ ***********************************************************************
+ *
+ * MD5HashToBase64
+ *
+ ***********************************************************************
+ */
+int
+MD5HashToBase64(unsigned char *pucHash, char *pcBase64Hash)
+{
+  int                 i = 0;
+  int                 n = 0;
+  unsigned long       ul = 0;
+  unsigned long       ulLeft = 0;
+
+  for (i = 0; i < MD5_HASH_SIZE; i++)
+  {
+    ul = (ul << 8) | pucHash[i];
+    ulLeft += 8;
+    while (ulLeft > 6)
+    {
+      pcBase64Hash[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
+      ulLeft -= 6;
+    }
+  }
+  if (ulLeft != 0)
+  {
+    pcBase64Hash[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
+  }
+  pcBase64Hash[n] = 0;
+
+  return n;
+}
+
+/*-
+ ***********************************************************************
+ *
+ * MD5HashToHex
+ *
+ ***********************************************************************
+ */
+int
+MD5HashToHex(unsigned char *pucHash, char *pcHexHash)
+{
+  int                 n = 0;
+  unsigned int       *pui = (unsigned int *) pucHash;
+
+  n += snprintf(&pcHexHash[n], (MD5_HASH_SIZE * 2 + 1), "%08x%08x%08x%08x",
+    (unsigned int) htonl(*(pui    )),
+    (unsigned int) htonl(*(pui + 1)),
+    (unsigned int) htonl(*(pui + 2)),
+    (unsigned int) htonl(*(pui + 3))
+    );
+  pcHexHash[n] = 0;
+
+  return n;
+}
+
 
 /*-
  ***********************************************************************

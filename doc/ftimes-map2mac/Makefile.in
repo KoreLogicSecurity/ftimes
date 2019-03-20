@@ -1,0 +1,25 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${PREFIX}/man/man1
+
+HTML_FILE=ftimes-map2mac.html
+
+MAN_FILE=ftimes-map2mac.1
+
+MAN_TITLE=FTimes Documentation
+
+POD_FILE=ftimes-map2mac.pod
+
+SRC_FILE=${SRCDIR}/../../tools/map/ftimes-map2mac.pl
+
+include ${PROJECT_ROOT}/Mk/common-doc-perl.mk
+

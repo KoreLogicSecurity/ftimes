@@ -1,0 +1,10 @@
+=head1 SYNOPSIS
+
+B<tarmap> B<{-m|--map}> B<{-f|--file}> B<file|->
+
+B<tarmap> B<{-v|--version}>
+
+Note: Command line arguments are position dependent, and argument
+snuggling (e.g., '-mf') is not supported.  All arguments and their
+values (if any) must be separated by whitespace.
+

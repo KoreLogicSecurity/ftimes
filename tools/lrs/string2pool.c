@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: string2pool.c,v 1.4 2006/04/07 22:15:12 mavrik Exp $
+ * $Id: string2pool.c,v 1.5 2007/02/23 00:22:36 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2002-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2002-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -99,7 +99,7 @@ ConstructIncludeFile(FILE *pFile, char *pcPoolType, unsigned long ulFinal, int *
   fprintf(pFile, " *\n");
   fprintf(pFile, " ***********************************************************************\n");
   fprintf(pFile, " *\n");
-  fprintf(pFile, " * Copyright 2003-2006 Klayton Monroe, All Rights Reserved.\n");
+  fprintf(pFile, " * Copyright 2003-2007 Klayton Monroe, All Rights Reserved.\n");
   fprintf(pFile, " *\n");
   fprintf(pFile, " ***********************************************************************\n");
   fprintf(pFile, " */\n");

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: mapmode.c,v 1.33 2006/05/04 00:50:59 mavrik Exp $
+ * $Id: mapmode.c,v 1.37 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -552,20 +552,20 @@ int
 MapModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
 {
   char                acLocalError[MESSAGE_SIZE] = { 0 };
-  FILE_LIST           *pList;
+  FILE_LIST           *psList = NULL;
 
   /*-
    *********************************************************************
    *
-   * Process everything in the Include list.
+   * Process the Include list.
    *
    *********************************************************************
    */
-  for (pList = psProperties->psIncludeList; pList != NULL; pList = pList->psNext)
+  for (psList = psProperties->psIncludeList; psList != NULL; psList = psList->psNext)
   {
-    if (SupportMatchExclude(psProperties->psExcludeList, pList->acPath) == NULL)
+    if (SupportMatchExclude(psProperties->psExcludeList, psList->acPath) == NULL)
     {
-      MapFile(psProperties, pList->acPath, acLocalError);
+      MapFile(psProperties, psList->acPath, acLocalError);
     }
   }
 
@@ -587,7 +587,7 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
   int                 i;
   int                 iFirst;
   int                 iIndex;
-  unsigned char       ucFileHash[MD5_HASH_SIZE];
+  unsigned char       aucFileHash[MD5_HASH_SIZE];
 
   /*-
    *********************************************************************
@@ -603,13 +603,9 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->pFileOut = NULL;
   }
 
-  memset(ucFileHash, 0, MD5_HASH_SIZE);
-  MD5Omega(&psProperties->sOutFileHashContext, ucFileHash);
-  for (i = 0; i < MD5_HASH_SIZE; i++)
-  {
-    sprintf(&psProperties->acOutFileHash[i * 2], "%02x", ucFileHash[i]);
-  }
-  psProperties->acOutFileHash[FTIMEX_MAX_MD5_LENGTH - 1] = 0;
+  memset(aucFileHash, 0, MD5_HASH_SIZE);
+  MD5Omega(&psProperties->sOutFileHashContext, aucFileHash);
+  MD5HashToHex(aucFileHash, psProperties->acOutFileHash);
 
   /*-
    *********************************************************************

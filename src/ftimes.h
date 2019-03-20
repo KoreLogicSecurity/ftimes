@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.60 2006/07/18 19:49:54 mavrik Exp $
+ * $Id: ftimes.h,v 1.68 2007/04/14 20:22:34 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -18,7 +18,7 @@
  ***********************************************************************
  */
 #define PROGRAM_NAME "ftimes"
-#define VERSION "3.7.0"
+#define VERSION "3.8.0"
 
 #define LF            "\n"
 #define CRLF        "\r\n"
@@ -97,8 +97,9 @@ typedef enum _BOOL
 #define FTIMES_MAX_FILE_SIZE_LIMIT        ~0
 
 #define FTIMES_MAX_HOSTNAME_LENGTH       256
-#define FTIMEX_MAX_MD5_LENGTH (((MD5_HASH_SIZE)*2)+1)
-#define FTIMEX_MAX_SHA1_LENGTH (((SHA1_HASH_SIZE)*2)+1)
+#define FTIMES_MAX_MD5_LENGTH (((MD5_HASH_SIZE)*2)+1)
+#define FTIMES_MAX_SHA1_LENGTH (((SHA1_HASH_SIZE)*2)+1)
+#define FTIMES_MAX_SHA256_LENGTH (((SHA256_HASH_SIZE)*2)+1)
 #define FTIMES_MAX_USERNAME_LENGTH        32
 #define FTIMES_MAX_PASSWORD_LENGTH        32
 
@@ -139,6 +140,7 @@ typedef struct _FTIMES_HASH_DATA
 {
   MD5_CONTEXT         sMd5Context;
   SHA1_CONTEXT        sSha1Context;
+  SHA256_CONTEXT      sSha256Context;
 } FTIMES_HASH_DATA;
 
 #ifdef WIN32
@@ -162,6 +164,7 @@ typedef struct _FTIMES_FILE_DATA
   char                acType[FTIMES_FILETYPE_BUFSIZE];
   unsigned char       aucFileMd5[MD5_HASH_SIZE];
   unsigned char       aucFileSha1[SHA1_HASH_SIZE];
+  unsigned char       aucFileSha256[SHA256_HASH_SIZE];
   unsigned char      *pucStreamInfo;
 } FTIMES_FILE_DATA;
 #endif
@@ -176,6 +179,7 @@ typedef struct _FTIMES_FILE_DATA
   char                acType[FTIMES_FILETYPE_BUFSIZE];
   unsigned char       aucFileMd5[MD5_HASH_SIZE];
   unsigned char       aucFileSha1[SHA1_HASH_SIZE];
+  unsigned char       aucFileSha256[SHA256_HASH_SIZE];
 } FTIMES_FILE_DATA;
 #endif
 
@@ -184,6 +188,16 @@ typedef struct _FILE_LIST
   char                acPath[FTIMES_MAX_PATH];
   struct _FILE_LIST  *psNext;
 } FILE_LIST;
+
+#ifdef USE_PCRE
+typedef struct _FILTER_LIST
+{
+  char               *pcFilter;
+  pcre               *psPcre;
+  pcre_extra         *psPcreExtra;
+  struct _FILTER_LIST *psNext;
+} FILTER_LIST;
+#endif
 
 #define FTIMES_CMPDATA "cmp"
 #define FTIMES_DIGDATA "dig"
@@ -223,6 +237,9 @@ typedef struct _FILE_LIST
 #endif
 #define MODES_EnableRecursion   ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_Exclude           ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
+#ifdef USE_PCRE
+#define MODES_ExcludeFilter     ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
+#endif
 #define MODES_ExcludesMustExist ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_FieldMask         ((FTIMES_CMPMODE) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_FileSizeLimit     ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
@@ -232,6 +249,9 @@ typedef struct _FILE_LIST
 #define MODES_HashSymbolicLinks ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_Import            ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN) | (FTIMES_GETMODE))
 #define MODES_Include           ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
+#ifdef USE_PCRE
+#define MODES_IncludeFilter     ((FTIMES_DIGAUTO) | (FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPAUTO) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
+#endif
 #define MODES_IncludesMustExist ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_LogDir            ((FTIMES_DIGFULL) | (FTIMES_DIGLEAN) | (FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
 #define MODES_MagicFile         ((FTIMES_MAPFULL) | (FTIMES_MAPLEAN))
@@ -280,6 +300,9 @@ typedef struct _FILE_LIST
 #endif
 #define KEY_EnableRecursion     "EnableRecursion"
 #define KEY_Exclude             "Exclude"
+#ifdef USE_PCRE
+#define KEY_ExcludeFilter       "ExcludeFilter"
+#endif
 #define KEY_ExcludesMustExist   "ExcludesMustExist"
 #define KEY_FieldMask           "FieldMask"
 #define KEY_FileSizeLimit       "FileSizeLimit"
@@ -289,6 +312,9 @@ typedef struct _FILE_LIST
 #define KEY_HashSymbolicLinks   "HashSymbolicLinks"
 #define KEY_Import              "Import"
 #define KEY_Include             "Include"
+#ifdef USE_PCRE
+#define KEY_IncludeFilter       "IncludeFilter"
+#endif
 #define KEY_IncludesMustExist   "IncludesMustExist"
 #define KEY_LogDir              "LogDir"
 #define KEY_MagicFile           "MagicFile"
@@ -411,11 +437,11 @@ typedef struct _FTIMES_PROPERTIES
   char                acLogDirName[FTIMES_MAX_PATH];
   char                acLogFileName[FTIMES_MAX_PATH];
   char                acMagicFileName[FTIMES_MAX_PATH];
-  char                acMagicHash[FTIMEX_MAX_MD5_LENGTH];
+  char                acMagicHash[FTIMES_MAX_MD5_LENGTH];
   char                acNewLine[NEWLINE_LENGTH];
   char                acOutDirName[FTIMES_MAX_PATH];
   char                acOutFileName[FTIMES_MAX_PATH];
-  char                acOutFileHash[FTIMEX_MAX_MD5_LENGTH];
+  char                acOutFileHash[FTIMES_MAX_MD5_LENGTH];
   char                acPid[FTIMES_PID_SIZE];
   char                acRunDateTime[FTIMES_TIME_SIZE];
 #define RUNTYPE_BUFSIZE 16
@@ -435,6 +461,10 @@ typedef struct _FTIMES_PROPERTIES
   FILE               *pFileOut;
   FILE_LIST          *psExcludeList;
   FILE_LIST          *psIncludeList;
+#ifdef USE_PCRE
+  FILTER_LIST        *psExcludeFilterList;
+  FILTER_LIST        *psIncludeFilterList;
+#endif
 #define MAX_RUNMODE_STAGES 32
   RUNMODE_STAGES      sRunModeStages[MAX_RUNMODE_STAGES];
   HTTP_URL           *psGetURL;
@@ -482,6 +512,7 @@ typedef struct _FTIMES_PROPERTIES
 int                 AnalyzeDoDig(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
 int                 AnalyzeDoMd5Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
 int                 AnalyzeDoSha1Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
+int                 AnalyzeDoSha256Digest(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
 int                 AnalyzeDoXMagic(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTData, char *pcError);
 void                AnalyzeEnableDigEngine(FTIMES_PROPERTIES *psProperties);
 void                AnalyzeEnableDigestEngine(FTIMES_PROPERTIES *psProperties);
@@ -509,6 +540,7 @@ void                AnalyzeSetStepSize(int iStepSize);
  *
  ***********************************************************************
  */
+int                 CompareDecodeLine(char *pcLine, SNAPSHOT_CONTEXT *psBaseline, char **ppcDecodeFields, char *pcError);
 int                 CompareLoadBaselineData(SNAPSHOT_CONTEXT *psBaseline, char *pcError);
 int                 CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapshot, char *pcError);
 
@@ -519,6 +551,7 @@ int                 CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSH
  *
  ***********************************************************************
  */
+int                 DevelopHaveNothingOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError);
 int                 DevelopNoOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError);
 int                 DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError);
 int                 DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError);
@@ -678,6 +711,13 @@ int                 SupportSetLogLevel(char *pcLevel, int *piLevel, char *pcErro
 int                 SupportSetPrivileges(char *pcError);
 #endif
 int                 SupportWriteData(FILE *pFile, char *pcData, int iLength, char *pcError);
+
+#ifdef USE_PCRE
+int                 SupportAddFilter(char *pcFilter, FILTER_LIST **psHead, char *pcError);
+void                SupportFreeFilter(FILTER_LIST *psFilter);
+FILTER_LIST        *SupportMatchFilter(FILTER_LIST *psFilterList, char *acPath);
+FILTER_LIST        *SupportNewFilter(char *pcFilter, char *pcError);
+#endif
 
 /*-
  ***********************************************************************

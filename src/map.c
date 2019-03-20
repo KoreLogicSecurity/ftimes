@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: map.c,v 1.47 2006/04/08 04:50:22 mavrik Exp $
+ * $Id: map.c,v 1.57 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -130,6 +130,9 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
   FTIMES_FILE_DATA    sFTFileData;
   FTIMES_HASH_DATA    sDirFTHashData;
   int                 iError;
+#ifdef USE_PCRE
+  int                 iFiltered = 0;
+#endif
   int                 iNewFSType;
   int                 iNameLength;
   int                 iPathLength;
@@ -174,6 +177,10 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
     {
       SHA1Alpha(&sDirFTHashData.sSha1Context);
+    }
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+    {
+      SHA256Alpha(&sDirFTHashData.sSha256Context);
     }
   }
 
@@ -342,6 +349,52 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
       continue;
     }
 
+#ifdef USE_PCRE
+    /*-
+     *******************************************************************
+     *
+     * If the new path is matched by an exclude filter, continue with
+     * the next entry. If the new path is matched by an include
+     * filter, set a flag, but keep going. Include filters do not get
+     * applied until the file's type is known. This is because
+     * directories must be traversed before they can be filtered.
+     *
+     *******************************************************************
+     */
+    if (psProperties->psExcludeFilterList)
+    {
+      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, acNewRawPath);
+      if (psFilter != NULL)
+      {
+        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, acNewRawPath);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+        }
+        errno = 0;
+        continue;
+      }
+    }
+
+    iFiltered = 0;
+    if (psProperties->psIncludeFilterList)
+    {
+      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, acNewRawPath);
+      if (psFilter == NULL)
+      {
+        iFiltered = 1;
+      }
+      else
+      {
+        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, acNewRawPath);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+        }
+      }
+    }
+#endif
+
     /*-
      *******************************************************************
      *
@@ -370,6 +423,36 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
     iError = MapGetAttributes(&sFTFileData, acLocalError);
     if (iError == Have_Nothing)
     {
+#ifdef USE_PCRE
+      /*-
+       *****************************************************************
+       *
+       * If this path has been filtered, we're done.
+       *
+       *****************************************************************
+       */
+      if (iFiltered)
+      {
+        MEMORY_FREE(pcNeuteredPath);
+        errno = 0;
+        continue;
+      }
+#endif
+
+      /*-
+       *****************************************************************
+       *
+       * If this is "." or "..", we're done.
+       *
+       *****************************************************************
+       */
+      if (strcmp(psDirEntry->d_name, FTIMES_DOT) == 0 || strcmp(psDirEntry->d_name, FTIMES_DOTDOT) == 0)
+      {
+        MEMORY_FREE(pcNeuteredPath);
+        errno = 0;
+        continue;
+      }
+
       /*-
        *****************************************************************
        *
@@ -387,6 +470,10 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
         {
           SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
+        }
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+        {
+          SHA256Cycle(&sDirFTHashData.sSha256Context, sFTFileData.aucFileSha256, SHA256_HASH_SIZE);
         }
       }
 
@@ -407,12 +494,11 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
       /*-
        *****************************************************************
        *
-       * Free the neutered path.
+       * Free the neutered path, set errno, and continue.
        *
        *****************************************************************
        */
       MEMORY_FREE(pcNeuteredPath);
-
       errno = 0;
       continue;
     }
@@ -527,7 +613,7 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
               errno = 0;
               continue;
             }
-            if (iNewFSType == FSTYPE_NFS && !psProperties->bAnalyzeRemoteFiles)
+            if ((iNewFSType == FSTYPE_NFS || iNewFSType == FSTYPE_SMB) && !psProperties->bAnalyzeRemoteFiles)
             {
               snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, pcNeuteredPath);
               ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
@@ -548,9 +634,25 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
         {
           MapTree(psProperties, acNewRawPath, iFSType, &sFTFileData, acLocalError);
         }
+#ifdef USE_PCRE
+        if (iFiltered) /* We're done. */
+        {
+          MEMORY_FREE(pcNeuteredPath);
+          errno = 0;
+          continue;
+        }
+#endif
       }
       else if (S_ISREG(sFTFileData.sStatEntry.st_mode))
       {
+#ifdef USE_PCRE
+        if (iFiltered) /* We're done. */
+        {
+          MEMORY_FREE(pcNeuteredPath);
+          errno = 0;
+          continue;
+        }
+#endif
         giFiles++;
         if (psProperties->iLastAnalysisStage > 0)
         {
@@ -564,6 +666,14 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
       }
       else if (S_ISLNK(sFTFileData.sStatEntry.st_mode))
       {
+#ifdef USE_PCRE
+        if (iFiltered) /* We're done. */
+        {
+          MEMORY_FREE(pcNeuteredPath);
+          errno = 0;
+          continue;
+        }
+#endif
         giSpecial++;
         if (psProperties->bHashSymbolicLinks)
         {
@@ -584,6 +694,10 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
             {
               SHA1HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileSha1);
             }
+            if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+            {
+              SHA256HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileSha256);
+            }
           }
         }
 #ifdef USE_XMAGIC
@@ -600,6 +714,14 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
       }
       else
       {
+#ifdef USE_PCRE
+        if (iFiltered) /* We're done. */
+        {
+          MEMORY_FREE(pcNeuteredPath);
+          errno = 0;
+          continue;
+        }
+#endif
         giSpecial++;
 #ifdef USE_XMAGIC
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
@@ -631,6 +753,10 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
         {
           SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
+        }
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+        {
+          SHA256Cycle(&sDirFTHashData.sSha256Context, sFTFileData.aucFileSha256, SHA256_HASH_SIZE);
         }
       }
 
@@ -696,6 +822,10 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
     {
       SHA1Omega(&sDirFTHashData.sSha1Context, psParentFTData->aucFileSha1);
+    }
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+    {
+      SHA256Omega(&sDirFTHashData.sSha256Context, psParentFTData->aucFileSha256);
     }
   }
 
@@ -766,6 +896,9 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
   HANDLE              hFileParent;
   HANDLE              hSearch;
   int                 iError;
+#ifdef USE_PCRE
+  int                 iFiltered = 0;
+#endif
   int                 iNameLength;
   int                 iParentPathLength;
   int                 iPathLength;
@@ -807,6 +940,10 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
     {
       SHA1Alpha(&sDirFTHashData.sSha1Context);
+    }
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+    {
+      SHA256Alpha(&sDirFTHashData.sSha256Context);
     }
   }
 
@@ -963,6 +1100,52 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
       continue;
     }
 
+#ifdef USE_PCRE
+    /*-
+     *******************************************************************
+     *
+     * If the new path is matched by an exclude filter, continue with
+     * the next entry. If the new path is matched by an include
+     * filter, set a flag, but keep going. Include filters do not get
+     * applied until the file's type is known. This is because
+     * directories must be traversed before they can be filtered.
+     *
+     *******************************************************************
+     */
+    if (psProperties->psExcludeFilterList)
+    {
+      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, acNewRawPath);
+      if (psFilter != NULL)
+      {
+        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, acNewRawPath);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+        }
+        bResult = FindNextFile(hSearch, &sFindData);
+        continue;
+      }
+    }
+
+    iFiltered = 0;
+    if (psProperties->psIncludeFilterList)
+    {
+      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, acNewRawPath);
+      if (psFilter == NULL)
+      {
+        iFiltered = 1;
+      }
+      else
+      {
+        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, acNewRawPath);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+        }
+      }
+    }
+#endif
+
     /*-
      *******************************************************************
      *
@@ -991,6 +1174,36 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
     iError = MapGetAttributes(&sFTFileData, acLocalError);
     if (iError == Have_Nothing)
     {
+#ifdef USE_PCRE
+      /*-
+       *****************************************************************
+       *
+       * If this path has been filtered, we're done.
+       *
+       *****************************************************************
+       */
+      if (iFiltered)
+      {
+        MEMORY_FREE(pcNeuteredPath);
+        bResult = FindNextFile(hSearch, &sFindData);
+        continue;
+      }
+#endif
+
+      /*-
+       *****************************************************************
+       *
+       * If this is "." or "..", we're done.
+       *
+       *****************************************************************
+       */
+      if (strcmp(sFindData.cFileName, FTIMES_DOT) == 0 || strcmp(sFindData.cFileName, FTIMES_DOTDOT) == 0)
+      {
+        MEMORY_FREE(pcNeuteredPath);
+        bResult = FindNextFile(hSearch, &sFindData);
+        continue;
+      }
+
       /*-
        *****************************************************************
        *
@@ -1008,6 +1221,10 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
         {
           SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
+        }
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+        {
+          SHA256Cycle(&sDirFTHashData.sSha256Context, sFTFileData.aucFileSha256, SHA256_HASH_SIZE);
         }
       }
 
@@ -1028,12 +1245,11 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
       /*-
        *****************************************************************
        *
-       * Free the neutered path.
+       * Free the neutered path, find the next file, and continue.
        *
        *****************************************************************
        */
       MEMORY_FREE(pcNeuteredPath);
-
       bResult = FindNextFile(hSearch, &sFindData);
       continue;
     }
@@ -1149,9 +1365,31 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
         {
           MapTree(psProperties, acNewRawPath, iFSType, &sFTFileData, acLocalError);
         }
+#ifdef USE_PCRE
+        if (iFiltered) /* We're done. */
+        {
+#ifdef WINNT
+          MEMORY_FREE(sFTFileData.pucStreamInfo);
+#endif
+          MEMORY_FREE(pcNeuteredPath);
+          bResult = FindNextFile(hSearch, &sFindData);
+          continue;
+        }
+#endif
       }
       else
       {
+#ifdef USE_PCRE
+        if (iFiltered) /* We're done. */
+        {
+#ifdef WINNT
+          MEMORY_FREE(sFTFileData.pucStreamInfo);
+#endif
+          MEMORY_FREE(pcNeuteredPath);
+          bResult = FindNextFile(hSearch, &sFindData);
+          continue;
+        }
+#endif
         giFiles++;
         if (sFTFileData.iFileFlags >= Have_MapGetFileHandle)
         {
@@ -1184,6 +1422,10 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
         {
           SHA1Cycle(&sDirFTHashData.sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
+        }
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+        {
+          SHA256Cycle(&sDirFTHashData.sSha256Context, sFTFileData.aucFileSha256, SHA256_HASH_SIZE);
         }
       }
 
@@ -1256,6 +1498,10 @@ MapTree(FTIMES_PROPERTIES *psProperties, char *pcPath, int iFSType, FTIMES_FILE_
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
     {
       SHA1Omega(&sDirFTHashData.sSha1Context, psParentFTData->aucFileSha1);
+    }
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+    {
+      SHA256Omega(&sDirFTHashData.sSha256Context, psParentFTData->aucFileSha256);
     }
   }
 
@@ -1464,6 +1710,10 @@ MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, FTIMES_HA
       {
         SHA1Cycle(&psFTHashData->sSha1Context, sFTFileData.aucFileSha1, SHA1_HASH_SIZE);
       }
+      if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+      {
+        SHA256Cycle(&psFTHashData->sSha256Context, sFTFileData.aucFileSha256, SHA256_HASH_SIZE);
+      }
     }
 
     /*-
@@ -1629,6 +1879,10 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   int                 iError;
   int                 iFSType;
   int                 iPathLength;
+#ifdef USE_PCRE
+  char                acMessage[MESSAGE_SIZE] = "";
+  int                 iFiltered = 0;
+#endif
 
   /*-
    *********************************************************************
@@ -1641,6 +1895,51 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    */
   memset(&sFTFileData, 0, sizeof(FTIMES_FILE_DATA));
   sFTFileData.pcRawPath = pcPath;
+
+#ifdef USE_PCRE
+  /*-
+   *********************************************************************
+   *
+   * If the path is matched by an exclude filter, just return. If the
+   * path is matched by an include filter, set a flag, but keep going.
+   * Include filters do not get applied until the file's type is
+   * known. This is because directories must be traversed before they
+   * can be filtered.
+   *
+   *********************************************************************
+   */
+  if (psProperties->psExcludeFilterList)
+  {
+    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, pcPath);
+    if (psFilter != NULL)
+    {
+      if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+      {
+        snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, pcPath);
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+      }
+      return ER_OK;
+    }
+  }
+
+  iFiltered = 0;
+  if (psProperties->psIncludeFilterList)
+  {
+    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, pcPath);
+    if (psFilter == NULL)
+    {
+      iFiltered = 1;
+    }
+    else
+    {
+      if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+      {
+        snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, pcPath);
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+      }
+    }
+  }
+#endif
 
   /*-
    *********************************************************************
@@ -1682,7 +1981,7 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     MEMORY_FREE(pcNeuteredPath);
     return ER;
   }
-  if (iFSType == FSTYPE_NFS && !psProperties->bAnalyzeRemoteFiles)
+  if ((iFSType == FSTYPE_NFS || iFSType == FSTYPE_SMB) && !psProperties->bAnalyzeRemoteFiles)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Excluding remote file system.", acRoutine, pcNeuteredPath);
     ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
@@ -1701,6 +2000,21 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   iError = MapGetAttributes(&sFTFileData, acLocalError);
   if (iError == Have_Nothing)
   {
+#ifdef USE_PCRE
+    /*-
+     *******************************************************************
+     *
+     * If this path has been filtered, we're done.
+     *
+     *******************************************************************
+     */
+    if (iFiltered)
+    {
+      MEMORY_FREE(pcNeuteredPath);
+      return ER_OK;
+    }
+#endif
+
     /*-
      *******************************************************************
      *
@@ -1718,12 +2032,11 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     /*-
      *******************************************************************
      *
-     * Free the neutered path.
+     * Free the neutered path and return.
      *
      *******************************************************************
      */
     MEMORY_FREE(pcNeuteredPath);
-
     return ER;
   }
 
@@ -1750,9 +2063,23 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     {
       MapTree(psProperties, pcPath, iFSType, &sFTFileData, acLocalError);
     }
+#ifdef USE_PCRE
+    if (iFiltered) /* We're done. */
+    {
+      MEMORY_FREE(pcNeuteredPath);
+      return ER_OK;
+    }
+#endif
   }
   else if (S_ISREG(sFTFileData.sStatEntry.st_mode) || ((S_ISBLK(sFTFileData.sStatEntry.st_mode) || S_ISCHR(sFTFileData.sStatEntry.st_mode)) && psProperties->bAnalyzeDeviceFiles))
   {
+#ifdef USE_PCRE
+    if (iFiltered) /* We're done. */
+    {
+      MEMORY_FREE(pcNeuteredPath);
+      return ER_OK;
+    }
+#endif
     giFiles++;
     if (psProperties->iLastAnalysisStage > 0)
     {
@@ -1766,6 +2093,13 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   }
   else if (S_ISLNK(sFTFileData.sStatEntry.st_mode))
   {
+#ifdef USE_PCRE
+    if (iFiltered) /* We're done. */
+    {
+      MEMORY_FREE(pcNeuteredPath);
+      return ER_OK;
+    }
+#endif
     giSpecial++;
     if (psProperties->bHashSymbolicLinks)
     {
@@ -1786,6 +2120,10 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
         {
           SHA1HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileSha1);
         }
+        if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+        {
+          SHA256HashString((unsigned char *) acLinkData, strlen(acLinkData), sFTFileData.aucFileSha256);
+        }
       }
     }
 #ifdef USE_XMAGIC
@@ -1802,6 +2140,13 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   }
   else
   {
+#ifdef USE_PCRE
+    if (iFiltered) /* We're done. */
+    {
+      MEMORY_FREE(pcNeuteredPath);
+      return ER_OK;
+    }
+#endif
     giSpecial++;
 #ifdef USE_XMAGIC
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
@@ -1862,6 +2207,10 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   int                 iError;
   int                 iFSType;
   int                 iPathLength;
+#ifdef USE_PCRE
+  char                acMessage[MESSAGE_SIZE] = "";
+  int                 iFiltered = 0;
+#endif
 
   /*-
    *********************************************************************
@@ -1876,6 +2225,51 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   sFTFileData.dwFileIndexHigh = -1;
   sFTFileData.dwFileIndexLow = -1;
   sFTFileData.iStreamCount = FTIMES_INVALID_STREAM_COUNT; /* The Develop{Compressed,Normal}Output routines check for this value. */
+
+#ifdef USE_PCRE
+  /*-
+   *********************************************************************
+   *
+   * If the path is matched by an exclude filter, just return. If the
+   * path is matched by an include filter, set a flag, but keep going.
+   * Include filters do not get applied until the file's type is
+   * known. This is because directories must be traversed before they
+   * can be filtered.
+   *
+   *********************************************************************
+   */
+  if (psProperties->psExcludeFilterList)
+  {
+    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, pcPath);
+    if (psFilter != NULL)
+    {
+      if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+      {
+        snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, pcPath);
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+      }
+      return ER_OK;
+    }
+  }
+
+  iFiltered = 0;
+  if (psProperties->psIncludeFilterList)
+  {
+    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, pcPath);
+    if (psFilter == NULL)
+    {
+      iFiltered = 1;
+    }
+    else
+    {
+      if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+      {
+        snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, pcPath);
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+      }
+    }
+  }
+#endif
 
   /*-
    *********************************************************************
@@ -1936,6 +2330,21 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   iError = MapGetAttributes(&sFTFileData, acLocalError);
   if (iError == Have_Nothing)
   {
+#ifdef USE_PCRE
+    /*-
+     *******************************************************************
+     *
+     * If this path has been filtered, we're done.
+     *
+     *******************************************************************
+     */
+    if (iFiltered)
+    {
+      MEMORY_FREE(pcNeuteredPath);
+      return ER_OK;
+    }
+#endif
+
     /*-
      *******************************************************************
      *
@@ -1953,12 +2362,11 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     /*-
      *******************************************************************
      *
-     * Free the neutered path.
+     * Free the neutered path and return.
      *
      *******************************************************************
      */
     MEMORY_FREE(pcNeuteredPath);
-
     return ER;
   }
 
@@ -1982,9 +2390,23 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     {
       MapTree(psProperties, pcPath, iFSType, &sFTFileData, acLocalError);
     }
+#ifdef USE_PCRE
+    if (iFiltered) /* We're done. */
+    {
+      MEMORY_FREE(pcNeuteredPath);
+      return ER_OK;
+    }
+#endif
   }
   else
   {
+#ifdef USE_PCRE
+    if (iFiltered) /* We're done. */
+    {
+      MEMORY_FREE(pcNeuteredPath);
+      return ER_OK;
+    }
+#endif
     giFiles++;
     if (sFTFileData.iFileFlags >= Have_MapGetFileHandle)
     {
@@ -2084,11 +2506,12 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
    * mtime         FTIMES_TIME_FORMAT_SIZE
    * ctime         FTIMES_TIME_FORMAT_SIZE
    * size          FTIMES_MAX_64BIT_SIZE
-   * sha1          FTIMEX_MAX_SHA1_LENGTH
+   * md5           FTIMES_MAX_MD5_LENGTH
+   * sha1          FTIMES_MAX_SHA1_LENGTH
+   * sha256        FTIMES_MAX_SHA256_LENGTH
 #ifdef USE_XMAGIC
    * magic         XMAGIC_DESCRIPTION_BUFSIZE
 #endif
-   * md5           FTIMEX_MAX_MD5_LENGTH
    * |'s           13
    * newline       2
    *
@@ -2098,8 +2521,9 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
                 (7 * FTIMES_MAX_32BIT_SIZE) +
                 (3 * FTIMES_TIME_FORMAT_SIZE) +
                 (1 * FTIMES_MAX_64BIT_SIZE) +
-                (1 * FTIMEX_MAX_SHA1_LENGTH) +
-                (1 * FTIMEX_MAX_MD5_LENGTH) +
+                (1 * FTIMES_MAX_MD5_LENGTH) +
+                (1 * FTIMES_MAX_SHA1_LENGTH) +
+                (1 * FTIMES_MAX_SHA256_LENGTH) +
 #ifdef USE_XMAGIC
                 (1 * XMAGIC_DESCRIPTION_BUFSIZE) +
 #endif
@@ -2121,11 +2545,12 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
    * chtime|chms   FTIMES_TIME_FORMAT_SIZE
    * size          FTIMES_MAX_64BIT_SIZE
    * altstreams    FTIMES_MAX_32BIT_SIZE
-   * sha1          FTIMEX_MAX_SHA1_LENGTH
+   * md5           FTIMES_MAX_MD5_LENGTH
+   * sha1          FTIMES_MAX_SHA1_LENGTH
+   * sha256        FTIMES_MAX_SHA256_LENGTH
 #ifdef USE_XMAGIC
    * magic         XMAGIC_DESCRIPTION_BUFSIZE
 #endif
-   * md5           FTIMEX_MAX_MD5_LENGTH
    * |'s           11 (not counting those embedded in time)
    * newline       2
    *
@@ -2135,8 +2560,9 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTData, char
                 (3 * FTIMES_MAX_32BIT_SIZE) +
                 (4 * FTIMES_TIME_FORMAT_SIZE) +
                 (2 * FTIMES_MAX_64BIT_SIZE) +
-                (1 * FTIMEX_MAX_SHA1_LENGTH) +
-                (1 * FTIMEX_MAX_MD5_LENGTH) +
+                (1 * FTIMES_MAX_MD5_LENGTH) +
+                (1 * FTIMES_MAX_SHA1_LENGTH) +
+                (1 * FTIMES_MAX_SHA256_LENGTH) +
 #ifdef USE_XMAGIC
                 (1 * XMAGIC_DESCRIPTION_BUFSIZE) +
 #endif

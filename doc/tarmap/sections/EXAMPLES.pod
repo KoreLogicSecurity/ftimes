@@ -1,0 +1,39 @@
+=head1 EXAMPLES
+
+=head2 Example 1. Map the contents of a normal tar ball
+
+This example demonstrates how to map the contents of a normal tar ball
+called test.tar.
+
+    tarmap -m -f test.tar
+
+=head2 Example 2. Map the contents of a compress'd tar ball
+
+This example demonstrates how to map the contents of a compress'd tar
+ball called test.tar.Z.
+
+    uncompress -c test.tar.Z | tarmap -m -f -
+
+=head2 Example 3. Map the contents of a gzip'd tar ball
+
+This example demonstrates how to map the contents of a gzip'd tar ball
+called test.tar.gz.
+
+    gunzip -c test.tar.gz | tarmap -m -f -
+
+=head2 Example 4. Map the contents of a bzip2'd tar ball
+
+This example demonstrates how to map the contents of a bzip2'd tar
+ball called test.tar.bz2.
+
+    bunzip -c test.tar.bz2 | tarmap -m -f -
+
+=head2 Example 5. Compare the contents of two tar balls
+
+This example demonstrates how to use tarmap and ftimes to compare the
+contents of two tar balls called test.old.tgz and test.new.tgz.
+
+    gunzip -c test.old.tgz | tarmap -m -f - > test.old.map
+    gunzip -c test.new.tgz | tarmap -m -f - > test.new.map
+    ftimes --compare all test.old.map test.new.map
+

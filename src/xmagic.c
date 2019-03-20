@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: xmagic.c,v 1.50 2006/07/17 05:40:52 mavrik Exp $
+ * $Id: xmagic.c,v 1.55 2007/02/23 00:22:36 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -277,7 +277,7 @@ XMagicComputeRowEntropy1(unsigned char *pucBuffer, int iLength)
   /*-
    *********************************************************************
    *
-   * Compute the entropy.
+   * Compute the entropy. H(Px) = - Sigma Px * log2(Px) = - Sigma Px * log10(Px) / log10(2) = - Sigma Px * log10(Px) * log2(10)
    *
    *********************************************************************
    */
@@ -286,7 +286,7 @@ XMagicComputeRowEntropy1(unsigned char *pucBuffer, int iLength)
     if (aiCodeCounts[i] > 0)
     {
       dProbability = (double) aiCodeCounts[i] / iLength;
-      dEntropy -= dProbability * 3.32192809488736234787 * log10(dProbability);
+      dEntropy -= dProbability * log10(dProbability) * XMAGIC_LOG2_OF_10;
     }
   }
 
@@ -337,7 +337,7 @@ XMagicComputeRowEntropy2(unsigned char *pucBuffer, int iLength)
   /*-
    *********************************************************************
    *
-   * Compute the entropy.
+   * Compute the entropy. H(Px) = - Sigma Px * log2(Px) = - Sigma Px * log10(Px) / log10(2) = - Sigma Px * log10(Px) * log2(10)
    *
    *********************************************************************
    */
@@ -346,7 +346,7 @@ XMagicComputeRowEntropy2(unsigned char *pucBuffer, int iLength)
     if (aiCodeCounts[i] > 0)
     {
       dProbability = (double) aiCodeCounts[i] / iLength;
-      dEntropy -= dProbability * 3.32192809488736234787 * log10(dProbability);
+      dEntropy -= dProbability * log10(dProbability) * XMAGIC_LOG2_OF_10;
     }
   }
 
@@ -543,7 +543,8 @@ XMagicFormatDescription(void *pvValue, XMAGIC *psXMagic, char *pcDescription)
   else if
   (
     psXMagic->ui32Type == XMAGIC_MD5 ||
-    psXMagic->ui32Type == XMAGIC_SHA1
+    psXMagic->ui32Type == XMAGIC_SHA1 ||
+    psXMagic->ui32Type == XMAGIC_SHA256
   )
   {
     n += snprintf(&pcDescription[n], iBytesLeft, psXMagic->acDescription, psXMagic->pcHash);
@@ -946,7 +947,8 @@ XMagicGetTestOperator(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
   else if
   (
     psXMagic->ui32Type == XMAGIC_MD5 ||
-    psXMagic->ui32Type == XMAGIC_SHA1
+    psXMagic->ui32Type == XMAGIC_SHA1 ||
+    psXMagic->ui32Type == XMAGIC_SHA256
   )
   {
     if (strcasecmp(pcS, "==") == 0 || strcasecmp(pcS, "=") == 0) /* NOTE: The '=' operator is being phased out. */
@@ -1239,7 +1241,8 @@ XMagicGetTestValue(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
   else if
   (
     psXMagic->ui32Type == XMAGIC_MD5 ||
-    psXMagic->ui32Type == XMAGIC_SHA1
+    psXMagic->ui32Type == XMAGIC_SHA1 ||
+    psXMagic->ui32Type == XMAGIC_SHA256
   )
   {
     psXMagic->iStringLength = strlen(pcS);
@@ -1566,6 +1569,10 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
   {
     psXMagic->ui32Type = XMAGIC_SHA1;
   }
+  else if (strcasecmp(pcS, "sha256") == 0)
+  {
+    psXMagic->ui32Type = XMAGIC_SHA256;
+  }
   else if (strcasecmp(pcS, "date") == 0)
   {
     psXMagic->ui32Type = XMAGIC_DATE;
@@ -1628,7 +1635,8 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
       psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_2 ||
       psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_1 ||
       psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_2 ||
-      psXMagic->ui32Type == XMAGIC_SHA1
+      psXMagic->ui32Type == XMAGIC_SHA1 ||
+      psXMagic->ui32Type == XMAGIC_SHA256
     )
   )
   {
@@ -1659,7 +1667,8 @@ XMagicGetType(char *pcS, char *pcE, XMAGIC *psXMagic, char *pcError)
       psXMagic->ui32Type == XMAGIC_ROW_AVERAGE_2 ||
       psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_1 ||
       psXMagic->ui32Type == XMAGIC_ROW_ENTROPY_2 ||
-      psXMagic->ui32Type == XMAGIC_SHA1
+      psXMagic->ui32Type == XMAGIC_SHA1 ||
+      psXMagic->ui32Type == XMAGIC_SHA256
     )
   )
   {
@@ -1850,6 +1859,13 @@ XMagicLoadMagic(char *pcFilename, char *pcError)
 
       if (psHead == NULL && psLast == NULL)
       {
+        if (psXMagic->ui32Level != 0)
+        {
+          snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s], Line = [%d]: The first test must be a level zero test and use an absolute offset.", acRoutine, pcFilename, iLineNumber);
+          XMagicFreeXMagic(psHead);
+          XMagicFreeXMagic(psXMagic);
+          return NULL;
+        }
         psXMagic->psParent = NULL;
         psHead = psXMagic;
       }
@@ -2597,7 +2613,7 @@ XMagicTestMagic(XMAGIC *psXMagic, unsigned char *pucBuffer, int iNRead, char *pc
     case XMAGIC_TEST_MATCH:
       iMatches++;
       iLength = snprintf(&pcDescription[*iBytesUsed], *iBytesLeft, "%s", acDescriptionLocal);
-      *iBytesUsed += iLength; 
+      *iBytesUsed += iLength;
       *iBytesLeft -= iLength;
       if (psMyXMagic->psChild != NULL)
       {
@@ -2704,6 +2720,7 @@ XMagicTestHash(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, K_INT32 
 {
   unsigned char       aucMd5[MD5_HASH_SIZE];
   unsigned char       aucSha1[SHA1_HASH_SIZE];
+  unsigned char       aucSha256[SHA256_HASH_SIZE];
   unsigned char      *puc;
   int                 i;
   int                 iHashLength;
@@ -2722,6 +2739,11 @@ XMagicTestHash(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, K_INT32 
     SHA1HashString(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength, aucSha1);
     iHashLength = SHA1_HASH_SIZE;
     puc = aucSha1;
+    break;
+  case XMAGIC_SHA256:
+    SHA256HashString(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength, aucSha256);
+    iHashLength = SHA256_HASH_SIZE;
+    puc = aucSha256;
     break;
   default:
     return 0;
@@ -2979,12 +3001,6 @@ XMagicTestSpecial(char *pcFilename, struct stat *psStatEntry, char *pcDescriptio
   char               *pcLinkBuffer;
   int                 n;
 
-  if ((pcLinkBuffer = (char *) malloc(iDescriptionLength)) == NULL)
-  {
-    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
-    return ER_BadHandle;
-  }
-
   switch (psStatEntry->st_mode & S_IFMT)
   {
   case S_IFIFO:
@@ -3002,6 +3018,11 @@ XMagicTestSpecial(char *pcFilename, struct stat *psStatEntry, char *pcDescriptio
   case S_IFREG:
     break;
   case S_IFLNK:
+    if ((pcLinkBuffer = (char *) malloc(iDescriptionLength)) == NULL)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, strerror(errno));
+      return ER_BadHandle;
+    }
     n = readlink(pcFilename, pcLinkBuffer, iDescriptionLength - 1);
     if (n == ER)
     {
@@ -3171,7 +3192,8 @@ XMagicTestValue(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, K_INT32
   else if
   (
     psXMagic->ui32Type == XMAGIC_MD5 ||
-    psXMagic->ui32Type == XMAGIC_SHA1
+    psXMagic->ui32Type == XMAGIC_SHA1 ||
+    psXMagic->ui32Type == XMAGIC_SHA256
   )
   {
     iMatch = XMagicTestHash(psXMagic, pucBuffer, iLength, iOffset, acLocalError);

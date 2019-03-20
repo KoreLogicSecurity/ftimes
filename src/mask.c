@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: mask.c,v 1.6 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: mask.c,v 1.10 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2005-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -49,8 +49,9 @@ static MASK_B2S_TABLE gasCmpMaskTable[] =
   { "chms",       0 },
   { "size",       1 },
   { "altstreams", 1 },
-  { "sha1",       1 },
   { "md5",        1 },
+  { "sha1",       1 },
+  { "sha256",     1 },
   { "magic",      1 },
 };
 
@@ -66,8 +67,9 @@ static MASK_B2S_TABLE gasMapMaskTable[] =
   { "chtime",     1 },
   { "size",       1 },
   { "altstreams", 1 },
-  { "sha1",       1 },
   { "md5",        1 },
+  { "sha1",       1 },
+  { "sha256",     1 },
   { "magic",      1 },
 };
 #else
@@ -84,8 +86,9 @@ static MASK_B2S_TABLE gasMapMaskTable[] =
   { "mtime",      1 },
   { "ctime",      1 },
   { "size",       1 },
-  { "sha1",       1 },
   { "md5",        1 },
+  { "sha1",       1 },
+  { "sha256",     1 },
   { "magic",      1 },
 };
 #endif
@@ -491,7 +494,7 @@ MaskParseMask(char *pcMask, int iType, char *pcError)
        *****************************************************************
        *
        * Scan the table looking for this token. Add or subtract the
-       * expanded token value (i.e. the xtime tokens count for more
+       * expanded token value (i.e., the time tokens count for more
        * than one mask bit each) from the mask depending on whether
        * '+' or '-' was given.
        *
@@ -510,9 +513,41 @@ MaskParseMask(char *pcMask, int iType, char *pcError)
       }
       if (i == iMaskTableLength)
       {
-        snprintf(pcError, MESSAGE_SIZE, "%s: Token = [%c%s]: Invalid value.", acRoutine, cLastAction, pcToken);
-        MaskFreeMask(psMask);
-        return NULL;
+        /*-
+         ***************************************************************
+         *
+         * Check to see if this is a group field before aborting.
+         *
+         ***************************************************************
+         */
+        if (strcasecmp(pcToken, "hashes") == 0 && (iType == MASK_RUNMODE_TYPE_CMP || iType == MASK_RUNMODE_TYPE_MAP))
+        {
+          if (cLastAction == '+')
+          {
+            psMask->ulMask |= (iType == MASK_RUNMODE_TYPE_CMP) ? CMP_HASHES_MASK : MAP_HASHES_MASK;
+          }
+          else
+          {
+            psMask->ulMask &= (iType == MASK_RUNMODE_TYPE_CMP) ? ~CMP_HASHES_MASK : ~MAP_HASHES_MASK;
+          }
+        }
+        else if (strcasecmp(pcToken, "times") == 0 && (iType == MASK_RUNMODE_TYPE_CMP || iType == MASK_RUNMODE_TYPE_MAP))
+        {
+          if (cLastAction == '+')
+          {
+            psMask->ulMask |= (iType == MASK_RUNMODE_TYPE_CMP) ? CMP_TIMES_MASK : MAP_TIMES_MASK;
+          }
+          else
+          {
+            psMask->ulMask &= (iType == MASK_RUNMODE_TYPE_CMP) ? ~CMP_TIMES_MASK : ~MAP_TIMES_MASK;
+          }
+        }
+        else
+        {
+          snprintf(pcError, MESSAGE_SIZE, "%s: Token = [%c%s]: Invalid value.", acRoutine, cLastAction, pcToken);
+          MaskFreeMask(psMask);
+          return NULL;
+        }
       }
       if (!iDone)
       {

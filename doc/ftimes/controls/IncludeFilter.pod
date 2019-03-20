@@ -1,0 +1,33 @@
+=item B<IncludeFilter>: <regexp>
+
+Applies to B<digfull>, B<diglean>, B<mapfull>, and B<maplean>.
+
+B<IncludeFilter> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<IncludeFilter> control/value pair per line.
+
+Each B<IncludeFilter> must be specified as a Perl compatible regular
+expression with the exception that capturing '()' subpatterns and back
+references are not allowed.  You can use '(?:)' if you require
+parentheses for grouping purposes.
+
+Any path matched by an B<IncludeFilter> will be mapped.  Any other
+paths will be rejected.  Also note that exclude filter processing
+occurs before include filter processing.  If no include filters are
+specified, include filter processing is implicitly disabled.
+
+Note: This control is only available if PCRE support was compiled
+into the binary.
+
+Warning: Due to their nature, include filters require mandatory
+directory traversal.  This, in turn, will potentially alter directory
+access times.  For example, suppose that you want to process all files
+that end with the string: '.pdf'. The B<IncludeFilter> would be
+specified as follows:
+
+    IncludeFilter=\.pdf$
+
+Generally speaking, there is no way to know, apriori, where all these
+files are located.  Therefore, it is necessary to traverse all
+directories applying the filter to each path as it's encountered.
+

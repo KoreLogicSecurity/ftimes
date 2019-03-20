@@ -64,7 +64,27 @@ perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m clean -d %CLEAN_DEBUG_LEVEL%
 perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m setup -d %SETUP_DEBUG_LEVEL%
 perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m check -d %CHECK_DEBUG_LEVEL%
 perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m clean -d %CLEAN_DEBUG_LEVEL%
+cd ..\test_5
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m clean -d %CLEAN_DEBUG_LEVEL%
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m setup -d %SETUP_DEBUG_LEVEL%
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m check -d %CHECK_DEBUG_LEVEL%
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m clean -d %CLEAN_DEBUG_LEVEL%
+cd ..\test_6
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m clean -d %CLEAN_DEBUG_LEVEL%
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m setup -d %SETUP_DEBUG_LEVEL%
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m check -d %CHECK_DEBUG_LEVEL%
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m clean -d %CLEAN_DEBUG_LEVEL%
 cd ..\..\..\common_windows_ads\map\test_1
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m clean -d %CLEAN_DEBUG_LEVEL%
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m setup -d %SETUP_DEBUG_LEVEL%
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m check -d %CHECK_DEBUG_LEVEL%
+perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m clean -d %CLEAN_DEBUG_LEVEL%
+cd ..\..\..\..\..
+:next_test
+set PROGRAM=tools\tarmap\build\tarmap.exe
+if not exist "%PROGRAM%" goto :next_test
+set TARGET_PROGRAM=..\..\..\..\..\%PROGRAM%
+cd tests\tarmap\common\map\test_1
 perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m clean -d %CLEAN_DEBUG_LEVEL%
 perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m setup -d %SETUP_DEBUG_LEVEL%
 perl %TEST_HARNESS% -p %TARGET_PROGRAM% -m check -d %CHECK_DEBUG_LEVEL%

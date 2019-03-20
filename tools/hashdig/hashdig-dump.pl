@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-dump.pl,v 1.12 2006/04/07 22:15:12 mavrik Exp $
+# $Id: hashdig-dump.pl,v 1.14 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -203,7 +203,7 @@ B<hashdig-dump.pl> B<[-c {A|K|U}]> B<[-h|-r]> B<db>
 =head1 DESCRIPTION
 
 This utility enumerates a HashDig database that has been created
-with hashdig-make.pl. Output is written to stdout and has the
+with hashdig-make(1). Output is written to stdout and has the
 following format:
 
     hash|category
@@ -222,7 +222,7 @@ following categories are supported: all (A), known (K), and unknown
 
 Output hashes only. By default, hash and category information is
 written to stdout. This option is useful when feeding hashes to
-hashdig-resolve-sunsolve.pl.
+hashdig-resolve-sunsolve(1).
 
 =item B<-r>
 
@@ -238,7 +238,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-hashdig-dump.pl, hashdig-make.pl, hashdig-resolve-sunsolve.pl
+hashdig-dump(1), hashdig-make(1), hashdig-resolve-sunsolve(1)
 
 =head1 LICENSE
 

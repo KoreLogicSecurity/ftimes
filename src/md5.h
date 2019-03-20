@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: md5.h,v 1.8 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: md5.h,v 1.10 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2003-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -63,6 +63,8 @@ typedef struct _MD5_CONTEXT
  *
  ***********************************************************************
  */
+int                   MD5HashToBase64(unsigned char *pucHash, char *pcBase64Hash);
+int                   MD5HashToHex(unsigned char *pucHash, char *pcHexHash);
 int                   MD5HashStream(FILE *pFile, unsigned char *pucMD5);
 void                  MD5HashString(unsigned char *pucData, int iLength, unsigned char *pucMD5);
 void                  MD5Alpha(MD5_CONTEXT *psMD5);

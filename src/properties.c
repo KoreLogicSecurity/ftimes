@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: properties.c,v 1.34 2006/06/24 21:00:16 mavrik Exp $
+ * $Id: properties.c,v 1.38 2007/04/14 20:10:57 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -101,6 +101,7 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
   int                 iLength;
   int                 iLineNumber;
   FILE               *pFile;
+  struct stat         statEntry;
 
   /*-
    *********************************************************************
@@ -121,6 +122,35 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
   }
   else
   {
+    iError = stat(pcFilename, &statEntry);
+    if (iError == -1)
+    {
+      /*-
+       *****************************************************************
+       *
+       * Return OK if the specified config file (Import) doesn't exist.
+       * By making this allowance, an admin can (more easily) create a
+       * generic config file that spans multiple clients or an entire
+       * FTimes deployment. If the recursion level is zero, then we are
+       * dealing with a command line config file, and in that case, the
+       * file must exist.
+       *
+       *****************************************************************
+       */
+      if (psProperties->iImportRecursionLevel > 0 && errno == ENOENT)
+      {
+        return ER_OK;
+      }
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, pcFilename, strerror(errno));
+      return ER_ReadPropertiesFile;
+    }
+
+    if (!((statEntry.st_mode & S_IFMT) == S_IFREG))
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: A regular file is required.", acRoutine, pcFilename);
+      return ER_ReadPropertiesFile;
+    }
+
     if ((pFile = fopen(pcFilename, "r")) == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: File = [%s]: %s", acRoutine, pcFilename, strerror(errno));
@@ -179,7 +209,7 @@ PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcEr
      *
      *******************************************************************
      */
-    while (isspace((int) acLine[iLength - 1]))
+    while (iLength > 0 && isspace((int) acLine[iLength - 1]))
     {
       acLine[iLength--] = 0;
     }
@@ -240,7 +270,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
 #endif
   char               *pc;
   char               *pcControl;
-  char               *pcE;
+  char               *pcEnd;
   int                 iError;
   int                 iRunMode;
   int                 iValue;
@@ -291,11 +321,14 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
    *********************************************************************
    */
   iLength = strlen(pc);
-  pcE = &pc[iLength - 1];
-  while (isspace((int) *pcE))
+  if (iLength > 0)
   {
-    *pcE-- = 0;
-    iLength--;
+    pcEnd = &pc[iLength - 1];
+    while (iLength > 0 && isspace((int) *pcEnd))
+    {
+      *pcEnd-- = 0;
+      iLength--;
+    }
   }
 
   /*-
@@ -317,10 +350,15 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  pcE = &pcControl[strlen(pcControl) - 1];
-  while (isspace((int) *pcE))
+  iLength = strlen(pcControl);
+  if (iLength > 0)
   {
-    *pcE-- = 0;
+    pcEnd = &pcControl[iLength - 1];
+    while (iLength > 0 && isspace((int) *pcEnd))
+    {
+      *pcEnd-- = 0;
+      iLength--;
+    }
   }
 
   /*-
@@ -332,6 +370,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
+  iLength = strlen(pc);
 
   iRunMode = (psProperties->iRunMode == FTIMES_CFGTEST) ? psProperties->iTestRunMode : psProperties->iRunMode;
 
@@ -675,6 +714,18 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
     }
   }
 
+#ifdef USE_PCRE
+  else if (strcasecmp(pcControl, KEY_ExcludeFilter) == 0 && RUN_MODE_IS_SET(MODES_ExcludeFilter, iRunMode))
+  {
+    iError = SupportAddFilter(pc, &psProperties->psExcludeFilterList, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+  }
+#endif
+
   else if (strcasecmp(pcControl, KEY_Include) == 0 && RUN_MODE_IS_SET(MODES_Include, iRunMode))
   {
     if (iLength < 1 || iLength > FTIMES_MAX_PATH - 1)
@@ -689,6 +740,18 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       return ER;
     }
   }
+
+#ifdef USE_PCRE
+  else if (strcasecmp(pcControl, KEY_IncludeFilter) == 0 && RUN_MODE_IS_SET(MODES_IncludeFilter, iRunMode))
+  {
+    iError = SupportAddFilter(pc, &psProperties->psIncludeFilterList, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+  }
+#endif
 
   else if (strcasecmp(pcControl, KEY_IncludesMustExist) == 0 && RUN_MODE_IS_SET(MODES_IncludesMustExist, iRunMode))
   {
@@ -1045,6 +1108,9 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
   char                acMessage[MESSAGE_SIZE];
   DIG_STRING         *psDigString;
   FILE_LIST          *psList;
+#ifdef USE_PCRE
+  FILTER_LIST        *psFilterList;
+#endif
   int                 i;
 
   if (RUN_MODE_IS_SET(MODES_AnalyzeBlockSize, psProperties->iRunMode))
@@ -1451,4 +1517,24 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }
+
+#ifdef USE_PCRE
+  if (RUN_MODE_IS_SET(MODES_IncludeFilter, psProperties->iRunMode))
+  {
+    for (psFilterList = psProperties->psIncludeFilterList; psFilterList != NULL; psFilterList = psFilterList->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_IncludeFilter, psFilterList->pcFilter);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+
+  if (RUN_MODE_IS_SET(MODES_ExcludeFilter, psProperties->iRunMode))
+  {
+    for (psFilterList = psProperties->psExcludeFilterList; psFilterList != NULL; psFilterList = psFilterList->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_ExcludeFilter, psFilterList->pcFilter);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+#endif
 }

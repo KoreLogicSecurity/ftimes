@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-weed.pl,v 1.13 2006/04/07 22:15:12 mavrik Exp $
+# $Id: hashdig-weed.pl,v 1.17 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -42,9 +42,25 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('d:f:q', \%hOptions))
+  if (!getopts('a:d:f:q', \%hOptions))
   {
     Usage($sProgram);
+  }
+
+  ####################################################################
+  #
+  # A HashType, '-a', is optional. The 'a' is short for algorithm.
+  #
+  ####################################################################
+
+  my ($sHashType);
+
+  $sHashType = (exists($hOptions{'a'})) ? uc($hOptions{'a'}) : (defined($ENV{'HASH_TYPE'})) ? uc($ENV{'HASH_TYPE'}) : "MD5";
+
+  if ($sHashType !~ /^(MD5|SHA1|SHA256)$/)
+  {
+    print STDERR "$sProgram: HashType='$sHashType' Error='Invalid hash type.'\n";
+    exit(2);
   }
 
   ####################################################################
@@ -135,11 +151,25 @@ use Getopt::Std;
   #
   ####################################################################
 
-  my ($sAccepted, $sDeleted, $sRejected) = (0, 0, 0);
+  my ($sAccepted, $sDeleted, $sHashRegex, $sRejected) = (0, 0, "", 0);
+
+  if ($sHashType =~ /^SHA1$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{40}));
+  }
+  elsif ($sHashType =~ /^SHA256$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{64}));
+  }
+  else # MD5
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{32}));
+  }
 
   while (my $sRecord = <$sFileHandle>)
   {
-    if (my ($sHash) = $sRecord =~ /^([0-9a-fA-F]{32})$/)
+    $sRecord =~ s/[\r\n]+$//;
+    if (my ($sHash) = $sRecord =~ /^$sHashRegex$/)
     {
       $sHash = lc($sHash);
       if (exists($hOnDiskList{$sHash}))
@@ -153,7 +183,6 @@ use Getopt::Std;
     {
       if (!$sBeQuiet)
       {
-        $sRecord =~ s/[\r\n]+$//;
         print STDERR "$sProgram: File='$sFilename' Record='$sRecord' Error='Record did not parse properly.'\n";
       }
       $sRejected++;
@@ -194,7 +223,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-q] -d db -f {file|-}\n";
+  print STDERR "Usage: $sProgram [-q] [-a hash-type] -d db -f {file|-}\n";
   print STDERR "\n";
   exit(1);
 }
@@ -208,23 +237,41 @@ hashdig-weed.pl - Delete hashes from a HashDig database
 
 =head1 SYNOPSIS
 
-B<hashdig-weed.pl> B<[-q]> B<-d db> B<-f {file|-}>
+B<hashdig-weed.pl> B<[-q]> B<[-a hash-type]> B<-d db> B<-f {file|-}>
 
 =head1 DESCRIPTION
 
-This utility deletes specified hashes from a HashDig database that
-has been created with hashdig-make.pl. Input is expected to be plain
-text with one hash per line. Each line must match the following
-regular expression:
+This utility deletes specified hashes from a HashDig database that has
+been created with hashdig-make(1). Input is expected to be plain text
+with one hash per line. For MD5 hash DBs, each line must match the
+following regular expression:
 
     ^[0-9a-fA-F]{32}$
 
-Input that does not match this expression will cause the program
-to generate an error message.
+For SHA1 hash DBs, each line must match the following regular
+expression:
+
+    ^[0-9a-fA-F]{40}$
+
+For SHA256 hash DBs, each line must match the following regular
+expression:
+
+    ^[0-9a-fA-F]{64}$
+
+Input that does not match the required expression will cause the
+program to generate an error message.
 
 =head1 OPTIONS
 
 =over 4
+
+=item B<-a hash-type>
+
+Specifies the type of hashes that are to be deleted. Currently, the
+following hash types (or algorithms) are supported: 'MD5', 'SHA1', and
+'SHA256'. The default hash type is that specified by the HASH_TYPE
+environment variable or 'MD5' if HASH_TYPE is not set. The value for
+this option is not case sensitive.
 
 =item B<-d db>
 
@@ -247,7 +294,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-hashdig-dump.pl, hashdig-make.pl
+hashdig-dump(1), hashdig-make(1)
 
 =head1 LICENSE
 

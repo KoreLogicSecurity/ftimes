@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.h,v 1.18 2006/04/07 22:15:10 mavrik Exp $
+ * $Id: compare.h,v 1.20 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -93,7 +93,7 @@ typedef struct _CMP_PROPERTIES
  *
  ***********************************************************************
  */
-int                 CompareDecodeLine(char *pcLine, unsigned long ulFieldsMask, char **ppcDecodeFields, char *pcError);
+//int               CompareDecodeLine(char *pcLine, SNAPSHOT_CONTEXT *psBaseline, char **ppcDecodeFields, char *pcError); /* This is declared in ftimes.h */
 //int               CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapshot, char *pcError); /* This is declared in ftimes.h */
 void                CompareFreeNodeData(int *piKeys, CMP_NODE *psNodes);
 void                CompareFreeProperties(CMP_PROPERTIES *psProperties);

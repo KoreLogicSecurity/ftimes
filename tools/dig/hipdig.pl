@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hipdig.pl,v 1.34 2006/06/24 21:00:17 mavrik Exp $
+# $Id: hipdig.pl,v 1.36 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -1313,7 +1313,7 @@ has the following fields:
 
 where string is the URL encoded form of the raw data.
 
-Feeding the output of this utility to ftimes-dig2ctx.pl allows you
+Feeding the output of this utility to ftimes-dig2ctx(1) allows you
 to extract a variable amount of context surrounding each hit.
 
 =head1 OPTIONS
@@ -1402,7 +1402,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-ftimes(1), ftimes-dig2ctx.pl
+ftimes(1), ftimes-dig2ctx(1)
 
 =head1 LICENSE
 

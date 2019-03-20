@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-harvest.pl,v 1.26 2006/04/07 22:15:12 mavrik Exp $
+# $Id: hashdig-harvest.pl,v 1.33 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -41,10 +41,28 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('c:d:h:o:qs:T:t:', \%hOptions))
+  if (!getopts('a:c:d:h:o:qs:T:t:', \%hOptions))
   {
     Usage($sProgram);
   }
+
+  ####################################################################
+  #
+  # A HashType, '-a', is optional. The 'a' is short for algorithm.
+  #
+  ####################################################################
+
+  my ($sHashType);
+
+  $sHashType = (exists($hOptions{'a'})) ? uc($hOptions{'a'}) : (defined($ENV{'HASH_TYPE'})) ? uc($ENV{'HASH_TYPE'}) : "MD5";
+
+  if ($sHashType !~ /^(MD5|SHA1|SHA256)$/)
+  {
+    print STDERR "$sProgram: HashType='$sHashType' Error='Invalid hash type.'\n";
+    exit(2);
+  }
+  $hProperties{'HashType'} = $sHashType;
+  $hProperties{'HashTypeSupported'} = 1; # Be optimistic.
 
   ####################################################################
   #
@@ -65,7 +83,8 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # A Delimiter, '-d', optional.
+  # A Delimiter, '-d', optional. To make the delimiter be a tab, the
+  # user must literally specify "\t" on the command line.
   #
   ####################################################################
 
@@ -149,10 +168,24 @@ use Getopt::Std;
 
   if ($sFileType =~ /^FTIMES$/)
   {
+    if ($hProperties{'HashType'} eq "SHA1")
+    {
+      $hProperties{'HashField'} = "sha1";
+    }
+    elsif ($hProperties{'HashType'} eq "SHA256")
+    {
+      $hProperties{'HashField'} = "sha256";
+    }
+    else
+    {
+      $hProperties{'HashField'} = "md5";
+    }
     $sProcessFile = \&ProcessFTimesFile;
   }
   elsif ($sFileType =~ /^FTK$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} =~ /^(MD5|SHA1)$/);
+    $hProperties{'HashField'} = ($hProperties{'HashType'} eq "SHA1") ? "SHA Hash" : "MD5 Hash";
     $sProcessFile = \&ProcessFTKFile;
   }
   elsif ($sFileType =~ /^GENERIC$/)
@@ -161,27 +194,40 @@ use Getopt::Std;
   }
   elsif ($sFileType =~ /^(HK|HASHKEEPER)$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "MD5");
     $sProcessFile = \&ProcessHashKeeperFile;
   }
   elsif ($sFileType =~ /^(KG|KNOWNGOODS)$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} =~ /^(MD5|SHA1)$/);
+    $hProperties{'HashField'} = ($hProperties{'HashType'} eq "SHA1") ? "SHA-1" : "MD5";
     $sProcessFile = \&ProcessKnownGoodsFile;
   }
-  elsif ($sFileType =~ /^(MD5|OPENSSL)$/)
+  elsif ($sFileType =~ /^MD5$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "MD5");
     $sProcessFile = \&ProcessMD5File;
   }
   elsif ($sFileType =~ /^(MD5SUM|MD5DEEP)$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "MD5");
     $sProcessFile = \&ProcessMD5SumFile;
   }
   elsif ($sFileType =~ /^NSRL1$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} =~ /^(MD5|SHA1)$/);
+    $hProperties{'HashField'} = ($hProperties{'HashType'} eq "SHA1") ? "SHA-1" : "MD5";
     $sProcessFile = \&ProcessNSRL1File;
   }
   elsif ($sFileType =~ /^NSRL2$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} =~ /^(MD5|SHA1)$/);
+    $hProperties{'HashField'} = ($hProperties{'HashType'} eq "SHA1") ? "SHA-1" : "MD5";
     $sProcessFile = \&ProcessNSRL2File;
+  }
+  elsif ($sFileType =~ /^OPENSSL$/)
+  {
+    $sProcessFile = \&ProcessMD5File;
   }
   elsif ($sFileType =~ /^PLAIN$/)
   {
@@ -189,11 +235,38 @@ use Getopt::Std;
   }
   elsif ($sFileType =~ /^RPM$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "MD5");
     $sProcessFile = \&ProcessRPMFile;
+  }
+  elsif ($sFileType =~ /^SHA1$/)
+  {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "SHA1");
+    $sProcessFile = \&ProcessMD5File;
+  }
+  elsif ($sFileType =~ /^(SHA1SUM|SHA1DEEP)$/)
+  {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "SHA1");
+    $sProcessFile = \&ProcessMD5SumFile;
+  }
+  elsif ($sFileType =~ /^SHA256$/)
+  {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "SHA256");
+    $sProcessFile = \&ProcessMD5File;
+  }
+  elsif ($sFileType =~ /^(SHA256SUM|SHA256DEEP)$/)
+  {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "SHA256");
+    $sProcessFile = \&ProcessMD5SumFile;
   }
   else
   {
     print STDERR "$sProgram: FileType='$sFileType' Error='Invalid file type.'\n";
+    exit(2);
+  }
+
+  if (!$hProperties{'HashTypeSupported'})
+  {
+    print STDERR "$sProgram: FileType='$sFileType' Error='The specified hash type ($hProperties{'HashType'}) is not supported for this file type.'\n";
     exit(2);
   }
 
@@ -295,12 +368,12 @@ sub ProcessFTimesFile
   my (@aFields, $sHashIndex, $sHeader, $sModeIndex);
 
   $sHeader = <FH>;
+  $sHeader =~ s/[\r\n]+$//;
 
   if (!defined($sHeader))
   {
     if (!$$phProperties{'BeQuiet'})
     {
-      $sHeader =~ s/[\r\n]+$//;
       print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
@@ -314,7 +387,7 @@ sub ProcessFTimesFile
     {
       $sModeIndex = $sIndex;
     }
-    elsif ($aFields[$sIndex] =~ /^md5[\r\n]*$/o)
+    elsif ($aFields[$sIndex] =~ /^$$phProperties{'HashField'}$/o)
     {
       $sHashIndex = $sIndex;
     }
@@ -324,7 +397,6 @@ sub ProcessFTimesFile
   {
     if (!$$phProperties{'BeQuiet'})
     {
-      $sHeader =~ s/[\r\n]+$//;
       print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
@@ -336,20 +408,35 @@ sub ProcessFTimesFile
   #
   ####################################################################
 
+  my ($sHashRegex);
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{40}));
+  }
+  elsif ($$phProperties{'HashType'} =~ /^SHA256$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{64}));
+  }
+  else # MD5
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{32}));
+  }
+
   while (my $sRecord = <FH>)
   {
+    $sRecord =~ s/[\r\n]+$//;
     @aFields = split(/\|/, $sRecord, -1);
-
-    $aFields[$sHashIndex] .= "";
-    if ($aFields[$sHashIndex] =~ /^[0-9a-fA-F]{32}[\r\n]*$/o)
+    $aFields[$sHashIndex] .= ""; # Convert undefined values into empty values.
+    if (my ($sHash) = $aFields[$sHashIndex] =~ /^$sHashRegex$/o)
     {
       if (defined($sModeIndex) && (($aFields[$sModeIndex] =~ /^12[0-7]{4}$/o) || ($aFields[$sModeIndex] =~ /^4[0-7]{4}$/o)))
       {
         next; # Skip directories and symbolic links.
       }
-      print $sSortHandle lc(substr($aFields[$sHashIndex],0,32)), "|", $$phProperties{'category'}, "\n";
+      print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
-    elsif ($aFields[$sHashIndex] =~ /^(?:DIRECTORY|SPECIAL|SYMLINK)[\r\n]*$/o)
+    elsif ($aFields[$sHashIndex] =~ /^(?:DIRECTORY|SPECIAL|SYMLINK)$/o)
     {
       next; # Skip directories, special files, and symbolic links.
     }
@@ -357,7 +444,6 @@ sub ProcessFTimesFile
     {
       if (!$$phProperties{'BeQuiet'})
       {
-        $sRecord =~ s/[\r\n]+$//;
         print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
@@ -403,12 +489,12 @@ sub ProcessFTKFile
   my (@aFields, $sHashIndex, $sHeader, $sModeIndex);
 
   $sHeader = <FH>;
+  $sHeader =~ s/[\r\n]+$//;
 
   if (!defined($sHeader))
   {
     if (!$$phProperties{'BeQuiet'})
     {
-      $sHeader =~ s/[\r\n]+$//;
       print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
@@ -418,7 +504,7 @@ sub ProcessFTKFile
 
   for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
   {
-    if ($aFields[$sIndex] =~ /^MD5 Hash$/o)
+    if ($aFields[$sIndex] =~ /^$$phProperties{'HashField'}$/o)
     {
       $sHashIndex = $sIndex;
     }
@@ -428,7 +514,6 @@ sub ProcessFTKFile
   {
     if (!$$phProperties{'BeQuiet'})
     {
-      $sHeader =~ s/[\r\n]+$//;
       print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
@@ -440,21 +525,30 @@ sub ProcessFTKFile
   #
   ####################################################################
 
+  my ($sHashRegex);
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{40}));
+  }
+  else # MD5
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{32}));
+  }
+
   while (my $sRecord = <FH>)
   {
     $sRecord =~ s/[\r\n]+$//;
     @aFields = split(/\t/, $sRecord, -1);
-
     $aFields[$sHashIndex] .= "";
-    if ($aFields[$sHashIndex] =~ /^[0-9a-fA-F]{32}$/o)
+    if (my ($sHash) = $aFields[$sHashIndex] =~ /^$sHashRegex$/o)
     {
-      print $sSortHandle lc($aFields[$sHashIndex]), "|", $$phProperties{'category'}, "\n";
+      print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
       if (!$$phProperties{'BeQuiet'})
       {
-        $sRecord =~ s/[\r\n]+$//;
         print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
@@ -536,15 +630,29 @@ sub ProcessGenericFile
   #
   ####################################################################
 
+  my ($sHashRegex);
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{40}));
+  }
+  elsif ($$phProperties{'HashType'} =~ /^SHA256$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{64}));
+  }
+  else # MD5
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{32}));
+  }
+
   while (my $sRecord = <FH>)
   {
     $sRecord =~ s/[\r\n]+$//;
     @aFields = split(/[$$phProperties{'Delimiter'}]/, $sRecord, -1);
-
     $aFields[$sHashIndex] .= "";
-    if ($aFields[$sHashIndex] =~ /^[0-9a-fA-F]{32}$/o)
+    if (my ($sHash) = $aFields[$sHashIndex] =~ /^$sHashRegex$/o)
     {
-      print $sSortHandle lc($aFields[$sHashIndex]), "|", $$phProperties{'category'}, "\n";
+      print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
@@ -656,7 +764,6 @@ sub ProcessHashKeeperFile
   while (my $sRecord = <FH>)
   {
     $sRecord =~ s/[\r\n]+$//;
-
     if (my ($sHash) = $sRecord =~ /^\d+,\d+,"[^"]+",(?:|"[^"]+"),"([0-9A-Fa-f]{32})",.*$/o)
     {
       print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
@@ -703,7 +810,8 @@ sub ProcessKnownGoodsFile
 
   ####################################################################
   #
-  # Process header.
+  # Process header. This type doesn't carry its own header, so create
+  # a fake one and parse it instead.
   #
   ####################################################################
 
@@ -715,7 +823,7 @@ sub ProcessKnownGoodsFile
 
   for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
   {
-    if ($aFields[$sIndex] =~ /^MD5$/i)
+    if ($aFields[$sIndex] =~ /^$$phProperties{'HashField'}$/o)
     {
       $sHashIndex = $sIndex;
     }
@@ -725,7 +833,6 @@ sub ProcessKnownGoodsFile
   {
     if (!$$phProperties{'BeQuiet'})
     {
-      $sHeader =~ s/[\r\n]+$//;
       print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
@@ -737,20 +844,30 @@ sub ProcessKnownGoodsFile
   #
   ####################################################################
 
+  my ($sHashRegex);
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{40}));
+  }
+  else # MD5
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{32}));
+  }
+
   while (my $sRecord = <FH>)
   {
+    $sRecord =~ s/[\r\n]+$//;
     @aFields = (reverse(split(/,/, $sRecord, -1)))[$sHashIndex];
-
-    $aFields[0] .= "";
-    if ($aFields[0] =~ /^[0-9a-fA-F]{32}$/o)
+    $aFields[0] .= ""; # Convert undefined values into empty values.
+    if (my ($sHash) = $aFields[0] =~ /^$sHashRegex$/o)
     {
-      print $sSortHandle lc($aFields[0]), "|", $$phProperties{'category'}, "\n";
+      print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
       if (!$$phProperties{'BeQuiet'})
       {
-        $sRecord =~ s/[\r\n]+$//;
         print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
@@ -801,9 +918,25 @@ sub ProcessMD5File
   #
   ####################################################################
 
+  my ($sHashRegex);
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq(SHA1\\s*\\(.*\\)\\s*=\\s+([0-9a-fA-F]{40}));
+  }
+  elsif ($$phProperties{'HashType'} =~ /^SHA256$/)
+  {
+    $sHashRegex = qq(SHA256\\s*\\(.*\\)\\s*=\\s+([0-9a-fA-F]{64}));
+  }
+  else # MD5
+  {
+    $sHashRegex = qq(MD5\\s*\\(.*\\)\\s*=\\s+([0-9a-fA-F]{32}));
+  }
+
   while (my $sRecord = <FH>)
   {
-    if (my ($sHash) = $sRecord =~ /^MD5\s*\(.*\)\s*=\s+([0-9a-fA-F]{32})$/o)
+    $sRecord =~ s/[\r\n]+$//;
+    if (my ($sHash) = $sRecord =~ /^$sHashRegex$/o)
     {
       print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
@@ -811,7 +944,6 @@ sub ProcessMD5File
     {
       if (!$$phProperties{'BeQuiet'})
       {
-        $sRecord =~ s/[\r\n]+$//;
         print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
@@ -862,9 +994,25 @@ sub ProcessMD5SumFile
   #
   ####################################################################
 
+  my ($sHashRegex);
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{40})\\s+.*\\s*);
+  }
+  elsif ($$phProperties{'HashType'} =~ /^SHA256$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{64})\\s+.*\\s*);
+  }
+  else # MD5
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{32})\\s+.*\\s*);
+  }
+
   while (my $sRecord = <FH>)
   {
-    if (my ($sHash) = $sRecord =~ /^([0-9a-fA-F]{32})\s+.*\s*$/o)
+    $sRecord =~ s/[\r\n]+$//;
+    if (my ($sHash) = $sRecord =~ /^$sHashRegex$/o)
     {
       print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
@@ -872,7 +1020,6 @@ sub ProcessMD5SumFile
     {
       if (!$$phProperties{'BeQuiet'})
       {
-        $sRecord =~ s/[\r\n]+$//;
         print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
@@ -918,22 +1065,29 @@ sub ProcessNSRL1File
   my (@aFields, $sHashIndex, $sHeader, $sModeIndex);
 
   $sHeader = <FH>;
+  $sHeader =~ s/[\r\n]+$//;
 
   if (!defined($sHeader))
   {
     if (!$$phProperties{'BeQuiet'})
     {
-      $sHeader =~ s/[\r\n]+$//;
       print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
   }
 
-  @aFields = reverse(split(/,/, $sHeader, -1));
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    @aFields = split(/,/, $sHeader, -1);
+  }
+  else # MD5
+  {
+    @aFields = reverse(split(/,/, $sHeader, -1));
+  }
 
   for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
   {
-    if ($aFields[$sIndex] =~ /^"MD5"$/o)
+    if ($aFields[$sIndex] =~ /^"$$phProperties{'HashField'}"$/o)
     {
       $sHashIndex = $sIndex;
     }
@@ -943,7 +1097,6 @@ sub ProcessNSRL1File
   {
     if (!$$phProperties{'BeQuiet'})
     {
-      $sHeader =~ s/[\r\n]+$//;
       print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
@@ -955,19 +1108,37 @@ sub ProcessNSRL1File
   #
   ####################################################################
 
+  my ($sHashRegex);
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq("([0-9a-fA-F]{40})");
+  }
+  else # MD5
+  {
+    $sHashRegex = qq("([0-9a-fA-F]{32})");
+  }
+
   while (my $sRecord = <FH>)
   {
-    my $sHash = "" . (reverse(split(/,/, $sRecord, -1)))[$sHashIndex];
-
-    if ($sHash =~ /^"[0-9a-fA-F]{32}"$/o)
+    my ($sNsrlHash);
+    $sRecord =~ s/[\r\n]+$//;
+    if ($$phProperties{'HashType'} =~ /^SHA1$/)
     {
-      print $sSortHandle lc(substr($sHash,1,32)), "|", $$phProperties{'category'}, "\n";
+      $sNsrlHash = "" . (split(/,/, $sRecord, -1))[$sHashIndex];
+    }
+    else # MD5
+    {
+      $sNsrlHash = "" . (reverse(split(/,/, $sRecord, -1)))[$sHashIndex];
+    }
+    if (my ($sHash) = $sNsrlHash =~ /^$sHashRegex$/o)
+    {
+      print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
       if (!$$phProperties{'BeQuiet'})
       {
-        $sRecord =~ s/[\r\n]+$//;
         print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
@@ -1013,12 +1184,12 @@ sub ProcessNSRL2File
   my (@aFields, $sHashIndex, $sHeader, $sModeIndex);
 
   $sHeader = <FH>;
+  $sHeader =~ s/[\r\n]+$//;
 
   if (!defined($sHeader))
   {
     if (!$$phProperties{'BeQuiet'})
     {
-      $sHeader =~ s/[\r\n]+$//;
       print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
@@ -1028,7 +1199,7 @@ sub ProcessNSRL2File
 
   for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
   {
-    if ($aFields[$sIndex] =~ /^"MD5"$/o)
+    if ($aFields[$sIndex] =~ /^"$$phProperties{'HashField'}"$/o)
     {
       $sHashIndex = $sIndex;
     }
@@ -1038,7 +1209,6 @@ sub ProcessNSRL2File
   {
     if (!$$phProperties{'BeQuiet'})
     {
-      $sHeader =~ s/[\r\n]+$//;
       print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
@@ -1050,19 +1220,30 @@ sub ProcessNSRL2File
   #
   ####################################################################
 
+  my ($sHashRegex);
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq("([0-9a-fA-F]{40})");
+  }
+  else # MD5
+  {
+    $sHashRegex = qq("([0-9a-fA-F]{32})");
+  }
+
   while (my $sRecord = <FH>)
   {
-    my $sHash = "" . (split(/,/, $sRecord, -1))[$sHashIndex];
-
-    if ($sHash =~ /^"[0-9a-fA-F]{32}"$/o)
+    my ($sNsrlHash);
+    $sRecord =~ s/[\r\n]+$//;
+    $sNsrlHash = "" . (split(/,/, $sRecord, -1))[$sHashIndex];
+    if (my ($sHash) = $sNsrlHash =~ /^$sHashRegex$/o)
     {
-      print $sSortHandle lc(substr($sHash,1,32)), "|", $$phProperties{'category'}, "\n";
+      print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
     else
     {
       if (!$$phProperties{'BeQuiet'})
       {
-        $sRecord =~ s/[\r\n]+$//;
         print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
@@ -1113,9 +1294,25 @@ sub ProcessPlainFile
   #
   ####################################################################
 
+  my ($sHashRegex);
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{40}));
+  }
+  elsif ($$phProperties{'HashType'} =~ /^SHA256$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{64}));
+  }
+  else # MD5
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{32}));
+  }
+
   while (my $sRecord = <FH>)
   {
-    if (my ($sHash) = $sRecord =~ /^([0-9a-fA-F]{32})$/o)
+    $sRecord =~ s/[\r\n]+$//;
+    if (my ($sHash) = $sRecord =~ /^$sHashRegex$/o)
     {
       print $sSortHandle lc($sHash), "|", $$phProperties{'category'}, "\n";
     }
@@ -1123,7 +1320,6 @@ sub ProcessPlainFile
     {
       if (!$$phProperties{'BeQuiet'})
       {
-        $sRecord =~ s/[\r\n]+$//;
         print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
@@ -1188,7 +1384,6 @@ sub ProcessRPMFile
   {
     if (!$$phProperties{'BeQuiet'})
     {
-      $sHeader =~ s/[\r\n]+$//;
       print STDERR "$$phProperties{'program'}: File='$sFilename' Header='$sHeader' Error='Header did not parse properly.'\n";
     }
     return undef;
@@ -1202,8 +1397,8 @@ sub ProcessRPMFile
 
   while (my $sRecord = <FH>)
   {
+    $sRecord =~ s/[\r\n]+$//;
     @aFields = reverse(split(/ /, $sRecord, -1));
-
     $aFields[$sHashIndex] .= "";
     if ($aFields[$sHashIndex] =~ /^[0-9a-fA-F]{32}$/o)
     {
@@ -1218,7 +1413,6 @@ sub ProcessRPMFile
       }
       if (!$$phProperties{'BeQuiet'})
       {
-        $sRecord =~ s/[\r\n]+$//;
         print STDERR "$$phProperties{'program'}: Record='$sRecord' Error='Record did not parse properly.'\n";
       }
     }
@@ -1240,7 +1434,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-c {K|U}] [-d delimiter] [-h hash-field] [-q] [-s file] [-T dir] -t type -o {file|-} file [file ...]\n";
+  print STDERR "Usage: $sProgram [-a hash-type] [-c {K|U}] [-d delimiter] [-h hash-field] [-q] [-s file] [-T dir] -t file-type -o {file|-} file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -1254,20 +1448,29 @@ hashdig-harvest.pl - Harvest hashes from a one or more files
 
 =head1 SYNOPSIS
 
-B<hashdig-harvest.pl> B<[-c {K|U}]> B<[-d delimiter]> B<[-h hash-field]> B<[-q]> B<[-s file]> B<[-T dir]> B<-t type> B<-o {file|-}> B<file [file ...]>
+B<hashdig-harvest.pl> B<[-a hash-type]> B<[-c {K|U}]> B<[-d delimiter]> B<[-h hash-field]> B<[-q]> B<[-s file]> B<[-T dir]> B<-t file-type> B<-o {file|-}> B<file [file ...]>
 
 =head1 DESCRIPTION
 
-This utility extracts MD5 hashes from one or more input files of
-the specified B<type>, tags them (see B<-c>), and writes them to
-the specified output file (see B<-o>). Output is a sorted list of
-hash/category pairs having the following format:
+This utility extracts hashes of the specified B<hash-type> from
+one or more input files of the specified B<file-type>, tags them (see
+B<-c>), and writes them to the specified output file (see B<-o>).
+Output is a sorted list of hash/category pairs having the following
+format:
 
     hash|category
 
 =head1 OPTIONS
 
 =over 4
+
+=item B<-a hash-type>
+
+Specifies the type of hashes that are to be harvested. Currently, the
+following hash types (or algorithms) are supported: 'MD5', 'SHA1', and
+'SHA256'. The default hash type is that specified by the HASH_TYPE
+environment variable or 'MD5' if HASH_TYPE is not set. The value for
+this option is not case sensitive.
 
 =item B<-c category>
 
@@ -1311,15 +1514,16 @@ designed to work with GNU sort.
 
 Specifies the directory sort should use as a temporary work area.
 The default directory is that specified by the TMPDIR environment
-variable, or /tmp if TMPDIR is not set.
+variable or /tmp if TMPDIR is not set.
 
-=item B<-t type>
+=item B<-t file-type>
 
 Specifies the type of files that are to be processed. All files
 processed in a given invocation must be of the same type. Currently,
-the following types are supported: FTIMES, FTK, GENERIC, HK|HASHKEEPER,
-KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM, NSRL1, NSRL2, OPENSSL, PLAIN,
-and RPM. The value for this option is not case sensitive.
+the following types are supported: FTIMES, FTK, GENERIC,
+HK|HASHKEEPER, KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM, NSRL1, NSRL2,
+OPENSSL, PLAIN, RPM, SHA1, SHA1DEEP, SHA1SUM, SHA256, SHA256DEEP, and
+SHA256SUM. The value for this option is not case sensitive.
 
 =back
 
@@ -1329,7 +1533,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-ftimes(1), hashdig-make.pl, md5(1), md5sum(1), md5deep, openssl(1), rpm(8)
+ftimes(1), hashdig-make(1), md5(1), md5sum(1), md5deep(1), openssl(1), rpm(8), sha1(1), sha1sum(1), sha1deep(1)
 
 =head1 LICENSE
 

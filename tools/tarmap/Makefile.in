@@ -1,0 +1,57 @@
+########################################################################
+#
+# $Id: Makefile.in,v 1.1 2006/07/24 05:20:38 mavrik Exp $
+#
+########################################################################
+#
+# Purpose: Makefile for tarmap.
+#
+########################################################################
+
+#.SILENT:
+
+bindir			= @bindir@
+CC			= @CC@
+CFLAGS			= @CFLAGS@
+exec_prefix		= @exec_prefix@
+EXTENSION		= @extension@
+INSTALL			= @INSTALL@
+LIBS			= @LIBS@
+prefix			= @prefix@
+PROGRAM			= tarmap${EXTENSION}
+srcdir			= @srcdir@
+VPATH			= ${srcdir}
+
+AP_INCS			= @ap_incs@
+AP_SRCS			= @ap_srcs@
+
+INCFLAGS		= -I.
+
+INCS			= ${AP_INCS} ktypes.h md5.h sha1.h tarmap.h
+
+LIBFLAGS		= ${LIBS}
+
+OBJS			= ${SRCS:.c=.o}
+
+SRCS			= ${AP_SRCS} md5.c sha1.c tarmap.c
+
+all: ${PROGRAM}
+
+test: ${PROGRAM}
+
+install: ${PROGRAM}
+	@umask 022 ; if [ ! -d ${bindir} ] ; then mkdir -p ${bindir} ; fi
+	@${INSTALL} -m 755 ${PROGRAM} ${bindir}
+
+clean:
+	rm -f ${PROGRAM} ${OBJS} ${PROGRAM}.core core
+
+clean-all: clean
+	rm -f Makefile
+
+${PROGRAM}: ${OBJS}
+	${CC} ${OBJS} -o $@ ${CFLAGS} ${INCFLAGS} ${LIBFLAGS}
+
+.c.o:
+	${CC} ${CFLAGS} ${INCFLAGS} -c $<
+

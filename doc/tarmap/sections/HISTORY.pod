@@ -1,0 +1,12 @@
+=head1 HISTORY
+
+This utility was initially written to help determine if any files on a
+system with no prior baseline had been changed.  While the system in
+question didn't have a baseline, it did have several tar ball backups.
+The main issue was that the backups were so large that extracting them
+to temporary storage first would have been impractical.  This utility,
+allowed us to avoid that issue by directly processing an uncompressed
+stream of the backup (e.g., via gunzip or bunzip2).
+
+B<TarMap> first appeared in B<FTimes> 3.8.0.
+

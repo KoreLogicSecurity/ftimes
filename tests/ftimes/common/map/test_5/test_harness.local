@@ -1,0 +1,73 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: test_harness.local,v 1.1 2006/09/06 16:51:11 mavrik Exp $
+#
+######################################################################
+
+use strict;
+
+######################################################################
+#
+# GetTestNumber
+#
+######################################################################
+
+sub GetTestNumber
+{
+  return "5";
+}
+
+
+######################################################################
+#
+# This hash controls the order in which tests are performed.
+#
+######################################################################
+
+  my $phTestNumbers = GetTestNumbers();
+
+  %$phTestNumbers =
+  (
+    1 => "sha256_null",
+    2 => "sha256_alphabet",
+    3 => "sha256_alphanumeric",
+    4 => "sha256_1024_As",
+    5 => "sha256_1024_binary",
+    6 => "sha256_nsrl_vectors",
+  );
+
+
+######################################################################
+#
+# This hash holds test descriptions.
+#
+######################################################################
+
+  my $phTestDescriptions = GetTestDescriptions();
+
+  %$phTestDescriptions =
+  (
+    'sha256_null'         => "tests SHA256 of an empty file using default blocksize",
+    'sha256_alphabet'     => "tests SHA256 of alphabet using default blocksize",
+    'sha256_alphanumeric' => "tests SHA256 of alphanumeric using default blocksize",
+    'sha256_1024_As'      => "tests SHA256 of 1024 A's using default blocksize",
+    'sha256_1024_binary'  => "tests SHA256 of 1024 bytes mod 256 using default blocksize",
+    'sha256_nsrl_vectors' => "tests SHA256 of NSRL's customized test vectors using default blocksize",
+  );
+
+
+######################################################################
+#
+# This hash holds various test properties.
+#
+######################################################################
+
+  my $phTestProperties = GetTestProperties();
+
+  %$phTestProperties =
+  (
+    'BlockSizes' => ["default"],
+  );
+
+1;

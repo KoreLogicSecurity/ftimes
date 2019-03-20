@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-harvest-sunsolve.pl,v 1.14 2006/04/07 22:15:12 mavrik Exp $
+# $Id: hashdig-harvest-sunsolve.pl,v 1.16 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -238,7 +238,7 @@ B<hashdig-harvest-sunsolve.pl> B<[-c {A|K|U}]> B<[-q]> B<[-s file]> B<[-T dir]> 
 =head1 DESCRIPTION
 
 This utility extracts MD5 hashes from a directory of files created
-by hashdig-resolve-sunsolve.pl, filters them by category (see B<-c>),
+by hashdig-resolve-sunsolve(1), filters them by category (see B<-c>),
 and writes the results to the specified output file (see B<-o>).
 Output is a sorted list of hash/category pairs having the following
 format:
@@ -296,7 +296,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-hashdig-harvest.pl, hashdig-make.pl, hashdig-resolve-sunsolve.pl
+hashdig-harvest(1), hashdig-make(1), hashdig-resolve-sunsolve(1)
 
 =head1 LICENSE
 

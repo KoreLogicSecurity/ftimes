@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-bind.pl,v 1.22 2006/04/07 22:15:12 mavrik Exp $
+# $Id: hashdig-bind.pl,v 1.27 2007/02/23 00:22:36 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -42,10 +42,28 @@ use Getopt::Std;
 
   my (%hOptions);
 
-  if (!getopts('d:f:h:n:qrt:', \%hOptions))
+  if (!getopts('a:d:f:h:n:qrt:', \%hOptions))
   {
     Usage($sProgram);
   }
+
+  ####################################################################
+  #
+  # A HashType, '-a', is optional. The 'a' is short for algorithm.
+  #
+  ####################################################################
+
+  my ($sHashType);
+
+  $sHashType = (exists($hOptions{'a'})) ? uc($hOptions{'a'}) : (defined($ENV{'HASH_TYPE'})) ? uc($ENV{'HASH_TYPE'}) : "MD5";
+
+  if ($sHashType !~ /^(MD5|SHA1|SHA256)$/)
+  {
+    print STDERR "$sProgram: HashType='$sHashType' Error='Invalid hash type.'\n";
+    exit(2);
+  }
+  $hProperties{'HashType'} = $sHashType;
+  $hProperties{'HashTypeSupported'} = 1; # Be optimistic.
 
   ####################################################################
   #
@@ -82,7 +100,8 @@ use Getopt::Std;
 
   ####################################################################
   #
-  # A Delimiter, '-d', optional.
+  # A Delimiter, '-d', optional. To make the delimiter be a tab, the
+  # user must literally specify "\t" on the command line.
   #
   ####################################################################
 
@@ -133,13 +152,35 @@ use Getopt::Std;
 
   if ($sReverseFormat)
   {
-    $sRecordRegex = qq(^([KU])\\|([0-9a-fA-F]{32})\$);
+    if ($sHashType =~ /^SHA1$/)
+    {
+      $sRecordRegex = qq(([KU])\\|([0-9a-fA-F]{40}));
+    }
+    elsif ($sHashType =~ /^SHA256$/)
+    {
+      $sRecordRegex = qq(([KU])\\|([0-9a-fA-F]{64}));
+    }
+    else # MD5
+    {
+      $sRecordRegex = qq(([KU])\\|([0-9a-fA-F]{32}));
+    }
     $sCIndex = 0;
     $sHIndex = 1;
   }
   else
   {
-    $sRecordRegex = qq(^([0-9a-fA-F]{32})\\|([KU])\$);
+    if ($sHashType =~ /^SHA1$/)
+    {
+      $sRecordRegex = qq(([0-9a-fA-F]{40})\\|([KU]));
+    }
+    elsif ($sHashType =~ /^SHA256$/)
+    {
+      $sRecordRegex = qq(([0-9a-fA-F]{64})\\|([KU]));
+    }
+    else # MD5
+    {
+      $sRecordRegex = qq(([0-9a-fA-F]{32})\\|([KU]));
+    }
     $sCIndex = 1;
     $sHIndex = 0;
   }
@@ -152,40 +193,88 @@ use Getopt::Std;
 
   my ($sBindFile, $sFileType);
 
-  $sFileType = (exists($hOptions{'t'})) ? $hOptions{'t'} : undef;
+  $sFileType = (exists($hOptions{'t'})) ? uc($hOptions{'t'}) : undef;
 
   if (!defined($sFileType))
   {
     Usage($sProgram);
   }
 
-  if ($sFileType =~ /^FTIMES$/i)
+  if ($sFileType =~ /^FTIMES$/)
   {
+    if ($hProperties{'HashType'} eq "SHA1")
+    {
+      $hProperties{'HashField'} = "sha1";
+    }
+    elsif ($hProperties{'HashType'} eq "SHA256")
+    {
+      $hProperties{'HashField'} = "sha256";
+    }
+    else
+    {
+      $hProperties{'HashField'} = "md5";
+    }
     $sBindFile = \&BindFTimesFile;
   }
-  elsif ($sFileType =~ /^FTK$/i)
+  elsif ($sFileType =~ /^FTK$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} =~ /^(MD5|SHA1)$/);
+    $hProperties{'HashField'} = ($hProperties{'HashType'} eq "SHA1") ? "SHA Hash" : "MD5 Hash";
     $sBindFile = \&BindFTKFile;
   }
-  elsif ($sFileType =~ /^GENERIC$/i)
+  elsif ($sFileType =~ /^GENERIC$/)
   {
     $sBindFile = \&BindGenericFile;
   }
-  elsif ($sFileType =~ /^(KG|KNOWNGOODS)$/i)
+  elsif ($sFileType =~ /^(KG|KNOWNGOODS)$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} =~ /^(MD5|SHA1)$/);
+    $hProperties{'HashField'} = ($hProperties{'HashType'} eq "SHA1") ? "SHA-1" : "MD5";
     $sBindFile = \&BindKnownGoodsFile;
   }
-  elsif ($sFileType =~ /^(MD5|OPENSSL)$/i)
+  elsif ($sFileType =~ /^MD5$/)
+  {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "MD5");
+    $sBindFile = \&BindMD5File;
+  }
+  elsif ($sFileType =~ /^(MD5SUM|MD5DEEP)$/)
+  {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "MD5");
+    $sBindFile = \&BindMD5SumFile;
+  }
+  elsif ($sFileType =~ /^OPENSSL$/)
   {
     $sBindFile = \&BindMD5File;
   }
-  elsif ($sFileType =~ /^(MD5SUM|MD5DEEP)$/i)
+  elsif ($sFileType =~ /^SHA1$/)
   {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "SHA1");
+    $sBindFile = \&BindMD5File;
+  }
+  elsif ($sFileType =~ /^(SHA1SUM|SHA1DEEP)$/)
+  {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "SHA1");
+    $sBindFile = \&BindMD5SumFile;
+  }
+  elsif ($sFileType =~ /^SHA256$/)
+  {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "SHA256");
+    $sBindFile = \&BindMD5File;
+  }
+  elsif ($sFileType =~ /^(SHA256SUM|SHA256DEEP)$/)
+  {
+    $hProperties{'HashTypeSupported'} = 0 unless ($hProperties{'HashType'} eq "SHA256");
     $sBindFile = \&BindMD5SumFile;
   }
   else
   {
     print STDERR "$sProgram: FileType='$sFileType' Error='Invalid file type.'\n";
+    exit(2);
+  }
+
+  if (!$hProperties{'HashTypeSupported'})
+  {
+    print STDERR "$sProgram: FileType='$sFileType' Error='The specified hash type ($hProperties{'HashType'}) is not supported for this file type.'\n";
     exit(2);
   }
 
@@ -211,7 +300,7 @@ use Getopt::Std;
   while (my $sRecord = <$sFileHandle>)
   {
     $sRecord =~ s/[\r\n]+$//;
-    if (my @aFields = $sRecord =~ /$sRecordRegex/o)
+    if (my @aFields = $sRecord =~ /^$sRecordRegex$/o)
     {
       $aFields[$sHIndex] = lc($aFields[$sHIndex]);
       if ($aFields[$sCIndex] eq "K")
@@ -295,7 +384,7 @@ sub BindFTimesFile
       {
         $sModeIndex = $sIndex;
       }
-      elsif ($aFields[$sIndex] =~ /^md5$/o)
+      elsif ($aFields[$sIndex] =~ /^$$phProperties{'HashField'}$/o)
       {
         $sHashIndex = $sIndex;
       }
@@ -472,7 +561,7 @@ sub BindFTKFile
     @aFields = split(/\t/, $sHeader, -1);
     for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
     {
-      if ($aFields[$sIndex] =~ /^MD5 Hash$/o)
+      if ($aFields[$sIndex] =~ /^$$phProperties{'HashField'}$/o)
       {
         $sHashIndex = $sIndex;
       }
@@ -770,6 +859,7 @@ sub BindKnownGoodsFile
   my ($sFieldCount, @aFields, $sHashIndex, $sHeader, $sNameIndex);
 
   $sHeader = "ID,FILENAME,MD5,SHA-1,SIZE,TYPE,PLATFORM,PACKAGE";
+
   if (defined($sHeader))
   {
     $sHeader =~ s/[\r\n]+$//;
@@ -780,7 +870,7 @@ sub BindKnownGoodsFile
       {
         $sNameIndex = $sIndex;
       }
-      elsif ($aFields[$sIndex] =~ /^MD5$/o)
+      elsif ($aFields[$sIndex] =~ /^$$phProperties{'HashField'}$/o)
       {
         $sHashIndex = $sIndex;
       }
@@ -960,14 +1050,27 @@ sub BindMD5File
   #
   ####################################################################
 
-  my ($sCategory, $sCategoryHandle, $sCombinedHandle, $sHash, $sName);
+  my ($sCategory, $sCategoryHandle, $sCombinedHandle, $sHashRegex);
 
   $sCombinedHandle = $hHandleList{'a'};
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq(SHA1\\s*\\((.*)\\)\\s*=\\s+([0-9a-fA-F]{40}));
+  }
+  elsif ($$phProperties{'HashType'} =~ /^SHA256$/)
+  {
+    $sHashRegex = qq(SHA256\\s*\\((.*)\\)\\s*=\\s+([0-9a-fA-F]{64}));
+  }
+  else # MD5
+  {
+    $sHashRegex = qq(MD5\\s*\\((.*)\\)\\s*=\\s+([0-9a-fA-F]{32}));
+  }
 
   while (my $sRecord = <FH>)
   {
     $sRecord =~ s/[\r\n]+$//;
-    if (($sName, $sHash) = $sRecord =~ /^MD5\s*\((.*)\)\s*=\s+([0-9a-fA-F]{32})$/o)
+    if (my ($sName, $sHash) = $sRecord =~ /^$sHashRegex$/o)
     {
       $sHash = lc($sHash);
 
@@ -1074,14 +1177,27 @@ sub BindMD5SumFile
   #
   ####################################################################
 
-  my ($sCategory, $sCategoryHandle, $sCombinedHandle, $sHash, $sName);
+  my ($sCategory, $sCategoryHandle, $sCombinedHandle, $sHashRegex);
 
   $sCombinedHandle = $hHandleList{'a'};
+
+  if ($$phProperties{'HashType'} =~ /^SHA1$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{40})\\s+(.*)\\s*);
+  }
+  elsif ($$phProperties{'HashType'} =~ /^SHA256$/)
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{64})\\s+(.*)\\s*);
+  }
+  else # MD5
+  {
+    $sHashRegex = qq(([0-9a-fA-F]{32})\\s+(.*)\\s*);
+  }
 
   while (my $sRecord = <FH>)
   {
     $sRecord =~ s/[\r\n]+$//;
-    if (($sHash, $sName) = $sRecord =~ /^([0-9a-fA-F]{32})\s+(.*)\s*$/o)
+    if (my ($sHash, $sName) = $sRecord =~ /^$sHashRegex$/o)
     {
       $sHash = lc($sHash);
 
@@ -1183,7 +1299,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-d delimiter] [-h hash-field] [-n name-field] [-q] [-r] -t type -f {hashdig-file|-} file [file ...]\n";
+  print STDERR "Usage: $sProgram [-qr] [-a hash-type] [-d delimiter] [-h hash-field] [-n name-field] -t file-type -f {hashdig-file|-} file [file ...]\n";
   print STDERR "\n";
   exit(1);
 }
@@ -1197,7 +1313,7 @@ hashdig-bind.pl - Bind resolved hashes to filenames
 
 =head1 SYNOPSIS
 
-B<hashdig-bind.pl> B<[-d delimiter]> B<[-h hash-field]> B<[-n name-field]> B<[-q]> B<[-r]> B<-t type> B<-f {hashdig-file|-}> B<file [file ...]>
+B<hashdig-bind.pl> B<[-qr]> B<[-a hash-type]> B<[-d delimiter]> B<[-h hash-field]> B<[-n name-field]> B<-t file-type> B<-f {hashdig-file|-}> B<file [file ...]>
 
 =head1 DESCRIPTION
 
@@ -1217,6 +1333,14 @@ The 'all' file is the sum of the other output files.
 =head1 OPTIONS
 
 =over 4
+
+=item B<-a hash-type>
+
+Specifies the type of hashes that are to be bound. Currently, the
+following hash types (or algorithms) are supported: 'MD5', 'SHA1', and
+'SHA256'. The default hash type is that specified by the HASH_TYPE
+environment variable or 'MD5' if HASH_TYPE is not set. The value for
+this option is not case sensitive.
 
 =item B<-d delimiter>
 
@@ -1255,13 +1379,14 @@ Don't report errors (i.e., be quiet) while processing files.
 
 Accept HashDig records in reverse format (i.e., category|hash).
 
-=item B<-t type>
+=item B<-t file-type>
 
 Specifies the type of subject files that are to be processed. All
 files processed in a given invocation must be of the same type.
 Currently, the following types are supported: FTIMES, FTK, GENERIC,
-KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM, and OPENSSL. The value for
-this option is not case sensitive.
+KG|KNOWNGOODS, MD5, MD5DEEP, MD5SUM, OPENSSL, SHA1, SHA1DEEP, SHA1SUM,
+SHA256, SHA256DEEP, and SHA256SUM. The value for this option is not
+case sensitive.
 
 =back
 
@@ -1278,7 +1403,7 @@ Klayton Monroe
 
 =head1 SEE ALSO
 
-ftimes(1), hashdig-dump.pl, hashdig-harvest.pl, hashdig-harvest-sunsolve.pl, md5(1), md5sum(1), md5deep, openssl(1)
+ftimes(1), hashdig-dump(1), hashdig-harvest(1), hashdig-harvest-sunsolve(1), md5(1), md5sum(1), md5deep(1), openssl(1)
 
 =head1 LICENSE
 

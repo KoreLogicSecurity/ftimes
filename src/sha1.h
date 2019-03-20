@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sha1.h,v 1.2 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: sha1.h,v 1.4 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2003-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2003-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -70,6 +70,8 @@ typedef struct _SHA1_CONTEXT
  *
  ***********************************************************************
  */
+int                   SHA1HashToBase64(unsigned char *pucHash, char *pcBase64Hash);
+int                   SHA1HashToHex(unsigned char *pucHash, char *pcHexHash);
 int                   SHA1HashStream(FILE *pFile, unsigned char *pucSHA1);
 void                  SHA1HashString(unsigned char *pucData, int iLength, unsigned char *pucSHA1);
 void                  SHA1Alpha(SHA1_CONTEXT *psSHA1);

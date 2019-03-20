@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: develop.c,v 1.25 2006/04/07 22:15:11 mavrik Exp $
+ * $Id: develop.c,v 1.31 2007/02/23 00:22:35 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2006 Klayton Monroe, All Rights Reserved.
+ * Copyright 2000-2007 Klayton Monroe, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -20,9 +20,64 @@
  */
 #define COMPRESS_RECOVERY_RATE 100
 
-static unsigned char  gaucBase64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 static unsigned char  gaucMd5ZeroHash[MD5_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 static unsigned char  gaucSha1ZeroHash[SHA1_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+static unsigned char  gaucSha256ZeroHash[SHA256_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
+/*-
+ ***********************************************************************
+ *
+ * DevelopHaveNothingOutput
+ *
+ ***********************************************************************
+ */
+int
+DevelopHaveNothingOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError)
+{
+  int                 i = 0;
+  int                 n = 0;
+  int                 m = 0;
+  int                 iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_MAP);
+  MASK_B2S_TABLE     *psMaskTable = MaskGetTableReference(MASK_RUNMODE_TYPE_MAP);
+  unsigned long       ul = 0;
+
+  /*-
+   *********************************************************************
+   *
+   * Loop over the mask table, and output a NULL value for each field
+   * that is set in the mask. Then, update the write count and return.
+   *
+   *********************************************************************
+   */
+  for (i = 0; i < iMaskTableLength; i++)
+  {
+    ul = (1 << i);
+    if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, ul))
+    {
+#ifdef WIN32
+      switch (ul)
+      {
+      case MAP_ATIME:
+      case MAP_MTIME:
+      case MAP_CTIME:
+      case MAP_CHTIME:
+        n += sprintf(&pcOutData[n], "||");
+        break;
+      default:
+        n += sprintf(&pcOutData[n], "|");
+        break;
+      }
+#else
+      n += sprintf(&pcOutData[n], "|");
+#endif
+      m += sprintf(&pcError[m], "%s%s", (i == 0) ? "" : ",", (char *) psMaskTable[i].acName);
+    }
+  }
+  n += sprintf(&pcOutData[n], "%s", psProperties->acNewLine);
+  *iWriteCount += n;
+
+  return ER_NullFields;
+}
 
 
 /*-
@@ -60,7 +115,6 @@ int
 DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTData, char *pcError)
 {
   char                acTime[FTIMES_TIME_FORMAT_SIZE];
-  int                 i;
   int                 n;
   int                 iError;
   int                 iStatus = ER_OK;
@@ -82,6 +136,20 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    *********************************************************************
    */
   n = sprintf(pcOutData, "\"%s\"", psFTData->pcNeuteredPath);
+
+  /*-
+   *********************************************************************
+   *
+   * If there are no attributes to develop, just generate a series of
+   * NULL fields and return.
+   *
+   *********************************************************************
+   */
+  if (psFTData->iFileFlags == Have_Nothing)
+  {
+    *iWriteCount = n;
+    return DevelopHaveNothingOutput(psProperties, &pcOutData[n], iWriteCount, psFTData, pcError);
+  }
 
   /*-
    *********************************************************************
@@ -184,7 +252,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     else
     {
       n += sprintf(&pcOutData[n], "|");
-      strcat(pcError, "atime,");
+      strcat(pcError, (pcError[0]) ? ",atime" : "atime");
       iStatus = ER_NullFields;
     }
   }
@@ -206,7 +274,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     else
     {
       n += sprintf(&pcOutData[n], "|");
-      strcat(pcError, "mtime,");
+      strcat(pcError, (pcError[0]) ? ",mtime" : "mtime");
       iStatus = ER_NullFields;
     }
   }
@@ -228,7 +296,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     else
     {
       n += sprintf(&pcOutData[n], "|");
-      strcat(pcError, "ctime,");
+      strcat(pcError, (pcError[0]) ? ",ctime" : "ctime");
       iStatus = ER_NullFields;
     }
   }
@@ -252,23 +320,20 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   /*-
    *********************************************************************
    *
-   * File SHA1 = sha1
+   * File MD5 = md5
    *
    *********************************************************************
    */
-  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
   {
     pcOutData[n++] = '|';
     if (S_ISDIR(psFTData->sStatEntry.st_mode))
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0; i < SHA1_HASH_SIZE; i++)
-          {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileSha1[i]);
-          }
+          n += MD5HashToHex(psFTData->aucFileMd5, &pcOutData[n]);
         }
       }
       else
@@ -278,16 +343,13 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else if (S_ISREG(psFTData->sStatEntry.st_mode))
     {
-      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
       {
-        for (i = 0; i < SHA1_HASH_SIZE; i++)
-        {
-          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileSha1[i]);
-        }
+        n += MD5HashToHex(psFTData->aucFileMd5, &pcOutData[n]);
       }
       else
       {
-        strcat(pcError, "sha1,");
+        strcat(pcError, (pcError[0]) ? ",md5" : "md5");
         iStatus = ER_NullFields;
       }
     }
@@ -295,16 +357,13 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     {
       if (psProperties->bHashSymbolicLinks)
       {
-        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0; i < SHA1_HASH_SIZE; i++)
-          {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileSha1[i]);
-          }
+          n += MD5HashToHex(psFTData->aucFileMd5, &pcOutData[n]);
         }
         else
         {
-          strcat(pcError, "sha1,");
+          strcat(pcError, (pcError[0]) ? ",md5" : "md5");
           iStatus = ER_NullFields;
         }
       }
@@ -322,23 +381,20 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   /*-
    *********************************************************************
    *
-   * File MD5 = md5
+   * File SHA1 = sha1
    *
    *********************************************************************
    */
-  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
   {
     pcOutData[n++] = '|';
     if (S_ISDIR(psFTData->sStatEntry.st_mode))
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          for (i = 0; i < MD5_HASH_SIZE; i++)
-          {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMd5[i]);
-          }
+          n += SHA1HashToHex(psFTData->aucFileSha1, &pcOutData[n]);
         }
       }
       else
@@ -348,16 +404,13 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else if (S_ISREG(psFTData->sStatEntry.st_mode))
     {
-      if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
       {
-        for (i = 0; i < MD5_HASH_SIZE; i++)
-        {
-          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMd5[i]);
-        }
+        n += SHA1HashToHex(psFTData->aucFileSha1, &pcOutData[n]);
       }
       else
       {
-        strcat(pcError, "md5,");
+        strcat(pcError, (pcError[0]) ? ",sha1" : "sha1");
         iStatus = ER_NullFields;
       }
     }
@@ -365,16 +418,74 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     {
       if (psProperties->bHashSymbolicLinks)
       {
-        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          for (i = 0; i < MD5_HASH_SIZE; i++)
-          {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMd5[i]);
-          }
+          n += SHA1HashToHex(psFTData->aucFileSha1, &pcOutData[n]);
         }
         else
         {
-          strcat(pcError, "md5,");
+          strcat(pcError, (pcError[0]) ? ",sha1" : "sha1");
+          iStatus = ER_NullFields;
+        }
+      }
+      else
+      {
+        n += sprintf(&pcOutData[n], "SYMLINK");
+      }
+    }
+    else
+    {
+      n += sprintf(&pcOutData[n], "SPECIAL");
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * File SHA256 = sha256
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+  {
+    pcOutData[n++] = '|';
+    if (S_ISDIR(psFTData->sStatEntry.st_mode))
+    {
+      if (psProperties->bHashDirectories)
+      {
+        if (memcmp(psFTData->aucFileSha256, gaucSha256ZeroHash, SHA256_HASH_SIZE) != 0)
+        {
+          n += SHA256HashToHex(psFTData->aucFileSha256, &pcOutData[n]);
+        }
+      }
+      else
+      {
+        n += sprintf(&pcOutData[n], "DIRECTORY");
+      }
+    }
+    else if (S_ISREG(psFTData->sStatEntry.st_mode))
+    {
+      if (memcmp(psFTData->aucFileSha256, gaucSha256ZeroHash, SHA256_HASH_SIZE) != 0)
+      {
+        n += SHA256HashToHex(psFTData->aucFileSha256, &pcOutData[n]);
+      }
+      else
+      {
+        strcat(pcError, (pcError[0]) ? ",sha256" : "sha256");
+        iStatus = ER_NullFields;
+      }
+    }
+    else if (S_ISLNK(psFTData->sStatEntry.st_mode))
+    {
+      if (psProperties->bHashSymbolicLinks)
+      {
+        if (memcmp(psFTData->aucFileSha256, gaucSha256ZeroHash, SHA256_HASH_SIZE) != 0)
+        {
+          n += SHA256HashToHex(psFTData->aucFileSha256, &pcOutData[n]);
+        }
+        else
+        {
+          strcat(pcError, (pcError[0]) ? ",sha256" : "sha256");
           iStatus = ER_NullFields;
         }
       }
@@ -406,7 +517,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-      strcat(pcError, "magic");
+      strcat(pcError, (pcError[0]) ? ",magic" : "magic");
       iStatus = ER_NullFields;
     }
   }
@@ -453,7 +564,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
 {
   char                acTime[FTIMES_TIME_FORMAT_SIZE];
   int                 iError;
-  int                 i;
   int                 n;
   int                 iStatus = ER_OK;
   unsigned __int64    ui64FileIndex;
@@ -488,6 +598,20 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   /*-
    *********************************************************************
    *
+   * If there are no attributes to develop, just generate a series of
+   * NULL fields and return.
+   *
+   *********************************************************************
+   */
+  if (psFTData->iFileFlags == Have_Nothing)
+  {
+    *iWriteCount = n;
+    return DevelopHaveNothingOutput(psProperties, &pcOutData[n], iWriteCount, psFTData, pcError);
+  }
+
+  /*-
+   *********************************************************************
+   *
    * Volume Number = volume
    *
    *********************************************************************
@@ -505,7 +629,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
       if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
       {
-        strcat(pcError, "volume,");
+        strcat(pcError, (pcError[0]) ? ",volume" : "volume");
         iStatus = ER_NullFields;
       }
     }
@@ -532,7 +656,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
       if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
       {
-        strcat(pcError, "findex,");
+        strcat(pcError, (pcError[0]) ? ",findex" : "findex");
         iStatus = ER_NullFields;
       }
     }
@@ -562,7 +686,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     if (psFTData->sFTATime.dwLowDateTime == 0 && psFTData->sFTATime.dwHighDateTime == 0)
     {
       n += sprintf(&pcOutData[n], "||");
-      strcat(pcError, "atime,");
+      strcat(pcError, (pcError[0]) ? ",atime" : "atime");
       iStatus = ER_NullFields;
     }
     else
@@ -575,7 +699,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
       else
       {
         n += sprintf(&pcOutData[n], "||");
-        strcat(pcError, "atime,");
+        strcat(pcError, (pcError[0]) ? ",atime" : "atime");
         iStatus = ER_NullFields;
       }
     }
@@ -593,7 +717,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     if (psFTData->sFTMTime.dwLowDateTime == 0 && psFTData->sFTMTime.dwHighDateTime == 0)
     {
       n += sprintf(&pcOutData[n], "||");
-      strcat(pcError, "mtime,");
+      strcat(pcError, (pcError[0]) ? ",mtime" : "mtime");
       iStatus = ER_NullFields;
     }
     else
@@ -606,7 +730,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
       else
       {
         n += sprintf(&pcOutData[n], "||");
-        strcat(pcError, "mtime,");
+        strcat(pcError, (pcError[0]) ? ",mtime" : "mtime");
         iStatus = ER_NullFields;
       }
     }
@@ -633,7 +757,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
        *
        *****************************************************************
        */
-      strcat(pcError, "ctime,");
+      strcat(pcError, (pcError[0]) ? ",ctime" : "ctime");
       iStatus = ER_NullFields;
 #endif
       n += sprintf(&pcOutData[n], "||");
@@ -648,7 +772,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
       else
       {
         n += sprintf(&pcOutData[n], "||");
-        strcat(pcError, "ctime,");
+        strcat(pcError, (pcError[0]) ? ",ctime" : "ctime");
         iStatus = ER_NullFields;
       }
     }
@@ -668,7 +792,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
 #ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
-        strcat(pcError, "chtime,");
+        strcat(pcError, (pcError[0]) ? ",chtime" : "chtime");
         iStatus = ER_NullFields;
       }
 #endif
@@ -686,7 +810,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
         n += sprintf(&pcOutData[n], "||");
         if (psFTData->iFSType == FSTYPE_NTFS)
         {
-          strcat(pcError, "chtime,");
+          strcat(pcError, (pcError[0]) ? ",chtime" : "chtime");
           iStatus = ER_NullFields;
         }
       }
@@ -725,54 +849,10 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
 #ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
-        strcat(pcError, "altstreams,");
+        strcat(pcError, (pcError[0]) ? ",altstreams" : "altstreams");
         iStatus = ER_NullFields;
       }
 #endif
-    }
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * File SHA1 = sha1
-   *
-   *********************************************************************
-   */
-  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-  {
-    pcOutData[n++] = '|';
-    if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
-    {
-      if (psProperties->bHashDirectories)
-      {
-        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
-        {
-          for (i = 0; i < SHA1_HASH_SIZE; i++)
-          {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileSha1[i]);
-          }
-        }
-      }
-      else
-      {
-        n += sprintf(&pcOutData[n], "DIRECTORY");
-      }
-    }
-    else
-    {
-      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
-      {
-        for (i = 0; i < SHA1_HASH_SIZE; i++)
-        {
-          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileSha1[i]);
-        }
-      }
-      else
-      {
-        strcat(pcError, "sha1,");
-        iStatus = ER_NullFields;
-      }
     }
   }
 
@@ -792,10 +872,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
       {
         if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0; i < MD5_HASH_SIZE; i++)
-          {
-            n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMd5[i]);
-          }
+          n += MD5HashToHex(psFTData->aucFileMd5, &pcOutData[n]);
         }
       }
       else
@@ -807,14 +884,87 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     {
       if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
       {
-        for (i = 0; i < MD5_HASH_SIZE; i++)
+        n += MD5HashToHex(psFTData->aucFileMd5, &pcOutData[n]);
+      }
+      else
+      {
+        strcat(pcError, (pcError[0]) ? ",md5" : "md5");
+        iStatus = ER_NullFields;
+      }
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * File SHA1 = sha1
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+  {
+    pcOutData[n++] = '|';
+    if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+    {
+      if (psProperties->bHashDirectories)
+      {
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          n += sprintf(&pcOutData[n], "%02x", psFTData->aucFileMd5[i]);
+          n += SHA1HashToHex(psFTData->aucFileSha1, &pcOutData[n]);
         }
       }
       else
       {
-        strcat(pcError, "md5,");
+        n += sprintf(&pcOutData[n], "DIRECTORY");
+      }
+    }
+    else
+    {
+      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
+      {
+        n += SHA1HashToHex(psFTData->aucFileSha1, &pcOutData[n]);
+      }
+      else
+      {
+        strcat(pcError, (pcError[0]) ? ",sha1" : "sha1");
+        iStatus = ER_NullFields;
+      }
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * File SHA256 = sha256
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+  {
+    pcOutData[n++] = '|';
+    if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+    {
+      if (psProperties->bHashDirectories)
+      {
+        if (memcmp(psFTData->aucFileSha256, gaucSha256ZeroHash, SHA256_HASH_SIZE) != 0)
+        {
+          n += SHA256HashToHex(psFTData->aucFileSha256, &pcOutData[n]);
+        }
+      }
+      else
+      {
+        n += sprintf(&pcOutData[n], "DIRECTORY");
+      }
+    }
+    else
+    {
+      if (memcmp(psFTData->aucFileSha256, gaucSha256ZeroHash, SHA256_HASH_SIZE) != 0)
+      {
+        n += SHA256HashToHex(psFTData->aucFileSha256, &pcOutData[n]);
+      }
+      else
+      {
+        strcat(pcError, (pcError[0]) ? ",sha256" : "sha256");
         iStatus = ER_NullFields;
       }
     }
@@ -837,7 +987,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     }
     else
     {
-      strcat(pcError, "magic");
+      strcat(pcError, (pcError[0]) ? ",magic" : "magic");
       iStatus = ER_NullFields;
     }
   }
@@ -885,8 +1035,6 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   int                 i;
   int                 n;
   int                 iStatus = ER_OK;
-  unsigned long       ul;
-  unsigned long       ulLeft;
   static char         acLastName[4 * FTIMES_MAX_PATH]; /* This is an encoded name. */
   static long         lRecoveryCounter = 0;
   static struct stat  sStatLastEntry;
@@ -939,6 +1087,24 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       n = sprintf(pcOutData, "%02x%s\"", i + 1 /* Add 1 for the leading quote. */, &psFTData->pcNeuteredPath[i]);
     }
     strncpy(&acLastName[i], &psFTData->pcNeuteredPath[i], ((4 * FTIMES_MAX_PATH) - i) /* Must subtract i here to prevent overruns. */);
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * If there are no attributes to develop, reset the recovery counter,
+   * zero out state variables, generate a series of NULL fields, and
+   * return.
+   *
+   *********************************************************************
+   */
+  if (psFTData->iFileFlags == Have_Nothing)
+  {
+    *iWriteCount = n;
+    lRecoveryCounter = 0;
+    memset(acLastName, 0, (4 * FTIMES_MAX_PATH));
+    memset(&sStatLastEntry, 0, sizeof(struct stat));
+    return DevelopHaveNothingOutput(psProperties, &pcOutData[n], iWriteCount, psFTData, pcError);
   }
 
   /*-
@@ -1233,37 +1399,24 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   /*-
    *********************************************************************
    *
-   * File SHA1 = sha1
+   * File MD5 = md5
    *
    *********************************************************************
    */
-  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
   {
     pcOutData[n++] = '|';
     if (S_ISDIR(psFTData->sStatEntry.st_mode))
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0, ul = 0, ulLeft = 0; i < SHA1_HASH_SIZE; i++)
-          {
-            ul = (ul << 8) | psFTData->aucFileSha1[i];
-            ulLeft += 8;
-            while (ulLeft > 6)
-            {
-              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
-              ulLeft -= 6;
-            }
-          }
-          if (ulLeft != 0)
-          {
-            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
-          }
+          n += MD5HashToBase64(psFTData->aucFileMd5, &pcOutData[n]);
         }
         else
         {
-          strcat(pcError, "sha1,");
+          strcat(pcError, (pcError[0]) ? ",md5" : "md5");
           iStatus = ER_NullFields;
         }
       }
@@ -1274,26 +1427,13 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else if (S_ISREG(psFTData->sStatEntry.st_mode))
     {
-      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
       {
-        for (i = 0, ul = 0, ulLeft = 0; i < SHA1_HASH_SIZE; i++)
-        {
-          ul = (ul << 8) | psFTData->aucFileSha1[i];
-          ulLeft += 8;
-          while (ulLeft > 6)
-          {
-            pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
-            ulLeft -= 6;
-          }
-        }
-        if (ulLeft != 0)
-        {
-          pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
-        }
+        n += MD5HashToBase64(psFTData->aucFileMd5, &pcOutData[n]);
       }
       else
       {
-        strcat(pcError, "sha1,");
+        strcat(pcError, (pcError[0]) ? ",md5" : "md5");
         iStatus = ER_NullFields;
       }
     }
@@ -1301,26 +1441,13 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     {
       if (psProperties->bHashSymbolicLinks)
       {
-        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0, ul = 0, ulLeft = 0; i < SHA1_HASH_SIZE; i++)
-          {
-            ul = (ul << 8) | psFTData->aucFileSha1[i];
-            ulLeft += 8;
-            while (ulLeft > 6)
-            {
-              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
-              ulLeft -= 6;
-            }
-          }
-          if (ulLeft != 0)
-          {
-            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
-          }
+          n += MD5HashToBase64(psFTData->aucFileMd5, &pcOutData[n]);
         }
         else
         {
-          strcat(pcError, "sha1,");
+          strcat(pcError, (pcError[0]) ? ",md5" : "md5");
           iStatus = ER_NullFields;
         }
       }
@@ -1338,37 +1465,24 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   /*-
    *********************************************************************
    *
-   * File MD5 = md5
+   * File SHA1 = sha1
    *
    *********************************************************************
    */
-  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
   {
     pcOutData[n++] = '|';
     if (S_ISDIR(psFTData->sStatEntry.st_mode))
     {
       if (psProperties->bHashDirectories)
       {
-        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
-          {
-            ul = (ul << 8) | psFTData->aucFileMd5[i];
-            ulLeft += 8;
-            while (ulLeft > 6)
-            {
-              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
-              ulLeft -= 6;
-            }
-          }
-          if (ulLeft != 0)
-          {
-            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
-          }
+          n += SHA1HashToBase64(psFTData->aucFileSha1, &pcOutData[n]);
         }
         else
         {
-          strcat(pcError, "md5,");
+          strcat(pcError, (pcError[0]) ? ",sha1" : "sha1");
           iStatus = ER_NullFields;
         }
       }
@@ -1379,26 +1493,13 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     }
     else if (S_ISREG(psFTData->sStatEntry.st_mode))
     {
-      if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
       {
-        for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
-        {
-          ul = (ul << 8) | psFTData->aucFileMd5[i];
-          ulLeft += 8;
-          while (ulLeft > 6)
-          {
-            pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
-            ulLeft -= 6;
-          }
-        }
-        if (ulLeft != 0)
-        {
-          pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
-        }
+        n += SHA1HashToBase64(psFTData->aucFileSha1, &pcOutData[n]);
       }
       else
       {
-        strcat(pcError, "md5,");
+        strcat(pcError, (pcError[0]) ? ",sha1" : "sha1");
         iStatus = ER_NullFields;
       }
     }
@@ -1406,26 +1507,79 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     {
       if (psProperties->bHashSymbolicLinks)
       {
-        if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
-          {
-            ul = (ul << 8) | psFTData->aucFileMd5[i];
-            ulLeft += 8;
-            while (ulLeft > 6)
-            {
-              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
-              ulLeft -= 6;
-            }
-          }
-          if (ulLeft != 0)
-          {
-            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
-          }
+          n += SHA1HashToBase64(psFTData->aucFileSha1, &pcOutData[n]);
         }
         else
         {
-          strcat(pcError, "md5,");
+          strcat(pcError, (pcError[0]) ? ",sha1" : "sha1");
+          iStatus = ER_NullFields;
+        }
+      }
+      else
+      {
+        pcOutData[n++] = 'L';
+      }
+    }
+    else
+    {
+      pcOutData[n++] = 'S';
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * File SHA256 = sha256
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+  {
+    pcOutData[n++] = '|';
+    if (S_ISDIR(psFTData->sStatEntry.st_mode))
+    {
+      if (psProperties->bHashDirectories)
+      {
+        if (memcmp(psFTData->aucFileSha256, gaucSha256ZeroHash, SHA256_HASH_SIZE) != 0)
+        {
+          n += SHA256HashToBase64(psFTData->aucFileSha256, &pcOutData[n]);
+        }
+        else
+        {
+          strcat(pcError, (pcError[0]) ? ",sha256" : "sha256");
+          iStatus = ER_NullFields;
+        }
+      }
+      else
+      {
+        pcOutData[n++] = 'D';
+      }
+    }
+    else if (S_ISREG(psFTData->sStatEntry.st_mode))
+    {
+      if (memcmp(psFTData->aucFileSha256, gaucSha256ZeroHash, SHA256_HASH_SIZE) != 0)
+      {
+        n += SHA256HashToBase64(psFTData->aucFileSha256, &pcOutData[n]);
+      }
+      else
+      {
+        strcat(pcError, (pcError[0]) ? ",sha256" : "sha256");
+        iStatus = ER_NullFields;
+      }
+    }
+    else if (S_ISLNK(psFTData->sStatEntry.st_mode))
+    {
+      if (psProperties->bHashSymbolicLinks)
+      {
+        if (memcmp(psFTData->aucFileSha256, gaucSha256ZeroHash, SHA256_HASH_SIZE) != 0)
+        {
+          n += SHA256HashToBase64(psFTData->aucFileSha256, &pcOutData[n]);
+        }
+        else
+        {
+          strcat(pcError, (pcError[0]) ? ",sha256" : "sha256");
           iStatus = ER_NullFields;
         }
       }
@@ -1505,7 +1659,6 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   int                 n;
   int                 iError;
   int                 iStatus = ER_OK;
-  unsigned long       ul;
   unsigned long       ulATimeSeconds;
   unsigned long       ulMTimeSeconds;
   unsigned long       ulCTimeSeconds;
@@ -1518,7 +1671,6 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   unsigned long       ulTempMTimeSeconds;
   unsigned long       ulTempCTimeSeconds;
   unsigned long       ulTempChTimeSeconds;
-  unsigned long       ulLeft;
   unsigned __int64    ui64ATime = 0;
   unsigned __int64    ui64MTime = 0;
   unsigned __int64    ui64CTime = 0;
@@ -1589,6 +1741,31 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   /*-
    *********************************************************************
    *
+   * If there are no attributes to develop, reset the recovery counter,
+   * zero out state variables, generate a series of NULL fields, and
+   * return.
+   *
+   *********************************************************************
+   */
+  if (psFTData->iFileFlags == Have_Nothing)
+  {
+    *iWriteCount = n;
+    lRecoveryCounter = 0;
+    memset(acLastName, 0, (4 * FTIMES_MAX_PATH));
+    dwLastVolumeSerialNumber = 0;
+    dwLastFileIndexHigh = 0;
+    dwLastFileIndexLow = 0;
+    dwLastFileAttributes = 0;
+    ui64LastATime = 0;
+    ui64LastMTime = 0;
+    ui64LastCTime = 0;
+    ui64LastChTime = 0;
+    return DevelopHaveNothingOutput(psProperties, &pcOutData[n], iWriteCount, psFTData, pcError);
+  }
+
+  /*-
+   *********************************************************************
+   *
    * Volume Number = volume
    *
    *********************************************************************
@@ -1619,7 +1796,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
         {
-          strcat(pcError, "volume,");
+          strcat(pcError, (pcError[0]) ? ",volume" : "volume");
           iStatus = ER_NullFields;
         }
       }
@@ -1662,7 +1839,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != FILE_ATTRIBUTE_DIRECTORY)
 #endif
         {
-          strcat(pcError, "findex,");
+          strcat(pcError, (pcError[0]) ? ",findex" : "findex");
           iStatus = ER_NullFields;
         }
       }
@@ -1709,7 +1886,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     if (psFTData->sFTATime.dwLowDateTime == 0 && psFTData->sFTATime.dwHighDateTime == 0)
     {
       pcOutData[n++] = '|';
-      strcat(pcError, "atime,");
+      strcat(pcError, (pcError[0]) ? ",atime" : "atime");
       iStatus = ER_NullFields;
 
       /*-
@@ -1734,7 +1911,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         else
         {
           pcOutData[n++] = '|';
-          strcat(pcError, "atime,");
+          strcat(pcError, (pcError[0]) ? ",atime" : "atime");
           iStatus = ER_NullFields;
         }
       }
@@ -1778,7 +1955,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     if (psFTData->sFTMTime.dwLowDateTime == 0 && psFTData->sFTMTime.dwHighDateTime == 0)
     {
       pcOutData[n++] = '|';
-      strcat(pcError, "mtime,");
+      strcat(pcError, (pcError[0]) ? ",mtime" : "mtime");
       iStatus = ER_NullFields;
 
       /*-
@@ -1803,7 +1980,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         else
         {
           pcOutData[n++] = '|';
-          strcat(pcError, "mtime,");
+          strcat(pcError, (pcError[0]) ? ",mtime" : "mtime");
           iStatus = ER_NullFields;
         }
       }
@@ -1860,7 +2037,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
        *
        *****************************************************************
        */
-      strcat(pcError, "ctime,");
+      strcat(pcError, (pcError[0]) ? ",ctime" : "ctime");
       iStatus = ER_NullFields;
 #endif
 
@@ -1886,7 +2063,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         else
         {
           pcOutData[n++] = '|';
-          strcat(pcError, "ctime,");
+          strcat(pcError, (pcError[0]) ? ",ctime" : "ctime");
           iStatus = ER_NullFields;
         }
       }
@@ -1942,7 +2119,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
 #ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
-        strcat(pcError, "chtime,");
+        strcat(pcError, (pcError[0]) ? ",chtime" : "chtime");
         iStatus = ER_NullFields;
       }
 #endif
@@ -1971,7 +2148,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
           pcOutData[n++] = '|';
           if (psFTData->iFSType == FSTYPE_NTFS)
           {
-            strcat(pcError, "chtime,");
+            strcat(pcError, (pcError[0]) ? ",chtime" : "chtime");
             iStatus = ER_NullFields;
           }
         }
@@ -2051,79 +2228,10 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
 #ifndef WIN98
       if (psFTData->iFSType == FSTYPE_NTFS)
       {
-        strcat(pcError, "altstreams,");
+        strcat(pcError, (pcError[0]) ? ",altstreams" : "altstreams");
         iStatus = ER_NullFields;
       }
 #endif
-    }
-  }
-
-  /*-
-   *********************************************************************
-   *
-   * File SHA1 = sha1
-   *
-   *********************************************************************
-   */
-  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
-  {
-    pcOutData[n++] = '|';
-    if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
-    {
-      if (psProperties->bHashDirectories)
-      {
-        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
-        {
-          for (i = 0, ul = 0, ulLeft = 0; i < SHA1_HASH_SIZE; i++)
-          {
-            ul = (ul << 8) | psFTData->aucFileSha1[i];
-            ulLeft += 8;
-            while (ulLeft > 6)
-            {
-              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
-              ulLeft -= 6;
-            }
-          }
-          if (ulLeft != 0)
-          {
-            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
-          }
-        }
-        else
-        {
-          strcat(pcError, "sha1,");
-          iStatus = ER_NullFields;
-        }
-      }
-      else
-      {
-        pcOutData[n++] = 'D';
-      }
-    }
-    else
-    {
-      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
-      {
-        for (i = 0, ul = 0, ulLeft = 0; i < SHA1_HASH_SIZE; i++)
-        {
-          ul = (ul << 8) | psFTData->aucFileSha1[i];
-          ulLeft += 8;
-          while (ulLeft > 6)
-          {
-            pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
-            ulLeft -= 6;
-          }
-        }
-        if (ulLeft != 0)
-        {
-          pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
-        }
-      }
-      else
-      {
-        strcat(pcError, "sha1,");
-        iStatus = ER_NullFields;
-      }
     }
   }
 
@@ -2143,24 +2251,11 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
       {
         if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
         {
-          for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
-          {
-            ul = (ul << 8) | psFTData->aucFileMd5[i];
-            ulLeft += 8;
-            while (ulLeft > 6)
-            {
-              pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
-              ulLeft -= 6;
-            }
-          }
-          if (ulLeft != 0)
-          {
-            pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
-          }
+          n += MD5HashToBase64(psFTData->aucFileMd5, &pcOutData[n]);
         }
         else
         {
-          strcat(pcError, "md5,");
+          strcat(pcError, (pcError[0]) ? ",md5" : "md5");
           iStatus = ER_NullFields;
         }
       }
@@ -2173,24 +2268,97 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     {
       if (memcmp(psFTData->aucFileMd5, gaucMd5ZeroHash, MD5_HASH_SIZE) != 0)
       {
-        for (i = 0, ul = 0, ulLeft = 0; i < MD5_HASH_SIZE; i++)
+        n += MD5HashToBase64(psFTData->aucFileMd5, &pcOutData[n]);
+      }
+      else
+      {
+        strcat(pcError, (pcError[0]) ? ",md5" : "md5");
+        iStatus = ER_NullFields;
+      }
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * File SHA1 = sha1
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+  {
+    pcOutData[n++] = '|';
+    if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+    {
+      if (psProperties->bHashDirectories)
+      {
+        if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
         {
-          ul = (ul << 8) | psFTData->aucFileMd5[i];
-          ulLeft += 8;
-          while (ulLeft > 6)
-          {
-            pcOutData[n++] = gaucBase64[(ul >> (ulLeft - 6)) & 0x3f];
-            ulLeft -= 6;
-          }
+          n += SHA1HashToBase64(psFTData->aucFileSha1, &pcOutData[n]);
         }
-        if (ulLeft != 0)
+        else
         {
-          pcOutData[n++] = gaucBase64[(ul << (6 - ulLeft)) & 0x3f];
+          strcat(pcError, (pcError[0]) ? ",sha1" : "sha1");
+          iStatus = ER_NullFields;
         }
       }
       else
       {
-        strcat(pcError, "md5,");
+        pcOutData[n++] = 'D';
+      }
+    }
+    else
+    {
+      if (memcmp(psFTData->aucFileSha1, gaucSha1ZeroHash, SHA1_HASH_SIZE) != 0)
+      {
+        n += SHA1HashToBase64(psFTData->aucFileSha1, &pcOutData[n]);
+      }
+      else
+      {
+        strcat(pcError, (pcError[0]) ? ",sha1" : "sha1");
+        iStatus = ER_NullFields;
+      }
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * File SHA256 = sha256
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+  {
+    pcOutData[n++] = '|';
+    if ((psFTData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+    {
+      if (psProperties->bHashDirectories)
+      {
+        if (memcmp(psFTData->aucFileSha256, gaucSha256ZeroHash, SHA256_HASH_SIZE) != 0)
+        {
+          n += SHA256HashToBase64(psFTData->aucFileSha256, &pcOutData[n]);
+        }
+        else
+        {
+          strcat(pcError, (pcError[0]) ? ",sha256" : "sha256");
+          iStatus = ER_NullFields;
+        }
+      }
+      else
+      {
+        pcOutData[n++] = 'D';
+      }
+    }
+    else
+    {
+      if (memcmp(psFTData->aucFileSha256, gaucSha256ZeroHash, SHA256_HASH_SIZE) != 0)
+      {
+        n += SHA256HashToBase64(psFTData->aucFileSha256, &pcOutData[n]);
+      }
+      else
+      {
+        strcat(pcError, (pcError[0]) ? ",sha256" : "sha256");
         iStatus = ER_NullFields;
       }
     }

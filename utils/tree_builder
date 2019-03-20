@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: tree_builder,v 1.2 2006/04/07 22:15:12 mavrik Exp $
+# $Id: tree_builder,v 1.5 2007/02/23 00:22:44 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2003-2006 The FTimes Project, All Rights Reserved.
+# Copyright 2003-2007 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -15,8 +15,6 @@
 
 use strict;
 use Cwd;
-use Digest::MD5 qw(md5_hex);
-use Digest::SHA1 qw(sha1_hex);
 use File::Basename;
 use Getopt::Std;
 
@@ -79,7 +77,7 @@ BEGIN
 
   my (%hOptions);
 
-  if (!getopts("D:d:f:l:no:", \%hOptions))
+  if (!getopts("D:d:f:l:Mno:", \%hOptions))
   {
     Usage($$phProperties{'Program'});
   }
@@ -148,11 +146,31 @@ BEGIN
 
   ####################################################################
   #
+  # The NoMap, '-M', flag is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'NoMap'} = (exists($hOptions{'M'})) ? 1 : 0;
+
+  if (!$$phProperties{'NoMap'})
+  {
+    require Digest::MD5;
+    require Digest::SHA1;
+  }
+
+  ####################################################################
+  #
   # The DryRun, '-n', flag is optional.
   #
   ####################################################################
 
   $$phProperties{'DryRun'} = (exists($hOptions{'n'})) ? 1 : 0;
+
+  if ($$phProperties{'DryRun'} && $$phProperties{'NoMap'})
+  {
+    print STDERR "$$phProperties{'Program'}: Error='The NoMap and DryRun options are incompatible. Drop one or the other.'\n";
+    exit(2);
+  }
 
   ####################################################################
   #
@@ -231,14 +249,21 @@ BEGIN
   #
   ####################################################################
 
-  PrintRecord("name|sha1|md5");
+  if (!$$phProperties{'NoMap'})
+  {
+    PrintRecord("name|md5|sha1");
+  }
 
   if (!MkLayer($phProperties, \$sError))
   {
     print STDERR "$$phProperties{'Program'}: Error='$sError'\n";
     exit(2);
   }
-  PrintRecord("\"$$phProperties{'WorkingDir'}\"|DIRECTORY|DIRECTORY");
+
+  if (!$$phProperties{'NoMap'})
+  {
+    PrintRecord("\"$$phProperties{'WorkingDir'}\"|DIRECTORY|DIRECTORY");
+  }
 
   ####################################################################
   #
@@ -338,7 +363,10 @@ sub MkDirs
         return undef;
       }
     }
-    PrintRecord("\"$$phProperties{'WorkingDir'}\"|DIRECTORY|DIRECTORY");
+    if (!$$phProperties{'NoMap'})
+    {
+      PrintRecord("\"$$phProperties{'WorkingDir'}\"|DIRECTORY|DIRECTORY");
+    }
     $$phProperties{'WorkingDir'} = $sLastDir;
   }
 
@@ -363,8 +391,6 @@ sub MkFiles
   {
     my $sName = $$phProperties{'FilenamePrefix'} . $i;
     my $sFile = $$phProperties{'WorkingDir'} . "/" . $sName;
-    my $sSha1 = sha1_hex($sName);
-    my $sMd5 = md5_hex($sName);
     if (!$$phProperties{'DryRun'})
     {
       if (!MkFile($sFile, $sName, $psError))
@@ -372,7 +398,16 @@ sub MkFiles
         return undef;
       }
     }
-    PrintRecord("\"$sFile\"|$sSha1|$sMd5");
+    if (!$$phProperties{'NoMap'})
+    {
+      my $oMd5 = Digest::MD5->new;
+      $oMd5->add($sName);
+      my $sMd5 = $oMd5->hexdigest;
+      my $oSha1 = Digest::SHA1->new;
+      $oSha1->add($sName);
+      my $sSha1 = $oSha1->hexdigest;
+      PrintRecord("\"$sFile\"|$sMd5|$sSha1");
+    }
   }
 
   1;
@@ -398,8 +433,6 @@ sub MkLinks
   {
     my $sName = $$phProperties{'FilenamePrefix'} . $i;
     my $sLink = $$phProperties{'WorkingDir'} . "/" . $$phProperties{'LinknamePrefix'} . $i;
-    my $sSha1 = sha1_hex($sName);
-    my $sMd5 = md5_hex($sName);
     if (!$$phProperties{'DryRun'})
     {
       if (!MkLink($sLink, $sName, $psError))
@@ -407,7 +440,16 @@ sub MkLinks
         return undef;
       }
     }
-    PrintRecord("\"$sLink\"|$sSha1|$sMd5");
+    if (!$$phProperties{'NoMap'})
+    {
+      my $oMd5 = Digest::MD5->new;
+      $oMd5->add($sName);
+      my $sMd5 = $oMd5->hexdigest;
+      my $oSha1 = Digest::SHA1->new;
+      $oSha1->add($sName);
+      my $sSha1 = $oSha1->hexdigest;
+      PrintRecord("\"$sLink\"|$sMd5|$sSha1");
+    }
   }
 
   1;
@@ -584,7 +626,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-n] [-D depth] [-d dir-count] [-f file-count] [-l link-count] -o out-dir\n";
+  print STDERR "Usage: $sProgram [-Mn] [-D depth] [-d dir-count] [-f file-count] [-l link-count] -o out-dir\n";
   print STDERR "\n";
   exit(1);
 }

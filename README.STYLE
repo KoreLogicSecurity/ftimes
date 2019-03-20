@@ -13,7 +13,7 @@
 
 1.1 Revision
 
-  $Id: README.STYLE,v 1.1 2005/04/29 18:55:03 mavrik Exp $
+  $Id: README.STYLE,v 1.2 2007/02/23 00:06:05 mavrik Exp $
 
 1.2 Table of Contents
 
@@ -164,7 +164,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: README.STYLE,v 1.1 2005/04/29 18:55:03 mavrik Exp $
+ * $Id: README.STYLE,v 1.2 2007/02/23 00:06:05 mavrik Exp $
  *
  ***********************************************************************
  *
@@ -196,7 +196,7 @@ main(int iArgumentCount, char *ppcArgumentVector[])
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: README.STYLE,v 1.1 2005/04/29 18:55:03 mavrik Exp $
+# $Id: README.STYLE,v 1.2 2007/02/23 00:06:05 mavrik Exp $
 #
 ######################################################################
 #
@@ -262,7 +262,7 @@ use File::Basename;
 #!/bin/sh
 ######################################################################
 #
-# $Id: README.STYLE,v 1.1 2005/04/29 18:55:03 mavrik Exp $
+# $Id: README.STYLE,v 1.2 2007/02/23 00:06:05 mavrik Exp $
 #
 ######################################################################
 #
@@ -295,6 +295,10 @@ PROGRAM=`basename $0`
   From command mode macro (cursor on first line of the paragraph):
 
     map #1 :.,/^$/!fmt^[}
+
+  or (with command line options)
+
+    map #1 :.,/^$/!fmt -l 0 -w 70^[}
 
   Note: The ^[ in this macro is created by typing CTRL-v followed
   by ESC.
@@ -387,9 +391,36 @@ PROGRAM=`basename $0`
 
 1.7.4 Comments for CVS
 
-  Comment for CVS logs should always be formatted with fmt(1).  They
+  Comments for CVS logs should always be formatted with fmt(1).  They
   also need to have any trailing spaces removed (see Trailing Spaces
   section).
+
+  Generally, CVS commit messages should be written in the past tense
+  (you are describing what you did) and in the first person with the
+  subject implied. For example, the message:
+
+    I updated section 1.7.4 of the documentation.
+
+  would be written as
+
+    Updated section 1.7.4 of the documentation.
+
+  Strive to express complete thoughts/sentences, and explain why you
+  made the change -- people can see what you changed by doing a diff,
+  but they won't know why you made the change unless you tell them.
+
+  Always check punctuation, grammar, and spelling before committing.
+
+  Avoid IRC speak, incomplete thoughts, and things like talking to the
+  software. Bear in mind that these messages are part of the project's
+  official record, so it's worth the effort in to make them look
+  professional.
+
+  If your commit messages are consistently covering multiple,
+  unrelated changes, you're probably attempting to commit too many
+  things at one time. A good rule of thumb is to make one commit per
+  change -- even if the change is small. The exception to this is
+  multiple changes that are related.
 
 1.8 Braces { }
 
@@ -416,7 +447,18 @@ PROGRAM=`basename $0`
   Variable names should be descriptive and be expressed in the form
   of an object (e.g., iCount, pcFilename).
 
-  When possible, initialize variables as they are declared.
+  Variables should be initialized as they are declared.  One exception
+  to this is the case where variable initialization would negatively
+  impact performance.
+
+  For example, using '{ 0 }' to initialize an array can have a
+  significant impact on performance.  According to the 2nd edition of
+  "The C Programming  Language" by Kernighan and Ritchie, an array
+  initialized in this way will be zero filled when the number of
+  initializers is less than the size of the array (section 4.9, page
+  86).  In cases where the size of the array is large, the routine is
+  called frequently, or a combination of both, this will likely be a
+  performance drain.
 
   The use of global variables should be minimized, and unless there
   is a good reason, they should not be used at all.  That being
@@ -429,7 +471,9 @@ PROGRAM=`basename $0`
 1.9.1.1 Variable Names for C
 
   Specify the variable type in small letters.  Then, capitalize the
-  first letter of each successive word (e.g., iTimeLimit).
+  first letter of each successive word (e.g., iTimeLimit).  If the
+  variable name contains an acronym (e.g., SSL or URL), only the first
+  letter of the acronym may be capitalized (e.g., Ssl or Url).
 
   Simple ints such as i, j, k, n, x, and y do not require the type
   specifier (i.e., iI, iJ, etc.) as that would make them overly
@@ -452,7 +496,9 @@ PROGRAM=`basename $0`
   using my.  The first letter of the variable should be a lower
   case letter (a, h, o, s) that indicates the type (i.e., array,
   hash, object, or scalar).  Then, capitalize the first letter of
-  each successive word.
+  each successive word.  If the variable name contains an acronym
+  (e.g., SSL or URL), only the first letter of the acronym may be
+  capitalized (e.g., Ssl or Url).
 
   Here are some example declarations:
 

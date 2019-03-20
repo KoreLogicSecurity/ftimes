@@ -1,6 +1,6 @@
 ######################################################################
 #
-# $Id: common-tests.mk.in,v 1.5 2006/07/15 03:54:09 mavrik Exp $
+# $Id: common-tests.mk.in,v 1.6 2007/04/14 19:42:08 mavrik Exp $
 #
 ######################################################################
 #
@@ -16,25 +16,30 @@ CLEAN_DEBUG_LEVEL?=0
 
 SETUP_DEBUG_LEVEL?=0
 
-all: _check_done
+all:
+
+install:
 
 _clean_done:
-	@perl ${TEST_HARNESS} -m clean -w ${WORKDIR} -p ${TARGET_PROGRAM} -d ${CLEAN_DEBUG_LEVEL} -s ${PROJECT_SRCDIR}
+	@if test -n "${PROJECT_LIBDIR}" ; then options="-l ${PROJECT_LIBDIR}" ; fi ;\
+	perl ${TEST_HARNESS} -m clean -w ${WORKDIR} -p ${TARGET_PROGRAM} -d ${CLEAN_DEBUG_LEVEL} -s ${PROJECT_SRCDIR} $${options}
 
-clean: _clean_done
-	@rm -f _config* _check_done _clean_done _setup_done _stdout _stderr
+clean:
+	@rm -f _config _check_done _clean_done _setup_done _stdout _stderr
 	@rm -rf ${WORKDIR}
 
 clean-all: clean
-	@rm -f _clean_done
+	@rm -f _clean_done Makefile
 
-_setup_done:
-	@perl ${TEST_HARNESS} -m setup -w ${WORKDIR} -p ${TARGET_PROGRAM} -d ${SETUP_DEBUG_LEVEL} -s ${PROJECT_SRCDIR}
+_setup_done: clean
+	@if test -n "${PROJECT_LIBDIR}" ; then options="-l ${PROJECT_LIBDIR}" ; fi ;\
+	perl ${TEST_HARNESS} -m setup -w ${WORKDIR} -p ${TARGET_PROGRAM} -d ${SETUP_DEBUG_LEVEL} -s ${PROJECT_SRCDIR} $${options}
 
 setup: _setup_done
 
 _check_done: _setup_done
-	@perl ${TEST_HARNESS} -m check -w ${WORKDIR} -p ${TARGET_PROGRAM} -d ${CHECK_DEBUG_LEVEL} -s ${PROJECT_SRCDIR}
+	@if test -n "${PROJECT_LIBDIR}" ; then options="-l ${PROJECT_LIBDIR}" ; fi ;\
+	perl ${TEST_HARNESS} -m check -w ${WORKDIR} -p ${TARGET_PROGRAM} -d ${CHECK_DEBUG_LEVEL} -s ${PROJECT_SRCDIR} $${options}
 
 check: _check_done
 

@@ -31,8 +31,9 @@ caveats:  (1) chtime is only available on Windows NT/2K systems and
     chtime     - Change time (undocumented)
     size       - File size in bytes
     altstreams - Number of alternate or named streams
-    sha1       - SHA1 digest of the file's data stream
     md5        - MD5 digest of the file's data stream
+    sha1       - SHA1 digest of the file's data stream
+    sha256     - SHA256 digest of the file's data stream
     magic      - File type
 
 The following fields may be specified on UNIX platforms:
@@ -48,7 +49,19 @@ The following fields may be specified on UNIX platforms:
     mtime      - Time of last file modification
     ctime      - Time of last file status change
     size       - File size in bytes
-    sha1       - SHA1 digest of the file's data stream
     md5        - MD5 digest of the file's data stream
+    sha1       - SHA1 digest of the file's data stream
+    sha256     - SHA256 digest of the file's data stream
     magic      - File type
+
+In addition to the standard fields, the following group fields may be
+specified:
+
+    hashes     - Compute all supported hash values
+    times      - Collect all supported time values
+
+For example, the "hashes field is equivalent to "md5+sha1+sha256".
+Similarly, the "times" field is equivalent to "atime+mtime+ctime" and
+"atime+mtime+ctime+chtime" on UNIX and Windows platforms,
+respectively.
 

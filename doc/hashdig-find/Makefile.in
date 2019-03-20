@@ -1,0 +1,25 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${PREFIX}/man/man1
+
+HTML_FILE=hashdig-find.html
+
+MAN_FILE=hashdig-find.1
+
+MAN_TITLE=HashDig Documentation
+
+POD_FILE=hashdig-find.pod
+
+SRC_FILE=${SRCDIR}/../../tools/hashdig/hashdig-find.pl
+
+include ${PROJECT_ROOT}/Mk/common-doc-perl.mk
+
