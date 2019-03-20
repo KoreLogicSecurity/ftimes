@@ -1,0 +1,145 @@
+
+Table of Contents
+
+  Section 1 .................... Overview
+  Section 2 .................... Licensing
+  Section 3 .................... Versions
+  Section 4 .................... Branches
+
+1 Overview
+
+  FTimes is a forensic system baselining, searching, and evidence
+  collection tool.  The primary purpose of FTimes is to gather
+  and/or develop topographical information and attributes about
+  specified directories and files in a manner conducive to intrusion
+  and forensic analysis.  FTimes is available from these locations:
+
+    https://git.korelogic.com/ftimes.git
+    https://github.com/KoreLogicSecurity/ftimes
+    https://sourceforge.net/projects/ftimes
+
+2 Licensing
+
+  This project is governed by multiple licences. The exact terms and
+  conditions under which the software in this project are released
+  are set forth in README.LICENSE.
+
+3 Versions
+
+  This project utilizes a version numbering scheme that allocates
+  4 bits to the major number, 8 bits to the minor number, 8 bits
+  to the patch number, 2 bits to the state number, and 10 bits to
+  the build number. The following diagram depicts the scheme.
+
+    +----+--------+--------+--+----------+
+    |3322|22222222|11111111|11|          |
+    |1098|76543210|98765432|10|9876543210|
+    |----+--------+--------|--|----------+
+    |MMMM|mmmmmmmm|pppppppp|ss|bbbbbbbbbb|
+    +----+--------+--------|--+----------+
+     ^^^^ ^^^^^^^^ ^^^^^^^^ ^^ ^^^^^^^^^^
+        |        |       |   |          |
+        |        |       |   |          +-----> b - build (0...1023)
+        |        |       |   +----------------> s - state (0......3)
+        |        |       +--------------------> p - patch (0....255)
+        |        +----------------------------> m - minor (0....255)
+        +-------------------------------------> M - major (0.....15)
+
+  State Numbers:
+
+    00 = ds --> Development Snapshot
+    01 = rc --> Release Candidate
+    10 = sr --> Standard Release
+    11 = xs --> eXtended Snapshot
+
+4 Branches
+
+  This project is mastered in three branches: master, 3.X, and 4.X.
+  Currently, there are no plans for development on the master and
+  3.X branches.  The master branch exists due to the way that git
+  works; the 3.X branch exists to hold snapshots of legacy releases;
+  and the 4.X branch exists to track future development activities.
+
+  Below is a diagram that illustrates how the code repository may
+  take shape over time.  Note that snapshot tags are tightly coupled
+  to the project's version numbering scheme (documented above).
+  These tags are used to designate official branch points and stable
+  locations in the codebase.  The standard snapshot designator is
+  'S', but 'R' is used to indicate a release snapshot.
+
+           master             3.X                                                 4.X
+             +-----------------+----------------------------------------------------+
+             |                 |                                                    |
+      +------+-------+  +------+------+                                      +------+------+
+      | No Code Here |  | Legacy Code |                                      | Future Code |
+      +------+-------+  +------+------+                                      +------+------+
+             |                 |                                                    |
+             *                 R 3.0.0                                         +----S 4.0.0.ds1
+  |                            |                                              /     |
+  |                            R 3.1.0                     feature branch -->|   +--S 4.0.0.ds2
+  |                            |                                              \ /   |
+ \./                    +------R 3.2.0                                         +----S ...
+  Y                    /       |                                              /     |
+                      +        |                                             |      S 4.0.0.{dsN,rc0}
+  T                   |        |                                             |      |
+  I                   R 3.2.1  |                                             |      S 4.0.0.rc1
+  M                   |        |                           feature branch -->|      |
+  E                   *        R 3.3.0                                       |      S 4.0.0.rc2
+                               |                                             |      |
+  |                            R 3.4.0                                       |      S ...
+  |                            |                                             |      |
+  |                            R 3.5.0        4.0.X branch --> +-------------+------R 4.0.0.{rcN,sr0,xs0} / 4.1.0.ds0
+ \./                           |                              /              |      |
+  Y                            R 3.6.0                       /.- - - - - - - + - - -S 4.0.0.{sr1,xs0} / 4.1.0.ds0
+                               |                            /                 \     |
+                               R 3.7.0                     /                   +----S 4.0.0.xs1
+                               |                          +                         |
+                               R 3.8.0                    |                         |
+                               |                          S 4.0.1.ds1               |
+                               R 3.9.0                    |                         |
+                               |                          S 4.0.1.ds2               |
+                               R 3.10.0                   |                         |
+                               |                          S ...                     |
+                               R 3.11.0                   |                         |
+                               |                          S 4.0.1.{dsN,rc0}         |
+                               R 3.12.0                   |                         |
+                               |                          S 4.0.1.rc1               |
+                               *                          |                         |
+                                                          S ...                     |
+                                                          |                         |
+                                                          R 4.0.1.{rcN,sr0} / ds0   |
+                                                          |\                        |
+                                                          | \                       |
+                                                          |  \`+- - - - - - - - - ->S 4.0.0.xs2
+                                                          |   \                     |
+                                                          |    \                    S ...
+                                                          |     \                   |
+                                                          |      \                  S 4.0.0.xsN
+                                                          |       \                 |
+                                                          |        `+-------------->S 4.1.0.ds1
+                                                          |                         |
+                                                          S 4.0.2.ds1               |
+                                                          |                         |
+                                                          S 4.0.2.ds2               |
+                                                          |                         |
+                                                          S ...                     |
+                                                          |                         |
+                                                          S 4.0.2.{dsN,rc0}         |
+                                                          |                         |
+                                                          S 4.0.2.rc1               |
+                                                          |                         |
+                                                          S ...                     |
+                                                          |                         |
+                                                          R 4.0.2.{rcN,sr0} / ds0   |
+                                                          |\                        |
+                                                          * \                       |
+                                                             \                      |
+                                                              \                     |
+                                                               \                    |
+                                                                \                   |
+                                                                 \                  |
+                                                                  \                 |
+                                                                   `+-------------->S 4.1.0.ds2
+                                                                                    |
+                                                                                    *
+
