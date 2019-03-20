@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-cmp2diff,v 1.11 2013/02/14 16:55:21 mavrik Exp $
+# $Id: ftimes-cmp2diff,v 1.17 2014/07/18 06:40:44 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2008-2013 The FTimes Project, All Rights Reserved.
+# Copyright 2008-2014 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -14,12 +14,14 @@
 ######################################################################
 
 use strict;
+use Config;
 use File::Basename;
 use FileHandle;
 use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
 use FTimes::EadRoutines 1.007;
 use FTimes::Properties 1.004;
 use Getopt::Std;
+use Math::BigInt;
 
 BEGIN
 {
@@ -136,6 +138,7 @@ BEGIN
     'ForceClean',
     'ModeDecode',
     'NoDecode',
+    'UseBigIntegers',
   );
 
   foreach my $sOption (@sSupportedOptions)
@@ -188,6 +191,34 @@ BEGIN
 
   ####################################################################
   #
+  # Conditionally require and/or enable big integer support.
+  #
+  ####################################################################
+
+  our ($pfAddToOffset, $pfHexToOffset, $pfIdxToOffset, $pfOffsetToHex); # These are referenced outside the current scope.
+
+  if ($Config{'ivsize'} < 8 || $$phProperties{'UseBigIntegers'})
+  {
+    if (!$$phProperties{'UseBigIntegers'})
+    {
+      print STDERR "$$phProperties{'Program'}: Error='The default integer size ($Config{'ivsize'}) supported by this instance of Perl is too small to handle 64-bit offsets. Try enabling the \"UseBigIntegers\" option.'\n";
+      exit(2);
+    }
+    $pfAddToOffset = \&AddToOffsetBigInt;
+    $pfHexToOffset = \&HexToOffsetBigInt;
+    $pfIdxToOffset = \&IdxToOffsetBigInt;
+    $pfOffsetToHex = \&OffsetToHexBigInt;
+  }
+  else
+  {
+    $pfAddToOffset = \&AddToOffsetCustom;
+    $pfHexToOffset = \&HexToOffsetCustom;
+    $pfIdxToOffset = \&IdxToOffsetCustom;
+    $pfOffsetToHex = \&OffsetToHexCustom;
+  }
+
+  ####################################################################
+  #
   # Conditionally generate an offsets file for each snapshot.
   #
   ####################################################################
@@ -236,7 +267,7 @@ BEGIN
       }
       if (!open(FH, "< $$phProperties{'Compare'}"))
       {
-        print STDERR "$$phProperties{'Program'}: Error='Unable to open $$phProperties{'Compare'} ($!).'\n";
+        print STDERR "$$phProperties{'Program'}: Error='Unable to open \"$$phProperties{'Compare'}\" ($!).'\n";
         exit(2);
       }
       $sHandle = \*FH;
@@ -453,7 +484,7 @@ BEGIN
 
   ####################################################################
   #
-  # Shutdown and go home.
+  # Clean up and go home.
   #
   ####################################################################
 
@@ -485,6 +516,46 @@ BEGIN
   }
 
   1;
+
+
+######################################################################
+#
+# AddToOffsetBigInt
+#
+######################################################################
+
+sub AddToOffsetBigInt
+{
+  my ($oOffset, $sLength) = @_;
+
+  if (!defined($oOffset))
+  {
+    $oOffset = Math::BigInt->new(0);
+  }
+  $oOffset->badd($sLength);
+
+  return $oOffset;
+}
+
+
+######################################################################
+#
+# AddToOffsetCustom
+#
+######################################################################
+
+sub AddToOffsetCustom
+{
+  my ($sOffset, $sLength) = @_;
+
+  if (!defined($sOffset))
+  {
+    $sOffset = 0;
+  }
+  $sOffset += $sLength;
+
+  return $sOffset;
+}
 
 
 ######################################################################
@@ -530,7 +601,7 @@ sub MakeOffsets
     $$phProperties{$sDecodedHandleKey} = new FileHandle("< $sDecodedFile");
     if (!defined($$phProperties{$sDecodedHandleKey}))
     {
-      $$psError = "Unable to open $sDecodedFile ($!).";
+      $$psError = "Unable to open \"$sDecodedFile\" ($!).";
       return undef;
     }
     binmode($$phProperties{$sDecodedHandleKey});
@@ -541,7 +612,7 @@ sub MakeOffsets
     $$phProperties{$sOffsetsHandleKey} = new FileHandle("< $sOffsetsFile");
     if (!defined($$phProperties{$sOffsetsHandleKey}))
     {
-      $$psError = "Unable to open $sOffsetsFile ($!).";
+      $$psError = "Unable to open \"$sOffsetsFile\" ($!).";
       return undef;
     }
     binmode($$phProperties{$sOffsetsHandleKey});
@@ -551,7 +622,7 @@ sub MakeOffsets
     $$phProperties{$sDecodedHandleKey} = new FileHandle("< $sDecodedFile");
     if (!defined($$phProperties{$sDecodedHandleKey}))
     {
-      $$psError = "Unable to open $sDecodedFile ($!).";
+      $$psError = "Unable to open \"$sDecodedFile\" ($!).";
       return undef;
     }
     binmode($$phProperties{$sDecodedHandleKey});
@@ -559,52 +630,81 @@ sub MakeOffsets
     $sHeader =~ s/[\r\n]+$//;
     push(@{$$phProperties{$sHeaderFieldsKey}}, split(/\|/, $sHeader));
 
-    $$phProperties{$sOffsetsHandleKey} = new FileHandle("+> $sOffsetsFile");
+    my $sOffsetsTemp = $sOffsetsFile . ".tmp";
+    $$phProperties{$sOffsetsHandleKey} = new FileHandle("+> $sOffsetsTemp");
     if (!defined($$phProperties{$sOffsetsHandleKey}))
     {
-      $$psError = "Unable to create $sOffsetsFile ($!).";
+      $$psError = "Unable to create \"$sOffsetsTemp\" ($!).";
       return undef;
     }
     binmode($$phProperties{$sOffsetsHandleKey});
 
-    my $sOffset = 0;
-    my $sCommandLine = qq(ftimes --decoder $sEncodedFile -l 6);
-    if (!open(PH, "$sCommandLine |"))
+    my $vOffset = &$pfAddToOffset(undef, 0); # Note that the 'v' is for variant because this variable could be a scalar or an object.
+    if ($$phProperties{'NoDecode'})
     {
-      $$psError = "Unable to launch decoder ($!).";
-      return undef;
+      if (!open(PH, "< $sEncodedFile"))
+      {
+        $$psError = "Unable to open \"$sEncodedFile\" ($!).";
+        return undef;
+      }
+    }
+    else
+    {
+      my $sCommandLine = qq(ftimes --decoder $sEncodedFile -l 6);
+      if (!open(PH, "$sCommandLine |"))
+      {
+        $$psError = "Unable to launch decoder ($!).";
+        return undef;
+      }
     }
     while (my $sLine = <PH>)
     {
-      $$phProperties{$sOffsetsHandleKey}->print(sprintf("%016x\n", $sOffset));
-      $sOffset += length($sLine);
+      $$phProperties{$sOffsetsHandleKey}->print(&$pfOffsetToHex($vOffset));
+      $vOffset = &$pfAddToOffset($vOffset, length($sLine));
     }
     close(PH);
+    if (!rename($sOffsetsTemp, $sOffsetsFile))
+    {
+      $$psError = "Unable to rename \"$sOffsetsTemp\" to \"$sOffsetsFile\" ($!).";
+      return undef;
+    }
   }
   else
   {
     $$phProperties{$sDecodedHandleKey} = new FileHandle("+> $sDecodedFile");
     if (!defined($$phProperties{$sDecodedHandleKey}))
     {
-      $$psError = "Unable to create $sDecodedFile ($!).";
+      $$psError = "Unable to create \"$sDecodedFile\" ($!).";
       return undef;
     }
     binmode($$phProperties{$sDecodedHandleKey});
 
-    $$phProperties{$sOffsetsHandleKey} = new FileHandle("+> $sOffsetsFile");
+    my $sOffsetsTemp = $sOffsetsFile . ".tmp";
+    $$phProperties{$sOffsetsHandleKey} = new FileHandle("+> $sOffsetsTemp");
     if (!defined($$phProperties{$sOffsetsHandleKey}))
     {
-      $$psError = "Unable to create $sOffsetsFile ($!).";
+      $$psError = "Unable to create \"$sOffsetsTemp\" ($!).";
       return undef;
     }
     binmode($$phProperties{$sOffsetsHandleKey});
 
-    my $sOffset = 0;
-    my $sCommandLine = qq(ftimes --decoder $sEncodedFile -l 6);
-    if (!open(PH, "$sCommandLine |"))
+    my $vOffset = &$pfAddToOffset(undef, 0); # Note that the 'v' is for variant because this variable could be a scalar or an object.
+    if ($$phProperties{'NoDecode'})
     {
-      $$psError = "Unable to launch decoder ($!).";
-      return undef;
+      if (!open(PH, "< $sEncodedFile"))
+      {
+        $$psError = "Unable to open \"$sEncodedFile\" ($!).";
+        return undef;
+      }
+    }
+    else
+    {
+      my $sCommandLine = qq(ftimes --decoder $sEncodedFile -l 6);
+      if (!open(PH, "$sCommandLine |"))
+      {
+        $$psError = "Unable to launch decoder ($!).";
+        return undef;
+      }
     }
     my $sFirst = 1;
     while (my $sLine = <PH>)
@@ -617,10 +717,15 @@ sub MakeOffsets
         $sFirst = 0;
       }
       $$phProperties{$sDecodedHandleKey}->print($sLine);
-      $$phProperties{$sOffsetsHandleKey}->print(sprintf("%016x\n", $sOffset));
-      $sOffset += length($sLine);
+      $$phProperties{$sOffsetsHandleKey}->print(&$pfOffsetToHex($vOffset));
+      $vOffset = &$pfAddToOffset($vOffset, length($sLine));
     }
     close(PH);
+    if (!rename($sOffsetsTemp, $sOffsetsFile))
+    {
+      $$psError = "Unable to rename \"$sOffsetsTemp\" to \"$sOffsetsFile\" ($!).";
+      return undef;
+    }
   }
 
   1;
@@ -637,16 +742,16 @@ sub GetRecord
 {
   my ($phProperties, $sType, $sLineNumber) = @_;
 
-  my (@aFields, %hFields, $sHandleKey, $sHeaderKey, $sIndex, $sLine, $sOffset);
+  my (@aFields, %hFields, $sHandleKey, $sHeaderKey, $sIndex, $sLine, $vOffset1, $vOffset2);
 
-  $sOffset = ($sLineNumber - 1) * 17; # 16 HEX + 1 LF
+  $vOffset1 = &$pfIdxToOffset($sLineNumber); # Note that the 'v' is for variant because this variable could be a scalar or an object.
   $sHandleKey = $sType . "OffsetsHandle";
-  $$phProperties{$sHandleKey}->seek($sOffset, 0);
+  $$phProperties{$sHandleKey}->seek($vOffset1, 0);
   $sLine = $$phProperties{$sHandleKey}->getline();
   $sLine =~ s/[\r\n]+$//;
-  $sOffset = hex($sLine);
+  $vOffset2 = &$pfHexToOffset($sLine); # Note that the 'v' is for variant because this variable could be a scalar or an object.
   $sHandleKey = $sType . "DecodedHandle";
-  $$phProperties{$sHandleKey}->seek($sOffset, 0);
+  $$phProperties{$sHandleKey}->seek($vOffset2, 0);
   $sLine = $$phProperties{$sHandleKey}->getline();
   $sLine =~ s/[\r\n]+$//;
   @aFields = split(/\|/, $sLine, -1);
@@ -671,14 +776,14 @@ sub GetRecords
 {
   my ($phProperties, $sBaseLineNumber, $sSnapLineNumber) = @_;
 
-  my (@aFields, %hBaselineFields, %hSnapshotFields, $sIndex, $sLine, $sOffset);
+  my (@aFields, %hBaselineFields, %hSnapshotFields, $sIndex, $sLine, $vOffset1, $vOffset2);
 
-  $sOffset = ($sBaseLineNumber - 1) * 17; # 16 HEX + 1 LF
-  $$phProperties{'BaselineOffsetsHandle'}->seek($sOffset, 0);
+  $vOffset1 = &$pfIdxToOffset($sBaseLineNumber); # Note that the 'v' is for variant because this variable could be a scalar or an object.
+  $$phProperties{'BaselineOffsetsHandle'}->seek($vOffset1, 0);
   $sLine = $$phProperties{'BaselineOffsetsHandle'}->getline();
   $sLine =~ s/[\r\n]+$//;
-  $sOffset = hex($sLine);
-  $$phProperties{'BaselineDecodedHandle'}->seek($sOffset, 0);
+  $vOffset2 = &$pfHexToOffset($sLine); # Note that the 'v' is for variant because this variable could be a scalar or an object.
+  $$phProperties{'BaselineDecodedHandle'}->seek($vOffset2, 0);
   $sLine = $$phProperties{'BaselineDecodedHandle'}->getline();
   $sLine =~ s/[\r\n]+$//;
   @aFields = split(/\|/, $sLine, -1);
@@ -695,12 +800,12 @@ sub GetRecords
     }
   }
 
-  $sOffset = ($sSnapLineNumber - 1) * 17; # 16 HEX + 1 LF
-  $$phProperties{'SnapshotOffsetsHandle'}->seek($sOffset, 0);
+  $vOffset1 = &$pfIdxToOffset($sSnapLineNumber); # Note that the 'v' is for variant because this variable could be a scalar or an object.
+  $$phProperties{'SnapshotOffsetsHandle'}->seek($vOffset1, 0);
   $sLine = $$phProperties{'SnapshotOffsetsHandle'}->getline();
   $sLine =~ s/[\r\n]+$//;
-  $sOffset = hex($sLine);
-  $$phProperties{'SnapshotDecodedHandle'}->seek($sOffset, 0);
+  $vOffset2 = &$pfHexToOffset($sLine); # Note that the 'v' is for variant because this variable could be a scalar or an object.
+  $$phProperties{'SnapshotDecodedHandle'}->seek($vOffset2, 0);
   $sLine = $$phProperties{'SnapshotDecodedHandle'}->getline();
   $sLine =~ s/[\r\n]+$//;
   @aFields = split(/\|/, $sLine, -1);
@@ -718,6 +823,115 @@ sub GetRecords
   }
 
   return (\%hBaselineFields, \%hSnapshotFields);
+}
+
+
+######################################################################
+#
+# HexToOffsetBigInt
+#
+######################################################################
+
+sub HexToOffsetBigInt
+{
+  my ($sString) = @_;
+
+  if ($sString !~ /^([0-9A-Fa-f]{1,16})$/o)
+  {
+    die("Encountered an invalid 64-bit hexidecimal number ($sString).\n");
+  }
+  my $oHex = Math::BigInt->new("0x".$1);
+
+  return $oHex;
+}
+
+
+######################################################################
+#
+# HexToOffsetCustom
+#
+######################################################################
+
+sub HexToOffsetCustom
+{
+  my ($sString) = @_;
+
+  if ($sString !~ /^([0-9A-Fa-f]{1,16})$/o)
+  {
+    die("Encountered an invalid 64-bit hexidecimal number ($sString).\n");
+  }
+  my $sHex = $1;
+  my $sLength = length($sHex);
+  my $sUpper = ($sLength > 8) ? hex(substr($sHex, 0, $sLength - 8)) : 0;
+  my $sLower = hex(substr($sHex, $sLength - 8));
+
+  return (($sUpper << 32) | $sLower);
+}
+
+
+######################################################################
+#
+# IdxToOffsetBigInt
+#
+######################################################################
+
+sub IdxToOffsetBigInt
+{
+  my ($sLineNumber) = @_;
+
+  my $oOffset = Math::BigInt->new($sLineNumber - 1)->bmul(17); # 16 HEX + 1 LF
+
+  return $oOffset;
+}
+
+
+######################################################################
+#
+# IdxToOffsetCustom
+#
+######################################################################
+
+sub IdxToOffsetCustom
+{
+  my ($sLineNumber) = @_;
+
+  my $sOffset = ($sLineNumber - 1) * 17; # 16 HEX + 1 LF
+
+  return $sOffset;
+}
+
+
+######################################################################
+#
+# OffsetToHexBigInt
+#
+######################################################################
+
+sub OffsetToHexBigInt
+{
+  my ($oOffset) = @_;
+
+  my $sUpper = $oOffset->copy()->brsft(32)->band(0xffffffff)->numify();
+  my $sLower = $oOffset->copy()->brsft( 0)->band(0xffffffff)->numify();
+
+  return sprintf("%08x%08x\n", $sUpper, $sLower);
+}
+
+
+######################################################################
+#
+# OffsetToHexCustom
+#
+######################################################################
+
+sub OffsetToHexCustom
+{
+  my ($sOffset) = @_;
+
+  my $sUpper = ($sOffset >> 32) & 0xffffffff;
+  my $sLower = ($sOffset >>  0) & 0xffffffff;
+
+  return sprintf("%08x%08x\n", $sUpper, $sLower);
 }
 
 
@@ -810,6 +1024,13 @@ snapshot are already decoded).
 
 Note: If you enable this option and fail to specify decoded map files,
 don't expect valid results.
+
+=item UseBigIntegers
+
+Activate and use the Math::BigInt module for handling offset
+conversions.  Generally, this option should only be used for
+backwards compatibility on 32-bit platforms.  Enabling this option
+will impact performance, so use it only when necessary.
 
 =back
 

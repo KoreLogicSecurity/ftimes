@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: version.c,v 1.9 2013/02/14 16:55:20 mavrik Exp $
+ * $Id: version.c,v 1.11 2014/07/18 06:40:44 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2011-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -130,6 +130,10 @@ VersionGetVersion(void)
 #endif
 #ifdef USE_EMBEDDED_PERL
   iIndex += snprintf(&acMyVersion[iIndex], iSize, "%sperl(%d.%d.%d)", (iCount++ == 0) ? " " : ",", PERL_REVISION, PERL_VERSION, PERL_SUBVERSION);
+  iSize = ((VERSION_MAX_VERSION_LENGTH - iIndex) <= 0) ? 0 : VERSION_MAX_VERSION_LENGTH - iIndex;
+#endif
+#ifdef USE_EMBEDDED_PYTHON
+  iIndex += snprintf(&acMyVersion[iIndex], iSize, "%spython(%d.%d.%d)", (iCount++ == 0) ? " " : ",", PY_MAJOR_VERSION, PY_MINOR_VERSION, PY_MICRO_VERSION);
   iSize = ((VERSION_MAX_VERSION_LENGTH - iIndex) <= 0) ? 0 : VERSION_MAX_VERSION_LENGTH - iIndex;
 #endif
 #ifdef USE_SSL

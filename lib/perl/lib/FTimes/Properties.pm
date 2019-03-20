@@ -1,10 +1,10 @@
 ######################################################################
 #
-# $Id: Properties.pm,v 1.5 2013/02/14 16:55:19 mavrik Exp $
+# $Id: Properties.pm,v 1.6 2014/07/18 06:40:43 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2011-2013 The FTimes Project, All Rights Reserved.
+# Copyright 2011-2014 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -25,7 +25,7 @@ use Config;
 @EXPORT = qw(ParseFieldMask PropertiesGetGlobalExitCodes PropertiesGetGlobalFieldMasks PropertiesGetGlobalKvps PropertiesGetGlobalRegexes PropertiesGetGlobalTemplates PropertiesGetOfficialKeyName PropertiesGetOfficialKeys);
 @EXPORT_OK = ();
 @ISA = qw(Exporter);
-$VERSION = do { my @r = (q$Revision: 1.5 $ =~ /(\d+)/g); sprintf("%d."."%03d" x $#r, @r); };
+$VERSION = do { my @r = (q$Revision: 1.6 $ =~ /(\d+)/g); sprintf("%d."."%03d" x $#r, @r); };
 
 ######################################################################
 #

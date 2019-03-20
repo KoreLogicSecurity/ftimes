@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sys-includes.h,v 1.25 2013/02/14 16:55:20 mavrik Exp $
+ * $Id: sys-includes.h,v 1.27 2014/07/30 08:07:07 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -25,7 +25,9 @@
 #ifdef WIN32
 #ifdef USE_SDDL
   #ifdef MINGW32
+    #ifndef WINVER
     #define WINVER 0x0500
+    #endif
     #include <windows.h>
     #define SDDL_REVISION_1 1
     WINADVAPI BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorA(PSECURITY_DESCRIPTOR, DWORD, SECURITY_INFORMATION, LPSTR *, PULONG);

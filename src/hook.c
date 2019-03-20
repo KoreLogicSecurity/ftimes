@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: hook.c,v 1.8 2013/02/14 16:55:20 mavrik Exp $
+ * $Id: hook.c,v 1.13 2014/07/18 18:01:22 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2011-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -89,22 +89,25 @@ HookFreeHook(HOOK_LIST *psHook)
 {
   if (psHook != NULL)
   {
-    if (psHook->pcName != NULL)
-    {
-      free(psHook->pcName);
-    }
+// NOTE: This string is owned by KL-EL and should not be freed.
+//  if (psHook->pcName != NULL)
+//  {
+//    free(psHook->pcName);
+//  }
     if (psHook->pcExpression != NULL)
     {
       free(psHook->pcExpression);
     }
-    if (psHook->pcInterpreter != NULL)
-    {
-      free(psHook->pcInterpreter);
-    }
-    if (psHook->pcProgram != NULL)
-    {
-      free(psHook->pcProgram);
-    }
+// NOTE: This string is owned by KL-EL and should not be freed.
+//  if (psHook->pcInterpreter != NULL)
+//  {
+//    free(psHook->pcInterpreter);
+//  }
+// NOTE: This string is owned by KL-EL and should not be freed.
+//  if (psHook->pcProgram != NULL)
+//  {
+//    free(psHook->pcProgram);
+//  }
     KlelFreeContext(psHook->psContext);
     free(psHook);
   }
@@ -607,8 +610,11 @@ HOOK_LIST *
 HookNewHook(char *pcExpression, char *pcError)
 {
   const char          acRoutine[] = "HookNewHook()";
+#ifdef USE_EMBEDDED_PYTHON
+  char                acLocalError[MESSAGE_SIZE] = "";
+#endif
   HOOK_LIST          *psHook = NULL;
-#ifdef USE_EMBEDDED_PERL
+#if defined(USE_EMBEDDED_PERL) || defined(USE_EMBEDDED_PYTHON)
   int                 iError = 0;
 #endif
   int                 iLength = 0;
@@ -746,6 +752,17 @@ HookNewHook(char *pcExpression, char *pcError)
     }
   }
 #endif
+#ifdef USE_EMBEDDED_PYTHON
+  else if (strcmp(psHook->pcInterpreter, "python") == 0)
+  {
+    if (HookLoadPythonScript(psHook, acLocalError) != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: HookLoadPythonScript(): Hook failed to load \"%s\" (%s).", acRoutine, psHook->pcProgram, acLocalError);
+      HookFreeHook(psHook);
+      return NULL;
+    }
+  }
+#endif
   else if (strcmp(psHook->pcInterpreter, "system") == 0)
   {
     /* Empty */
@@ -759,3 +776,85 @@ HookNewHook(char *pcExpression, char *pcError)
 
   return psHook;
 }
+
+
+#ifdef USE_EMBEDDED_PYTHON
+/*-
+ ***********************************************************************
+ *
+ * HookLoadPythonScript
+ *
+ ***********************************************************************
+ */
+int
+HookLoadPythonScript(HOOK_LIST *psHook, char *pcError)
+{
+  struct stat         sStatEntry = {};
+  char               *pcPyScript = NULL;
+  FILE               *pFile = NULL;
+  size_t              szNRead = 0;
+
+  /*-
+   *********************************************************************
+   *
+   * Open the Python script and load it into memory.
+   *
+   *********************************************************************
+   */
+  pFile = fopen(psHook->pcProgram, "r");
+  if (pFile == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s", strerror(errno));
+    return ER;
+  }
+  if (fstat(fileno(pFile), &sStatEntry) != 0)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s", strerror(errno));
+    fclose(pFile);
+    return ER;
+  }
+  pcPyScript = malloc(sStatEntry.st_size + 1);
+  if (pcPyScript == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s", strerror(errno));
+    fclose(pFile);
+    return ER;
+  }
+  pcPyScript[sStatEntry.st_size] = 0;
+
+  szNRead = fread(pcPyScript, 1, sStatEntry.st_size, pFile);
+  if (ferror(pFile))
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s", strerror(errno));
+    free(pcPyScript);
+    fclose(pFile);
+    return ER;
+  }
+  if (szNRead != sStatEntry.st_size || strlen(pcPyScript) != sStatEntry.st_size)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "byte count mismatch");
+    free(pcPyScript);
+    fclose(pFile);
+    return ER;
+  }
+  fclose(pFile);
+
+  /*-
+   *********************************************************************
+   *
+   * Compile the Python script.
+   *
+   *********************************************************************
+   */
+  psHook->psPyScript = Py_CompileString(pcPyScript, psHook->pcProgram, Py_file_input);
+  if (psHook->psPyScript == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "compile error");
+    free(pcPyScript);
+    return ER;
+  }
+  free(pcPyScript);
+
+  return ER_OK;
+}
+#endif

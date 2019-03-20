@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.8 2010/01/22 02:56:44 mavrik Exp $
+# $Id: test_harness.local,v 1.9 2014/07/30 05:00:49 mavrik Exp $
 #
 ######################################################################
 
@@ -215,7 +215,9 @@ sub Setup_tree_0r_D4_d3_f6_l2
   }
   qx($sCommand);
 
-  if (!CreateConfig("_config", { 'FieldMask' => "all-magic", 'Compress' => "Y" }))
+  my $sFieldMask = "all-magic";
+  $sFieldMask .= "-osid-gsid-dacl" if ($$phProperties{'OsClass'} eq "WINDOWS"); # NOTE: These fields must be omitted when compression is enabled.
+  if (!CreateConfig("_config", { 'FieldMask' => $sFieldMask, 'Compress' => "Y" }))
   {
     return "fail";
   }

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: map.c,v 1.104 2013/02/14 16:55:20 mavrik Exp $
+ * $Id: map.c,v 1.110 2014/07/30 08:13:33 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -20,6 +20,82 @@ static int giStreams;
 
 static int giRecords;
 static int giIncompleteRecords;
+
+#ifdef USE_EMBEDDED_PYTHON
+/*-
+ ***********************************************************************
+ *
+ * MapConvertPythonArguments
+ *
+ ***********************************************************************
+ */
+wchar_t **
+MapConvertPythonArguments(size_t szArgumentCount, char **ppcArgumentVector)
+{
+  size_t              szArgument = 0;
+  size_t              szLength = 0;
+  wchar_t            *pwcArgument = NULL;
+  wchar_t           **ppwcArgumentVector = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Make sure the caller has provided valid arguments.
+   *
+   *********************************************************************
+   */
+  if (szArgumentCount < 1 || ppcArgumentVector == NULL)
+  {
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Allocate and initialize memory for a new argument vector.
+   *
+   *********************************************************************
+   */
+  ppwcArgumentVector = calloc(szArgumentCount, sizeof(wchar_t *));
+  if (ppwcArgumentVector == NULL)
+  {
+    return NULL;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Convert each multibyte argument to a wide-character argument.
+   *
+   *********************************************************************
+   */
+  for (szArgument = 0; szArgument < szArgumentCount; szArgument++)
+  {
+    szLength = mbstowcs(NULL, ppcArgumentVector[szArgument], 0);
+    if (szLength < 0)
+    {
+      MapFreePythonArguments(szArgumentCount, ppwcArgumentVector);
+      return NULL;
+    }
+    pwcArgument = calloc(szLength + 1, sizeof(wchar_t));
+    if (pwcArgument == NULL)
+    {
+      MapFreePythonArguments(szArgumentCount, ppwcArgumentVector);
+      return NULL;
+    }
+    szLength = mbstowcs(pwcArgument, ppcArgumentVector[szArgument], szLength);
+    if (szLength < 0)
+    {
+      MapFreePythonArguments(szArgumentCount, ppwcArgumentVector);
+      return NULL;
+    }
+    ppwcArgumentVector[szArgument] = pwcArgument;
+  }
+
+  return ppwcArgumentVector;
+}
+#endif
+
 
 /*-
  ***********************************************************************
@@ -283,7 +359,6 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
 #define PIPE_WRITER_INDEX 1
   int                 aaiPipes[3][2];
   KLEL_COMMAND       *psCommand = NULL;
-  struct              timeval sTvTimeout = { 0 };
 #ifdef USE_EMBEDDED_PERL
   SV                 *psScalarValue = NULL;
 #endif
@@ -410,6 +485,15 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
       exit(iError);
     }
 #endif
+#ifdef USE_EMBEDDED_PYTHON
+    else if (strcmp(psCommand->acInterpreter, "python") == 0)
+    {
+      iError = MapExecutePythonScript(psProperties, psHook, psCommand, psFTFileData, acMessage);
+      KlelFreeCommand(psCommand);
+      Py_Finalize();
+      exit(iError);
+    }
+#endif
     else if (strcmp(psCommand->acInterpreter, "system") == 0)
     {
       if
@@ -457,11 +541,10 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
     iNToWatch++;
     FD_SET(aaiPipes[PIPE_STDERR_INDEX][PIPE_READER_INDEX], &sFdSaveSet);
     iNToWatch++;
-    sTvTimeout.tv_sec = 1;
-    sTvTimeout.tv_usec = 0;
 
     while (iNToWatch > 0)
     {
+      struct timeval sTvTimeout = { 1, 0 }; /* The Linux implementation of select() modifies the timeout value, so it must be initialized before each call. */
       sFdReadSet = sFdSaveSet;
       iNReady = select(FD_SETSIZE, &sFdReadSet, NULL, NULL, &sTvTimeout);
       if (iNReady < 0)
@@ -539,6 +622,102 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
   }
 
   return ER_OK;
+}
+#endif
+
+
+#ifdef USE_EMBEDDED_PYTHON
+/*-
+ ***********************************************************************
+ *
+ * MapExecutePythonScript
+ *
+ ***********************************************************************
+ */
+int
+MapExecutePythonScript(FTIMES_PROPERTIES *psProperties, HOOK_LIST *psHook, KLEL_COMMAND *psCommand, FTIMES_FILE_DATA *psFTFileData, char *pcMessage)
+{
+  int                 iError = -1;
+  PyObject           *psPyLocals = NULL;
+  PyObject           *psPyResult = NULL;
+  PyObject           *psPyException = NULL;
+  PyObject           *psPyExceptionType = NULL;
+  wchar_t           **ppwcArgumentVector = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Obtain references to a new dictionary to store local variables.
+   *
+   *********************************************************************
+   */
+  psPyLocals = PyDict_New();
+  if (psPyLocals == NULL)
+  {
+    snprintf(pcMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (could not allocate locals).", "MapExecutePythonScript()", psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName, psCommand->acProgram);
+    MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, pcMessage);
+    return iError;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Convert and marshall the script's arguments.
+   *
+   *********************************************************************
+   */
+  ppwcArgumentVector = MapConvertPythonArguments(psCommand->szArgumentCount, psCommand->ppcArgumentVector);
+  if (ppwcArgumentVector == NULL)
+  {
+    snprintf(pcMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (could not convert arguments).", "MapExecutePythonScript()", psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName, psCommand->acProgram);
+    MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, pcMessage);
+    Py_XDECREF(psPyLocals);
+    return iError;
+  }
+  PySys_SetArgvEx(psCommand->szArgumentCount, ppwcArgumentVector, 0);
+
+  /*-
+   *********************************************************************
+   *
+   * Execute the script. Note that we don't care about the result of
+   * the module evaluation since it is generally None. However, we do
+   * care if a SystemExit exception was raised, meaning a return code
+   * was provided.
+   *
+   *********************************************************************
+   */
+  psPyResult = PyEval_EvalCode(psHook->psPyScript, psProperties->psPyGlobals, psPyLocals);
+  psPyExceptionType = PyErr_Occurred();
+  if (psPyExceptionType != NULL)
+  {
+    if (PyErr_ExceptionMatches(PyExc_SystemExit))
+    {
+      PyErr_Fetch(&psPyExceptionType, &psPyException, NULL);
+      if (PyLong_Check(psPyException))
+      {
+        iError = (PyLong_AsLong(psPyException) > INT_MAX) ? -1 : ((int)PyLong_AsLong(psPyException));
+      }
+    }
+    Py_XDECREF(psPyException);
+    PyErr_Clear();
+  }
+  else
+  {
+    iError = 0;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Release any remaining local resources.
+   *
+   *********************************************************************
+   */
+  Py_XDECREF(psPyResult);
+  Py_XDECREF(psPyLocals);
+  MapFreePythonArguments(psCommand->szArgumentCount, ppwcArgumentVector);
+
+  return iError;
 }
 #endif
 
@@ -3082,7 +3261,11 @@ MapGetAttributes(FTIMES_FILE_DATA *psFTFileData)
       (PSID) &psFTFileData->psSidGroup,
       NULL, /* This pointer is not required to obtain DACL information. */
       NULL,
+#if (WINVER <= 0x500)
       &psFTFileData->psSd
+#else
+      (PSECURITY_DESCRIPTOR) &psFTFileData->psSd
+#endif
       );
     if (dwStatus != ERROR_SUCCESS)
     {
@@ -3284,6 +3467,34 @@ MapFreeFTFileData(FTIMES_FILE_DATA *psFTFileData)
 #endif
     free(psFTFileData);
   }
+}
+
+
+/*-
+ ***********************************************************************
+ *
+ * MapFreePythonArguments
+ *
+ ***********************************************************************
+ */
+void
+MapFreePythonArguments(size_t szArgumentCount, wchar_t **ppwcArgumentVector)
+{
+  size_t              szArgument = 0;
+
+  if (ppwcArgumentVector != NULL)
+  {
+    for (szArgument = 0; szArgument < szArgumentCount; szArgument++)
+    {
+      if (ppwcArgumentVector[szArgument] != NULL)
+      {
+        free(ppwcArgumentVector[szArgument]);
+      }
+    }
+    free(ppwcArgumentVector);
+  }
+
+  return;
 }
 
 

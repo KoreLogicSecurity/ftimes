@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: tarmap.c,v 1.28 2013/02/14 16:55:23 mavrik Exp $
+ * $Id: tarmap.c,v 1.31 2014/07/18 06:40:45 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2005-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -90,7 +90,7 @@ main(int iArgumentCount, char *ppcArgumentVector[])
   /*-
    *********************************************************************
    *
-   * Shutdown and go home.
+   * Clean up and go home.
    *
    *********************************************************************
    */
@@ -841,7 +841,7 @@ LONGNAME_TAKE2:
       break;
     }
     /* uid */
-    ui32Uid = strtoul(psTar->gid, NULL, 8);
+    ui32Uid = strtoul(psTar->uid, NULL, 8);
     /* gid */
     ui32Gid = strtoul(psTar->gid, NULL, 8);
     /* size */

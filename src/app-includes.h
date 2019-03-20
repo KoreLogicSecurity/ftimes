@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: app-includes.h,v 1.35 2013/02/14 16:55:19 mavrik Exp $
+ * $Id: app-includes.h,v 1.39 2014/07/30 07:27:59 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -37,6 +37,13 @@ typedef unsigned int APP_UI32;
 #ifdef USE_EMBEDDED_PERL_XSUB
 #include <XSUB.h>
 #endif
+#endif
+
+#ifdef USE_EMBEDDED_PYTHON
+#ifdef _GNU_SOURCE
+#undef _GNU_SOURCE /* NOTE: This macro is undefined to suppress compiler warnings. It's defined again as a result of including Python.h. This may also be a Gentoo-specific problem. */
+#endif
+#include <Python.h>
 #endif
 
 #ifdef USE_KLEL
@@ -87,11 +94,15 @@ typedef unsigned int APP_UI32;
 #define chdir _chdir
 #define execlp _execlp
 #define fdopen _fdopen
+#ifndef fstat
 #define fstat _fstat
+#endif
 #define getcwd _getcwd
 #define getpid _getpid
 #define snprintf _snprintf
+#ifndef stat
 #define stat _stat
+#endif
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
 #define unlink _unlink

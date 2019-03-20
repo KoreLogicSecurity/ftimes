@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.165 2013/02/14 16:55:20 mavrik Exp $
+ * $Id: ftimes.h,v 1.167 2014/07/18 06:40:44 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -648,6 +648,10 @@ typedef struct _FTIMES_PROPERTIES
 #ifdef USE_EMBEDDED_PERL
   PerlInterpreter    *psMyPerl;
 #endif
+#ifdef USE_EMBEDDED_PYTHON
+  PyObject           *psPyGlobals;
+  PyObject           *psPythonMain;
+#endif
 } FTIMES_PROPERTIES;
 
 /*-
@@ -821,12 +825,19 @@ HOOK_LIST          *HookMatchHook(HOOK_LIST *psHookList, FTIMES_FILE_DATA *psFTF
  *
  ***********************************************************************
  */
+#ifdef USE_EMBEDDED_PYTHON
+void                MapFreePythonArguments(size_t szArgumentCount, wchar_t **ppwcArgumentVector);
+wchar_t           **MapConvertPythonArguments(size_t tArgumentCount, char **ppcArgumentVector);
+#endif
 void                MapDirHashAlpha(FTIMES_PROPERTIES *psProperties, FTIMES_HASH_DATA *psFTHashData);
 void                MapDirHashCycle(FTIMES_PROPERTIES *psProperties, FTIMES_HASH_DATA *psFTHashData, FTIMES_FILE_DATA *psFTFileData);
 void                MapDirHashOmega(FTIMES_PROPERTIES *psProperties, FTIMES_HASH_DATA *psFTHashData, FTIMES_FILE_DATA *psFTFileData);
 char               *MapDirname(char *pcPath);
 #ifdef USE_FILE_HOOKS
 int                 MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, char *pcError);
+#endif
+#ifdef USE_EMBEDDED_PYTHON
+int                 MapExecutePythonScript(FTIMES_PROPERTIES *psProperties, HOOK_LIST *psHook, KLEL_COMMAND *psCommand, FTIMES_FILE_DATA *psFTFileData, char *pcMessage);
 #endif
 int                 MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError);
 void                MapFreeFTFileData(FTIMES_FILE_DATA *psFTFileData);

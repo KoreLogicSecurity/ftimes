@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: string2pool.c,v 1.12 2013/02/14 16:55:22 mavrik Exp $
+ * $Id: string2pool.c,v 1.13 2014/07/18 06:40:45 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2002-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2002-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -99,7 +99,7 @@ ConstructIncludeFile(FILE *pFile, char *pcPoolType, unsigned long ulFinal, int *
   fprintf(pFile, " *\n");
   fprintf(pFile, " ***********************************************************************\n");
   fprintf(pFile, " *\n");
-  fprintf(pFile, " * Copyright 2003-2013 The FTimes Project, All Rights Reserved.\n");
+  fprintf(pFile, " * Copyright 2003-2014 The FTimes Project, All Rights Reserved.\n");
   fprintf(pFile, " *\n");
   fprintf(pFile, " ***********************************************************************\n");
   fprintf(pFile, " */\n");

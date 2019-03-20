@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness,v 1.21 2013/02/14 16:55:23 mavrik Exp $
+# $Id: test_harness,v 1.24 2014/07/30 04:59:00 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2005-2013 The FTimes Project, All Rights Reserved.
+# Copyright 2005-2014 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -76,11 +76,13 @@ BEGIN
   {
     $$phProperties{'OsClass'} = "WINDOWS";
     $$phProperties{'Newline'} = "\r\n";
+    $$phProperties{'PathSeparator'} = "\\";
   }
   else
   {
     $$phProperties{'OsClass'} = "UNIX";
     $$phProperties{'Newline'} = "\n";
+    $$phProperties{'PathSeparator'} = "/";
   }
 
   ####################################################################
@@ -360,7 +362,7 @@ BEGIN
 
   ####################################################################
   #
-  # Cleanup and go home.
+  # Clean up and go home.
   #
   ####################################################################
 
@@ -455,7 +457,7 @@ sub MakeTestName
 
   $sName = (caller(1))[3];
   $sName =~ s/^.+(?:Check|Clean|Setup)_//;
-  $sFile = $$phProperties{'WorkDir'} . "/" . $sName;
+  $sFile = $$phProperties{'WorkDir'} . $$phProperties{'PathSeparator'} . $sName;
 
   return ($sFile, $sName);
 }

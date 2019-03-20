@@ -1,6 +1,6 @@
 ######################################################################
 #
-# $Id: common-doc-c.mk.in,v 1.1 2007/01/02 22:34:13 mavrik Exp $
+# $Id: common-doc-c.mk.in,v 1.2 2013/04/09 22:47:57 mavrik Exp $
 #
 ######################################################################
 #
@@ -36,6 +36,6 @@ ${POD_FILE}: ${SRC_FILES}
 
 .pod.html:
 	@umask 22 ; title=`echo $< | sed 's/\.pod//' | sed 's/_/ /g'` ;\
-	pod2html --infile=$< --outfile=$@ --noindex --title="$${title}" ;\
-	perl -n -i.bak -e 'next if (/<link/i); s/(<\/?[Hh])(\d)/($$1.($$2+2))/eg; print;' $@ ;\
+	pod2html --infile="$<" --outfile="$@" --noindex --title="$${title}" --css="http://192.168.1.4/style.css" ;\
+	perl -n -i.bak -e 'next if (/<link\s+rev=/i); s/(<\/?[Hh])(\d)/($$1.($$2+2))/eg; print;' $@ ;\
 	rm -f $@.bak *.tmp

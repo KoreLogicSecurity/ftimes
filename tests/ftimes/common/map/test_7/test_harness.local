@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.8 2010/01/22 02:56:44 mavrik Exp $
+# $Id: test_harness.local,v 1.9 2014/07/30 05:00:49 mavrik Exp $
 #
 ######################################################################
 
@@ -98,10 +98,20 @@ sub Check_no_recursion_via_EnableRecursion
     "3:$sFile/dir_1/dir_2/dir_3:2",
   );
 
+  if ($$phProperties{'OsClass'} eq "WINDOWS")
+  { 
+    for (my $sIndex = 0; $sIndex < scalar(@aTriples); $sIndex++)
+    {
+      $aTriples[$sIndex] =~ s,/,\\,g;
+    }
+  }
+
   foreach my $sTriple (@aTriples)
   {
     my $sCommand;
     my ($sDepth, $sInclude, $sTargetLineCount) = split(/:/, $sTriple, -1);
+
+    (my $sUniversalFile = $sFile) =~ s,[\\/],[\\\\/],g;
 
     if (!CreateConfig("_config", { 'FieldMask' => "none", 'EnableRecursion' => "N" }))
     {
@@ -139,9 +149,8 @@ sub Check_no_recursion_via_EnableRecursion
       if ($$phProperties{'OsClass'} eq "WINDOWS")
       {
         $sLine =~ s/\r//g;  # Remove carriage returns.
-        $sLine =~ s,\\,/,g; # Change WINX-style path separators into UNIX-stype path separators.
       }
-      $sLine =~ s,^".*($sFile.*")$,"$1,;
+      $sLine =~ s/^".*($sUniversalFile.*")$/"$1/;
       push(@aLines, $sLine);
     }
     close(PH);
@@ -177,6 +186,10 @@ EOF
 "$sInclude/file_3"
 name
 EOF
+    }
+    if ($$phProperties{'OsClass'} eq "WINDOWS")
+    {
+      $sTargetOutput =~ s,/,\\,gm;
     }
     DebugPrint(4, "TargetOutput=$sTargetOutput");
     if ($sActualOutput ne $sTargetOutput)
@@ -254,13 +267,21 @@ sub Check_no_recursion_via_ExcludeFilter
     "3:$sFile/dir_1/dir_2/dir_3:depth_regex",
   );
 
+   if ($$phProperties{'OsClass'} eq "WINDOWS")
+   { 
+     for (my $sIndex = 0; $sIndex < scalar(@aTriples); $sIndex++)
+     {
+       $aTriples[$sIndex] =~ s,/,\\,g;
+     }
+   }
+
   foreach my $sTriple (@aTriples)
   {
     my $sCommand;
     my ($sDepth, $sInclude, $sExpressionType) = split(/:/, $sTriple, -1);
 
-    (my $sUniversalInclude = $sInclude) =~ s,/,[\\\\/],g;
-    (my $sUniversalFile = $sFile) =~ s,/,[\\\\/],g;
+    (my $sUniversalInclude = $sInclude) =~ s,[\\/],[\\\\/],g;
+    (my $sUniversalFile = $sFile) =~ s,[\\/],[\\\\/],g;
     my $sExcludeFilter = ($sExpressionType eq "child_regex") ? ($sUniversalInclude . "[\\\\/][^\\\\/]+[\\\\/]") : ($sUniversalFile . "[\\\\/](?:[^\\\\/]+[\\\\/]){" . ($sDepth + 1) . "}");
 
     if (!CreateConfig("_config", { 'FieldMask' => "none", 'ExcludeFilter' => "$sExcludeFilter" }))
@@ -299,9 +320,8 @@ sub Check_no_recursion_via_ExcludeFilter
       if ($$phProperties{'OsClass'} eq "WINDOWS")
       {
         $sLine =~ s/\r//g;  # Remove carriage returns.
-        $sLine =~ s,\\,/,g; # Change WINX-style path separators into UNIX-stype path separators.
       }
-      $sLine =~ s/^".*($sFile.*")$/"$1/;
+      $sLine =~ s/^".*($sUniversalFile.*")$/"$1/;
       push(@aLines, $sLine);
     }
     close(PH);
@@ -330,6 +350,10 @@ EOF
 "$sInclude/file_3"
 name
 EOF
+    }
+    if ($$phProperties{'OsClass'} eq "WINDOWS")
+    {
+      $sTargetOutput =~ s,/,\\,gm;
     }
     DebugPrint(4, "TargetOutput=$sTargetOutput");
     if ($sActualOutput ne $sTargetOutput)

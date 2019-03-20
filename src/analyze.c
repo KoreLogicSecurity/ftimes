@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: analyze.c,v 1.60 2013/02/14 16:55:19 mavrik Exp $
+ * $Id: analyze.c,v 1.62 2014/07/30 07:07:30 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -380,7 +380,7 @@ AnalyzeFile(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, cha
     return ER;
   }
   ghFile = hFile; /* Needed for memory mapped XMagic. */
-  iFile = _open_osfhandle((long) hFile, 0);
+  iFile = _open_osfhandle((intptr_t) hFile, 0);
   if (iFile == ER)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: open_osfhandle(): Handle association failed.", acRoutine);

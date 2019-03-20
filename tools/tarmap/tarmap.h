@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: tarmap.h,v 1.28 2013/02/14 16:55:23 mavrik Exp $
+ * $Id: tarmap.h,v 1.30 2014/07/18 06:40:45 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2005-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2005-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -18,7 +18,7 @@
  ***********************************************************************
  */
 #define PROGRAM_NAME "tarmap"
-#define VERSION "1.1.13"
+#define VERSION "1.1.14"
 
 #define ER -1
 #define ER_OK 0

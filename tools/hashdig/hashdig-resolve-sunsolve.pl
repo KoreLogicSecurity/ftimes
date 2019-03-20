@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: hashdig-resolve-sunsolve.pl,v 1.32 2013/02/14 16:55:22 mavrik Exp $
+# $Id: hashdig-resolve-sunsolve.pl,v 1.34 2014/07/18 06:40:45 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2001-2013 The FTimes Project, All Rights Reserved.
+# Copyright 2001-2014 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #
@@ -298,7 +298,7 @@ use IO::Socket;
 
   ####################################################################
   #
-  # Cleanup and go home.
+  # Clean up and go home.
   #
   ####################################################################
 
@@ -427,7 +427,7 @@ sub SunFingerPrintLookup
     #
     ##################################################################
 
-    my $sVersion = sprintf("%s", ('$Revision: 1.32 $' =~ /^.Revision: ([\d.]+)/));
+    my $sVersion = sprintf("%s", ('$Revision: 1.34 $' =~ /^.Revision: ([\d.]+)/));
 
     my $sHeader = <<EOF;
 POST /fileFingerprints.do HTTP/1.0

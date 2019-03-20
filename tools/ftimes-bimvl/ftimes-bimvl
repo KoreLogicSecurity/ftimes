@@ -1,0 +1,917 @@
+#!/usr/bin/perl -w
+######################################################################
+#
+# $Id: ftimes-bimvl,v 1.1 2014/06/23 18:05:04 mavrik Exp $
+#
+######################################################################
+#
+# Copyright 2010-2014 The FTimes Project, All Rights Reserved.
+#
+######################################################################
+#
+# Purpose: Take a snapshot, compare it to a baseline, and log the changes.
+#
+######################################################################
+
+use strict;
+use File::Basename;
+use File::Path;
+use FindBin qw($Bin $RealBin); use lib ("$Bin/../lib/perl5/site_perl", "$RealBin/../lib/perl5/site_perl", "/usr/local/ftimes/lib/perl5/site_perl");
+use Getopt::Std;
+use IO::Socket;
+
+BEGIN
+{
+  ####################################################################
+  #
+  # The Properties hash is essentially private. Those parts of the
+  # program that wish to access or modify the data in this hash need
+  # to call GetProperties() to obtain a reference.
+  #
+  ####################################################################
+
+  my (%hProperties);
+
+  ####################################################################
+  #
+  # Initialize platform-specific variables.
+  #
+  ####################################################################
+
+  if ($^O =~ /MSWin(32|64)/i)
+  {
+    $hProperties{'ExtensionExe'} = ".exe";
+    $hProperties{'OsClass'} = "WINX";
+    $hProperties{'PathSeparator'} = "\\";
+    $hProperties{'Null'} = "nul";
+  }
+  else
+  {
+    $hProperties{'ExtensionExe'} = "";
+    $hProperties{'OsClass'} = "UNIX";
+    $hProperties{'PathSeparator'} = "/";
+    $hProperties{'Null'} = "/dev/null";
+  }
+
+  ####################################################################
+  #
+  # Define helper routines.
+  #
+  ####################################################################
+
+  sub GetProperties
+  {
+    return \%hProperties;
+  }
+}
+
+######################################################################
+#
+# Main Routine
+#
+######################################################################
+
+  ####################################################################
+  #
+  # Punch in and go to work.
+  #
+  ####################################################################
+
+  my ($phProperties);
+
+  $phProperties = GetProperties();
+
+  $$phProperties{'Program'} = basename(__FILE__);
+
+  ####################################################################
+  #
+  # Initialize FTimes categories.
+  #
+  ####################################################################
+
+  my %hFTimesCategories =
+  (
+    'C' => "changed",
+    'M' => "missing",
+    'N' => "new",
+    'U' => "unknown",
+    'X' => "cross",
+  );
+
+  ####################################################################
+  #
+  # Get Options.
+  #
+  ####################################################################
+
+  my (%hOptions);
+
+  if (!getopts('d:f:H:i:m:p:Ss:t:', \%hOptions))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # A work directory, '-d', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'WorkDirectory'} = (exists($hOptions{'d'})) ? $hOptions{'d'} : undef;
+
+  ####################################################################
+  #
+  # A config file, '-f', is conditionally required.
+  #
+  ####################################################################
+
+  $$phProperties{'ConfigFile'} = (exists($hOptions{'f'})) ? $hOptions{'f'} : undef;
+
+  ####################################################################
+  #
+  # An ftimes home directory, '-H', is optional.
+  #
+  ####################################################################
+
+  if (exists($hOptions{'H'}))
+  {
+    $$phProperties{'FTimesHome'} = $hOptions{'H'};
+  }
+  else
+  {
+    $$phProperties{'FTimesHome'} = ($$phProperties{'OsClass'} eq "WINX") ? "C:/FTimes" : "/usr/local/ftimes";
+  }
+
+  ####################################################################
+  #
+  # An ignore file, '-i', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'IgnoreFile'} = (exists($hOptions{'i'})) ? $hOptions{'i'} : undef;
+
+  ####################################################################
+  #
+  # A field mask, '-m', is optional.
+  #
+  ####################################################################
+
+  my (%hFieldMask);
+
+  $$phProperties{'FieldMask'} = (exists($hOptions{'m'})) ? $hOptions{'m'} : "none+md5";
+
+  if (!ParseFieldMask($$phProperties{'FieldMask'}, \%hFieldMask))
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid field mask ($$phProperties{'FieldMask'}).'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # A syslog facility/level, '-p', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'FacilityLevel'} = (exists($hOptions{'p'})) ? $hOptions{'p'} : "local0.warning";
+
+  $$phProperties{'Priority'} = GetSyslogPriority($$phProperties{'FacilityLevel'});
+  if (!defined($$phProperties{'Priority'}))
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid facility/level ($$phProperties{'FacilityLevel'}).'\n";
+    exit(2);
+  }
+
+  ($$phProperties{'Facility'}, $$phProperties{'Level'}) = split(/\./, $$phProperties{'FacilityLevel'});
+
+  ####################################################################
+  #
+  # The use syslog flag, '-S', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'UseSyslog'} = (exists($hOptions{'S'})) ? 1 : 0;
+
+  if ($$phProperties{'UseSyslog'})
+  {
+#FIXME Need to handle WINX platforms which may not have this module.
+    use Sys::Syslog;
+  }
+
+  ####################################################################
+  #
+  # A syslog server/port, '-s', is required/optional.
+  #
+  ####################################################################
+
+  $$phProperties{'ServerPort'} = (exists($hOptions{'s'})) ? $hOptions{'s'} : "127.0.0.1:514";
+
+  if (!defined($$phProperties{'ServerPort'}))
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  if ($$phProperties{'ServerPort'} !~ /^((?:\d{1,3}[.]){3}\d{1,3})(?::(\d{1,5}))?$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid server/port ($$phProperties{'ServerPort'}).'\n";
+    exit(2);
+  }
+  $$phProperties{'Server'} = $1;
+  $$phProperties{'Port'} = (defined($2)) ? $2 : 514;
+
+  if ($$phProperties{'Port'} < 1 || $$phProperties{'Port'} > 65535 )
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Invalid port ($$phProperties{'Port'}).'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # A tag, '-t', is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Tag'} = (exists($hOptions{'t'})) ? $hOptions{'t'} : undef;
+
+  ####################################################################
+  #
+  # If no config file was specified and there isn't at least one
+  # argument left, it's an error.
+  #
+  ####################################################################
+
+  if (!defined($$phProperties{'ConfigFile'}) && scalar(@ARGV) < 1)
+  {
+    Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # Make final adjustments to the run time environment.
+  #
+  ####################################################################
+
+  my ($sError);
+
+  if (!AdjustRunTimeEnvironment($phProperties, \$sError))
+  {
+    print STDERR "$$phProperties{'Program'}: Error='$sError'\n";
+    exit(2);
+  }
+
+  ####################################################################
+  #
+  # Create the socket if not using Sys::Syslog otherwise open syslog
+  #
+  ####################################################################
+
+  my ($oSocket);
+
+  if ($$phProperties{'UseSyslog'})
+  {
+    openlog($$phProperties{'Program'}, "pid", $$phProperties{'Facility'});
+  }
+  else
+  {
+    $oSocket = new IO::Socket::INET('PeerAddr' => $$phProperties{'Server'}, 'PeerPort' => $$phProperties{'Port'}, Proto => 'udp');
+    if (!defined($oSocket))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Failed to create socket \"UDP:$$phProperties{'ServerPort'}\" ($!).'\n";
+      exit(2);
+    }
+  }
+
+  ####################################################################
+  #
+  # If the work directory does not exist, create it.
+  #
+  ####################################################################
+
+  if (!-d $$phProperties{'WorkDirectory'})
+  {
+    eval { mkpath($$phProperties{'WorkDirectory'}, 0, 0755) };
+    if ($@)
+    {
+      my $sMessage = $@; $sMessage =~ s/[\r\n]+/ /g; $sMessage =~ s/\s+$//;
+      print STDERR "$$phProperties{'Program'}: Error='Unable to create work directory \"$$phProperties{'WorkDirectory'}\" ($sMessage).'\n";
+      exit(2);
+    }
+  }
+
+  ####################################################################
+  #
+  # If the baseline does not exist, create it.
+  #
+  ####################################################################
+
+  my ($sCommandLine, $sConfig, $sMessage, $sOutput, $sStatus);
+
+  $sConfig = <<EOF;
+OutDir=$$phProperties{'WorkDirectory'}
+FieldMask=$$phProperties{'FieldMask'}
+EOF
+
+  foreach my $sInclude (@ARGV)
+  {
+    $sConfig .= <<EOF;
+Include=$sInclude
+EOF
+  }
+
+  if (defined($$phProperties{'ConfigFile'}))
+  {
+    if (!open(FH, "< $$phProperties{'ConfigFile'}"))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Failed to open config file \"$$phProperties{'ConfigFile'}\" ($!).'\n";
+      exit(2);
+    }
+    my @aLines = <FH>;
+    close(FH);
+    foreach my $sKvp (@aLines)
+    {
+      $sConfig .= <<EOF;
+$sKvp
+EOF
+    }
+  }
+
+  if (!-f $$phProperties{'Baseline'})
+  {
+    $sConfig .= <<EOF;
+BaseName=baseline
+EOF
+    $sCommandLine = qq("$$phProperties{'FTimesExe'}" --map - 2> $$phProperties{'Null'});
+    if (!open(PH, "| $sCommandLine"))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Failed to launch FTimes in map mode ($!).'\n";
+      exit(2);
+    }
+    print PH $sConfig;
+    close(PH);
+    my $sStatus = ($? >> 8) & 0xff;
+    if ($sStatus != 0)
+    {
+      print STDERR "$$phProperties{'Program'}: Error='FTimes map mode returned an exit code of $sStatus, which indicates that the operation failed.'\n";
+      exit(2);
+    }
+  }
+  else
+  {
+    my @aPatterns = ();
+    if (defined($$phProperties{'IgnoreFile'}) && -f $$phProperties{'IgnoreFile'})
+    {
+      if (!open(FH, "< $$phProperties{'IgnoreFile'}"))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Failed to open ignore file \"$$phProperties{'IgnoreFile'}\" ($!).'\n";
+        exit(2);
+      }
+      while (my $sLine = <FH>)
+      {
+        $sLine =~ s/[\r\n]+$//;
+        next if ($sLine =~ /^#/ || $sLine =~ /^\s*$/);
+        push(@aPatterns, qr($sLine));
+      }
+      close(FH);
+    }
+
+    $sConfig .= <<EOF;
+BaseName=snapshot
+EOF
+    $sCommandLine = qq("$$phProperties{'FTimesExe'}" --map - 2> $$phProperties{'Null'});
+    if (!open(PH, "| $sCommandLine"))
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Failed to launch FTimes in map mode ($!).'\n";
+      exit(2);
+    }
+    print PH $sConfig;
+    close(PH);
+    my $sStatus = ($? >> 8) & 0xff;
+    if ($sStatus != 0)
+    {
+      print STDERR "$$phProperties{'Program'}: Error='FTimes map mode returned an exit code of $sStatus, which indicates that the operation failed.'\n";
+      exit(2);
+    }
+
+    $sCommandLine = qq("$$phProperties{'FTimesExe'}" --compare $$phProperties{'FieldMask'} "$$phProperties{'Baseline'}" "$$phProperties{'Snapshot'}" -l 6 > "$$phProperties{'Compared'}");
+    $sOutput = qx($sCommandLine);
+    $sStatus = ($? >> 8) & 0xff;
+    if ($sStatus != 0)
+    {
+      print STDERR "$$phProperties{'Program'}: Error='FTimes compare mode returned an exit code of $sStatus, which indicates that the operation failed.'\n";
+      exit(2);
+    }
+    if (open(FH, "< $$phProperties{'Compared'}"))
+    {
+      while (my $sRecord = <FH>)
+      {
+        $sRecord =~ s/[\r\n]*$//;
+        next if ($sRecord =~ /^category/);
+        if (@aPatterns)
+        {
+          my $sMatch = 0;
+          foreach my $sPattern (@aPatterns)
+          {
+            if ($sRecord =~ /$sPattern/)
+            {
+              $sMatch = 1;
+              last;
+            }
+          }
+          next if ($sMatch);
+        }
+        my @aFields = split(/\|/, $sRecord);
+        my $sTag = (defined($$phProperties{'Tag'})) ? $$phProperties{'Tag'} : $$phProperties{'Program'};
+        if ($$phProperties{'UseSyslog'})
+        {
+          syslog($$phProperties{'Level'}, "%s", "$aFields[0] --> $aFields[1]");
+        }
+        else
+        {
+          $oSocket->print("<$$phProperties{'Priority'}>$sTag\[$$\]: $aFields[0] --> $aFields[1]");
+        }
+      }
+      close(FH);
+    }
+    else
+    {
+      print STDERR "$$phProperties{'Program'}: Error='Failed to open compare file \"$$phProperties{'Compared'}\" ($!).'\n";
+      exit(2);
+    }
+  }
+
+  ####################################################################
+  #
+  # Clean up and go home.
+  #
+  ####################################################################
+
+  if ($$phProperties{'UseSyslog'})
+  {
+    closelog();
+  }
+  else
+  {
+    $oSocket->close();
+  }
+
+  1;
+
+
+######################################################################
+#
+# AdjustRunTimeEnvironment
+#
+######################################################################
+
+sub AdjustRunTimeEnvironment
+{
+  my ($phProperties, $psError) = @_;
+
+  ####################################################################
+  #
+  # Make sure stdout/stderr are in binary mode.
+  #
+  ####################################################################
+
+  # EMPTY
+
+  ####################################################################
+  #
+  # Initialize paths that will be used during execution.
+  #
+  ####################################################################
+
+  my @aPathKeys =
+  (
+    "Baseline",
+    "Compared",
+    "ConfigFile",
+    "FTimesExe",
+    "FTimesHome",
+    "Snapshot",
+    "WorkDirectory",
+  );
+
+  if (!defined($$phProperties{'WorkDirectory'}))
+  {
+    $$phProperties{'WorkDirectory'} = $$phProperties{'FTimesHome'} . "/out";
+  }
+
+  $$phProperties{'Baseline'} = $$phProperties{'WorkDirectory'} . "/baseline.map";
+  $$phProperties{'Compared'} = $$phProperties{'WorkDirectory'} . "/snapshot.cmp";
+  $$phProperties{'FTimesExe'} = "$$phProperties{'FTimesHome'}/bin/ftimes" . $$phProperties{'ExtensionExe'};
+  $$phProperties{'Snapshot'} = $$phProperties{'WorkDirectory'} . "/snapshot.map";
+
+  ####################################################################
+  #
+  # Adjust path separators if running on a WINX platform.
+  #
+  ####################################################################
+
+  if ($$phProperties{'OsClass'} eq "WINX")
+  {
+    foreach my $sKey (@aPathKeys)
+    {
+      $$phProperties{$sKey} =~ s,/,\\,g;
+    }
+  }
+
+  ####################################################################
+  #
+  # Update system PATH.
+  #
+  ####################################################################
+
+  # EMPTY
+
+  ####################################################################
+  #
+  # Make sure we have the necessary prerequisites.
+  #
+  ####################################################################
+
+  if (!-f $$phProperties{'FTimesExe'})
+  {
+    $$psError = "Executable ($$phProperties{'FTimesExe'}) does not exist or is not regular.";
+    return undef;
+  }
+  if (!-x _)
+  {
+    $$psError = "Executable ($$phProperties{'FTimesExe'}) is not executable.";
+    return undef;
+  }
+
+  if (defined($$phProperties{'ConfigFile'}) && !-f $$phProperties{'ConfigFile'})
+  {
+    $$psError = "Config file ($$phProperties{'ConfigFile'}) does not exist or is not regular.";
+    return undef;
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# GetSyslogPriority
+#
+######################################################################
+
+sub GetSyslogPriority
+{
+  my ($sFacilityLevel) = @_;
+
+  ####################################################################
+  #
+  # Initialize syslog facilities and levels.
+  #
+  ####################################################################
+
+  my (%hSyslogFacilities, %hSyslogLevels);
+
+  %hSyslogFacilities =
+  (
+    'kern'     => 0,
+    'user'     => 1,
+    'mail'     => 2,
+    'daemon'   => 3,	
+    'auth'     => 4,
+    'syslog'   => 5,
+    'lpr'      => 6,
+    'news'     => 7,
+    'uucp'     => 8,
+    'cron'     => 9,
+    'authpriv' => 10,
+    'ftp'      => 11,
+    'local0'   => 16,
+    'local1'   => 17,
+    'local2'   => 18,
+    'local3'   => 19,
+    'local4'   => 20,
+    'local5'   => 21,
+    'local6'   => 22,
+  );
+
+  %hSyslogLevels =
+  (
+    'emerg'    => 0,
+    'alert'    => 1,
+    'crit'     => 2,
+    'err'      => 3,
+    'warning'  => 4,
+    'notice'   => 5,
+    'info'     => 6,
+    'debug'    => 7,
+  );
+
+  ####################################################################
+  #
+  # Convert the supplied facility/level into a priority.
+  #
+  ####################################################################
+
+  my ($sFacilityRegex, $sLevelRegex);
+
+  $sFacilityRegex = join("|", sort(keys(%hSyslogFacilities)));
+  $sLevelRegex = join("|", sort(keys(%hSyslogLevels)));
+  if ($sFacilityLevel =~ /^($sFacilityRegex)[.]($sLevelRegex)$/i)
+  {
+    return (($hSyslogFacilities{$1} << 3) | ($hSyslogLevels{$2}));
+  }
+
+  return undef;
+}
+
+
+######################################################################
+#
+# ParseFieldMask
+#
+######################################################################
+
+sub ParseFieldMask
+{
+  my ($sFieldMask, $phFieldMask) = @_;
+
+  ####################################################################
+  #
+  # Squash input and check syntax.
+  #
+  ####################################################################
+
+  $sFieldMask =~ tr/A-Z/a-z/;
+  if
+  (
+    $sFieldMask !~ m{
+                      ^(all|none)
+                      (
+                        [+-]
+                        (?:
+                           ams
+                          |atime
+                          |attributes
+                          |chms
+                          |chtime
+                          |cms
+                          |ctime
+                          |dacl
+                          |dev
+                          |findex
+                          |gid
+                          |gsid
+                          |hashes
+                          |inode
+                          |magic
+                          |md5
+                          |mms
+                          |mode
+                          |mtime
+                          |name
+                          |nlink
+                          |osid
+                          |rdev
+                          |sha1
+                          |sha256
+                          |size
+                          |uid
+                          |volume
+                        )+
+                      )*$
+                    }x
+  )
+  {
+    return undef;
+  }
+
+  ####################################################################
+  #
+  # Split input once for fields and then for tokens.
+  #
+  ####################################################################
+
+  my @aFields = split(/[+-]/, $sFieldMask);
+  my @aTokens = split(/[^+-]+/, $sFieldMask);
+
+  ####################################################################
+  #
+  # Remove base element from the arrays.
+  #
+  ####################################################################
+
+  my $sBaseField = $aFields[0];
+  my $sBaseToken = $aTokens[0];
+  shift(@aFields);
+  shift(@aTokens);
+
+  ####################################################################
+  #
+  # Initialize the field mask.
+  #
+  ####################################################################
+
+  if ($sBaseField eq "all")
+  {
+    $$phFieldMask{'ams'} = 1;
+    $$phFieldMask{'atime'} = 1;
+    $$phFieldMask{'attributes'} = 1;
+    $$phFieldMask{'chms'} = 1;
+    $$phFieldMask{'chtime'} = 1;
+    $$phFieldMask{'cms'} = 1;
+    $$phFieldMask{'ctime'} = 1;
+    $$phFieldMask{'dacl'} = 1;
+    $$phFieldMask{'dev'} = 1;
+    $$phFieldMask{'findex'} = 1;
+    $$phFieldMask{'gid'} = 1;
+    $$phFieldMask{'gsid'} = 1;
+    $$phFieldMask{'inode'} = 1;
+    $$phFieldMask{'magic'} = 1;
+    $$phFieldMask{'md5'} = 1;
+    $$phFieldMask{'mms'} = 1;
+    $$phFieldMask{'mode'} = 1;
+    $$phFieldMask{'mtime'} = 1;
+    $$phFieldMask{'name'} = 1;
+    $$phFieldMask{'nlink'} = 1;
+    $$phFieldMask{'osid'} = 1;
+    $$phFieldMask{'rdev'} = 1;
+    $$phFieldMask{'sha1'} = 1;
+    $$phFieldMask{'sha256'} = 1;
+    $$phFieldMask{'size'} = 1;
+    $$phFieldMask{'uid'} = 1;
+    $$phFieldMask{'volume'} = 1;
+  }
+  else
+  {
+    $$phFieldMask{'name'} = 1;
+    $$phFieldMask{'ams'} = 0;
+    $$phFieldMask{'atime'} = 0;
+    $$phFieldMask{'attributes'} = 0;
+    $$phFieldMask{'chms'} = 0;
+    $$phFieldMask{'chtime'} = 0;
+    $$phFieldMask{'cms'} = 0;
+    $$phFieldMask{'ctime'} = 0;
+    $$phFieldMask{'dacl'} = 0;
+    $$phFieldMask{'dev'} = 0;
+    $$phFieldMask{'findex'} = 0;
+    $$phFieldMask{'gid'} = 0;
+    $$phFieldMask{'gsid'} = 0;
+    $$phFieldMask{'inode'} = 0;
+    $$phFieldMask{'magic'} = 0;
+    $$phFieldMask{'md5'} = 0;
+    $$phFieldMask{'mms'} = 0;
+    $$phFieldMask{'mode'} = 0;
+    $$phFieldMask{'mtime'} = 0;
+    $$phFieldMask{'nlink'} = 0;
+    $$phFieldMask{'osid'} = 0;
+    $$phFieldMask{'rdev'} = 0;
+    $$phFieldMask{'sha1'} = 0;
+    $$phFieldMask{'sha256'} = 0;
+    $$phFieldMask{'size'} = 0;
+    $$phFieldMask{'uid'} = 0;
+    $$phFieldMask{'volume'} = 0;
+  }
+  for (my $sIndex = 0; $sIndex < scalar(@aFields); $sIndex++)
+  {
+    if ($aFields[$sIndex] eq "hashes")
+    {
+      $$phFieldMask{'md5'} = ($aTokens[$sIndex] eq "+") ? 1 : 0;
+      $$phFieldMask{'sha1'} = ($aTokens[$sIndex] eq "+") ? 1 : 0;
+      next;
+    }
+    $$phFieldMask{$aFields[$sIndex]} = ($aTokens[$sIndex] eq "+") ? 1 : 0;
+  }
+  if ($sBaseField eq "all")
+  {
+    foreach my $sField (keys(%$phFieldMask))
+    {
+      if ($$phFieldMask{$sField} == 0)
+      {
+        $$phFieldMask{$sField} = 0;
+      }
+    }
+  }
+  else
+  {
+    foreach my $sField (keys(%$phFieldMask))
+    {
+      if ($$phFieldMask{$sField} == 0)
+      {
+        $$phFieldMask{$sField} = 0;
+      }
+    }
+  }
+
+  1;
+}
+
+
+######################################################################
+#
+# Usage
+#
+######################################################################
+
+sub Usage
+{
+  my ($sProgram) = @_;
+  print STDERR "\n";
+  print STDERR "Usage: $sProgram [-S] [-d work-dir] [-f config-file] [-H ftimes-home] [-i ignore-file] [-m mask] [-p priority] [-s server[:port]] [-t tag] include [include ...]\n";
+  print STDERR "       $sProgram [-S] [-d work-dir]  -f config-file  [-H ftimes-home] [-i ignore-file] [-m mask] [-p priority] [-s server[:port]] [-t tag]         [include ...]\n";
+  print STDERR "\n";
+  exit(1);
+}
+
+
+=pod
+
+=head1 NAME
+
+ftimes-bimvl - Take a snapshot, compare it to a baseline, and log the changes.
+
+=head1 SYNOPSIS
+
+B<ftimes-bimvl> B<[-S]> B<[-d work-dir]> B<[-f config-file]> B<[-H ftimes-home]> B<[-i ignore-file]> B<[-m mask]> B<[-p priority]> B<[-s server[:port]]> B<[-t tag]> B<include [include ...]>
+
+B<ftimes-bimvl> B<[-S]> B<[-d work-dir]> B<[-H ftimes-home]> B<[-i ignore-file]> B<[-m mask]> B<[-p priority]> B<[-s server[:port]]> B<[-t tag]> -f config-file B<[include ...]>
+
+=head1 DESCRIPTION
+
+This utility creates an FTimes snapshot of a specified set of files
+and/or directories, compares that snapshot to a previously captured
+baseline, and sends log messages to a specified syslog server for each
+object that is changed, missing, or new.  If no baseline exists, one
+will be created, and no comparisons will be made until the next
+invocation of the utility.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d work-dir>
+
+Specifies a work directory that will be used to store the baseline,
+snapshot, and compare files during runs.  If this directory does not
+exist, it will be created during runtime.  The default location is
+'C:\FTimes\out' and '/usr/local/ftimes/out' for WINX and UNIX
+platforms, respectively.
+
+=item B<-f config-file>
+
+Specifies a config file that contains any of the various ftimes(1)
+controls (one per line) that are valid for map mode.  Note that this
+option is required when no includes are specified on the command line,
+and in that case, the desired includes must be specified within the
+associated config file.
+
+=item B<-H ftimes-home>
+
+Specifies the location of FTimes components on the client system.  The
+default value is 'C:\FTimes' and '/usr/local/ftimes' for WINX and UNIX
+platforms, respectively.
+
+=item B<-i ignore-file>
+
+Specifies a file containing zero or more patterns, one per line, that
+are to be applied to the compare output. All matched records will be
+discarded, and no syslog message will be generated.
+
+=item B<-m mask>
+
+FTimes fieldmask to use.
+
+=item B<-p priority>
+
+Specifies the syslog facility and level to use for syslog messages.
+The format is facility.level.  Valid values can be found in the
+logger(1) man page.
+
+=item B<-S>
+
+Specifies that the log messages should use the Perl module
+Sys::Syslog for sending messages. The benefit of using this option
+is that messages can use the settings in /etc/syslog.conf.
+
+=item B<-s server[:port]>
+
+Specifies the hostname (or IP address) and port of syslog server.  The
+default value is 127.0.0.1:514.
+
+=item B<-t tag>
+
+Specifies the string that will be tagged to every syslog message.  The
+default tag is the name of this utility.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe and Jason Smith
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as B<FTimes>.
+
+=cut

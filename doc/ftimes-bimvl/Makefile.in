@@ -1,0 +1,25 @@
+
+PROJECT_ROOT=../..
+
+PREFIX=@prefix@
+
+SRCDIR=@srcdir@
+
+VPATH=${SRCDIR}
+
+INSTALL=@INSTALL@
+
+INSTALL_PREFIX=${DESTDIR}${PREFIX}/man/man1
+
+HTML_FILE=ftimes-bimvl.html
+
+MAN_FILE=ftimes-bimvl.1
+
+MAN_TITLE=FTimes Documentation
+
+POD_FILE=ftimes-bimvl.pod
+
+SRC_FILE=${SRCDIR}/../../tools/ftimes-bimvl/ftimes-bimvl
+
+include ${PROJECT_ROOT}/Mk/common-doc-perl.mk
+

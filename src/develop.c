@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: develop.c,v 1.50 2013/02/14 16:55:20 mavrik Exp $
+ * $Id: develop.c,v 1.52 2014/07/30 07:24:15 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -716,7 +716,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
     if (psFTFileData->dwFileIndexHigh != 0xffffffff && psFTFileData->dwFileIndexLow != 0xffffffff)
     {
       ui64FileIndex = (((unsigned __int64) psFTFileData->dwFileIndexHigh) << 32) | psFTFileData->dwFileIndexLow;
-      n += sprintf(&pcOutData[n], "%llu", (APP_UI64) ui64FileIndex);
+      n += sprintf(&pcOutData[n], "%I64u", (APP_UI64) ui64FileIndex);
     }
     else
     {
@@ -877,7 +877,7 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
   if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SIZE))
   {
     ui64FileSize = (((unsigned __int64) psFTFileData->dwFileSizeHigh) << 32) | psFTFileData->dwFileSizeLow;
-    n += sprintf(&pcOutData[n], "|%llu", (APP_UI64) ui64FileSize);
+    n += sprintf(&pcOutData[n], "|%I64u", (APP_UI64) ui64FileSize);
   }
 
   /*-
@@ -2040,7 +2040,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
     if (lRecoveryCounter == 0)
     {
       ui64FileIndex = (((unsigned __int64) psFTFileData->dwFileIndexHigh) << 32) | psFTFileData->dwFileIndexLow;
-      n += sprintf(&pcOutData[n], "%llx", (APP_UI64) ui64FileIndex);
+      n += sprintf(&pcOutData[n], "%I64x", (APP_UI64) ui64FileIndex);
     }
     else
     {
@@ -2054,7 +2054,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
         else
         {
           ui64FileIndex = (((unsigned __int64) psFTFileData->dwFileIndexHigh) << 32) | psFTFileData->dwFileIndexLow;
-          n += sprintf(&pcOutData[n], "%llx", (APP_UI64) ui64FileIndex);
+          n += sprintf(&pcOutData[n], "%I64x", (APP_UI64) ui64FileIndex);
         }
       }
       else
@@ -2380,7 +2380,7 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
   {
     pcOutData[n++] = '|';
     ui64FileSize = (((unsigned __int64) psFTFileData->dwFileSizeHigh) << 32) | psFTFileData->dwFileSizeLow;
-    n += sprintf(&pcOutData[n], "%llx", (APP_UI64) ui64FileSize);
+    n += sprintf(&pcOutData[n], "%I64x", (APP_UI64) ui64FileSize);
   }
 
   /*-

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.c,v 1.60 2013/02/14 16:55:20 mavrik Exp $
+ * $Id: ftimes.c,v 1.62 2014/07/18 06:40:44 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2000-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2000-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -473,6 +473,43 @@ if (RUN_MODE_IS_SET(FTIMES_DIGMADMAP, psProperties->iRunMode))
   if (SvTRUE(ERRSV))
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: eval_sv(): Failed to initialize the Perl script handler (%s).", acRoutine, SvPV_nolen(ERRSV));
+    return ER;
+  }
+}
+#endif
+
+#ifdef USE_EMBEDDED_PYTHON
+if (RUN_MODE_IS_SET(FTIMES_DIGMADMAP, psProperties->iRunMode))
+{
+  /*-
+   *********************************************************************
+   *
+   * Initialize the Python interpreter. Note that a failure inside this
+   * function pollutes stderr and ultimately leads to abort() by way of
+   * Py_FatalError(). It would be better if we could catch these errors
+   * and then decide how to handle them on our own.
+   *
+   *********************************************************************
+   */
+  Py_InitializeEx(0);
+
+  /*-
+   *********************************************************************
+   *
+   * Obtain references to the main module and its associated dictionary.
+   *
+   *********************************************************************
+   */
+  psProperties->psPythonMain = PyImport_AddModule("__main__");
+  if (psProperties->psPythonMain == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: PyImport_AddModule(): Failed to obtain a reference to the main module.", acRoutine);
+    return ER;
+  }
+  psProperties->psPyGlobals = PyModule_GetDict(psProperties->psPythonMain);
+  if (psProperties->psPyGlobals == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: PyModule_GetDict(): Failed to obtain a reference to the dictionary associated with the main module.", acRoutine);
     return ER;
   }
 }
@@ -1489,6 +1526,18 @@ FTimesFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
     perl_free(psProperties->psMyPerl);
     PERL_SYS_TERM();
   }
+#endif
+
+#ifdef USE_EMBEDDED_PYTHON
+  /*-
+   *********************************************************************
+   *
+   * Release the Python interpreter.
+   *
+   *********************************************************************
+   */
+  Py_XDECREF(psProperties->psPyGlobals);
+  Py_Finalize();
 #endif
 
   return ER_OK;

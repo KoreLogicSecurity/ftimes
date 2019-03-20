@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.5 2010/01/22 02:56:44 mavrik Exp $
+# $Id: test_harness.local,v 1.6 2014/07/30 05:00:49 mavrik Exp $
 #
 ######################################################################
 
@@ -166,7 +166,7 @@ sub Check_bad_magic
       }
       $aLines[0] =~ s/[\r\n]*$//;
 
-      $sSnapshot =~ s,/,[\\\\/],g;
+      $sSnapshot =~ s,[\\/],[\\\\/],g;
       my $sTargetOutputRegExp = qq(LOG_CRIT.*File = \\[$sSnapshot\\].*Header magic (?:is not recognized|indicates that this file contains compressed data));
       DebugPrint(4, "TargetOutputRegExp=$sTargetOutputRegExp");
       if ($aLines[0] !~ /$sTargetOutputRegExp/)

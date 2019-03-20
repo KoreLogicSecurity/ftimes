@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: hook.h,v 1.4 2013/02/14 16:55:20 mavrik Exp $
+ * $Id: hook.h,v 1.6 2014/07/18 06:40:44 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2011-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2011-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -37,6 +37,9 @@ typedef struct _HOOK_LIST
   char               *pcInterpreter;
   char               *pcProgram;
   KLEL_CONTEXT       *psContext;
+#ifdef USE_EMBEDDED_PYTHON
+  PyObject           *psPyScript;
+#endif
   struct _HOOK_LIST  *psNext;
 } HOOK_LIST;
 
@@ -73,6 +76,9 @@ int                   HookAddHook(char *pcExpression, HOOK_LIST **psHead, char *
 void                  HookFreeHook(HOOK_LIST *psHook);
 KLEL_EXPR_TYPE        HookGetTypeOfVar(const char *pcName, void *pvContext);
 KLEL_VALUE           *HookGetValueOfVar(const char *pcName, void *pvContext);
+#ifdef USE_EMBEDDED_PYTHON
+int                   HookLoadPythonScript(HOOK_LIST *psHook, char *pcError);
+#endif
 //HOOK_LIST            *HookMatchHook(HOOK_LIST *psHookList, FTIMES_FILE_DATA *psFTFileData); /* This is declared in ftimes.h. */
 HOOK_LIST            *HookNewHook(char *pcExpression, char *pcError);
 

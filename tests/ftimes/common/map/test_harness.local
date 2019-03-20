@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: test_harness.local,v 1.3 2009/03/20 17:24:39 mavrik Exp $
+# $Id: test_harness.local,v 1.4 2014/07/30 05:00:49 mavrik Exp $
 #
 ######################################################################
 
@@ -1403,7 +1403,7 @@ sub Hitch_md5_nsrl_vectors
   my $sCount = 0;
   foreach my $sHash (GetNsrlMd5s())
   {
-    my $sFile = sprintf("md5_nsrl_vectors/byte%04d.dat", $sCount++);
+    my $sFile = sprintf("md5_nsrl_vectors%sbyte%04d.dat", GetProperties()->{'PathSeparator'}, $sCount++);
     $$phTestTargetValues{$sFile} = $sHash;
   }
 }
@@ -1433,7 +1433,7 @@ sub Setup_md5_nsrl_vectors
       $sMessage .= $sRun;
       $b ^= 1;
     }
-    my $sFile = sprintf("%s/byte%04d.dat", $sDir, $sCount++);
+    my $sFile = sprintf("%s%sbyte%04d.dat", $sDir, GetProperties()->{'PathSeparator'}, $sCount++);
     if (!open(FH, "> $sFile"))
     {
       return "fail";
@@ -1486,7 +1486,7 @@ sub Check_md5_nsrl_vectors
       {
         next;
       }
-      my $sFile = $sDir . "/" . basename($sName);
+      my $sFile = $sDir . GetProperties()->{'PathSeparator'} . basename($sName);
       if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
       {
         return "fail";
@@ -1501,7 +1501,8 @@ sub Check_md5_nsrl_vectors
       }
       $aLines[1] =~ s/[\r\n]*$//;
 
-      if ($aLines[1] !~ /[\/\\]$sName"\|([0-9A-Fa-f]{32})$/)
+      my $sPattern = basename($sName);
+      if ($aLines[1] !~ /[\/\\]$sPattern"\|([0-9A-Fa-f]{32})$/)
       {
         return "fail";
       }
@@ -1986,7 +1987,7 @@ sub Hitch_sha1_nsrl_vectors
   my $sCount = 0;
   foreach my $sHash (GetNsrlSha1s())
   {
-    my $sFile = sprintf("sha1_nsrl_vectors/byte%04d.dat", $sCount++);
+    my $sFile = sprintf("sha1_nsrl_vectors%sbyte%04d.dat", GetProperties()->{'PathSeparator'}, $sCount++);
     $$phTestTargetValues{$sFile} = $sHash;
   }
 }
@@ -2016,7 +2017,7 @@ sub Setup_sha1_nsrl_vectors
       $sMessage .= $sRun;
       $b ^= 1;
     }
-    my $sFile = sprintf("%s/byte%04d.dat", $sDir, $sCount++);
+    my $sFile = sprintf("%s%sbyte%04d.dat", $sDir, GetProperties()->{'PathSeparator'}, $sCount++);
     if (!open(FH, "> $sFile"))
     {
       return "fail";
@@ -2069,7 +2070,7 @@ sub Check_sha1_nsrl_vectors
       {
         next;
       }
-      my $sFile = $sDir . "/" . basename($sName);
+      my $sFile = $sDir . GetProperties()->{'PathSeparator'} . basename($sName);
       if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
       {
         return "fail";
@@ -2084,7 +2085,8 @@ sub Check_sha1_nsrl_vectors
       }
       $aLines[1] =~ s/[\r\n]*$//;
 
-      if ($aLines[1] !~ /[\/\\]$sName"\|([0-9A-Fa-f]{40})$/)
+      my $sPattern = basename($sName);
+      if ($aLines[1] !~ /[\/\\]$sPattern"\|([0-9A-Fa-f]{40})$/)
       {
         return "fail";
       }
@@ -2569,7 +2571,7 @@ sub Hitch_sha256_nsrl_vectors
   my $sCount = 0;
   foreach my $sHash (GetNsrlSha256s())
   {
-    my $sFile = sprintf("sha256_nsrl_vectors/byte%04d.dat", $sCount++);
+    my $sFile = sprintf("sha256_nsrl_vectors%sbyte%04d.dat", GetProperties()->{'PathSeparator'}, $sCount++);
     $$phTestTargetValues{$sFile} = $sHash;
   }
 }
@@ -2599,7 +2601,7 @@ sub Setup_sha256_nsrl_vectors
       $sMessage .= $sRun;
       $b ^= 1;
     }
-    my $sFile = sprintf("%s/byte%04d.dat", $sDir, $sCount++);
+    my $sFile = sprintf("%s%sbyte%04d.dat", $sDir, GetProperties()->{'PathSeparator'}, $sCount++);
     if (!open(FH, "> $sFile"))
     {
       return "fail";
@@ -2652,7 +2654,7 @@ sub Check_sha256_nsrl_vectors
       {
         next;
       }
-      my $sFile = $sDir . "/" . basename($sName);
+      my $sFile = $sDir . GetProperties()->{'PathSeparator'} . basename($sName);
       if (!open(PH, "$$phProperties{'TargetProgram'} --map _config -l 6 $sFile |"))
       {
         return "fail";
@@ -2667,7 +2669,8 @@ sub Check_sha256_nsrl_vectors
       }
       $aLines[1] =~ s/[\r\n]*$//;
 
-      if ($aLines[1] !~ /[\/\\]$sName"\|([0-9A-Fa-f]{64})$/)
+      my $sPattern = basename($sName);
+      if ($aLines[1] !~ /[\/\\]$sPattern"\|([0-9A-Fa-f]{64})$/)
       {
         return "fail";
       }

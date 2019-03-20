@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: sha256.c,v 1.13 2013/02/14 16:55:20 mavrik Exp $
+ * $Id: sha256.c,v 1.16 2014/07/18 06:40:44 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2006-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2006-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -58,9 +58,15 @@ SHA256HashToBase64(unsigned char *pucHash, char *pcBase64Hash)
 int
 SHA256HashToHex(unsigned char *pucHash, char *pcHexHash)
 {
+#ifndef HAVE_HTONL
+  int                 i = 0;
+#endif
   int                 n = 0;
+#ifdef HAVE_HTONL
   unsigned int       *pui = (unsigned int *) pucHash;
+#endif
 
+#ifdef HAVE_HTONL
   n += snprintf(&pcHexHash[n], (SHA256_HASH_SIZE * 2 + 1), "%08x%08x%08x%08x%08x%08x%08x%08x",
     (unsigned int) htonl(*(pui    )),
     (unsigned int) htonl(*(pui + 1)),
@@ -71,6 +77,12 @@ SHA256HashToHex(unsigned char *pucHash, char *pcHexHash)
     (unsigned int) htonl(*(pui + 6)),
     (unsigned int) htonl(*(pui + 7))
     );
+#else
+  for (i = 0; i < SHA256_HASH_SIZE; i++)
+  {
+    n += snprintf(&pcHexHash[n], 3, "%02x", pucHash[i]);
+  }
+#endif
   pcHexHash[n] = 0;
 
   return n;

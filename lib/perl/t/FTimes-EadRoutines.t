@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: FTimes-EadRoutines.t,v 1.8 2013/02/14 16:55:19 mavrik Exp $
+# $Id: FTimes-EadRoutines.t,v 1.9 2014/07/18 06:40:44 mavrik Exp $
 #
 ######################################################################
 #
-# Copyright 2008-2013 The FTimes Project, All Rights Reserved.
+# Copyright 2008-2014 The FTimes Project, All Rights Reserved.
 #
 ######################################################################
 #

@@ -1,11 +1,11 @@
 /*-
  ***********************************************************************
  *
- * $Id: ssl.c,v 1.20 2013/02/14 16:55:20 mavrik Exp $
+ * $Id: ssl.c,v 1.22 2014/07/18 06:40:44 mavrik Exp $
  *
  ***********************************************************************
  *
- * Copyright 2001-2013 The FTimes Project, All Rights Reserved.
+ * Copyright 2001-2014 The FTimes Project, All Rights Reserved.
  *
  ***********************************************************************
  */
@@ -166,7 +166,8 @@ SslGetVersion(void)
   static char         acSslVersion[SSL_MAX_VERSION_LENGTH] = "";
   static char         acSslPatch[2] = "";
   static char         acSslPatchCodes[] = " abcdefghijklmnopqrstuvwxyz";
-  int                 iPatch = (OPENSSL_VERSION_NUMBER >> 4) & 0xff;
+  int                 iPatch = 0;
+  long                lVersion = SSLeay();
 
   /*-
    *********************************************************************
@@ -194,8 +195,17 @@ SslGetVersion(void)
    *    64-bit handling at some point. See OPENSSL_VERSION_NUMBER(3)
    *    for details,
    *
+   *    Previously the OPENSSL_VERSION_NUMBER macro was used to
+   *    determine the version number. However, this causes a problem
+   *    for dynamically linked programs -- if the library is updated
+   *    and its version number changes, that change won't be reflected
+   *    in the already compiled program. The remedy employed here is
+   *    to obtain the version number at run time rather than compile
+   *    time.
+   *
    *********************************************************************
    */
+  iPatch = (int)((lVersion >> 4) & 0xff);
   if (iPatch == 0)
   {
     acSslPatch[0] = 0;
@@ -211,9 +221,9 @@ SslGetVersion(void)
   acSslPatch[1] = 0;
 
   snprintf(acSslVersion, SSL_MAX_VERSION_LENGTH, "ssl(%d.%d.%d%s)",
-    (int)((OPENSSL_VERSION_NUMBER >> 28) & 0xff),
-    (int)((OPENSSL_VERSION_NUMBER >> 20) & 0xff),
-    (int)((OPENSSL_VERSION_NUMBER >> 12) & 0xff),
+    (int)((lVersion >> 28) & 0xff),
+    (int)((lVersion >> 20) & 0xff),
+    (int)((lVersion >> 12) & 0xff),
     acSslPatch
     );
 
