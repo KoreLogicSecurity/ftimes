@@ -1,0 +1,9 @@
+=item B<GetFileName>: <file>
+
+Applies to B<getmode>.
+
+B<GetFileName> is required if B<GetAndExec> is enabled.  Its value
+is the name of the file in which the downloaded configuration
+information is to be stored.  B<GetFileName> may be specified as
+a relative path.
+

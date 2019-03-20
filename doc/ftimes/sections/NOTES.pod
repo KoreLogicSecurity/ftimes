@@ -1,0 +1,77 @@
+=head1 NOTES
+
+The name attribute may be partially encoded if it contains any
+special characters.  Special characters are defined as C<[`'"|%+]>
+or any non-printable character.  If a name contains Unicode
+characters, the high byte is always encoded, and the low byte is
+encoded as described above.  To decode an encoded name, first
+convert all pluses to spaces (i.e. '+' -> ' ').  Then, moving from
+left to right, convert each %HH sequence, to its byte value.  Here
+'H' denotes a hex digit.
+
+As a matter of security and good configuration control, you should
+create a baseline of your entire system on a periodic basis and
+whenever major events occur such as the addition/removal of software
+packages or the application of system/security patches.
+
+In critical situations it is best to enable B<RequirePrivilege>
+and run B<FTimes> from a privileged account.  This will avoid common
+hang-ups associated with having too little privilege.  Backup and
+restore rights are required to satisfy B<RequirePrivilege> on NT
+systems, and root privilege is required for UNIX systems.  If you
+are simply scanning your own files, you probably do not need to
+enable B<RequirePrivilege>.  On NT systems the operator may need
+the bypass traverse checking privilege in addition to backup and
+restore rights.  Also, make sure that domain policies aren't
+rendering the operator's privileges ineffective.
+
+In general, use the default LogLevel and review the log data after
+each invocation as it may reveal errors or issues that need to be
+addressed.
+
+In general, create distinct config files for each profile you intend
+to maintain.  Here, profile refers to the set of files and directories
+within a given host that you intend to scan on a regular basis.
+If you have a large number of profiles that share a common set of
+controls, you may want to move these controls to a single file.
+Then, you may simply refer to this file using the B<Import> control.
+
+Set B<OutDir> to a directory that has the capacity to hold all
+resultant data.  If external media such as jaz, zip, or floppy are
+available, consider using them.  However, using a floppy is not
+generally recommended unless you know that it has the capacity to
+hold the data.  You may also want to consider writing output to an
+NFS, Samba, or Windows share.  A third option is to use B<FTimes'>
+built-in upload capability, and post your data directly to an
+Integrity Server.
+
+Setting B<LogDir> to a path that represents a floppy device may be
+useful if data integrity is a concern and there is no removable or
+protectible media available to store all of the anticipated output.
+The reason for this is that the log file will contain an MD5 digest
+of the output file upon the completion of the map.  Because the
+log data was written to floppy, it would be possible to remove and
+write protect this information for safe keeping.  This would provide
+additional time to offload the results of the map, which can be
+quite large.  Obviously, both files can still be altered by a
+skilled attacker positioned to take advantage of the situation.
+
+Manage dig and map config files on your Integrity Server, and
+use B<FTimes'> get mode (i.e. B<--getmode>) to automatically retrieve
+them at runtime.  This facilitates centralized management and helps
+to protect potentially sensitive configuration information.
+
+Use the B<URLPutSnapshot>, B<URLPutURL>, B<URLUsername>, B<URLPassword>,
+and B<URLAuthType> controls when you want to automatically upload
+data to an Integrity Server that is configured to handle
+B<FTimes'> PUT requests.
+
+If you have an SSL enabled version of B<FTimes>, you'll need to
+ensure that OpenSSL and/or its libraries are installed and accessible
+to B<FTimes> on the target platform.
+
+When possible, mount target file systems as read only.  This will
+help to ensure minimal time stamp perturbation.  In any event,
+B<FTimes> accurately records time stamp information before it is
+modified by any subsequent access.
+

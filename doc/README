@@ -1,0 +1,82 @@
+ 
+1 Version
+
+  $Id: README,v 1.1.1.1 2002/01/18 03:16:26 mavrik Exp $
+ 
+2 Overview
+ 
+  In general, you don't need to build the documentation because it
+  will be provided in the distribution.  However, in the event that
+  you do, you should know that the original version of Html.pm was
+  modified by the developer.  If you care about this and wish to
+  build the documentation the way it was intended, follow the
+  instructions in section 3.
+
+3 Patching Html.pm
+
+  Before patching Html.pm, you should figure out where Html.pm
+  lives on your system and check to see that its MD5 matches the
+  one provided here:
+
+    MD5 = 5f16c14462cfba6cdc1735236ecd5ea6
+
+  If you want to patch Html.pm by hand, do the following:
+
+    - Remove the LINK tag code.  Search for LINK.
+
+    - Add an if block around the index code.  Search for INDEX.
+
+      if ($doindex) { <existing code> }
+
+    - Add https to the list of urls.  Search for "my $urls".
+
+    - Remove paragraph tag from process_head().
+
+    - Balance paragraph tags in pod2html() (i.e. add </P>).
+
+  If you want to patch Html.pm with patch, do the following:
+
+    - Create a file named Html.pm.patch that contains the patch
+      provided at the end of this document.  Be sure to copy the
+      patch exactly as it contains a mixture of spaces and tabs.
+
+    - Run the following command:
+
+      patch < Html.pm.patch
+
+--- patch ---
+Index: /usr/libdata/perl/5.00503/Pod/Html.pm
+334a335,337
+> #
+> # 2000-12-28 klm, Eliminated the LINK tag.
+> #
+339d341
+< <LINK REV="made" HREF="mailto:$Config{perladmin}">
+354a357,361
+> #
+> # 2000-12-28 klm, Don't put the index in if --noindex has been set.
+> #
+> if ($doindex)
+> {
+361a369
+> }
+405c413,416
+< 	    print HTML "<P>\n$text";
+---
+> #
+> # 2001-12-10 klm, Added closing paragraph tag.
+> #
+> 	    print HTML "<P>\n$text</P>\n";
+865c876,878
+<     print HTML "<P>\n" unless $listlevel;
+---
+> #
+> # 2001-12-10 klm, Removed paragraph tag.
+> #
+1102a1116,1118
+> #
+> # 2001-11-27 klm, Added https to the list.
+> #
+1104a1121
+>                 https
+--- patch ---

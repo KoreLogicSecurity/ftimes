@@ -1,0 +1,24 @@
+=item B<Include>: [directory|file|link]
+
+Applies to B<digfull> and B<mapfull>.
+
+B<Include> controls are optional.  There can be as many includes
+as you like, but each entry must be on a separate line.  If no
+B<Include> controls are specified, B<FTimes> will attempt to map
+the entire system.
+
+B<Include> values must be a regular file, directory, or symbolic
+link (UNIX only) specified as a full path.  For WIN32 file systems
+this control value must begin with a drive letter [a-z,A-Z] followed
+by a colon and the target path (e.g., "c:\temp").  For UNIX file
+systems this control value must begin with a "/" (e.g., "/tmp").
+
+Note: You should take care not to include file systems that reside
+remote shares as B<FTimes> may attempt to map them.  To prevent
+this from happening, you can either exclude the remote file system
+or disable B<MapRemoteFiles>.
+
+Note: Directory hashing only applies to directories.  This means
+that file includes are treated as isolated objects apart from any
+specific tree.
+

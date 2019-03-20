@@ -1,0 +1,12 @@
+=item B<MatchLimit>: <integer>
+
+Applies to B<digfull>.
+
+B<MatchLimit> is optional.  It instructs the search engine to stop
+searching for a particular pattern within a file once the specified
+match limit has been reached.  The default value for this control
+is zero, which means do not impose a limit.
+
+Note: Searching for a string such as 'A' with a MatchLimit of
+zero may produce a tremendous amount of output.
+

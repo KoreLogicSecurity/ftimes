@@ -1,0 +1,8 @@
+=item B<SSLPassPhrase>: <passphrase>
+
+Applies to B<digfull>, B<mapfull>, B<putmode>, and B<getmode>.
+
+B<SSLPassPhrase> is optional when B<SSLUseCertificate> is enabled.
+Its value, if specified, is used to decrypt the contents of the
+client's private key file (see B<SSLPrivateKeyFile>).
+

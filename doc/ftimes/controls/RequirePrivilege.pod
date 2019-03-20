@@ -1,0 +1,15 @@
+=item B<RequirePrivilege>: [Y|N]
+
+Applies to B<digfull> and B<mapfull>.
+
+B<RequirePrivilege> is optional.  When enabled, (i.e. 'Y') it
+indicates that the operator wants to ensure that the snapshot is
+run from a privileged account.  On UNIX systems this means that
+B<FTimes> must be run from an account that has a real user id of
+zero (i.e. root).  On NT/2K systems this means that it must be run
+from an account that has the backup and restore user rights.  The
+default value is disabled (i.e. 'N').
+
+Note: B<FTimes> will work without privilege, but it's likely to
+generate more errors due to permission problems.
+

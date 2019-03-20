@@ -1,0 +1,14 @@
+=item B<URLPutSnapshot>: [Y|N]
+
+Applies to B<digfull> and B<mapfull>.
+
+B<URLPutSnapshot> is optional.  When enabled, (i.e. 'Y') B<FTimes>
+attempts to post the snapshot to an Integrity Server.  Prior
+to starting its scan, B<FTimes> will transmit an application layer
+PING to the server to verify that it is accessible and functional.
+If the remote CGI application is functioning properly, the extended
+HTTP response code 250 (Ping Received) is returned.  B<URLPutSnapshot>
+depends on B<URLPutURL>.  If basic authentication is required, the
+controls B<URLUsername>, B<URLPassword>, and B<URLAuthType> may
+need to be specified as well.
+

@@ -1,0 +1,13 @@
+=item B<MapRemoteFiles>: [Y|N]
+
+Applies to B<digfull> and B<mapfull>.
+
+B<MapRemoteFiles> is optional.  When enabled, (i.e. 'Y') it instructs
+B<FTimes> to ignore the fact that a given B<Include> does not reside
+on the local system.  The result is that B<FTimes> will attempt to
+map remote files.  The default value is disabled (i.e 'N').
+
+Note: Mapping remote file systems can create large amounts of
+network traffic.  Just remember that you may be mapping an entire
+disk.
+

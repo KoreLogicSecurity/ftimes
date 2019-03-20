@@ -1,0 +1,12 @@
+=item B<Exclude>: [directory|file|link]
+
+Applies to B<digfull> and B<mapfull>.
+
+B<Exclude> is optional.  It specifies a directory, file, or symbolic
+link (UNIX only) to skip.  There can be as many excludes as you
+like, but each entry must be on a separate line in the config file.
+It is not necessary to exclude special file systems such as CDFS
+or PROCFS as B<FTimes> will detect their presence and automatically
+exclude them.  Each B<Exclude> must be specified as a full path.
+B<FTimes> will silently ignore an B<Exclude> if it does not exist.
+

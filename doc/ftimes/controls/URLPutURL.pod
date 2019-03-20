@@ -1,0 +1,12 @@
+=item B<URLPutURL>: <url>
+
+Applies to B<digfull>, B<mapfull>, and B<putmode>.
+
+B<URLPutURL> is optional.  It defines the scheme, user credentials,
+host address, port, and CGI application to be used when making PUT
+requests.  If a username/password pair is specified in the URL,
+that pair takes precedence over the values specified by
+B<URLUsername>/B<URLPassword>, if any.  In any event, user credentials
+are only sent when basic authentication has been requested (See
+B<URLAuthType>).  B<URLPutURL> uses the same syntax as B<URLGetURL>.
+

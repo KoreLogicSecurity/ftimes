@@ -1,0 +1,46 @@
+=head1 RETURN VALUES
+
+Upon successful completion, a value of B<XER_OK> (i.e. 0) is
+returned.  If the program encountered a critical error and had to
+abort immediately, the value B<XER_Abort> (i.e. 1) is returned.
+If the command line does not conform to the required syntax, a
+value of B<XER_Usage> (i.e. 2) is returned.  Otherwise, one of the
+following error codes is returned.  These codes indicate which
+subsystem encountered the fatal error.
+
+=over 5
+
+=item *
+
+B<XER_BootStrap>, Value = 3
+
+=item *
+
+B<XER_ProcessArguments>, Value = 4
+
+=item *
+
+B<XER_Initialize>, Value = 5
+
+=item *
+
+B<XER_CheckDependencies>, Value = 6
+
+=item *
+
+B<XER_Finalize>, Value = 7
+
+=item *
+
+B<XER_WorkHorse>, Value = 8
+
+=item *
+
+B<XER_FinishUp>, Value = 9
+
+=item *
+
+B<XER_FinalStage>, Value = 10
+
+=back
+

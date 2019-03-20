@@ -1,0 +1,13 @@
+=item B<URLGetURL>: <url>
+
+Applies to B<getmode>.
+
+B<URLGetURL> is required.  It defines the scheme, user credentials,
+host address, port, and CGI application to be used when making
+requests.  If a username/password pair is specified in the URL,
+that pair takes precedence over the values specified by
+B<URLUsername>/B<URLPassword>, if any.  URLs must use a scheme of
+http or https and satisfy the following regular expression:
+
+scheme://(user(:pass)?@)?host(:port)?/(path(\?query)?)?
+

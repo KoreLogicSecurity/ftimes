@@ -1,0 +1,116 @@
+########################################################################
+#
+# $Id: Makefile.in,v 1.2 2002/01/18 15:54:07 mavrik Exp $
+#
+########################################################################
+#
+# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# All Rights Reserved.
+#
+########################################################################
+#
+# Purpose: Makefile for the project's src directory.
+#
+########################################################################
+
+#.SILENT:
+
+prefix			= @prefix@
+exec_prefix		= @exec_prefix@
+bindir			= @bindir@
+
+INSTALL			= @INSTALL@
+
+SSL_DIRECTORY		= @ssldir@
+SSL_INCLUDES		= @ssl_incs@
+SSL_SOURCES		= @ssl_srcs@
+SSL_LFLAGS		= @ssllibflags@
+SSL_IFLAGS		= @sslincflags@
+
+AP_INCLUDES		= @ap_incs@
+AP_SOURCES		= @ap_srcs@
+
+XMAGIC_INCLUDES		= @xmagic_incs@
+XMAGIC_SOURCES		= @xmagic_srcs@
+
+FTIMES_LFLAGS		= ${LIBS} ${SSL_LFLAGS}
+FTIMES_IFLAGS		= ${SSL_IFLAGS}
+FTIMES_INCLUDES		=\
+			all-includes.h\
+			${AP_INCLUDES}\
+			compare.h\
+			config.h\
+			decode.h\
+			dig.h\
+			error.h\
+			fsinfo.h\
+			ftimes.h\
+			http.h\
+			ktypes.h\
+			md5.h\
+			socket.h\
+			${SSL_INCLUDES}\
+			${XMAGIC_INCLUDES}
+FTIMES_SOURCES		=\
+			analyze.c\
+			${AP_SOURCES}\
+			cfgtest.c\
+			cmpmode.c\
+			compare.c\
+			decode.c\
+			decoder.c\
+			develop.c\
+			dig.c\
+			digmode.c\
+			error.c\
+			fsinfo.c\
+			ftimes.c\
+			getmode.c\
+			http.c\
+			map.c\
+			mapmode.c\
+			md5.c\
+			message.c\
+			properties.c\
+			putmode.c\
+			socket.c\
+			${SSL_SOURCES}\
+			support.c\
+			time.c\
+			url.c\
+			${XMAGIC_SOURCES}
+FTIMES_OBJECTS		= ${FTIMES_SOURCES:.c=.o}
+FTIMES_EXECUTEABLE	= ftimes
+
+IFLAGS			= ${FTIMES_IFLAGS}
+DEFS			= @DEFS@
+LIBS			= @LIBS@
+CFLAGS			= @CFLAGS@ -DUNIX
+CC			= @CC@
+
+BIN_FILES		= ${FTIMES_EXECUTEABLE}
+
+all: ${FTIMES_EXECUTEABLE}
+
+${FTIMES_EXECUTEABLE}: ${FTIMES_INCLUDES} ${FTIMES_OBJECTS}
+	${CC} ${FTIMES_OBJECTS} ${CFLAGS} -o ${FTIMES_EXECUTEABLE} ${IFLAGS} ${FTIMES_IFLAGS} ${FTIMES_LFLAGS}
+
+.c.o:
+	${CC} ${CFLAGS} ${IFLAGS} -c $< 
+
+install: ${BIN_FILES}
+	umask 22; if [ ! -d ${bindir} ]; then mkdir ${bindir}; fi
+	for i in ${BIN_FILES}; do\
+		${INSTALL} -m 755 $$i ${bindir};\
+	done
+
+clean:
+	rm -f ${FTIMES_EXECUTEABLE} ${FTIMES_OBJECTS} ./*.core core
+
+clean-auto: clean
+	rm -f config.h Makefile
+
+clean-all: clean-auto
+
+dist-clean: clean-all
+	rm -f config.h.in

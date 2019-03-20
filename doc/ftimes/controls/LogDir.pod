@@ -1,0 +1,8 @@
+=item B<LogDir>: <directory>
+
+Applies to B<digfull> and B<mapfull>.
+
+B<LogDir> is optional.  It tells B<FTimes> where to write log data.
+If not specified, the value of B<OutDir> will be used as the value
+for B<LogDir>.  B<LogDir> may be specified as a relative path.
+

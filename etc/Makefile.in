@@ -1,0 +1,52 @@
+########################################################################
+#
+# $Id: Makefile.in,v 1.2 2002/01/18 15:54:07 mavrik Exp $
+#
+########################################################################
+#
+# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# All Rights Reserved.
+#
+########################################################################
+#
+# Purpose: Makefile for the project's etc directory.
+#
+########################################################################
+
+#.SILENT:
+
+prefix			= @prefix@
+exec_prefix		= @exec_prefix@
+etcdir			= @etcdir@
+
+INSTALL			= @INSTALL@
+
+SRC_FILES		=\
+			dig.cfg\
+			get.cfg\
+			map.cfg\
+			put.cfg
+
+DST_FILES		=\
+			${etcdir}/dig.cfg\
+			${etcdir}/get.cfg\
+			${etcdir}/map.cfg\
+			${etcdir}/put.cfg
+
+all: ${SRC_FILES}
+
+install: ${DST_FILES}
+	umask 22; if [ ! -d ${etcdir} ]; then mkdir ${etcdir}; fi
+	for i in ${SRC_FILES}; do ${INSTALL} -m 644 $$i ${etcdir}; done
+
+clean:
+
+clean-auto: clean
+	rm -f Makefile
+
+clean-all: clean-auto
+
+dist-clean: clean-all
+
+${DST_FILES}: ${SRC_FILES}
+

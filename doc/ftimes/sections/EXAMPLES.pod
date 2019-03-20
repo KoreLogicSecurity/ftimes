@@ -1,0 +1,289 @@
+=head1 EXAMPLES
+
+The following examples are intended to demonstrate different ways
+of configuring and using B<FTimes>.  Any text encapsulated between
+'--- XXX ---' delimiters represents a file's content.
+
+=head2 Example 1. Using map mode to baseline and upload
+
+This example demonstrates how to baseline a system and upload the
+resulting snapshot to an Integrity Server.
+
+The first thing that needs to be done is to obtain the necessary
+upload information.  Assume that an Integrity Server has already
+been configured to receive snapshots.  Also, assume that the
+following information has been provided:
+
+    URL = https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
+    Authentication Type = Basic
+    Username/ClientID = S001_TEST_0001_0
+    Password = password
+    AllowedFieldMask = ALL-magic
+    AllowedDataType = map
+    Server Validates Client Certificates = N
+
+Observe that remote server speaks HTTPS.  Therefore, an SSL enabled
+version of B<FTimes> is needed.  To determine if B<FTimes> has SSL
+support, run the following command:
+
+    ftimes --version
+
+If B<FTimes> has SSL support, the output will have the following format:
+
+    ftimes X.X.X ssl
+
+where X.X.X is a version number.
+
+The next item to tackle is the creation of a suitable config file.
+The following file contains the necessary directives to complete
+this task.
+
+    --- example1.cfg ---
+    BaseName=S001_TEST_0001_0
+    OutDir=.
+    RunType=baseline
+    FieldMask=ALL-magic
+    URLPutSnapshot=Y
+    URLPutURL=https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
+    URLAuthType=basic
+    URLUsername=S001_TEST_0001_0
+    URLPassword=password
+    URLCreateConfig=Y
+    Compress=Y
+    --- example1.cfg ---
+
+Note that there are no B<Include> directives.  This omission causes
+B<FTimes> to map everything (i.e. the entire system).
+
+Also, note that B<OutDir> has been set to the current directory
+(i.e. '.').  This, while entirely legal, assumes that (1) '.' is
+writeable and (2) there is enough disk space to hold all generated
+output.
+
+Compression was enabled to expedite data transfer, and B<URLCreateConfig>
+was enabled to create an upload config file.  This would come in
+handy if, for example, the upload fails.  Otherwise, it is not
+necessary.
+
+The last step is to run B<FTimes> and review the corresponding log
+output to ensure that snapshot was uploaded successfully.
+
+    ftimes --mapfull example1.cfg
+
+=head2 Example 2. Using dig mode to search for strings
+
+This example demonstrates how to to search files and directories
+for a set of HEX/ASCII strings.
+
+Given that the target file system is C</disk1>, and the list of
+strings to to be sought are:
+
+    String1 = /dev/ptyqa
+    String2 = 0xda 0xbe
+    String3 = 0x00 A 0x00 A 0x00 A 0x00 A
+
+These strings are expressed as ASCII, HEX, and HEX/ASCII, respectively
+(ignoring white space).  Assume that the required B<MatchLimit> is
+three.  That is to say, no more than three matches per file of any
+single string should be recorded.
+
+The following config file contains those directives required to
+search all files in /disk1.
+
+    --- example2.cfg ---
+    BaseName=digger
+    OutDir=.
+    MatchLimit=3
+    DigString=/dev/ptyqa
+    DigString=%da%be
+    DigString=%00A%00A%00A%00A
+    Include=/disk1
+    --- example2.cfg ---
+
+Observe that strings two and three are URL encoded.  Read the
+B<DigString> control description for more details on URL encoding.
+
+At this point B<FTimes> may be run as follows:
+
+    ftimes --digfull example2.cfg
+
+If spontaneity is desired over strict configuration, switch to the
+B<digauto> mode of operation.  In this mode elaborate config files
+aren't necessary, and output is written to stdout.  Also, no match
+limit is imposed.  The following example shows how to search an
+image file (e.g., example2.image) for a set of specific strings.
+The output, if any, can be piped into other tools that take their
+input on stdin.
+
+    --- strings.cfg ---
+    DigString=This+box+is+0wn3d
+    DigString=3l33t
+    DigString=175.20.1.7
+    DigString=hacklist@foo.bar.com
+    --- strings.cfg ---
+
+    ftimes --digauto strings.cfg example2.image | some-other-tool
+
+Just remember that dig strings must be URL encoded. That's why
+the spaces in the first string have been replaced with '+'.
+
+=head2 Example 3. Change analysis
+
+This example demonstrates how to detect change between two snapshots.
+
+Given that the following files are valid, uncompressed snapshots:
+
+    Baseline = daily_20001230203000.map
+    Snapshot = daily_20001231203000.map
+
+Compare MD5 digests to determine changed, missing, and new files.
+
+The only critical observation needed here is that daily_20001230203000.map
+is considered to be the baseline.  In other words, a baseline is
+a snapshot taken at an arbitrary point in time to which subsequent
+snapshots are compared.
+
+This comparison is carried out with the following command:
+
+    ftimes --compare none+md5 daily_20001230203000.map daily_20001231203000.map
+
+=head2 Example 4. Using put mode to upload a snapshot
+
+This example demonstrates how to manually upload a snapshot to an
+Integrity Server.  While this is definitely not the easiest
+way to transfer data, it may be necessary at some point.
+
+Suppose that you have a snapshot that was previously created using
+the following command line:
+
+    ftimes --mapfull map.cfg
+
+where map.cfg contained the following directives:
+
+    --- map.cfg ---
+    BaseName=S001_TEST_0001_0
+    HashDirectories=Y
+    FieldMask=all-magic
+    RunType=snapshot
+    Include=/etc
+    OutDir=/maps
+    --- map.cfg ---
+
+Now, suppose that you wish to upload the associated snapshot files
+(see below) to an existing account on an Integrity Server.
+
+    /maps/S001_TEST_0001_0_20001230203000.log
+    /maps/S001_TEST_0001_0_20001230203000.map
+
+The first thing that needs to be done is to obtain the necessary
+upload information.  Assume that an Integrity Server has already
+been configured to receive snapshots.  Also, assume that the
+following information has been provided:
+
+    URL = https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
+    Authentication Type = Basic
+    Username/ClientID = S001_TEST_0001_0
+    Password = password
+    AllowedFieldMask = ALL-magic
+    Server Validates Client Certificates = N
+
+The next thing to do is to create a config file.  Except for
+B<URLPutURL>, B<URLAuthType>, B<URLUsername>, and B<URLPassword>,
+the controls in the following config file may be obtained or derived
+by reviewing the log file.
+
+    --- example4.cfg ---
+    BaseName=S001_TEST_0001_0
+    LogFileName=/maps/S001_TEST_0001_0_20001230203000.log
+    OutFileName=/maps/S001_TEST_0001_0_20001230203000.map
+    OutFileHash=6958d1337f4f11312a402d0c8f9c050b
+    DataType=map
+    FieldMask=all-magic
+    DateTime=20001230203000
+    RunType=snapshot
+    URLPutURL=https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
+    URLAuthType=basic
+    URLUsername=S001_TEST_0001_0
+    URLPassword=password
+    --- example4.cfg ---
+
+The last step is to run B<FTimes> and review the corresponding log
+output to ensure that snapshot was uploaded successfully.
+
+    ftimes --putmode example4.cfg
+
+=head2 Example 5. Using get mode to download a config file
+
+This example demonstrates how to download a config file from an
+Integrity Server.
+
+The first thing that needs to be done is to obtain the necessary
+download information.  Assume that an Integrity Server has
+already been configured to serve config files.  Also, assume that
+the following information has been provided:
+
+    URL = https://www.integrity.net:443/cgi-client/nph-ftimes.cgi
+    Authentication Type = Basic
+    Username/ClientID = S001_TEST_0001_0
+    Password = password
+    Server Validates Client Certificates = Y
+    Server Common Name = www.integrity.net
+    Maximum Certificate Chain Length = 2
+
+Observe that remote server requires certificates.  This means that
+you'll need three additional PEM encoded files: Public Certificate,
+Private Key, and Bundled Certificate Authorities.  Assume that
+these files are located on the target system as follows:
+
+    /usr/local/integrity/etc/PublicCert.pem
+    /usr/local/integrity/etc/PrivateKey.pem
+    /usr/local/integrity/etc/BundledCAs.pem
+
+Armed with that information, the following config file may be
+constructed.
+
+    --- example5.cfg ---
+    BaseName=S001_TEST_0001_0
+    URLGetURL=https://www.integrity.net:443/cgi-client/nph-ftimes.cgi
+    URLGetRequest=MapConfig
+    GetAndExec=N
+    URLAuthType=basic
+    URLUsername=S001_TEST_0001_0
+    URLPassword=password
+    SSLUseCertificate=Y
+    SSLPublicCertFile=/usr/local/integrity/etc/PublicCert.pem
+    SSLPrivateKeyFile=/usr/local/integrity/etc/PrivateKey.pem
+    SSLPassPhrase=passphrase
+    SSLVerifyPeerCert=Y
+    SSLBundledCAsFile=/usr/local/integrity/etc/BundledCAs.pem
+    SSLExpectedPeerCN=www.integrity.net
+    SSLMaxChainLength=2
+    --- example5.cfg ---
+
+The following command will attempt to download a map config file
+from the specified Integrity Server.  If successful, the contents
+of the config file will be written to stdout.
+
+    ftimes --getmode example5.cfg
+
+If you want to download directly to a file, you can, of course,
+redirect the output.  Another approach would be to add the
+B<OutFileName> control to your config file.  Then, if you wanted
+to download a config file and take a snapshot in one operation,
+simply enable B<GetAndExec>.  This causes B<FTimes> to restart
+in map mode (i.e. B<mapfull>).  If B<URLGetRequest> was set to
+DigConfig, then B<FTimes> would request a dig config file and
+subsequently restart in dig mode (i.e. B<digfull>).
+
+Another way to achieve the same effect is to use the original config
+file and construct the following pipeline:
+
+    ftimes --getmode example5.cfg -l 6 | ftimes --mapfull -
+
+This has the benefit that potentially sensitive configuration
+information is not specifically written to a file on disk.
+
+Finally, note that the B<LogLevel> for the first command was set
+to its highest value.  This was done simply to reduce log output
+from that process.
+

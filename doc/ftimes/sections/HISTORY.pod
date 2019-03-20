@@ -1,0 +1,72 @@
+=head1 HISTORY
+
+The official or given name of this utility is B<FTimes>, but
+operationally it is referred to as B<ftimes>.  In the fledgling
+stages of development, the name B<FTimes> was short for B<F>ile
+B<Times>.  This was because its primary purpose was to collect
+timestamp information from systems suspected of having been
+compromised.
+
+The first version of B<FTimes> was written in the Spring of 1999
+to support a forensic examination of a compromised system.  At that
+time, B<FTimes> was primarily a workbench tool for the forensic
+practitioner.  As time passed, its audience expanded to include
+system administrators and computer security professionals who needed
+tools to monitor the integrity of their systems.  Eventually, it
+became a core component in Exodus' Content Integrity Monitoring
+Service (CIMS).
+
+In the Fall of 2001, Exodus Communication, Inc. approved my request
+to make B<FTimes> Open Source.  At that time version two was very
+stable, but I was in the throws of creating version three which
+was a major restructuring of the code base.  Consequently, I decided
+to wait until the new version was complete before releasing it to
+the community.
+
+On January 29, 2002, the first Open Source version of FTimes was
+released from SourceForge.
+
+B<FTimes> continues to support the workbench environment, but has
+evolved into a tool that can be utilized to support Integrity
+Monitoring in large, diverse, and distributed environments.  Today,
+B<FTimes> more appropriately equates to B<F>ile B<T>opography and
+B<I>ntegrity B<M>onitoring on an B<E>nterprise B<S>cale.
+
+The original design objectives for B<FTimes> were to build a tool that:
+
+=over 5
+
+=item *
+
+does one thing extremely well,
+
+=item *
+
+utilizes a simple yet effective algorithm that can be applied equally well to different operating systems,
+
+=item *
+
+generates output that is easily assimilated by a wide variety of existing tools,
+
+=item *
+
+has built-in logging that is complete, precise, and useful for analysis purposes,
+
+=item *
+
+is accurate, efficient, and minimally invasive,
+
+=item *
+
+doesn't need to be installed on the target system,
+
+=item *
+
+is small enough to run from floppy even if statically compiled, and
+
+=item *
+
+provides only a command line interface.
+
+=back
+

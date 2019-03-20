@@ -1,0 +1,29 @@
+=head1 OPTIONS
+
+=over 5
+
+=item B<-l level>
+
+The B<LogLevel> option controls the amount of log output. As B<level>
+decreases, the amount of output increases. The range of values that
+may be assigned to B<level> is stated below.  In cases where evidence
+collection is of primary concern, B<LogLevel> should be no higher
+than Landmark.  The default B<LogLevel> is Landmark.
+
+    6 - Critical
+    5 - Failure
+    4 - Warning
+    3 - Information
+    2 - Landmark
+    1 - Waypoint
+    0 - Debug
+
+=item B<-s>
+
+Enforce strict testing.  This requires that specified directories
+and files exist on the system running the test.  Controls affected
+by this option include: B<LogDir>, B<OutDir>, B<Include>, B<Exclude>,
+B<SSLPublicCertFile>, B<SSLPrivateKeyFile>, and B<SSLBundledCAsFile>.
+
+=back
+

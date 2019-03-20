@@ -1,0 +1,44 @@
+########################################################################
+#
+# $Id: Makefile.in,v 1.2 2002/01/18 15:54:07 mavrik Exp $
+#
+########################################################################
+#
+# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# All Rights Reserved.
+#
+########################################################################
+#
+# Purpose: Makefile for the project's cgi directory.
+#
+########################################################################
+
+#.SILENT:
+
+prefix			= @prefix@
+exec_prefix		= @exec_prefix@
+cgidir			= @cgidir@
+
+INSTALL			= @INSTALL@
+RM			= rm -f
+
+SRC_FILES		= nph-ftimes.cgi
+
+DST_FILES		= ${cgidir}/nph-ftimes.cgi
+
+all:
+
+install: ${DST_FILES}
+	umask 22; if [ ! -d ${cgidir} ]; then mkdir ${cgidir}; fi
+	for i in ${SRC_FILES}; do ${INSTALL} -m 755 $$i ${cgidir}; done
+
+clean:
+
+clean-all: clean clean-auto
+
+clean-auto:
+	${RM} Makefile
+
+dist-clean: clean-all
+
+${DST_FILES}: ${SRC_FILES}

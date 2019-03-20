@@ -1,0 +1,155 @@
+=head1 MODES OF OPERATION
+
+The modes of operation described in this section are mutually
+exclusive.  In other words, only one mode may be specified per
+invocation.  Unless otherwise stated, the value for B<snapshot>
+and B<file> arguments may be the name of a regular file or '-'.
+If the latter form is given, B<FTimes> expects to read the equivalent
+input from stdin.  The elements and syntax rules of for all
+configuration files are described in the CONFIGURATION CONTROLS
+section of this document.  The B<level> option is described in the
+OPTIONS section of this document.  The B<list> option specifies
+one or more directories, files, or symbolic links that are to be
+scanned.  Collectively, these items represent an Include list.
+See the Include control for more information.
+
+=over 5
+
+=item B<--cfgtest> B<file> B<mode> B<[-s]>
+
+Verify the syntax of a given configuration B<file> in the context
+of a specified B<mode> where B<mode> can be one of: B<digauto>,
+B<digfull>, B<getmode>, B<mapfull>, or B<putmode>.  The given
+configuration B<file> is parsed with the same methods that would
+be used if B<FTimes> had been invoked in that particular run B<mode>.
+By default, directories and files are not checked for existence.
+This allows config files to be tested in a separate environment
+from where they will be used.  Strict testing (i.e. directories
+and files must exist) may be enabled with the B<-s> option.
+
+The value 'Syntax Passed' is written to stdout, if all syntax checks
+are satisfied.  Otherwise, the value 'Syntax Failed' and a description
+of the failure will be written to stdout.
+
+Note: The fact that a given file passes all syntax checks does not
+guarantee that its use will lead to a successful outcome.  It merely
+ensures that specified controls are valid for a given mode, and
+the values for those controls meet basic syntax requirements.
+
+=item B<--compare> B<mask> B<baseline> B<snapshot> B<[-l level]>
+
+Compare B<baseline> and B<snapshot> data according to the specified
+B<mask> where mask identifies the attributes to be analyzed.  Output
+is written to stdout and has the following format.
+
+    category|name|changed|unknown
+
+The category field indicates what type of change has occurred.  It
+can have one of the following values:
+
+    C - Changed
+    M - Missing
+    N - New
+    U - Unknown (i.e. one or both fields were NULL)
+    X - Cross (i.e. Changed and Unknown)
+
+The changed field contains a comma separated list of fields that
+have changed.  This field will be NULL if the category is New or
+Missing.
+
+The unknown field contains a comma separated list of fields that
+could not be compared due to lack of information.  This field will
+be NULL if the category is New or Missing.
+
+The specified B<mask> must comply with the syntax rules set forth
+for the B<FieldMask> control.
+
+=item B<--decoder> B<snapshot> B<[-l level]>
+
+Decode a compressed B<snapshot>.  A compressed snapshot can be
+created by running B<FTimes> in map mode (i.e. B<mapfull>) with
+B<Compress> enabled.  Output is written written stdout.
+
+=item B<--digauto> B<file> B<[-l level]> B<[list]>
+
+Use default configuration settings to search an Include list for
+a set of user defined strings.  These strings are defined in B<file>
+according to the syntax for the B<DigString> control.  If B<list>
+is not specified, B<FTimes> will search the entire system including
+remote shares or mount points.  Output is written to stdout and
+has the following format.
+
+    name|offset|string
+
+The offset field, represented as a decimal value, contains the
+location in the file identified by name where the specified string
+was found.
+
+=item B<--digfull> B<file> B<[-l level]> B<[list]>
+
+Use the configuration settings in B<file> to search an Include list
+for a set of user defined strings.  The Include list may be specified
+by a combination of B<Include> controls and B<list> arguments.  If
+an Include list is not specified, B<FTimes> will search the entire
+system.  Remote shares or mount points will only be searched if
+B<MapRemoteFiles> is enabled.
+
+=item B<--getmode> B<file>
+
+Use the configuration settings in B<file> to download dig or map
+configuration information.  One of three possible actions, depending
+on how getmode is configured, will take place once the download is
+complete:
+
+=over 5
+
+=item *
+
+B<FTimes> writes the downloaded information to stdout,
+
+=item *
+
+B<FTimes> writes the downloaded information to the file specified by B<OutFileName>, or
+
+=item *
+
+B<FTimes> restarts in B<digfull> or B<mapfull> using downloaded information to control its behavior
+
+=back
+
+The first action is effected when B<GetAndExec> is disabled and
+B<OutFileName> is not specified.  The second action is effected when
+B<GetAndExec> is disabled and B<OutFileName> is specified.  The
+third action is effected when B<GetAndExec> is enabled and
+B<OutFileName> is specified.
+
+=item B<--mapauto> B<mask> B<[-l level]> B<[list]>
+
+Use default configuration settings to map an Include list according
+to the specified B<mask> where mask identifies the attributes to
+be collected.  If B<list> is not specified, B<FTimes> will map the
+entire system including remote shares or mount points.  Output is
+written to stdout, and its format depends on the value of B<mask>.
+
+The specified B<mask> must comply with the syntax rules set forth
+for the B<FieldMask> control.
+
+=item B<--mapfull> B<file> B<[-l level]> B<[list]>
+
+Use configuration settings in B<file> to map an Include list.  The
+Include list may be specified by a combination of B<Include> controls
+and B<list> arguments.  If an Include list is not specified,
+B<FTimes> will map the entire system.  Remote shares or mount points
+will only be mapped if B<MapRemoteFiles> is enabled.
+
+=item B<--putmode> B<file> B<[-l level]>
+
+Use the configuration settings in B<file> to upload an existing
+snapshot to an Integrity Server configured to receive such.
+
+=item B<--version>
+
+Display version information and exit.
+
+=back
+

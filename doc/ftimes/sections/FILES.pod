@@ -1,0 +1,68 @@
+=head1 FILES
+
+Several different files may be required as input or produced as
+output in the course of running B<FTimes>.  These files are
+generically described below.
+
+=over 5
+
+=item BaseName_YYYYMMDDHHMMSS.cfg
+
+The upload config file.  This file is created automatically when
+B<URLCreateConfig> is enabled, and may be used in conjunction with
+put mode to upload a previously created snapshot.
+
+=item BaseName_YYYYMMDDHHMMSS.log
+
+The main log file.  This file contains a record of the activities
+that took place during a dig or map run provided that B<LogLevel>
+was set at an appropriate level.
+
+=item BaseName_YYYYMMDDHHMMSS.out
+
+The main output file.  This file contains possibly compressed map
+or dig data collected during a scan.  The first line in this file
+contains a header that specifies the name of each field collected.
+
+=item Bundled Certificate Authorities
+
+When B<SSLUseCertificate> has been enabled, B<FTimes> expects to
+find a bundled certificate authorities file in the location
+specified by B<SSLBundledCAs> control.  If this file does not
+exist or have the proper format, B<FTimes> will abort.
+
+=item Config
+
+This file contains directives used to configure B<FTimes'>.  In
+general a particular config file applies to a single mode of
+operation.  This is because different modes support different
+controls.  Refer to the CONFIGURATION CONTROLS section of this
+document to determine what controls apply to each mode.
+
+=item Public Certificate and Private Key
+
+When B<SSLUseCertificate> has been enabled, B<FTimes> expects to
+find certificate and key files in the locations specified by
+B<SSLPublicCert> and B<SSLPrivateKey> controls, respectively.  If
+these files do not exist or have the proper format, B<FTimes> will
+abort.
+
+=item Snapshot
+
+This is a previously created and possibly compressed map file that
+is being supplied as input.  In compare mode it represents an
+uncompressed map file and applies to both the B<baseline> and
+B<snapshot> arguments.  In decoder mode it represents a compressed
+map file.
+
+=item XMagic
+
+This file contains magic tests and descriptions.  The magic format
+used by B<FTimes> is XMagic.  B<FTimes> searches up to three
+locations for magic: (1) the location specified by the B<MagicFile>
+control, (2) /usr/local/integrity/etc/xmagic or c:\integrity\etc\xmagic,
+and (3) the current working directory.  B<FTimes> will not abort,
+if a suitable file is not found, but magic output will be limited.
+
+=back
+

@@ -1,0 +1,16 @@
+=head1 CONFIGURATION CONTROLS
+
+This section describes the various controls that B<FTimes> recognizes.
+In general, controls either shape runtime behavior or provide
+information needed by the application to perform a specific function.
+Controls and their values, one pair/line, are written to a file
+having the following format.
+
+    <control> = <value>
+
+All controls are case insensitive, but, in general, their values
+are not.  Comments may occur anywhere on a given line, and must
+begin with a pound character (i.e. '#').  In any given line, all
+text to the right of the first comment will be ignored.  White
+space surrounding controls and values is ignored.
+

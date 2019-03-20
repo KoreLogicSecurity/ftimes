@@ -1,0 +1,9 @@
+=item B<SSLMaxChainLength>: [1-10]
+
+Applies to B<digfull>, B<mapfull>, B<putmode>, and B<getmode>.
+
+B<SSLMaxChainLength> is optional when B<SSLVerifyPeerCert> is
+enabled.  The value of this control determines how deep a certificate
+chain may be before it is considered invalid.  If not specified,
+this control defaults to a value of 2.
+

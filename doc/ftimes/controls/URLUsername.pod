@@ -1,0 +1,9 @@
+=item B<URLUsername>: <username>
+
+Applies to B<digfull>, B<mapfull>, B<putmode>, and B<getmode>.
+
+B<URLUsername> is optional.  It identifies the username to use when
+accessing an Integrity Server.  The value specified by this
+control is used in conjunction with B<URLGetURL> and B<URLPutURL>
+unless those controls supply their own username/password pair.
+

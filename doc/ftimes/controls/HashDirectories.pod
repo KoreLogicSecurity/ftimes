@@ -1,0 +1,28 @@
+=item B<HashDirectories>: [Y|N]
+
+Applies to B<mapfull>.
+
+B<HashDirectories> is optional.  When enabled, (i.e. 'Y') it
+instructs B<FTimes> to compute digests for directories.  This is
+done by hashing the digests of all files and directories contained
+in a given directory in the order they are encountered.  Thus, if
+a directory has the following structure where D{1|2} and F{1|2}
+represent directories and files respectively,
+
+  D1
+   |
+   - F1
+   + D2
+      |
+      - F2
+
+then, assuming that F1 is mapped before D2, D1 and D2 have the
+following hashes:
+
+  Hash(D2) = MD5(MD5(F2))
+  Hash(D1) = MD5(MD5(F1), Hash(D2))
+
+If an entry within the directory is a special file (e.g., a device)
+or cannot be opened/hashed, a 16 byte string consisting of all
+zeros is used for the computation.
+

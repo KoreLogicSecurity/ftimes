@@ -1,0 +1,11 @@
+=item B<SSLExpectedPeerCN>: <name>
+
+Applies to B<digfull>, B<mapfull>, B<putmode>, and B<getmode>.
+
+B<SSLExpectedPeerCN> is required when B<SSLVerifyPeerCert> is
+enabled.  The value of this control represents the peer's expected
+Common Name (CN).  Conventionally, CNs are specified as fully
+qualified domain names.  This control eliminates the need to perform
+a DNS lookup at the time of certificate validation.  This, in turn,
+may help to prevent attacks involving DNS spoofing.
+

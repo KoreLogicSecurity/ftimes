@@ -1,0 +1,8 @@
+=head2 CONTROL DESCRIPTIONS
+
+This section describes each control that may be specified, defines
+what values it may have, and states which modes of operation
+recognize the control.
+
+=over 5
+

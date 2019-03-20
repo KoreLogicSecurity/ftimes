@@ -1,0 +1,354 @@
+########################################################################
+#
+# $Id: Makefile.vc,v 1.1.1.1 2002/01/18 03:17:42 mavrik Exp $
+#
+########################################################################
+#
+# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# All Rights Reserved.
+#
+########################################################################
+!IF "$(PLATFORM)" == ""
+!MESSAGE +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!MESSAGE +                                                             +
+!MESSAGE +  You must specify a PLATFORM macro. You may choose between  +
+!MESSAGE +  FTimes_WIN98 and FTimes_WINNT.                             +
+!MESSAGE +                                                             +
+!MESSAGE +  Add USE_SSL=1 to build with SSL support                    +
+!MESSAGE +                                                             +
+!MESSAGE +  Add USE_XMAGIC=1 to build with XMagic support              +
+!MESSAGE +                                                             +
+!MESSAGE +  Add USE_STATIC=1 to build with .libs instead of .dlls      +
+!MESSAGE +                                                             +
+!MESSAGE +  Examples of standard build:                                +
+!MESSAGE +                                                             +
+!MESSAGE +    nmake -f Makefile.vc PLATFORM=FTimes_WINNT               +
+!MESSAGE +                                                             +
+!MESSAGE +  Examples of SSL build:                                     +
+!MESSAGE +                                                             +
+!MESSAGE +    nmake -f Makefile.vc PLATFORM=FTimes_WINNT USE_SSL=1     +
+!MESSAGE +                                                             +
+!MESSAGE +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!ERROR An invalid configuration is specified.
+!ENDIF
+
+!IF "$(OS)" == "Windows_NT"
+NULL=
+!ELSE 
+NULL=nul
+!ENDIF 
+
+!IF "$(DIST)" == "1"
+!IF "$(USE_SSL)" == "1"
+EXTENSION               = -ssl
+!ENDIF
+!IF "$(PLATFORM)" == "FTimes_WINNT" && "$(VERSION)" != ""
+OUTDIR			= .\ftimes-WinNT-2K-$(VERSION)$(EXTENSION)
+INTDIR			= .\ftimes-WinNT-2K-$(VERSION)$(EXTENSION).obj
+!ELSE IF "$(PLATFORM)" == "FTimes_WIN98" && "$(VERSION)" != ""
+OUTDIR			= .\ftimes-Win98-ME-$(VERSION)$(EXTENSION)
+INTDIR			= .\ftimes-Win98-ME-$(VERSION)$(EXTENSION).obj
+!ELSE
+OUTDIR			= .\Release
+INTDIR			= .\Release.obj
+!ENDIF
+!ELSE
+OUTDIR			= .\Release
+INTDIR			= .\Release.obj
+!ENDIF
+
+SUPPORTFILES_TARGET	= support_files
+
+!IF "$(USE_XMAGIC)" == "1"
+XMAGIC_FLAGS		= /D "USE_XMAGIC"
+XMAGIC_OBJS		= "$(INTDIR)\xmagic.obj"
+!ENDIF
+
+!IF "$(USE_SSL)" == "1"
+SSL_LIBS		= ..\..\ssl\libeay32.lib ..\..\ssl\ssleay32.lib
+SSL_DLLS		= ..\..\ssl\*.dll
+SSL_FLAGS		= /D "USE_SSL"
+SSL_OBJS		= "$(INTDIR)\ssl.obj"
+!IF "$(USE_STATIC)" == "1"
+SSL_TARGET		=
+!ELSE
+SSL_TARGET		= ssl
+!ENDIF
+#OUTDIR			= $(OUTDIR)ssl 
+#INTDIR			= $(INTDIR)ssl
+!ENDIF
+
+!IF "$(USE_STATIC)" == "1"
+MDML_FLAG		= /MD
+!ELSE
+MDML_FLAG		= /ML
+!ENDIF
+
+CPP			= cl.exe
+LINK32			= link.exe
+CPP_PROJ		= /nologo $(MDML_FLAG) /W3 /GX /O2 /D "WIN32" /D "NDEBUG"\
+				/D "_CONSOLE" /D "_MBCS" /D "$(PLATFORM)" /D "FTimes_WIN32"\
+				/Fp"$(INTDIR)\ftimes.pch" /YX /Fo"$(INTDIR)\\"\
+				/Fd"$(INTDIR)\\" /FD /c $(SSL_FLAGS) $(XMAGIC_FLAGS)
+CPP_OBJS		= $(INTDIR)
+CPP_SBRS		= .
+
+LINK32_FLAGS		=\
+			kernel32.lib\
+			user32.lib\
+			gdi32.lib\
+			winspool.lib\
+			comdlg32.lib\
+			advapi32.lib\
+			shell32.lib\
+			uuid.lib\
+			/nologo\
+			/subsystem:console\
+			/incremental:no\
+			/machine:I386
+	
+FTIMES_LINK32_FLAGS	= $(LINK32_FLAGS) wsock32.lib $(SSL_LIBS) /pdb:"$(OUTDIR)\ftimes.pdb" /out:"$(OUTDIR)\ftimes.exe" 
+FTIMES_LINK32_OBJS	=\
+			"$(INTDIR)\analyze.obj"\
+			"$(INTDIR)\cfgtest.obj"\
+			"$(INTDIR)\cmpmode.obj"\
+			"$(INTDIR)\compare.obj"\
+			"$(INTDIR)\decode.obj"\
+			"$(INTDIR)\decoder.obj"\
+			"$(INTDIR)\develop.obj"\
+			"$(INTDIR)\dig.obj"\
+			"$(INTDIR)\error.obj"\
+			"$(INTDIR)\ftimes.obj"\
+			"$(INTDIR)\fsinfo.obj"\
+			"$(INTDIR)\http.obj"\
+			"$(INTDIR)\map.obj"\
+			"$(INTDIR)\md5.obj"\
+			"$(INTDIR)\message.obj"\
+			"$(INTDIR)\properties.obj"\
+			"$(INTDIR)\digmode.obj"\
+			"$(INTDIR)\mapmode.obj"\
+			"$(INTDIR)\putmode.obj"\
+			"$(INTDIR)\getmode.obj"\
+			"$(INTDIR)\socket.obj"\
+			$(SSL_OBJS)\
+			"$(INTDIR)\support.obj"\
+			"$(INTDIR)\time.obj"\
+			"$(INTDIR)\url.obj"\
+			$(XMAGIC_OBJS)
+
+!IF "$(RECURSE)" == "0" 
+ALL: "$(OUTDIR)\ftimes.exe"
+!ELSE 
+ALL: "$(OUTDIR)\ftimes.exe"
+!ENDIF 
+
+ftimes: "$(OUTDIR)\ftimes.exe"
+
+clean:
+	if exist "$(INTDIR)" rd /Q /S "$(INTDIR)"
+
+clean-all: clean
+	if exist "$(OUTDIR)" rd /Q /S "$(OUTDIR)"
+
+"$(OUTDIR)":
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+"$(INTDIR)":
+    if not exist "$(INTDIR)/$(NULL)" mkdir "$(INTDIR)"
+
+.c{$(CPP_OBJS)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.c{$(CPP_SBRS)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+"$(OUTDIR)\ftimes.exe": "$(OUTDIR)" $(DEF_FILE) $(FTIMES_LINK32_OBJS) $(SUPPORTFILES_TARGET) $(SSL_TARGET)
+    $(LINK32) @<<
+    $(FTIMES_LINK32_FLAGS) $(FTIMES_LINK32_OBJS)
+<<
+
+support_files:
+	copy ..\README $(OUTDIR)
+	copy ..\INSTALL $(OUTDIR)
+	copy ..\LICENSE $(OUTDIR)
+        if not exist "$(OUTDIR)\doc" mkdir "$(OUTDIR)\doc"
+        if not exist "$(OUTDIR)\etc" mkdir "$(OUTDIR)\etc"
+        if exist "..\doc\ftimes.html" copy ..\doc\ftimes.html "$(OUTDIR)\doc"
+        if exist "..\etc\dig.cfg" copy ..\etc\dig.cfg "$(OUTDIR)\etc"
+        if exist "..\etc\get.cfg" copy ..\etc\get.cfg "$(OUTDIR)\etc"
+        if exist "..\etc\map.cfg" copy ..\etc\map.cfg "$(OUTDIR)\etc"
+        if exist "..\etc\put.cfg" copy ..\etc\put.cfg "$(OUTDIR)\etc"
+
+ssl:
+	copy $(SSL_DLLS) $(OUTDIR)
+
+SOURCE=.\analyze.c
+DEP_CPP_CFGFI=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\analyze.obj": $(SOURCE) $(DEP_CPP_CFGFI) "$(INTDIR)"
+
+SOURCE=.\cfgtest.c
+DEP_CPP_FTIME=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\cfgtest.obj": $(SOURCE) $(DEP_CPP_FTIME) "$(INTDIR)"
+
+SOURCE=.\cmpmode.c
+DEP_CPP_FTIME=\
+	".\all-includes.h"\
+	".\compare.h"\
+	
+"$(INTDIR)\cmpmode.obj": $(SOURCE) $(DEP_CPP_FTIME) "$(INTDIR)"
+
+SOURCE=.\compare.c
+DEP_CPP_FTIME=\
+	".\all-includes.h"\
+	".\compare.h"\
+	
+"$(INTDIR)\compare.obj": $(SOURCE) $(DEP_CPP_FTIME) "$(INTDIR)"
+
+SOURCE=.\decode.c
+DEP_CPP_POST_=\
+	".\all-includes.h"\
+	".\decode.h"\
+	
+"$(INTDIR)\decode.obj": $(SOURCE) $(DEP_CPP_POST_) "$(INTDIR)"
+
+SOURCE=.\decoder.c
+DEP_CPP_POST_=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\decoder.obj": $(SOURCE) $(DEP_CPP_POST_) "$(INTDIR)"
+
+SOURCE=.\develop.c
+DEP_CPP_FTIME=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\develop.obj": $(SOURCE) $(DEP_CPP_FTIME) "$(INTDIR)"
+
+SOURCE=.\dig.c
+DEP_CPP_POST_=\
+	".\all-includes.h"\
+	".\dig.h"\
+	
+"$(INTDIR)\dig.obj": $(SOURCE) $(DEP_CPP_POST_) "$(INTDIR)"
+
+SOURCE=".\map.c"
+DEP_CPP_NT_SP=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\map.obj": $(SOURCE) $(DEP_CPP_NT_SP) "$(INTDIR)"
+
+SOURCE=".\error.c"
+DEP_CPP_NT_SP=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\error.obj": $(SOURCE) $(DEP_CPP_NT_SP) "$(INTDIR)"
+
+SOURCE=.\fsinfo.c
+DEP_CPP_FTIME=\
+	".\all-includes.h"\
+	".\fsinfo.h"\
+	
+"$(INTDIR)\fsinfo.obj": $(SOURCE) $(DEP_CPP_FTIME) "$(INTDIR)"
+
+SOURCE=.\ftimes.c
+DEP_CPP_FTIME=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\ftimes.obj": $(SOURCE) $(DEP_CPP_FTIME) "$(INTDIR)"
+
+SOURCE=.\http.c
+DEP_CPP_FTIME=\
+	".\all-includes.h"\
+	".\http.h"\
+	
+"$(INTDIR)\http.obj": $(SOURCE) $(DEP_CPP_FTIME) "$(INTDIR)"
+
+SOURCE=.\md5.c
+DEP_CPP_MD5_C=\
+	".\md5.h"\
+	
+"$(INTDIR)\md5.obj": $(SOURCE) $(DEP_CPP_MD5_C) "$(INTDIR)"
+
+SOURCE=.\message.c
+DEP_CPP_FTIME=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\message.obj": $(SOURCE) $(DEP_CPP_FTIME) "$(INTDIR)"
+
+SOURCE=.\properties.c
+DEP_CPP_CFGFI=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\properties.obj": $(SOURCE) $(DEP_CPP_CFGFI) "$(INTDIR)"
+
+SOURCE=.\digmode.c
+DEP_CPP_RUNMODE=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\digmode.obj": $(SOURCE) $(DEP_CPP_RUNMODE) "$(INTDIR)"
+
+SOURCE=.\mapmode.c
+DEP_CPP_RUNMODE=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\mapmode.obj": $(SOURCE) $(DEP_CPP_RUNMODE) "$(INTDIR)"
+
+SOURCE=.\putmode.c
+DEP_CPP_RUNMODE=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\putmode.obj": $(SOURCE) $(DEP_CPP_RUNMODE) "$(INTDIR)"
+
+SOURCE=.\getmode.c
+DEP_CPP_RUNMODE=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\getmode.obj": $(SOURCE) $(DEP_CPP_RUNMODE) "$(INTDIR)"
+
+SOURCE=.\ssl.c
+DEP_CPP_POST_=\
+	".\all-includes.h"\
+	".\ssl.h"\
+	
+"$(INTDIR)\ssl.obj": $(SOURCE) $(DEP_CPP_POST_) "$(INTDIR)"
+
+SOURCE=.\socket.c
+DEP_CPP_POST_=\
+	".\all-includes.h"\
+	".\socket.h"\
+	
+"$(INTDIR)\socket.obj": $(SOURCE) $(DEP_CPP_POST_) "$(INTDIR)"
+
+SOURCE=.\support.c
+DEP_CPP_UTIL_=\
+	".\all-includes.h"\
+
+"$(INTDIR)\support.obj": $(SOURCE) $(DEP_CPP_UTIL_) "$(INTDIR)"
+
+SOURCE=.\time.c
+DEP_CPP_FTIME=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\time.obj": $(SOURCE) $(DEP_CPP_FTIME) "$(INTDIR)"
+
+SOURCE=.\url.c
+DEP_CPP_POST_=\
+	".\all-includes.h"\
+	
+"$(INTDIR)\url.obj": $(SOURCE) $(DEP_CPP_POST_) "$(INTDIR)"
+
+!IF "$(USE_XMAGIC)" == "1"
+SOURCE=.\xmagic.c
+DEP_CPP_FTIME=\
+	".\all-includes.h"\
+        ".\xmagic.h"\
+	
+"$(INTDIR)\xmagic.obj": $(SOURCE) $(DEP_CPP_FTIME) "$(INTDIR)"
+!ENDIF

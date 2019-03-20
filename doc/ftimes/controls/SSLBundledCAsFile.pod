@@ -1,0 +1,13 @@
+=item B<SSLBundledCAsFile>: <file>
+
+Applies to B<digfull>, B<mapfull>, B<putmode>, and B<getmode>.
+
+B<SSLBundledCAsFile> is required when B<SSLVerifyPeerCert> is
+enabled.  This control specifies the name of a PEM (Privacy Enhanced
+Mail) encoded file that contains a bundled set of Certificate
+Authority (CA) certificates.  Any validated peer certificate that
+is signed by one of these certificate authorities will be accepted
+provided that the B<SSLMaxChainLength> and B<SSLExpectedPeerCN>
+checks are also satisfied.  B<SSLBundledCAsFile> may be specified
+as a relative path.
+

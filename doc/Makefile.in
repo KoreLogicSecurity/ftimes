@@ -1,0 +1,47 @@
+########################################################################
+#
+# $Id: Makefile.in,v 1.1.1.1 2002/01/18 03:16:26 mavrik Exp $
+#
+########################################################################
+#
+# Copyright 2000-2002 Klayton Monroe, Exodus Communications, Inc.
+# All Rights Reserved.
+#
+########################################################################
+#
+# Purpose: Makefile for the project's doc directory.
+#
+########################################################################
+
+#.SILENT:
+
+prefix			= @prefix@
+exec_prefix		= @exec_prefix@
+docdir			= @docdir@
+
+INSTALL			= @INSTALL@
+SUBS			= ftimes
+ALL_HTML_FILES		= ftimes.html
+ALL_MAN1_FILES		= ftimes.1
+ALL_TEXT_FILES		=
+ALL_FILES		= ${ALL_HTML_FILES} ${ALL_MAN1_FILES} ${ALL_TEXT_FILES}
+
+all:
+
+install: ${DST_FILES}
+	umask 22; if [ ! -d ${docdir} ]; then mkdir ${docdir}; fi
+	for i in ${ALL_FILES}; do ${INSTALL} -m 644 $$i ${docdir}; done
+
+clean:
+
+clean-auto: clean
+	rm -f Makefile
+
+clean-all: clean-auto
+
+dist:
+	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $$i '>>>'; cd $$cwd/$$i; make $@; done
+
+dist-clean: clean-all
+	rm -f ${ALL_FILES}
+	@cwd=`pwd`; for i in ${SUBS}; do echo '<<<' $$i '>>>'; cd $$cwd/$$i; make $@; done

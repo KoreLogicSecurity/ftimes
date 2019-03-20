@@ -1,0 +1,9 @@
+=item B<OutFileHash>: <MD5>
+
+Applies to B<putmode>.
+
+B<OutFileHash> is required.  Its value is the MD5 digest of the
+output file.  This value must match the actual file hash before
+the upload will be allowed.  The value is represented as 32 hex
+characters.
+
