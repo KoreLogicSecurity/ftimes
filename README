@@ -67,7 +67,7 @@ Table of Contents
   locations in the codebase.  The standard snapshot designator is
   'S', but 'R' is used to indicate a release snapshot.
 
-           master             3.X                                                 4.X
+           master             3.X                                                  4.X
              +-----------------+----------------------------------------------------+
              |                 |                                                    |
       +------+-------+  +------+------+                                      +------+------+
@@ -78,7 +78,7 @@ Table of Contents
   |                            |                                              /     |
   |                            R 3.1.0                     feature branch -->|   +--S 4.0.0.ds2
   |                            |                                              \ /   |
- \./                    +------R 3.2.0                                         +----S ...
+ \|/   3.2.X branch --> +------R 3.2.0                                         +----S ...
   Y                    /       |                                              /     |
                       +        |                                             |      S 4.0.0.{dsN,rc0}
   T                   |        |                                             |      |
@@ -89,11 +89,11 @@ Table of Contents
   |                            R 3.4.0                                       |      S ...
   |                            |                                             |      |
   |                            R 3.5.0        4.0.X branch --> +-------------+------R 4.0.0.{rcN,sr0,xs0} / 4.1.0.ds0
- \./                           |                              /              |      |
-  Y                            R 3.6.0                       /.- - - - - - - + - - -S 4.0.0.{sr1,xs0} / 4.1.0.ds0
-                               |                            /                 \     |
-                               R 3.7.0                     /                   +----S 4.0.0.xs1
-                               |                          +                         |
+ \|/                           |                              /              |      |
+  Y                            R 3.6.0  alt 4.0.X branch --> /.- - - - - - - + - - -S 4.0.0.{sr1,xs0} / 4.1.0.ds0
+                               |                            /    |            \     |
+                               R 3.7.0                     /      \            +----S 4.0.0.xs1
+                               |                          +        `- alternate     |
                                R 3.8.0                    |                         |
                                |                          S 4.0.1.ds1               |
                                R 3.9.0                    |                         |
@@ -109,13 +109,13 @@ Table of Contents
                                                           |                         |
                                                           R 4.0.1.{rcN,sr0} / ds0   |
                                                           |\                        |
-                                                          | \                       |
+                                                          | \      alt merge -->    |
                                                           |  \`+- - - - - - - - - ->S 4.0.0.xs2
                                                           |   \                     |
                                                           |    \                    S ...
                                                           |     \                   |
                                                           |      \                  S 4.0.0.xsN
-                                                          |       \                 |
+                                                          |       \    merge -->    |
                                                           |        `+-------------->S 4.1.0.ds1
                                                           |                         |
                                                           S 4.0.2.ds1               |
@@ -138,7 +138,7 @@ Table of Contents
                                                                \                    |
                                                                 \                   |
                                                                  \                  |
-                                                                  \                 |
+                                                                  \    merge -->    |
                                                                    `+-------------->S 4.1.0.ds2
                                                                                     |
                                                                                     *
