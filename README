@@ -52,6 +52,22 @@ Table of Contents
     10 = sr --> Standard Release
     11 = xs --> eXtended Snapshot
 
+  Below is an example mapping of a version number to a version
+  string.  It takes the version number 0x40100003, and converts
+  it to:
+
+    0100 00000001 00000000 00 0000000011
+    ^^^^ ^^^^^^^^ ^^^^^^^^ ^^ ^^^^^^^^^^
+       |        |       |   |          |
+       |        |       |   |          +-----> b - build = 3
+       |        |       |   +----------------> s - state = ds
+       |        |       +--------------------> p - patch = 0
+       |        +----------------------------> m - minor = 1
+       +-------------------------------------> M - major = 4
+
+   When the individual components are combined together, the
+   resulting version string becomes 4.1.0.ds3.
+
 4 Branches
 
   This project is mastered in three branches: master, 3.X, and 4.X.
