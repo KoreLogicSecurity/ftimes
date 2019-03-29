@@ -1,0 +1,150 @@
+=pod
+
+=head1 NAME
+
+ftimes-bimvl - Take a snapshot, compare it to a baseline, and log the changes.
+
+=head1 SYNOPSIS
+
+B<ftimes-bimvl> B<[-d work-dir]> B<[-f config-file]> B<[-H ftimes-home]> B<[-i ignore-file]> B<[-m mask]> B<[-o option[,option[,...]]]> B<[-p priority]> B<[-s server[:port]]> B<[-t tag]> B<include [include ...]>
+
+B<ftimes-bimvl> B<[-d work-dir]> B<[-H ftimes-home]> B<[-i ignore-file]> B<[-m mask]> B<[-o option[,option[,...]]]> B<[-p priority]> B<[-s server[:port]]> B<[-t tag]> -f config-file B<[include ...]>
+
+=head1 DESCRIPTION
+
+This utility creates an FTimes snapshot of a specified set of files
+and/or directories, compares that snapshot to a previously captured
+baseline, and sends log messages to a specified syslog server for each
+object that is changed, missing, or new.  If no baseline exists, one
+will be created, and no comparisons will be made until the next
+invocation of the utility.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d work-dir>
+
+Specifies a work directory that will be used to store the baseline,
+snapshot, and compare files during runs.  If this directory does not
+exist, it will be created during runtime.  The default location is
+'C:\Program Files\FTimes\out' and '/usr/local/ftimes/out' for WINX
+and UNIX platforms, respectively.
+
+=item B<-f config-file>
+
+Specifies a config file that contains any of the various ftimes(1)
+controls (one per line) that are valid for map mode.  Note that this
+option is required when no includes are specified on the command line,
+and in that case, the desired includes must be specified within the
+associated config file.
+
+=item B<-H ftimes-home>
+
+Specifies the location of FTimes components on the client system.  The
+default value is 'C:\Program Files\FTimes' and '/usr/local/ftimes' for
+WINX and UNIX platforms, respectively.
+
+=item B<-i ignore-file>
+
+Specifies a file containing zero or more patterns, one per line, that
+are to be applied to the compare output.  All matched records will be
+discarded, and no syslog message will be generated.
+
+=item B<-m mask>
+
+FTimes fieldmask to use.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item ForceBuild
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item ForceClean
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item GidDecode
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item LogViaUdpSocket
+
+Specifies that a direct UDP socket connection should be used for
+sending log messages.  By default, the Sys::Syslog Perl module is
+used, which interfaces directly with the system logger.
+
+=item ModeDecode
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item NoDecode
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item NoSysLog
+
+Specifies that no log messages are to be logged whatsoever (i.e.,
+either via the system logger or a direct UDP socket connection).  If
+this option is enabled, output will be directed to stdout.
+
+=item UidDecode
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item UseBigIntegers
+
+This is a pass-through option. For details, refer to the
+ftimes-cmp2diff(1) documentation.
+
+=item UseCmp2Diff
+
+Specifies that ftimes-cmp2diff, rather than ftimes, is to be used for
+comparing snapshots.
+
+=back
+
+=item B<-p priority>
+
+Specifies the syslog facility and level to use for syslog messages.
+The format is facility.level.  Valid values can be found in the
+logger(1) man page.
+
+=item B<-s server[:port]>
+
+Specifies the hostname (or IP address) and port of syslog server.  The
+default value is 127.0.0.1:514.
+
+=item B<-t tag>
+
+Specifies the string that will be tagged to every syslog message.  The
+default tag is the name of this utility.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe and Jason Smith
+
+=head1 SEE ALSO
+
+ftimes(1), ftimes-cmp2diff(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as B<FTimes>.
+
+=cut

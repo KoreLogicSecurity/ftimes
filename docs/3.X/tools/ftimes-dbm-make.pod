@@ -1,0 +1,93 @@
+=pod
+
+=head1 NAME
+
+ftimes-dbm-make - Create or update a Berkeley database
+
+=head1 SYNOPSIS
+
+B<ftimes-dbm-make> B<[-F separator]> B<[-o option[,option[,...]]]> B<-d db> B<file [file ...]>
+
+=head1 DESCRIPTION
+
+This utility reads one or more input files (see ftimes-dbm-reap(1))
+and creates or updates the specified database.  Databases are
+implemented as BTrees and constructed using Perl's DB_File module.
+Enumerating these databases yields the following format:
+
+    key|value
+
+The primary rule of engagement is that imported key/value pairs trump
+existing pairs in the database.  This is true unless the pairs are
+identical.  In that case the existing pairs are not modified.  If the
+B<AlwaysInsert> option is set, imported pairs always trump existing
+pairs.  Input files are processed in command-line order.  Typically,
+files that are sorted yield much faster load times.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d db>
+
+Specifies the name of the database to create or update.
+
+=item B<-F separator>
+
+Specifies the input field separator.  Valid separators include the
+following characters: tab '\t', space ' ', comma ',', colon ':',
+semi-colon ';', equal sign '=', and pipe '|'.  The default separator
+is a pipe.  Note that parse errors are likely to occur if the
+specified separator appears in any of the field values.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently the following
+options are supported:
+
+=over 4
+
+=item AlwaysInsert
+
+If a key already exists, its value is overwritten.  This option
+improves performance when the database is new or the B<ForceNew>
+option has been set.  Enabling this option, however, disables update
+tracking.
+
+=item BeQuiet
+
+Don't report errors (i.e., be quiet) while processing files.
+
+=item ForceNew
+
+Force the specified database to be truncated on open.
+
+=back
+
+=back
+
+=head1 CAVEATS
+
+Databases created from the same input may yield different, but
+equivalent, DBM files.  Generally, DBM files are not portable across
+different platforms and operating systems.  Therefore, the recommended
+method for exchanging or verifying a database is to dump it to a
+delimited file (see ftimes-dbm-dump(1)) and operate on that instead.
+
+Take care to avoid mixing databaes that are based on different field
+types (i.e., keys).  This can be easy to do if you're not careful.
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes-dbm-bash(1), ftimes-dbm-dump(1), ftimes-dbm-reap(1), ftimes-dbm-weed(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

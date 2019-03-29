@@ -1,0 +1,59 @@
+=pod
+
+=head1 NAME
+
+hashdig-filter.pl - Filter filenames by directory type
+
+=head1 SYNOPSIS
+
+B<hashdig-filter.pl> B<[-p prefix]> B<file [file ...]>
+
+=head1 DESCRIPTION
+
+This utility filters filenames by directory type. Input is expected
+to be one or more files created by hashdig-bind(1). Output is written
+to a set of files, in the current working directory, having the
+following format:
+
+    category|hash|name
+
+The naming convention for output files is:
+
+    <filename>.{bin|dev|etc|lib|kernel|man|other}
+
+Any input that does not match one of the defined filters is written
+to the 'other' file.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-p prefix>
+
+Specifies a prefix to prepend to each directory type. A prefix is
+useful when subject filenames are not rooted at "/". This could
+happen, for example, when backups are restored to a temporary work
+area or a subject's root file system is mounted on a forensic
+workstation. Trailing slashes are automatically pruned from the
+supplied prefix.
+
+=back
+
+=head1 CAVEATS
+
+Currently, this program is only useful for filtering UNIX filenames.
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+hashdig-bind(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

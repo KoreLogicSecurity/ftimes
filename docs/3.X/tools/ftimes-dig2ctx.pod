@@ -1,0 +1,158 @@
+=pod
+
+=head1 NAME
+
+ftimes-dig2ctx.pl - Extract context around matched dig strings
+
+=head1 SYNOPSIS
+
+B<ftimes-dig2ctx.pl> B<[-hLRv]> B<[-d dir]> B<[-e {file|hex|url}]> B<[-c length]> B<[-p length]> B<[-l regex]> B<[-r regex]> B<[-i count]> B<[-M pattern]> B<[-m pattern-file]> B<[-T drop-file]> B<[-t keep-file]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility extracts a variable amount of context around matched
+dig strings using data collected with ftimes(1) or hipdig(1). Data
+collected by either of these tools has the following format:
+
+    name|type|offset|string
+
+or for FTimes releases < 3.5.0
+
+    name|offset|string
+
+Output from this utility is written to stdout and has the following
+format:
+
+    dig_name|dig_offset|dig_string|ctx_offset|lh_length|mh_length|rh_length|ctx_string
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-c length>
+
+Specifies the desired context length in bytes.  You may get less
+than this amount depending on where the match occurrs and the size
+of the input file.
+
+=item B<-d dir>
+
+Specifies the name of the output directory.  The default name is
+digtree.  This option is ignored unless the encoding scheme, B<-e>,
+is set to file.  Note: The program will abort if the specified or
+default directory exists.
+
+=item B<-e {file|hex|url}>
+
+Specifies the type of encoding to use when printing the context
+(i.e., ctx_string).
+
+If file is specified, then a new file containing the requested
+context in raw form will be created under the directory specified
+by the B<-d> option.  The name and location of this file will be
+listed in the ctx_string field.  The name format used for these
+files is as follows:
+
+  <relative_dig_name>.<ctx_offset>_<relative_dig_offset>_<mh_length>
+
+where <relative_dig_name> is the same as <dig_name> except that
+leading path information has been removed, and <relative_dig_offset>
+is the offset of the dig string in the newly created file.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file. A value of '-' will cause the
+program to read from stdin.
+
+=item B<-h>
+
+Print a header line.
+
+=item B<-i count>
+
+Specifies the number of input lines to ignore.
+
+=item B<-L>
+
+Preserve the contents of the left-hand boundary. This option is
+disabled by default.
+
+=item B<-l regex>
+
+Specifies the left-hand boundary. This is a Perl regular expression
+that can be used to limit the amount of context returned.
+
+=item B<-M pattern>
+
+Specifies a pattern that is to be applied to the raw context. The
+output records for any context not matched by the pattern will be
+discarded. Use the B<-v> option to invert the sense of the match.
+
+Note: The B<-T> and B<-t> options may be used to tee the input to
+corresponding drop and keep files -- similar to tee(1). Matched input
+records are copied to the keep file, and unmatched records are copied
+to the drop file. This is useful for building a context filter chain
+where the drop/keep results can be supplied as input to subsequent
+stages.
+
+=item B<-m pattern-file>
+
+Specifies a file containing zero or more patterns, one per line, that
+are to be applied to the raw context. The output records for any
+context not matched by the patterns will be discarded. Use the B<-v>
+option to invert the sense of the match.
+
+Note: The B<-T> and B<-t> options may be used to tee the input to
+corresponding drop and keep files -- similar to tee(1). Matched input
+records are copied to the keep file, and unmatched records are copied
+to the drop file. This is useful for building a context filter chain
+where the drop/keep results can be supplied as input to subsequent
+stages.
+
+=item B<-p length>
+
+Specifies the desired prefix length in bytes.  You may get less
+than this amount depending on where the match occurrs in the input
+file.
+
+=item B<-R>
+
+Preserve the contents of the right-hand boundary. This option is
+disabled by default.
+
+=item B<-r regex>
+
+Specifies the right-hand boundary. This is a Perl regular expression
+that can be used to limit the amount of context returned.
+
+=item B<-T>
+
+Specifies the name of a drop tee file that can be used to capture
+negative pattern matches.
+
+=item B<-t>
+
+Specifies the name of a keep tee file that can be used to capture
+positive pattern matches.
+
+=item B<-v>
+
+Invert the sense of pattern matching -- similar to the way that
+egrep(1) works.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1), hipdig(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

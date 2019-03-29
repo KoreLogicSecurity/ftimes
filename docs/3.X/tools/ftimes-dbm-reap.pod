@@ -1,0 +1,115 @@
+=pod
+
+=head1 NAME
+
+ftimes-dbm-reap - Extract unresolved keys from one or more files
+
+=head1 SYNOPSIS
+
+B<ftimes-dbm-reap> B<[-F separator]> B<[-o option[,option[,...]]]> B<[-s sort-command]> B<[-S sort-dir]> B<[-T tag-pair]> B<-t type-tuple> B<file [file ...]>
+
+=head1 DESCRIPTION
+
+This utility extracts and conditionally normalizes field values from
+one or more input files, tags them (see B<-T>) with an initial tag
+value, and writes the results to stdout.  Output is a sorted and
+conditionally uniqued list of value/tag pairs having the following
+format:
+
+    value|tag
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-F separator>
+
+Specifies the input field separator.  Valid separators include the
+following characters: tab '\t', space ' ', comma ',', colon ':',
+semi-colon ';', equal sign '=', and pipe '|'.  The default separator
+is a pipe.  Note that parse errors are likely to occur if the
+specified separator appears in any of the field values.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't report errors (i.e., be quiet) while processing files.
+
+=item NoUnique
+
+Don't unique the sorted output.
+
+=back
+
+=item B<-S sort-dir>
+
+Specifies the directory sort should use as a temporary work area.  The
+default directory is that specified by the TMPDIR environment variable
+or /tmp if TMPDIR is not set.
+
+=item B<-s sort-command>
+
+Specifies the name of an alternate sort utility.  Relative paths are
+affected by your PATH environment variable.  Alternate sort utilities
+must support the B<-o>, B<-T> and B<-u> options.  This program was
+designed to work with GNU sort.
+
+=item B<-T tag-pair>
+
+Specifies the tag pair in the following format:
+
+    <tag-type>:<tag-value>
+
+where <tag-type> represents the type of tag and <tag-value> represents
+a literal value or the column name, or position (starting at one) of
+the field to use as the tag value.  If <tag-type> is VALUE, then
+<tag-value> represents a literal value.  If <tag-type> is FIELD, then
+<tag-value> represents the column name, or position of the field to
+use as the tag value.  The default tag type is VALUE, and the default
+tag value is an empty string.
+
+=item B<-t type-tuple>
+
+Specifies a three-tuple type in the following format:
+
+    <file-type>:<field-name>:<field-type>
+
+where <file-type> represents the type of files that are to be
+processed, <field-name> represents the column name or position
+(starting at one) of the field to process, and <field-type> represents
+the expected format of the field values.  If <field-name> is specified
+as a name (rather than a position), each input file must have a
+header line that contains the named column.
+
+Currently, the following file types are supported: GENERIC.  The value
+for this tuple is not case sensitive.
+
+Currently, the following field types are supported: EIN, MD5, SHA1,
+SHA256, SSN, and STRING.  The value for this tuple is not case
+sensitive.
+
+Note: All files processed in a given invocation must be of the same
+type.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1), hipdig(1), ftimes-dbm-make(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

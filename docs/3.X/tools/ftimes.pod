@@ -1,0 +1,2105 @@
+=head1 NAME
+
+B<ftimes> - A system baselining and evidence collection tool.
+
+=head1 SYNOPSIS
+
+B<ftimes> B<--cfgtest> B<file> B<mode> B<[-s]>
+
+B<ftimes> B<--compare> B<mask> B<baseline> B<snapshot> B<[-l {0-6}]>
+
+B<ftimes> B<--decode> B<snapshot> B<[-l {0-6}]>
+
+B<ftimes> B<--dig> B<file> B<[-l {0-6}]> B<[target [...]]>
+
+B<ftimes> B<--digauto> B<file> B<[-l {0-6}]> B<[target [...]]>
+
+B<ftimes> B<--get> B<file> B<[-l {0-6}]>
+
+B<ftimes> B<--mad> B<file> B<[-l {0-6}]> B<[target [...]]>
+
+B<ftimes> B<--map> B<file> B<[-l {0-6}]> B<[target [...]]>
+
+B<ftimes> B<--mapauto> B<mask> B<[-l {0-6}]> B<[target [...]]>
+
+B<ftimes> B<{-v|--version}>
+
+=head1 DESCRIPTION
+
+B<FTimes> is a system baselining and evidence collection tool.
+The primary purpose of B<FTimes> is to gather and/or develop
+information about specified directories and files in a manner
+conducive to intrusion analysis.
+
+B<FTimes> is a lightweight tool in the sense that it doesn't need
+to be "installed" on a given system to work on that system, it is
+small enough to fit on a single floppy, and it provides only a
+command line interface.
+
+Preserving records of all activity that occurs during a snapshot
+is important for intrusion analysis and evidence admissibility.
+For this reason, B<FTimes> was designed to log four types of
+information: configuration settings, progress indicators, metrics,
+and errors.  Output produced by B<FTimes> is delimited text, and
+therefore, is easily assimilated by a wide variety of existing
+tools.
+
+B<FTimes> basically implements two general capabilities: file
+topography and string search.  File topography is the process of
+mapping key attributes of directories and files on a given file
+system.  String search is the process of digging through directories
+and files on a given file system while looking for a specific
+sequence of bytes.  Respectively, these capabilities are referred
+to as map mode and dig mode.
+
+B<FTimes> supports two operating environments: workbench and
+client-server.  In the workbench environment, the operator uses
+B<FTimes> to do things such as examine evidence (e.g., a disk image
+or files from a compromised system), analyze snapshots for change,
+search for files that have specific attributes, verify file integrity,
+and so on.  In the client-server environment, the focus shifts from
+what the operator can do locally to how the operator can efficiently
+monitor, manage, and aggregate snapshot data for many hosts.  In
+the client-server environment, the primary goal is to move collected
+data from the host to a centralized system, known as an Integrity
+Server, in a secure and authenticated fashion.  An Integrity Server
+is a hardened system that has been configured to handle B<FTimes>
+GET, PING, and PUT HTTP/S requests.
+
+The B<FTimes> distribution contains a script called nph-ftimes.cgi
+that may be used in conjunction with a Web server to implement a
+public Integrity Server interface.  Deeper topics such as the
+construction and internal mechanics of an Integrity Server are not
+addressed in this document.
+
+B<FTimes> provides several modes of operation that either implement
+its basic capabilities or support them in some way.  These modes
+are described in the MODES OF OPERATION section of this document
+and are outlined here:
+
+=over 5
+
+=item *
+
+cfgtest - check config file syntax for a given file and mode
+
+=item *
+
+compare - compare two map snapshots to detect change
+
+=item *
+
+decode - decode a compressed map snapshot
+
+=item *
+
+dig - search for strings in files using a specified configuration
+
+=item *
+
+digauto - search for strings in files using a default configuration
+
+=item *
+
+get - download a dig or map config file from an Integrity Server
+
+=item *
+
+mad - map and dig using a specified configuration
+
+=item *
+
+map - collect directory and file attributes using a specified configuration
+
+=item *
+
+mapauto - collect directory and file attributes using a default configuration
+
+=item *
+
+version - display version information and exit
+
+=back
+
+B<FTimes> also has many controls which dictate how it will execute.
+Some modes support very few controls while others support quite
+a few.  The following table summarizes what controls apply to each
+mode of operation.  An 'R', 'O', or 'C' indicates that the given
+control applies to the selected mode and whether it's required,
+optional, or conditionally required, respectively.
+
+                       =======   MODES   =======
+                       c  c  d  d  g  m  m  m  v
+                       f  o  i  i  e  a  a  a  e
+                       g  m  g  g  t  d  p  p  r
+                       t  p  a     m     a     s
+                       e  a  u     o     u     i
+                       s  r  t     d     t     o
+                       t  e  o     e     o     n
+   ======   CONTROL    =========================
+   AnalyzeBlockSize    .  .  .  O  .  O  .  O  .
+   AnalyzeByteCount    .  .  .  O  .  O  .  O  .
+   AnalyzeCarrySize    .  .  .  O  .  O  .  .  .
+   AnalyzeDeviceFiles  .  .  .  O  .  O  .  O  .
+   AnalyzeMaxDepth     .  .  .  O  .  O  .  O  .
+   AnalyzeMaxDps       .  .  .  O  .  O  .  O  .
+   AnalyzeRemoteFiles  .  .  .  O  .  O  .  O  .
+   AnalyzeStartOffset  .  .  .  O  .  O  .  O  .
+   AnalyzeStepSize     .  .  .  O  .  O  .  .  .
+   BaseName            .  .  .  R  R  R  .  R  .
+   BaseNameSuffix      .  .  .  O  .  O  .  O  .
+   Compress            .  .  .  .  .  .  .  O  .
+   DigString           .  .  C  C  .  C  .  .  .
+   DigStringNoCase     .  .  C  C  .  C  .  .  .
+   DigStringNormal     .  .  C  C  .  C  .  .  .
+   DigStringRegExp     .  .  C  C  .  C  .  .  .
+   DigStringXMagic     .  .  C  C  .  C  .  .  .
+   EnableRecursion     .  .  .  O  .  O  .  O  .
+   Exclude             .  .  .  O  .  O  .  O  .
+   ExcludeFilter       .  .  .  O  .  O  .  O  .
+   ExcludeFilterMd5    .  .  .  .  .  O  .  O  .
+   ExcludeFilterSha1   .  .  .  .  .  O  .  O  .
+   ExcludeFilterSha256 .  .  .  .  .  O  .  O  .
+   ExcludesMustExist   .  .  .  O  .  O  .  O  .
+   FieldMask           .  R  .  .  .  R  R  R  .
+   FileHook            .  .  .  O  .  O  .  O  .
+   FileSizeLimit       .  .  .  O  .  O  .  O  .
+   GetAndExec          .  .  .  .  O  .  .  .  .
+   GetFileName         .  .  .  .  R  .  .  .  .
+   HashDirectories     .  .  .  .  .  O  .  O  .
+   HashSymbolicLinks   .  .  .  .  .  O  .  O  .
+   Import              .  .  .  O  O  O  .  O  .
+   Include             .  .  .  O  .  O  .  O  .
+   IncludeFilter       .  .  .  O  .  O  .  O  .
+   IncludeFilterMd5    .  .  .  .  .  O  .  O  .
+   IncludeFilterSha1   .  .  .  .  .  O  .  O  .
+   IncludeFilterSha256 .  .  .  .  .  O  .  O  .
+   IncludesMustExist   .  .  .  O  .  O  .  O  .
+   LogDigStrings       .  .  .  O  .  O  .  .  .
+   LogDir              .  .  .  O  .  O  .  O  .
+   MagicFile           .  .  .  .  .  O  .  O  .
+   MapRemoteFiles      .  .  .  O  .  O  .  O  .
+   MatchLimit          .  .  .  O  .  O  .  .  .
+   NewLine             .  .  .  O  .  O  .  O  .
+   OutDir              .  .  .  R  .  R  .  R  .
+   Priority            .  O  O  O  .  O  O  O  .
+   RequirePrivilege    .  .  .  O  .  O  .  O  .
+   RunType             .  .  .  O  .  O  .  O  .
+   StrictControls      .  .  .  O  O  O  .  O  .
+   SSLBundledCAsFile   .  .  .  C  C  C  .  C  .
+   SSLExpectedPeerCN   .  .  .  C  C  C  .  C  .
+   SSLMaxChainLength   .  .  .  O  O  O  .  O  .
+   SSLPassPhrase       .  .  .  O  O  O  .  O  .
+   SSLPrivateKeyFile   .  .  .  C  C  C  .  C  .
+   SSLPublicCertFile   .  .  .  C  C  C  .  C  .
+   SSLUseCertificate   .  .  .  O  O  O  .  O  .
+   SSLVerifyPeerCert   .  .  .  O  O  O  .  O  .
+   URLAuthType         .  .  .  O  O  O  .  O  .
+   URLGetRequest       .  .  .  .  R  .  .  .  .
+   URLGetURL           .  .  .  .  R  .  .  .  .
+   URLPassword         .  .  .  O  O  O  .  O  .
+   URLPutSnapshot      .  .  .  O  .  O  .  O  .
+   URLPutURL           .  .  .  O  .  O  .  O  .
+   URLUnlinkOutput     .  .  .  O  .  O  .  O  .
+   URLUsername         .  .  .  O  O  O  .  O  .
+
+=head1 MODES OF OPERATION
+
+The modes of operation described in this section are mutually
+exclusive.  In other words, only one mode may be specified per
+invocation.  Unless otherwise stated, the value for the B<baseline>,
+B<snapshot>, and B<file> arguments may be the name of a regular file
+or '-'.  If the latter form is given, B<FTimes> expects to read the
+equivalent input from stdin.  Note, however, that the B<baseline> and
+B<snapshot> arguments can not be '-' simultaneously.  The elements and
+syntax rules of for all configuration files are described in the
+CONFIGURATION CONTROLS section of this document.  The B<-l> option is
+used to set the log level, and it is described in the OPTIONS section
+of this document.  The B<target> arguments identify directories and/or
+files that are to be scanned.  Collectively, these targets represent
+an B<Include> list.  See the B<Include> control for more information.
+
+=over 5
+
+=item B<--cfgtest> B<{file|-}> B<mode> B<[-s]>
+
+Verify the syntax of a given configuration B<file> in the context of a
+specified B<mode> where B<mode> can be one of: B<digauto>, B<dig>,
+B<get>, B<mad>, or B<map>.  The given configuration B<file> is parsed
+with the same methods that would be used if B<FTimes> had been invoked
+in that particular run B<mode>.  By default, directories and files are
+not checked for existence.  This allows config files to be tested in a
+separate environment from where they will be used.  Strict testing
+(i.e., directories and files must exist) may be enabled with the B<-s>
+option.
+
+The value 'Syntax Passed' is written to stdout, if all syntax checks
+are satisfied.  Otherwise, the value 'Syntax Failed' and a description
+of the failure will be written to stdout.
+
+Note: The fact that a given file passes all syntax checks does not
+guarantee that its use will lead to a successful outcome.  It merely
+ensures that specified controls are valid for a given mode, and the
+values for those controls meet basic syntax requirements.
+
+=item B<--compare> B<mask> B<{baseline|-}> B<{snapshot|-}> B<[-l {0-6}]>
+
+Compare B<baseline> and B<snapshot> data according to the specified
+compare B<mask>, which identifies the attributes to be analyzed.
+Output is written to stdout and has the following format:
+
+    category|name|changed|unknown|records
+
+Note: Legacy versions (3.8.0 and below) use the following format:
+
+    category|name|changed|unknown
+
+The category field indicates what type of change has occurred.  It
+can have one of the following values:
+
+    C - Changed
+    M - Missing
+    N - New
+    U - Unknown (i.e., one or both fields were NULL)
+    X - Cross (i.e., Changed and Unknown)
+
+The changed field contains a comma-separated list of attributes that
+have changed.  This field will be NULL if the category is New or
+Missing.
+
+The unknown field contains a comma-separated list of attributes that
+could not be compared due to lack of information.  This field will be
+NULL if the category is New or Missing.
+
+The records field contains a comma-separated pair of record numbers.
+Each number indicates the line in the corresponding baseline or
+snapshot containing the attributes that were analyzed.  A value of
+zero means that no record was present in the corresponding file, which
+is expected when the category is New or Missing.
+
+The specified compare B<mask> must comply with the syntax rules set
+forth for the B<FieldMask> control.
+
+Note: The B<baseline> and B<snapshot> arguments can not be '-'
+simultaneously.
+
+Note: Support for comparing compressed snapshots was added in version
+3.6.0.
+
+=item B<--decode> B<{snapshot|-}> B<[-l {0-6}]>
+
+Decode a compressed B<snapshot>.  A compressed snapshot can be created
+by running B<FTimes> in map mode with B<Compress> enabled.  Output is
+written to stdout.
+
+=item B<--dig> B<{file|-}> B<[-l {0-6}]> B<[target [...]]>
+
+Use the configuration settings in B<file> to search an B<Include> list
+for a set of user defined strings.  The B<Include> list may be
+specified by a combination of B<Include> controls and B<target>
+arguments.  If an B<Include> list is not specified, B<FTimes> will
+search the entire system.  Remote shares or mount points will only be
+searched if B<AnalyzeRemoteFiles> is enabled.  Device files
+specifically included (i.e., by name) will only be searched if
+B<AnalyzeDeviceFiles> is enabled.
+
+=item B<--digauto> B<{file|-}> B<[-l {0-6}]> B<[target [...]]>
+
+Use default configuration settings to search an B<Include> list for a
+set of user defined strings.  These strings are defined in B<file>
+according to the syntax for the B<DigStringNormal>,
+B<DigStringNoCase>, and B<DigStringRegExp> controls.  If no B<targets>
+are specified, B<FTimes> will search the entire system including
+remote shares or mount points.  Device files specifically included
+(i.e., by name) will be searched (i.e., B<AnalyzeDeviceFiles> is
+always enabled in this mode of operation).  Output is written to
+stdout and has the following format.
+
+    name|type|tag|offset|string
+
+The offset field, represented as a decimal value, contains the
+location in the file identified by name where the specified string was
+found.
+
+=item B<--get> B<{file|-}>
+
+Use the configuration settings in B<file> to download dig or map
+configuration information.  One of three possible actions, depending
+on how get mode is configured, will take place once the download is
+complete:
+
+=over 5
+
+=item *
+
+B<FTimes> writes the downloaded information to stdout,
+
+=item *
+
+B<FTimes> writes the downloaded information to the file specified by B<GetFileName>, or
+
+=item *
+
+B<FTimes> restarts in B<dig>, or B<map> mode using the downloaded information as its new configuration file
+
+=back
+
+The first action is effected when B<GetAndExec> is disabled and
+B<GetFileName> is not specified.  The second action is effected when
+B<GetAndExec> is disabled and B<GetFileName> is specified.  The third
+action is effected when B<GetAndExec> is enabled and B<GetFileName> is
+specified.
+
+=item B<--mad> B<{file|-}> B<[-l {0-6}]> B<[target [...]]>
+
+Use configuration settings in B<file> to map and dig an B<Include>
+list.  The B<Include> list may be specified by a combination of
+B<Include> controls and B<target> arguments.  If an B<Include> list is
+not specified, B<FTimes> will process the entire system.  Remote
+shares or mount points will only be processed if B<AnalyzeRemoteFiles>
+is enabled.  Device files specifically included (i.e., by name) will
+only be processed if B<AnalyzeDeviceFiles> is enabled.
+
+=item B<--map> B<{file|-}> B<[-l {0-6}]> B<[target [...]]>
+
+Use configuration settings in B<file> to map an B<Include> list.  The
+B<Include> list may be specified by a combination of B<Include>
+controls and B<target> arguments.  If an B<Include> list is not
+specified, B<FTimes> will map the entire system.  Remote shares or
+mount points will only be mapped if B<AnalyzeRemoteFiles> is enabled.
+Device files specifically included (i.e., by name) will only be mapped
+if B<AnalyzeDeviceFiles> is enabled.
+
+=item B<--mapauto> B<mask> B<[-l {0-6}]> B<[target [...]]>
+
+Use default configuration settings to map an B<Include> list according
+to the specified B<mask> where mask identifies the attributes to be
+collected.  If no B<targets> are specified, B<FTimes> will map the
+entire system including remote shares or mount points.  Device files
+specifically included (i.e., by name) will be mapped (i.e.,
+B<AnalyzeDeviceFiles> is always enabled in this mode of operation).
+Output is written to stdout, and its format depends on the value of
+B<mask>.
+
+The specified B<mask> must comply with the syntax rules set forth for
+the B<FieldMask> control.
+
+=item B<{-v|--version}>
+
+Display version information and exit.
+
+=back
+
+=head1 OPTIONS
+
+=over 5
+
+=item B<-l {0-6}>
+
+The B<LogLevel> option controls the amount of log output.  As the
+level decreases, the amount of output increases.  The range of values
+that may be assigned is stated below.  In cases where evidence
+collection is of primary concern, B<LogLevel> should be no higher than
+Landmark.  The default B<LogLevel> is Landmark.
+
+    6 - Critical
+    5 - Failure
+    4 - Warning
+    3 - Information
+    2 - Landmark
+    1 - Waypoint
+    0 - Debug
+
+=item B<-s>
+
+Enforce strict testing.  This requires that specified directories
+and files exist on the system running the test.  Controls affected
+by this option include: B<LogDir>, B<OutDir>, B<SSLPublicCertFile>,
+B<SSLPrivateKeyFile>, and B<SSLBundledCAsFile>.
+
+=back
+
+=head1 CONFIGURATION CONTROLS
+
+This section describes the various controls that B<FTimes> recognizes.
+In general, controls either shape runtime behavior or provide
+information needed by the application to perform a specific function.
+Controls and their values, one pair/line, are written to a file
+having the following format.
+
+    <control> = <value>
+
+All controls are case insensitive, but, in general, their values
+are not.  Comments may occur anywhere on a given line, and must
+begin with a pound character (i.e., '#').  In any given line, all
+text to the right of the first comment will be ignored.  White
+space surrounding controls and values is ignored.
+
+=head2 CONTROL DESCRIPTIONS
+
+This section describes each control that may be specified, defines
+what values it may have, and states which modes of operation
+recognize the control.
+
+=over 5
+
+=item B<AnalyzeBlockSize>: [1-1048576]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeBlockSize> is optional.  It instructs the analysis engine
+to use the specified block size (in bytes) when reading and processing
+file data.  The default value for this control is 32768 (32 KB).
+
+=item B<AnalyzeByteCount>: [0-18446744073709551615]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeByteCount> is optional.  It instructs the analysis engine to
+stop processing once the specified amount of data (in bytes) has been
+read/analyzed.  The default value for this control is zero, which
+means do not impose a byte count limit.
+
+Note: When this control is set, map mode hash values and XMagic file
+types may be different from those computed during a traditional
+snapshot (i.e., one where all bytes in each file are processed).
+Other than the information recorded in the log file, there is no
+convenient way to distinguish between traditional snapshots and those
+where a byte count limit.  This could lead to unexpected compare mode
+results.
+
+Note: Support for this control was added in version 3.9.0.
+
+=item B<AnalyzeCarrySize>: [1-1048576]
+
+Applies to B<dig>, and B<mad>.
+
+B<AnalyzeCarrySize> is optional.  It instructs the analysis engine
+to use the specified block size (in bytes) when saving (or carrying)
+data from one dig operation to the next.  The default value for
+this control is 1024 (1 KB).
+
+Note: The value for this control must not exceed B<AnalyzeBlockSize>,
+and it must be equal to or larger than the maximum string length
+for normal and case insenstive strings.  If either condition is not
+met, the program will abort.
+
+=item B<AnalyzeDeviceFiles>: [Y|N]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeDeviceFiles> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to analyze block/character device files that
+have been specifically included by name on the command line or
+through an B<Include> (e.g., Include=/dev/ad0).  Device files that
+reside in an included directory (e.g., Include=/dev) are not analyzed
+simply because their parent was included -- you must specifically
+call them out.  Also, any device files that were specifically
+included will be pruned if their parent or any higher level directory
+was included too.  The default value is 'N'.
+
+Note: Analyzing block/character device files can take a very long
+time or forever (e.g., /dev/zero).
+
+=item B<AnalyzeMaxDepth>: [0-65536]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeMaxDepth> is optional.  It instructs the analysis engine
+to stop descending a tree once the specified depth, relative to a
+given B<Include> path, has been reached.  The default value is zero,
+which means maximum depth enforcement is disabled.
+
+Note: Support for this control was added in version 3.12.0.
+
+=item B<AnalyzeMaxDps>: [0-2097152]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeMaxDps> is optional.  It instructs the analysis engine to
+throttle the Data Processing Speed (DPS) to the specified number of KB
+per second.  This capability is useful for systems that are sensitive
+to the load imposed by running this utility.  The default value is
+zero, which means do not throttle the DPS.
+
+Note: This is a best-effort control.  In other words, there is no
+guarantee that the final DPS will precisely match the specified limit.
+
+Note: This control has no influence over the priority of the executing
+process.
+
+Note: The upper limit is fixed according to following relation:
+2^31/1024, which guarantees that a signed integer can represent the
+maximum DPS as either KB/s or B/s.
+
+Note: Support for this control was added in version 3.9.0.
+
+=item B<AnalyzeRemoteFiles>: [Y|N]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeRemoteFiles> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to ignore the fact that a given B<Include> does
+not reside on the local system.  The result is that B<FTimes> will
+attempt to analyze remote files.  The default value is 'N'.
+
+Note: Analyzing remote file systems can create large amounts of
+network traffic.  Just remember that you may be mapping an entire
+disk.
+
+=item B<AnalyzeStartOffset>: [0-18446744073709551615]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<AnalyzeStartOffset> is optional.  It instructs the analysis engine
+to seek to the specified offset (in bytes) before processing any data.
+The default value for this control is zero.
+
+Note: To map or dig through a supported block/character device file,
+B<AnalyzeDeviceFiles> must be enabled and the device file must be
+explicitly included on the command line or in the config file.  FTimes
+refuses to read device files by default since that could result in
+hung process.
+
+Note: Device files may require you to specify an offset that is
+aligned to a block boundary.  Your mileage may vary.
+
+Note: When this control is set, map mode hash values and XMagic file
+types will be different from those computed during a traditional
+snapshot (i.e., one where the start offset was zero).  Other than the
+information recorded in the log file, there is no convenient way to
+distinguish between traditional snapshots and those where an offset
+was set.  This could lead to unexpected compare mode results.
+
+Note: Support for this control was added in version 3.9.0.
+
+=item B<AnalyzeStepSize>: [1-1048576]
+
+Applies to B<dig>, and B<mad>.
+
+B<AnalyzeStepSize> is optional.  It instructs the analysis engine to
+step through the search buffer in increments of the specified size.
+Currently, this control may only be used in conjunction with the
+DigStringXMagic control.  Internally, B<AnalyzeStepSize> is capped to
+prevent its value from exceeding the value for B<AnalyzeBlockSize>.
+The default value for this control is 32768 (32 KB).
+
+Note: This control is only available if XMagic support was compiled
+into the binary.
+
+=item B<BaseName>: <name|->
+
+Applies to B<dig>, B<get>, B<mad>, and B<map>.
+
+B<BaseName> is required.  It specifies the name prefix that will
+be attached to the various output files.  It also serves as the
+CLIENTID parameter in GET/PING/PUT requests.  The recommended name
+format is one that matches the following regular expression:
+
+    ^[.0-9A-Za-z_-]{1,64}$
+
+This is because nph-ftimes.cgi uses that expression to validate the
+CLIENTID parameter in GET/PING/PUT requests.  Typically, B<BaseName>
+and B<URLUsername> will be the same when basic authentication is
+enabled, but this is not a requirement.
+
+A good naming convention would be to use the hostname of the system
+being baselined.  Also, you may specify a B<BaseName> value of '-'.
+This causes FTimes to write its output to stdout/stderr.
+
+=item B<BaseNameSuffix>: [datetime|none|pid]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<BaseNameSuffix> is optional.  It specifies the type of suffix
+that will be attached to the B<BaseName>.  If B<BaseNameSuffix> is
+set to datetime, a suffix of the following format will be appended
+to the B<BaseName>: YYYYMMDDHHMMSS.  If it is set to none, no suffix
+will be appended, and if it is set to pid, the value of the current
+process ID will be appended.  The default value is none.
+
+=item B<Compress>: [Y|N]
+
+Applies to B<mad> and B<map>.
+
+B<Compress> is optional.  When enabled ('Y' or 'y'), it activates
+a form of lossless ASCII compression.  This yields a compression
+ratio that can be as good as three to one.  The default value is
+'N'.
+
+As a side note, compressing compressed snapshots with a program
+like gzip(1) yields better compression than if gzip(1) was used
+alone on the same data in its uncompressed form.
+
+=item B<DigString>: <string> [<tag>]
+
+Applies to B<digauto>, B<dig>, and B<mad>.
+
+B<DigString> is an alias for B<DigStringNormal>, and it is being
+phased out.  Please use B<DigStringNormal> instead.
+
+=item B<DigStringNoCase>: <string> [<tag>]
+
+Applies to B<digauto>, B<dig>, and B<mad>.
+
+B<DigStringNoCase> is conditionally required.  It specifies a case
+insensitive search string.  This string must be URL encoded in the
+same manner as a normal dig string -- refer to the B<DigStringNormal> control
+description for the details.  Internally, all alpha characters
+(i.e., [A-Za-z]) are converted to lower case.
+
+An optional tag may specified.  Tags can be used to identify a given
+dig string or set of strings -- the same tag may be assigned to
+multiple strings.  This can make the process of analyzing dig output
+much easier.  However, tags must not contain embedded white space, and
+they must be less than 64 bytes long.
+
+=item B<DigStringNormal>: <string> [<tag>]
+
+Applies to B<digauto>, B<dig>, and B<mad>.
+
+B<DigStringNormal> is conditionally required.  It specifies a search
+string.  This string must be URL encoded if it contains '%', '+',
+' ', or any non-printable characters.  When in doubt about whether
+or not a value should be encoded, encode it.  To encode a character,
+convert its hex value according to the format %HH where H is a hex
+digit.  Spaces may alternatively be encoded as '+'.
+
+An optional tag may specified.  Tags can be used to identify a given
+dig string or set of strings -- the same tag may be assigned to
+multiple strings.  This can make the process of analyzing dig output
+much easier.  However, tags must not contain embedded white space, and
+they must be less than 64 bytes long.
+
+=item B<DigStringRegExp>: <regexp> [<tag>]
+
+Applies to B<digauto>, B<dig>, and B<mad>.
+
+B<DigStringRegExp> is conditionally required.  It specifies a Perl
+compatible regular expression.  Unlike the strings specified in the
+B<DigStringNormal> and B<DigStringNoCase> controls, this string must
+not be URL encoded.  With B<DigStringRegExp> patterns, you must
+specify no more than nine (9) capturing '()' subpatterns.  You can use
+'(?:)' if you require additional parentheses for grouping purposes.
+If you do not specify a capturing subpattern, the entire match will be
+captured and used as the output value.  Otherwise, the output value is
+taken from \1 -- (i.e., the first capturing subpattern).
+
+An optional tag may specified.  Tags can be used to identify a given
+dig string or set of strings -- the same tag may be assigned to
+multiple strings.  This can make the process of analyzing dig output
+much easier.  However, tags must not contain embedded white space, and
+they must be less than 64 bytes long.
+
+Note: This control is only available if PCRE support was compiled
+into the binary.  As of version 3.5.0, PCRE support is enabled by
+default.
+
+Note: Embedded white space is not currently allowed in the regular
+expression.  Use '\x20' as a substitute for a single space.
+
+=item B<DigStringXMagic>: <file> [<tag>]
+
+Applies to B<digauto>, B<dig>, and B<mad>.
+
+B<DigStringXMagic> is conditionally required.  It specifies the name
+of a file that contains one or more XMagic incantations.  The XMagic
+file may be specified as a relative path.
+
+An optional tag may specified.  Tags can be used to identify a given
+dig string or set of strings -- the same tag may be assigned to
+multiple strings.  This can make the process of analyzing dig output
+much easier.  However, tags must not contain embedded white space, and
+they must be less than 64 bytes long.
+
+Note: This control is only available if XMagic support was compiled
+into the binary.
+
+=item B<EnableRecursion>: [Y|N]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<EnableRecursion> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to recursively process directories.  The default
+value is 'Y'.
+
+=item B<Exclude>: [directory|file|link]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<Exclude> controls are optional, and there is no predefined limit
+on the number that may be specified.  However, there can be only
+one B<Exclude> control/value pair per line.  It is not necessary
+to explicitly exclude special file systems such as PROCFS
+as B<FTimes> will detect their presence and automatically exclude
+them.  B<Exclude> values must be specified as a fully qualified
+path (see B<Include> control).  If B<ExcludesMustExist> is enabled,
+then each B<Exclude> must reference an existing file, directory,
+or symbolic link.  Otherwise, B<FTimes> will abort.
+
+If you need to exclude paths that contain special or non-printable
+characters, you must specify the path in the form of a file URL.
+Special characters are defined (in square brackets) as C<[`'"|%+#]> or
+any non-printable character except for the NULL byte (%00), which is
+not allowed for excludes.  For example, the path '/tmp/foo#bar' would
+need to be specified as 'file:///tmp/foo%23bar'.
+
+Note: Symbolic links are not supported in WIN32-based file systems.
+
+Note: The exlude mechanism works on an exact match basis, but it
+can be used to produce a recursive effect.  For example, if you
+include '/' and exclude '/etc', then '/etc' and anything below it
+will not be processed.  However, if you include '/etc/hosts' and
+exclude '/etc', then '/etc/hosts' will be processed because the
+recursive effect would not be in play, and there is no B<Exclude>
+that exactly matches it.
+
+=item B<ExcludeFilter>: <regexp>
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<ExcludeFilter> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<ExcludeFilter> control/value pair per line.
+
+Each B<ExcludeFilter> must be specified as a Perl compatible regular
+expression with the caveat that no more than nine capturing '()'
+subpatterns for backreferences are allowed.  Use '(?:)' if you require
+parentheses for grouping purposes.
+
+Any path matched by an B<ExcludeFilter> will be rejected.  All other
+paths will be mapped subject to include filter processing.  If no
+exclude filters are specified, exclude filter processing is implicitly
+disabled.
+
+Note: This control is only available if PCRE support was compiled
+into the binary.
+
+=item B<ExcludeFilterMd5>: <regexp>
+
+Applies to B<mad>, and B<map>.
+
+B<ExcludeFilterMd5> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<ExcludeFilterMd5> control/value pair per line.
+
+Each B<ExcludeFilterMd5> value must be specified as a Perl compatible
+regular expression with the exception that capturing '()' subpatterns
+and back references are not allowed.  You can use '(?:)' if you
+require parentheses for grouping purposes.
+
+Any record containing an MD5 that is matched by an B<ExcludeFilterMd5>
+value will be rejected.  All other records will be written to the
+output stream subject to the rules of include filter processing.  If
+no filters are specified, exclude filter processing is implicitly
+disabled.
+
+Note: This control is only available if PCRE support was compiled into
+the binary.
+
+Note: This control is incompatible with the B<Compress> and
+B<HashDirectories> controls.  If either of those controls are set when
+attribute filtering is in play, the program will abort.
+
+Note: Support for this control was added in version 3.9.0.
+
+=item B<ExcludeFilterSha1>: <regexp>
+
+Applies to B<mad>, and B<map>.
+
+B<ExcludeFilterSha1> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<ExcludeFilterSha1> control/value pair per line.
+
+Each B<ExcludeFilterSha1> value must be specified as a Perl compatible
+regular expression with the exception that capturing '()' subpatterns
+and back references are not allowed.  You can use '(?:)' if you
+require parentheses for grouping purposes.
+
+Any record containing an SHA1 that is matched by an B<ExcludeFilterSha1>
+value will be rejected.  All other records will be written to the
+output stream subject to the rules of include filter processing.  If
+no filters are specified, exclude filter processing is implicitly
+disabled.
+
+Note: This control is only available if PCRE support was compiled into
+the binary.
+
+Note: This control is incompatible with the B<Compress> and
+B<HashDirectories> controls.  If either of those controls are set when
+attribute filtering is in play, the program will abort.
+
+Note: Support for this control was added in version 3.9.0.
+
+=item B<ExcludeFilterSha256>: <regexp>
+
+Applies to B<mad>, and B<map>.
+
+B<ExcludeFilterSha256> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<ExcludeFilterSha256> control/value pair per line.
+
+Each B<ExcludeFilterSha256> value must be specified as a Perl compatible
+regular expression with the exception that capturing '()' subpatterns
+and back references are not allowed.  You can use '(?:)' if you
+require parentheses for grouping purposes.
+
+Any record containing an SHA256 that is matched by an B<ExcludeFilterSha256>
+value will be rejected.  All other records will be written to the
+output stream subject to the rules of include filter processing.  If
+no filters are specified, exclude filter processing is implicitly
+disabled.
+
+Note: This control is only available if PCRE support was compiled into
+the binary.
+
+Note: This control is incompatible with the B<Compress> and
+B<HashDirectories> controls.  If either of those controls are set when
+attribute filtering is in play, the program will abort.
+
+Note: Support for this control was added in version 3.9.0.
+
+=item B<ExcludesMustExist>: [Y|N]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<ExcludesMustExist> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to check that every B<Exclude> exists prior to
+mapping or digging.  If this control is enabled and any B<Exclude>
+does not exist, B<FTimes> will abort.  The default value is 'N'.
+
+=item B<FieldMask>: <mask>
+
+Applies to B<compare>, B<mapauto>, B<mad>, and B<map>.
+
+B<FieldMask> is required in B<compare>.  Its value indicates what
+fields are to be compared for change.
+
+B<FieldMask> is required in B<mapauto>, B<mad>, and B<map>.
+Its value dictates what attributes get collected or derived during
+a scan.
+
+There can be no embedded white space in a given mask specification,
+and it must comply with the following case insensitive syntax:
+
+    ALL[<+|-><field>...]
+
+or
+
+    NONE<+|-><field>[<+|-><field>...]
+
+The following fields may be specified on WINX platforms with two
+caveats:  (1) chtime is only available on Windows NT or higher and (2)
+altstreams is only available if the target file system is NTFS.
+
+    volume     - Volume serial number
+    findex     - File serial number
+    attributes - File attributes
+    atime      - Time of last file access
+    mtime      - Time of last file modification
+    ctime      - Creation time
+    chtime     - Change time (undocumented)
+    size       - File size in bytes
+    altstreams - Number of alternate or named streams
+    md5        - MD5 digest of the file's data stream
+    sha1       - SHA1 digest of the file's data stream
+    sha256     - SHA256 digest of the file's data stream
+    magic      - File type
+    osid       - Owner SID
+    gsid       - Group SID
+    dacl       - Discretionary access control list
+
+The following fields may be specified on UNIX platforms:
+
+    dev        - Device identification number
+    inode      - File identification number
+    mode       - File attributes and permissions
+    nlink      - Number of hard links
+    uid        - User identification number
+    gid        - Group identification number
+    rdev       - Device type (contains major/minor numbers)
+    atime      - Time of last file access
+    mtime      - Time of last file modification
+    ctime      - Time of last file status change
+    size       - File size in bytes
+    md5        - MD5 digest of the file's data stream
+    sha1       - SHA1 digest of the file's data stream
+    sha256     - SHA256 digest of the file's data stream
+    magic      - File type
+
+In addition to the standard fields, the following group fields may be
+specified:
+
+    hashes     - Compute all supported hash values
+    times      - Collect all supported time values
+
+For example, the "hashes" field is equivalent to "md5+sha1+sha256".
+Similarly, the "times" field is equivalent to "atime+mtime+ctime" and
+"atime+mtime+ctime+chtime" on UNIX and WINX platforms, respectively.
+
+The "attributes" field is a collection of flags stored as a bitmap.
+The breakdown for these flags is as follows:
+
+    ------------------------
+    bit  0     - 0x00001 Read Only
+    bit  1     - 0x00002 Hidden
+    bit  2     - 0x00004 System
+    bit  3     - 0x00008 Volume Label (?)
+    bit  4     - 0x00010 Directory
+    bit  5     - 0x00020 Archive
+    bit  6     - 0x00040 Device
+    bit  7     - 0x00080 Normal
+    ------------------------
+    bit  8     - 0x00100 Temporary
+    bit  9     - 0x00200 Sparse
+    bit 10     - 0x00400 Reparse Point
+    bit 11     - 0x00800 Compressed
+    bit 12     - 0x01000 Offline
+    bit 13     - 0x02000 Not Content Indexed
+    bit 14     - 0x04000 Encrypted
+    bit 15     - 0x08000 (?)
+    ------------------------
+    bit 16     - 0x10000 Virtual
+    ------------------------
+
+Additional file attribute details are documented here:
+
+    msdn.microsoft.com/en-us/library/ee332330(VS.85).aspx
+
+The "mode" field is a collection of flags stored as a bitmap.  The
+breakdown for these flags is as follows:
+
+    ------------------------
+    bit  0     - X for other
+    bit  1     - W for other
+    bit  2     - R for other
+    ------------------------
+    bit  3     - X for group
+    bit  4     - W for group
+    bit  5     - R for group
+    ------------------------
+    bit  6     - X for owner
+    bit  7     - W for owner
+    bit  8     - R for owner
+    ------------------------
+    bit  9     - sticky bit
+    bit 10     - set group ID on execution
+    bit 11     - set owner ID on execution
+    ------------------------
+    bits 12-15 - file type
+    ------------------------
+
+To isolate the file type portion of the mode, AND the mode with octal
+0170000.  The breakdown for file types is as follows:
+
+    0010000    - named pipe (fifo)
+    0020000    - character special
+    0040000    - directory
+    0060000    - block special
+    0100000    - regular
+    0120000    - symbolic link
+    0140000    - socket
+    0160000    - whiteout
+
+=item B<FileHook>: <klel-expression>
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<FileHook> controls are optional, and there is no predefined limit on
+the number that may be specified.  However, there can be only one
+B<FileHook> control/value pair per line.  Each hook must be specified
+as a special type of Kl-El expression known as a guarded command.
+
+Any path matched by a hook will cause the specified command to be
+executed.  All digging/mapping operations will cease until this
+command completes.
+
+Note: This control is only available if file hooks were enabled at
+compile time.
+
+=item B<FileSizeLimit>: <integer>
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<FileSizeLimit> is optional.  It instructs the analysis engine to
+skip files that are larger than the specified size limit.  The
+default value is zero, which means do not impose a limit.
+
+=item B<GetAndExec>: [Y|N]
+
+Applies to B<get>.
+
+B<GetAndExec> is optional.  When enabled ('Y' or 'y'), it causes
+B<FTimes> to start a new snapshot once the download is complete.
+This is accomplished through an exec() call.  B<GetAndExec> depends
+on B<GetFileName>.  The default value is 'N'.
+
+Note: Take care when specifying B<GetFileName>.  If you choose a
+location that is writeable by other processes, B<FTimes> may not
+read the config file you intended it to.  That is to say, some other
+process may have modified or replaced the origianl file.
+
+=item B<GetFileName>: <file>
+
+Applies to B<get>.
+
+B<GetFileName> is required if B<GetAndExec> is enabled.  Its value
+is the name of the file in which the downloaded configuration
+information is to be stored.  B<GetFileName> may be specified as a
+relative path.
+
+=item B<HashDirectories>: [Y|N]
+
+Applies to B<mad>, and B<map>.
+
+B<HashDirectories> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to compute digests for directories.  This is
+done by hashing the digests of all files and directories contained
+in a given directory in the order they are encountered.  Thus, if
+a directory has the following structure where D{1|2} and F{1|2}
+represent directories and files respectively,
+
+  D1
+   |
+   - F1
+   + D2
+      |
+      - F2
+
+then, assuming that F1 is mapped before D2, D1 and D2 have the
+following hashes:
+
+  Hash(D2) = H(H(F2))
+  Hash(D1) = H(H(F1), Hash(D2))
+
+where H represents the hash algorithm (e.g., MD5, SHA1, etc.).
+
+If an entry within the directory is a special file (e.g., a device)
+or cannot be opened/hashed, a 16 byte string consisting of all zeros
+is used for the computation.  The default value is 'N'.
+
+=item B<HashSymbolicLinks>: [Y|N]
+
+Applies to B<mad>, and B<map>.
+
+B<HashSymbolicLinks> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to compute digests for symbolic links.  This
+is done by hashing the data returned by readlink().  The default
+value is 'Y'.
+
+=item B<Import>: <file>
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<Import> is optional.  When specified, the directives contained
+in the file referenced by this control are included in the current
+configuration.  Multiple instances of this control are allowed per
+file, and recursion is permitted up to three levels deep.  Imports
+may be specified using a relative path.
+
+=item B<Include>: [directory|file|link]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<Include> controls are optional, and there is no predefined limit
+on the number that may be specified.  However, there can be only
+one B<Include> control/value pair per line.  If no B<Include>
+controls are specified, B<FTimes> will attempt to map the entire
+system.  If B<IncludesMustExist> is enabled, then each B<Include>
+must reference an existing file, directory, or symbolic link.
+Otherwise, B<FTimes> will abort.
+
+B<Include> values must be a regular file, directory, or symbolic
+link specified as a fully qualified path.  For WIN32 file systems,
+this means that each B<Include> must begin with a drive designator
+([A-Za-z]:) and be followed by the target path (e.g., 'c:\temp').
+For UNIX file systems, each B<Include> must begin with a forward
+slash (e.g., '/tmp').
+
+If you need to include paths that contain special or non-printable
+characters, you must specify the path in the form of a file URL.
+Special characters are defined (in square brackets) as C<[`'"|%+#]> or
+any non-printable character except for the NULL byte (%00), which is
+not allowed for includes.  For example, the path '/tmp/foo#bar' would
+need to be specified as 'file:///tmp/foo%23bar'.
+
+Note: Symbolic links are not supported in WIN32-based file systems.
+
+Note: Take care when including file systems that reside on remote
+shares because B<FTimes> may attempt to map them.  To prevent this
+from happening, you can either exclude the remote file system or
+disable B<AnalyzeRemoteFiles>.
+
+Note: Directory hashing only applies to directories.  This means
+that each file B<Include> is treated as an isolated object apart
+from any specific tree.  The exception to this is any B<Include>
+that gets automatically pruned because it's part of a larger branch.
+
+=item B<IncludeFilter>: <regexp>
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<IncludeFilter> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<IncludeFilter> control/value pair per line.
+
+Each B<IncludeFilter> must be specified as a Perl compatible regular
+expression with the caveat that no more than nine capturing '()'
+subpatterns for backreferences are allowed.  Use '(?:)' if you require
+parentheses for grouping purposes.
+
+Any path matched by an B<IncludeFilter> will be mapped.  Any other
+paths will be rejected.  Also note that exclude filter processing
+occurs before include filter processing.  If no include filters are
+specified, include filter processing is implicitly disabled.
+
+Note: This control is only available if PCRE support was compiled
+into the binary.
+
+Warning: Due to their nature, include filters require mandatory
+directory traversal.  This, in turn, will potentially alter directory
+access times.  For example, suppose that you want to process all files
+that end with the string: '.pdf'.  The B<IncludeFilter> would be
+specified as follows:
+
+    IncludeFilter=\.pdf$
+
+Generally speaking, there is no way to know, apriori, where all these
+files are located.  Therefore, it is necessary to traverse all
+directories applying the filter to each path as it's encountered.
+
+=item B<IncludeFilterMd5>: <regexp>
+
+Applies to B<mad>, and B<map>.
+
+B<IncludeFilterMd5> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<IncludeFilterMd5> control/value pair per line.
+
+Each B<IncludeFilterMd5> value must be specified as a Perl compatible
+regular expression with the exception that capturing '()' subpatterns
+and back references are not allowed.  You can use '(?:)' if you
+require parentheses for grouping purposes.
+
+Any record containing an MD5 that is matched by an B<IncludeFilterMd5>
+value will be written to the output stream.  All other records will be
+rejected.  If no filters are specified, include filter processing is
+implicitly disabled.
+
+Note: This control is only available if PCRE support was compiled into
+the binary.
+
+Note: This control is incompatible with the B<Compress> and
+B<HashDirectories> controls.  If either of those controls are set when
+attribute filtering is in play, the program will abort.
+
+Note: Support for this control was added in version 3.9.0.
+
+=item B<IncludeFilterSha1>: <regexp>
+
+Applies to B<mad>, and B<map>.
+
+B<IncludeFilterSha1> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<IncludeFilterSha1> control/value pair per line.
+
+Each B<IncludeFilterSha1> value must be specified as a Perl compatible
+regular expression with the exception that capturing '()' subpatterns
+and back references are not allowed.  You can use '(?:)' if you
+require parentheses for grouping purposes.
+
+Any record containing an SHA1 that is matched by an B<IncludeFilterSha1>
+value will be written to the output stream.  All other records will be
+rejected.  If no filters are specified, include filter processing is
+implicitly disabled.
+
+Note: This control is only available if PCRE support was compiled into
+the binary.
+
+Note: This control is incompatible with the B<Compress> and
+B<HashDirectories> controls.  If either of those controls are set when
+attribute filtering is in play, the program will abort.
+
+Note: Support for this control was added in version 3.9.0.
+
+=item B<IncludeFilterSha256>: <regexp>
+
+Applies to B<mad>, and B<map>.
+
+B<IncludeFilterSha256> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one B<IncludeFilterSha256> control/value pair per line.
+
+Each B<IncludeFilterSha256> value must be specified as a Perl compatible
+regular expression with the exception that capturing '()' subpatterns
+and back references are not allowed.  You can use '(?:)' if you
+require parentheses for grouping purposes.
+
+Any record containing an SHA256 that is matched by an B<IncludeFilterSha256>
+value will be written to the output stream.  All other records will be
+rejected.  If no filters are specified, include filter processing is
+implicitly disabled.
+
+Note: This control is only available if PCRE support was compiled into
+the binary.
+
+Note: This control is incompatible with the B<Compress> and
+B<HashDirectories> controls.  If either of those controls are set when
+attribute filtering is in play, the program will abort.
+
+Note: Support for this control was added in version 3.9.0.
+
+=item B<IncludesMustExist>: [Y|N]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<IncludesMustExist> is optional.  When enabled ('Y' or 'y'), it
+instructs B<FTimes> to check that every B<Include> exists prior to
+mapping or digging.  If this control is enabled and any B<Include>
+does not exist, B<FTimes> will abort.  The default value is 'N'.
+
+=item B<LogDigStrings>: [Y|N]
+
+Applies to B<dig>, and B<mad>.
+
+B<LogDigStrings> is optional.  When enabled ('Y' or 'y'), it instructs
+B<FTimes> to record each dig string in the log file.  Preserving this
+information along side the dig output is often convenient and useful,
+but in some cases (e.g., searches for sensitive data), it's better to
+suppress it.  The default value is 'N'.
+
+=item B<LogDir>: <directory>
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<LogDir> is optional.  It tells B<FTimes> where to write log data.
+If not specified, the value of B<OutDir> will be used as the value
+for B<LogDir>.  B<LogDir> may be specified as a relative path.
+
+=item B<MagicFile>: <file>
+
+Applies to B<mad>, and B<map>.
+
+B<MagicFile> is optional.  If the magic field in B<FieldMask> is
+set and B<MagicFile> references a valid XMagic file, B<FTimes>
+attempts to determine the type of each file it maps.  If the magic
+field is not set, this control is ignored.  B<MagicFile> may be
+specified as a relative path.  Additional information regaring XMagic
+can be found here:
+
+  http://ftimes.sourceforge.net/FTimes/XMagic.shtml
+
+Note: XMagic is not built into B<FTimes> by default.  If your version
+of B<FTimes> does not have this support and the magic field is
+requested, B<FTimes> will produce null fields.
+
+Note: XMagic is automatically disabled if compression is enabled.
+
+=item B<MapRemoteFiles>: [Y|N]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<MapRemoteFiles> is an alias for B<AnalyzeRemoteFiles>, and it is
+being phased out.  Please use B<AnalyzeRemoteFiles> instead.
+
+=item B<MatchLimit>: <integer>
+
+Applies to B<dig>, and B<mad>.
+
+B<MatchLimit> is optional.  It instructs the search engine to stop
+searching for a particular pattern within a file once the specified
+match limit has been reached.  The default value is zero, which
+means do not impose a limit.
+
+Note: Searching for a string such as 'A' with a MatchLimit of zero
+may produce a tremendous amount of output.
+
+=item B<NewLine>: [LF|CRLF]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<NewLine> is optional.  When set to the value CRLF, it generates
+WINX style line feeds (i.e., carriage return and linefeed).  When
+B<NewLine> is set to the value LF, it generates UNIX style line
+feeds (i.e., linefeed).  This control is useful if you review/analyze
+data sets from different platforms on one particular computer.  The
+default value is the native value for the operating system running
+the program.
+
+=item B<OutDir>: <directory>
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<OutDir> is required.  It tells B<FTimes> where to write output
+data.  If not specified, the program will abort.  B<OutDir> may be
+specified as a relative path.
+
+=item B<Priority>: [low|below_normal|normal|above_normal|high]
+
+Applies to B<compare>, B<digauto>, B<dig>, B<mad>, B<mapauto>, and
+B<map>.
+
+B<Priority> is optional.  Use it to set the priority of the running
+program.  The environment variable, FTIMES_PRIORITY, trumps the value
+of this control when set.  No priority is set by default.
+
+On UNIX platforms, the priority values listed above correspond to the
+following priority levels:
+
+    low .............. 20
+    below_normal ..... 10
+    normal ...........  0
+    above_normal .....-10
+    high .............-20
+
+On WINX platforms, the priority values listed above correspond to the
+following priority classes:
+
+    low .............. IDLE_PRIORITY_CLASS
+    below_normal ..... BELOW_NORMAL_PRIORITY_CLASS
+    normal ........... NORMAL_PRIORITY_CLASS
+    above_normal ..... ABOVE_NORMAL_PRIORITY_CLASS
+    high ............. HIGH_PRIORITY_CLASS
+
+Note: If the specified priority can't be set, the program will abort.
+
+Note: If an environment variable is defined but exceeds the maximum
+allowed length, it will be rejected.
+
+Note: The priority must be set via the environment for the B<compare>
+and B<mapauto> modes of operation.
+
+Note: Support for this control was added in version 3.9.0.
+
+=item B<RequirePrivilege>: [Y|N]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<RequirePrivilege> is optional.  When enabled ('Y' or 'y'), it
+indicates that the operator wants to ensure that the snapshot is
+run from a privileged account.  On UNIX systems this means that
+B<FTimes> must be run from an account that has a real user id of
+zero (i.e., root).  On NT/2K systems this means that it must be run
+from an account that has the backup and restore user rights.  The
+default value is 'N'.
+
+Note: B<FTimes> will work without privilege, but it's likely to
+generate more errors due to permission problems.
+
+=item B<RunType>: [baseline|linktest|snapshot]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<RunType> is optional.  This control sets a corresponding flag in
+the log file that classifies output data as baseline, snapshot, or
+linktest.  The value of this control does not affect the format or
+content of the output.  It simply classifies the data so that
+automated analysis applications can process it accordingly.  The
+default value is baseline.
+
+=item B<SSLBundledCAsFile>: <file>
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<SSLBundledCAsFile> is required when B<SSLVerifyPeerCert> is
+enabled.  This control specifies the name of a PEM (Privacy Enhanced
+Mail) encoded file that contains a bundled set of Certificate
+Authority (CA) certificates.  Any validated peer certificate that
+is signed by one of these certificate authorities will be accepted
+provided that the B<SSLMaxChainLength> and B<SSLExpectedPeerCN>
+checks are also satisfied.  B<SSLBundledCAsFile> may be specified
+as a relative path.
+
+=item B<SSLExpectedPeerCN>: <name>
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<SSLExpectedPeerCN> is required when B<SSLVerifyPeerCert> is
+enabled.  The value of this control represents the peer's expected
+Common Name (CN).  Conventionally, CNs are specified as fully
+qualified domain names.  This control eliminates the need to perform
+a DNS lookup at the time of certificate validation.  This, in turn,
+may help to prevent attacks involving DNS spoofing.
+
+=item B<SSLMaxChainLength>: [1-10]
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<SSLMaxChainLength> is optional when B<SSLVerifyPeerCert> is
+enabled.  The value of this control determines how deep a certificate
+chain may be before it is considered invalid.  The default value
+is one.
+
+=item B<SSLPassPhrase>: <passphrase>
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<SSLPassPhrase> is optional when B<SSLUseCertificate> is enabled.
+Its value, if specified, is used to decrypt the contents of the
+client's private key file (see B<SSLPrivateKeyFile>).
+
+=item B<SSLPrivateKeyFile>: <file>
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<SSLPrivateKeyFile> is required when B<SSLUseCertificate> is
+enabled.  This control specifies the name of a PEM (Privacy Enhanced
+Mail) encoded key file that can be used to sign SSL certificates.
+B<SSLPrivateKeyFile> may be specified as a relative path.
+
+=item B<SSLPublicCertFile>: <file>
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<SSLPublicCertFile> is required when B<SSLUseCertificate> is
+enabled.  This control specifies the name of a PEM (Privacy Enhanced
+Mail) encoded certificate that will be provided during SSL handshakes.
+B<SSLPublicCertFile> may be specified as a relative path.
+
+=item B<SSLUseCertificate>: [Y|N]
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<SSLUseCertificate> is optional.  When enabled ('Y' or 'y'), it
+instructs the application to provide client side certificate
+authentication, if necessary.  The default value is 'N'.
+
+=item B<SSLVerifyPeerCert>: [Y|N]
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<SSLVerifyPeerCert> is optional.  When enabled ('Y' or 'y'), it
+instructs the application to verify the credentials of the peer
+server.  The default value is 'N'.
+
+=item B<StrictControls>: [Y|N]
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<StrictControls> is optional.  When enabled ('Y' or 'y'), any unknown
+or unsupported configuration controls will cause the program to abort.
+When disabled ('N' or 'n'), any unknown or unsupported controls will
+be silently ignored.  The default value is 'N'.
+
+Note: If you want to enforce strict controls within a single config
+file (or chain of config files), B<StrictControls> must be the first
+control processed.  You may also enable/disable this control multiple
+times.  This allows you to control the strictness of certain sections
+or starting at a particular point in the entire configuration.  Once
+set, this control takes effect immediately.
+
+Note: For versions 3.8.0 and below, this control was not supported,
+and the default behavior was to abort on any unknown or unsupported
+configuration control.
+
+=item B<URLAuthType>: [basic|none]
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<URLAuthType> is optional.  It identifies what authentication
+scheme to use when issuing HTTP/HTTPS requests.  The value specified
+by this control applies to any requests involving B<URLGetURL> or
+B<URLPutURL>.  When B<URLAuthType> is set to basic, user credentials
+are base 64 encoded and incorporated into the request header.  User
+credentials specified in the URL take precedence over credentials
+specified in the B<URLUsername> and B<URLPassword> controls.  The
+default value is none.
+
+=item B<URLGetRequest>: [DigConfig|MapConfig]
+
+Applies to B<get>.
+
+B<URLGetRequest> is required.  This control specifies what kind of
+config file the client is requesting when it issues a GET request.  It
+also determines the next runmode when B<GetAndExec> is enabled.  Thus,
+values of DigConfig will cause B<FTimes> to restart in B<dig> mode,
+and values of MapConfig will cause B<FTimes> to restart in B<map>
+mode.
+
+=item B<URLGetURL>: <url>
+
+Applies to B<get>.
+
+B<URLGetURL> is required.  It defines the scheme, user credentials,
+host address, port, and CGI application to be used when making
+requests.  If a username/password pair is specified in the URL,
+that pair takes precedence over the values specified by
+B<URLUsername>/B<URLPassword>, if any.  URLs must use a scheme of
+http or https and satisfy the following regular expression:
+
+scheme://(user(:pass)?@)?host(:port)?/(path(\?query)?)?
+
+=item B<URLPassword>: <password>
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<URLPassword> is optional.  It identifies the password to use when
+accessing an Integrity Server.  The value specified by this control
+is used in conjunction with B<URLGetURL> and B<URLPutURL> unless
+those controls supply their own username/password pair.
+
+=item B<URLPutSnapshot>: [Y|N]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<URLPutSnapshot> is optional.  When enabled ('Y' or 'y'), B<FTimes>
+attempts to post the snapshot to an Integrity Server.  Prior to
+starting its scan, B<FTimes> will transmit an application layer
+PING to the server to verify that it is accessible and functional.
+If the remote CGI application is functioning properly, the extended
+HTTP response code 250 (Ping Received) is returned.  B<URLPutSnapshot>
+depends on B<URLPutURL>.  If basic authentication is required, the
+controls B<URLUsername>, B<URLPassword>, and B<URLAuthType> may
+need to be specified as well.  The default value is 'N'.
+
+=item B<URLPutURL>: <url>
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<URLPutURL> is optional.  It defines the scheme, user credentials,
+host address, port, and CGI application to be used when making PUT
+requests.  If a username/password pair is specified in the URL,
+that pair takes precedence over the values specified by
+B<URLUsername>/B<URLPassword>, if any.  In any event, user credentials
+are only sent when basic authentication has been requested (See
+B<URLAuthType>).  B<URLPutURL> uses the same syntax as B<URLGetURL>.
+
+=item B<URLUnlinkOutput>: [Y|N]
+
+Applies to B<dig>, B<mad>, and B<map>.
+
+B<URLUnlinkOutput> is optional when B<URLPutSnapshot> is enabled.
+When enabled ('Y' or 'y'), any output files are overwritten and
+unlinked before the program exits.  The default value is 'N'.
+
+=item B<URLUsername>: <username>
+
+Applies to B<dig>, B<mad>, B<map>, and B<get>.
+
+B<URLUsername> is optional.  It identifies the username to use when
+accessing an Integrity Server.  The value specified by this control
+is used in conjunction with B<URLGetURL> and B<URLPutURL> unless
+those controls supply their own username/password pair.
+
+=back
+
+=head1 RETURN VALUES
+
+Upon successful completion, a value of B<XER_OK> (0) is returned.
+If the program encountered a critical error and had to abort
+immediately, the value B<XER_Abort> (1) is returned.  If the command
+line does not conform to the required syntax, a value of B<XER_Usage>
+(2) is returned.  Otherwise, one of the following error codes is
+returned.  These codes indicate which subsystem encountered the
+fatal error.
+
+=over 5
+
+=item *
+
+B<XER_BootStrap> (3)
+
+=item *
+
+B<XER_ProcessArguments> (4)
+
+=item *
+
+B<XER_Initialize> (5)
+
+=item *
+
+B<XER_CheckDependencies> (6)
+
+=item *
+
+B<XER_Finalize> (7)
+
+=item *
+
+B<XER_WorkHorse> (8)
+
+=item *
+
+B<XER_FinishUp> (9)
+
+=item *
+
+B<XER_FinalStage> (10)
+
+=back
+
+=head1 FILES
+
+Several different files may be required as input or produced as
+output in the course of running B<FTimes>.  These files are
+generically described below.
+
+=over 5
+
+=item BaseName(_BaseNameSuffix)?.log
+
+The main log file.  This file contains a record of the activities
+that took place during a dig or map run provided that B<LogLevel>
+was set at an appropriate level.
+
+=item BaseName(_BaseNameSuffix)?.{dig,map}
+
+The main output file.  This file contains possibly compressed map
+or dig data collected during a scan.  The first line in this file
+contains a header that specifies the name of each field collected.
+
+=item Bundled Certificate Authorities
+
+When B<SSLUseCertificate> has been enabled, B<FTimes> expects to
+find a bundled certificate authorities file in the location
+specified by B<SSLBundledCAs> control.  If this file does not
+exist or have the proper format, B<FTimes> will abort.
+
+=item Config
+
+This file contains directives used to configure B<FTimes>.  In
+general a particular config file applies to a single mode of
+operation.  This is because different modes support different
+controls.  Refer to the CONFIGURATION CONTROLS section of this
+document to determine what controls apply to each mode.
+
+=item Public Certificate and Private Key
+
+When B<SSLUseCertificate> has been enabled, B<FTimes> expects to
+find certificate and key files in the locations specified by
+B<SSLPublicCert> and B<SSLPrivateKey> controls, respectively.  If
+these files do not exist or have the proper format, B<FTimes> will
+abort.
+
+=item Snapshot
+
+This is a previously created and possibly compressed map file that
+is being supplied as input.  In compare mode it represents an
+uncompressed map file and applies to both the B<baseline> and
+B<snapshot> arguments.  In decode mode it represents a compressed
+map file.
+
+=item XMagic
+
+This file contains magic tests and descriptions.  The magic format
+used by B<FTimes> is XMagic.  B<FTimes> searches up to three
+locations for magic: (1) the location specified by the B<MagicFile>
+control, (2) /usr/local/ftimes/etc/xmagic or c:\ftimes\etc\xmagic,
+and (3) the current working directory.  B<FTimes> will not abort,
+if a suitable file is not found, but magic output will be limited.
+
+=back
+
+=head1 NOTES
+
+The name attribute may be partially encoded if it contains any
+special characters.  Special characters are defined as C<[`'"|%+#]>
+or any non-printable character.  If a name contains Unicode
+characters, the high byte is always encoded, and the low byte is
+encoded as described above.  To decode an encoded name, first
+convert all pluses to spaces (i.e., '+' -> ' ').  Then, moving from
+left to right, convert each %HH sequence, to its byte value.  Here
+'H' denotes a hex digit.
+
+As a matter of security and good configuration control, you should
+create a baseline of your entire system on a periodic basis and
+whenever major events occur such as the addition/removal of software
+packages or the application of system/security patches.
+
+In critical situations it is best to enable B<RequirePrivilege>
+and run B<FTimes> from a privileged account.  This will avoid common
+hang-ups associated with having too little privilege.  Backup and
+restore rights are required to satisfy B<RequirePrivilege> on NT
+systems, and root privilege is required for UNIX systems.  If you
+are simply scanning your own files, you probably do not need to
+enable B<RequirePrivilege>.  On NT systems the operator may need
+the bypass traverse checking privilege in addition to backup and
+restore rights.  Also, make sure that domain policies aren't
+rendering the operator's privileges ineffective.
+
+In general, use the default LogLevel and review the log data after
+each invocation as it may reveal errors or issues that need to be
+addressed.
+
+In general, create distinct config files for each profile you intend
+to maintain.  Here, profile refers to the set of files and directories
+within a given host that you intend to scan on a regular basis.
+If you have a large number of profiles that share a common set of
+controls, you may want to move these controls to a single file.
+Then, you may simply refer to this file using the B<Import> control.
+
+Set B<OutDir> to a directory that has the capacity to hold all
+resultant data.  If external media such as jaz, zip, or floppy are
+available, consider using them.  However, using a floppy is not
+generally recommended unless you know that it has the capacity to
+hold the data.  You may also want to consider writing output to an
+NFS, Samba, or Windows share.  A third option is to use B<FTimes'>
+built-in upload capability, and post your data directly to an
+Integrity Server.
+
+Setting B<LogDir> to a path that represents a floppy device may be
+useful if data integrity is a concern and there is no removable or
+protectible media available to store all of the anticipated output.
+The reason for this is that the log file will contain an MD5 digest
+of the output file upon the completion of the map.  Because the
+log data was written to floppy, it would be possible to remove and
+write protect this information for safe keeping.  This would provide
+additional time to offload the results of the map, which can be
+quite large.  Obviously, both files can still be altered by a
+skilled attacker positioned to take advantage of the situation.
+
+Manage dig and map config files on your Integrity Server, and use
+B<FTimes'> get mode (i.e., B<--get>) to automatically retrieve them at
+runtime.  This facilitates centralized management and helps to protect
+potentially sensitive configuration information.
+
+Use the B<URLPutSnapshot>, B<URLPutURL>, B<URLUsername>, B<URLPassword>,
+and B<URLAuthType> controls when you want to automatically upload
+data to an Integrity Server that is configured to handle
+B<FTimes'> PUT requests.
+
+If you have an SSL enabled version of B<FTimes>, you'll need to
+ensure that OpenSSL and/or its libraries are installed and accessible
+to B<FTimes> on the target platform.
+
+When possible, mount target file systems as read only.  This will
+help to ensure minimal time stamp perturbation.  In any event,
+B<FTimes> accurately records time stamp information before it is
+modified by any subsequent access.
+
+=head1 EXAMPLES
+
+The following examples are intended to demonstrate different ways
+of configuring and using B<FTimes>.  Any text encapsulated between
+'--- XXX ---' delimiters represents a file's content.
+
+=head2 Example 1. Using map mode to baseline and upload
+
+This example demonstrates how to baseline a system and upload the
+resulting snapshot to an Integrity Server.
+
+The first thing that needs to be done is to obtain the necessary
+upload information.  Assume that an Integrity Server has already
+been configured to receive snapshots.  Also, assume that the
+following information has been provided:
+
+    URL = https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
+    Authentication Type = Basic
+    Username/ClientID = client_1
+    Password = password
+    AllowedFieldMask = ALL-magic
+    AllowedDataType = map
+    Server Validates Client Certificates = N
+
+Observe that remote server speaks HTTPS.  Therefore, an SSL enabled
+version of B<FTimes> is needed.  To determine if B<FTimes> has SSL
+support, run the following command:
+
+    ftimes --version
+
+If B<FTimes> has SSL support, you will see the string 'ssl' in the
+output.
+
+The next item to tackle is the creation of a suitable config file.
+The following file contains the necessary directives to complete
+this task.
+
+    --- example1.cfg ---
+    BaseName=client_1
+    OutDir=.
+    RunType=baseline
+    FieldMask=ALL-magic
+    URLPutSnapshot=Y
+    URLPutURL=https://192.168.1.50:443/cgi-client/nph-ftimes.cgi
+    URLAuthType=basic
+    URLUsername=client_1
+    URLPassword=password
+    Compress=Y
+    --- example1.cfg ---
+
+Note that there are no B<Include> directives.  This omission causes
+B<FTimes> to map everything (i.e., the entire system).
+
+Also, note that B<OutDir> has been set to the current directory
+(i.e., '.').  This, while entirely legal, assumes that (1) '.' is
+writeable and (2) there is enough disk space to hold all generated
+output.
+
+Compression was enabled to expedite data transfer.
+
+The last step is to run B<FTimes> and review the corresponding log
+output to ensure that snapshot was uploaded successfully.
+
+    ftimes --map example1.cfg
+
+=head2 Example 2. Using dig mode to search for strings
+
+This example demonstrates how to to search files and directories
+for a set of HEX/ASCII and regular expression strings.
+
+Given that the target file system is C</disk1>, and the list of
+strings to to be sought are:
+
+    String1 = /dev/ptyqa
+    String2 = 0xda 0xbe
+    String3 = 0x00 A 0x00 A 0x00 A 0x00 A
+    String4 = A date of the form <YYYY-MM-DD HH:MM:SS>
+    String5 = Line oriented IP addresses of the form <BOL|tab><192.168.1.*><tab|EOL>
+
+where
+
+    BOL = Beginning Of Line
+    EOL = End Of Line
+
+Strings 1-3 are expressed as (ignore whitespace) ASCII, HEX, and
+HEX/ASCII, respectively.  Strings 4 and 5, on the other hand, are
+textual descriptions that must be translated into regular expressions.
+Assume that the required B<MatchLimit> is three.  That is to say,
+no more than three matches per file of any single string should be
+recorded.
+
+The following config file contains those directives required to
+search all files in /disk1.
+
+    --- example2.cfg ---
+    BaseName=digger
+    OutDir=.
+    MatchLimit=3
+    DigStringNormal=/dev/ptyqa
+    DigStringNormal=%da%be
+    DigStringNoCase=%00A%00A%00A%00A
+    DigStringRegExp=\d{4}-\d{2}-\d{2}\x20\d{2}:\d{2}:\d{2}
+    DigStringRegExp=(?m)(?:^|\t)(192\.168\.1\.\d{1,3})(?=\t|$)
+    Include=/disk1
+    --- example2.cfg ---
+
+Observe that strings two and three are URL encoded and that string
+three will be processed in a case insensitive manner.  Read the
+B<DigStringNormal> control description for more details on URL
+encoding.  Also notice that the fourth and fifth strings correspond to
+Perl compatible regular expressions -- these types of dig strings are
+available if you compiled B<FTimes> with PCRE support.  With
+B<DigStringRegExp> patterns, however, the number of capturing '()'
+subpatterns is limited (see the description of that control for
+details).  You can use '(?:)' if you require additional parentheses
+for grouping purposes.  If you do not specify a capturing subpattern,
+the entire match will be captured and used as the output value.
+Otherwise, the output value is taken from \1 -- (i.e., the first
+capturing subpattern).  In this particular case, only the IP address
+will be captured.  Also note the use of '\x20' to represent a single
+space.  This translation is necessary because dig strings may not
+contain embedded white space.
+
+At this point B<FTimes> may be run as follows:
+
+    ftimes --dig example2.cfg
+
+If spontaneity is desired over strict configuration, switch to the
+B<digauto> mode of operation.  In this mode elaborate config files
+aren't necessary, and output is written to stdout.  Also, no match
+limit is imposed.  The following example shows how to search an
+image file (e.g., example2.image) for a set of specific strings.
+The output, if any, can be piped into other tools that take their
+input on stdin.
+
+    --- strings.cfg ---
+    DigStringNormal=This+box+is+0wn3d    attack_program
+    DigStringNormal=3l33t                attack_program
+    DigStringNormal=175.20.1.7           attack_ip
+    DigStringNormal=hacklist@foo.bar.com
+    --- strings.cfg ---
+
+    ftimes --digauto strings.cfg example2.image | some-other-tool
+
+Just remember that dig strings must be URL encoded with no embedded
+white space.  That's why the spaces in the first string have been
+replaced with '+'.  Also, note that first three dig strings are
+tagged.  In other words, each string has been assigned a value that
+gives it a special meaning or identity.  Because the tag for first two
+dig strings is the same, it can be used to classify both strings as
+belonging to the same group.
+
+=head2 Example 3. Change analysis
+
+This example demonstrates how to detect change between two snapshots.
+
+Given that the following files are valid, uncompressed snapshots:
+
+    Baseline = daily_20001230203000.map
+    Snapshot = daily_20001231203000.map
+
+Compare MD5 digests to determine (C)hanged, (M)issing, and (N)ew files.
+
+The only critical observation needed here is that daily_20001230203000.map
+is considered to be the baseline.  In other words, a baseline is
+a snapshot taken at an arbitrary point in time to which subsequent
+snapshots are compared.
+
+This comparison is carried out with the following command:
+
+    ftimes --compare none+md5 daily_20001230203000.map daily_20001231203000.map
+
+To compare multiple attributes at the same time, simply specify the
+additional fields in the B<FieldMask>.  For example, the following mask
+would compare MD5, SHA1, and size attributes:
+
+    none+md5+sha1+size
+
+To compare all attributes at the same time, use a B<FieldMask> of
+'all'.
+
+=head2 Example 4. Using get mode to download a config file
+
+This example demonstrates how to download a config file from an
+Integrity Server.
+
+The first thing that needs to be done is to obtain the necessary
+download information.  Assume that an Integrity Server has
+already been configured to serve config files.  Also, assume that
+the following information has been provided:
+
+    URL = https://www.integrity.net:443/cgi-client/nph-ftimes.cgi
+    Authentication Type = Basic
+    Username/ClientID = client_1
+    Password = password
+    Server Validates Client Certificates = Y
+    Server Common Name = www.integrity.net
+    Maximum Certificate Chain Length = 2
+
+Observe that remote server requires certificates.  This means that
+you'll need three additional PEM encoded files: Public Certificate,
+Private Key, and Bundled Certificate Authorities.  Assume that
+these files are located on the target system as follows:
+
+    /usr/local/ftimes/etc/PublicCert.pem
+    /usr/local/ftimes/etc/PrivateKey.pem
+    /usr/local/ftimes/etc/BundledCAs.pem
+
+Armed with that information, the following config file may be
+constructed.
+
+    --- example5.cfg ---
+    BaseName=client_1
+    URLGetURL=https://www.integrity.net:443/cgi-client/nph-ftimes.cgi
+    URLGetRequest=MapConfig
+    GetAndExec=N
+    URLAuthType=basic
+    URLUsername=client_1
+    URLPassword=password
+    SSLUseCertificate=Y
+    SSLPublicCertFile=/usr/local/ftimes/etc/PublicCert.pem
+    SSLPrivateKeyFile=/usr/local/ftimes/etc/PrivateKey.pem
+    SSLPassPhrase=passphrase
+    SSLVerifyPeerCert=Y
+    SSLBundledCAsFile=/usr/local/ftimes/etc/BundledCAs.pem
+    SSLExpectedPeerCN=www.integrity.net
+    SSLMaxChainLength=2
+    --- example5.cfg ---
+
+The following command will attempt to download a map config file from
+the specified Integrity Server.  If successful, the contents of the
+config file will be written to stdout.
+
+    ftimes --get example5.cfg
+
+If you want to download directly to a file, you can redirect the
+output to a file or add the B<GetFileName> control to your config
+file.  Then, if you wanted to download a config file and take a
+snapshot in one operation, simply enable B<GetAndExec>.  This causes
+B<FTimes> to restart in B<--map> mode.  If B<URLGetRequest> was set to
+DigConfig, then B<FTimes> would request a dig config file and
+subsequently restart in B<--dig> mode.
+
+Another way to achieve the same effect is to use the original config
+file and construct the following pipeline:
+
+    ftimes --get example5.cfg -l 6 | ftimes --map -
+
+This has the benefit that potentially sensitive configuration
+information is not specifically written to a file on disk.
+
+Finally, note that the B<LogLevel> for the first command was set
+to its highest value.  This was done simply to reduce log output
+from that process.
+
+=head1 SEE ALSO
+
+gzip(1), magic(5), openssl(1)
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 HISTORY
+
+The official or given name of this utility is B<FTimes>, but
+operationally it is referred to as B<ftimes>.  In the fledgling
+stages of development, the name B<FTimes> was short for B<F>ile
+B<Times>.  This was because its primary purpose was to collect
+timestamp information from systems suspected of having been
+compromised.
+
+The first version of B<FTimes> was written in the Spring of 1998
+to support a forensic examination of a compromised system.  At that
+time, B<FTimes> was primarily a workbench tool for the forensic
+practitioner.  As time passed, its audience expanded to include
+system administrators and computer security professionals who needed
+tools to monitor the integrity of their systems.  Eventually, it
+became a core component in Exodus' Content Integrity Monitoring
+Service (CIMS).
+
+In the Fall of 2001, Exodus Communications, Inc. approved my request
+to make B<FTimes> Open Source.  At that time version two was very
+stable, but I was in the throes of creating version three which
+was a major restructuring of the code base.  Consequently, I decided
+to wait until the new version was complete before releasing it to
+the community.
+
+On January 29, 2002, the first Open Source version of FTimes was
+released from SourceForge.
+
+B<FTimes> continues to support the workbench environment, but has
+evolved into a tool that can be utilized to support Integrity
+Monitoring in large, diverse, and distributed environments.  Today,
+B<FTimes> more appropriately equates to B<F>ile B<T>opography and
+B<I>ntegrity B<M>onitoring on an B<E>nterprise B<S>cale.
+
+The original design objectives for B<FTimes> were to build a tool that:
+
+=over 5
+
+=item *
+
+does one thing extremely well (i.e., collect file attributes),
+
+=item *
+
+utilizes a simple, effective, and well understood algorithm that can be applied equally well to different operating systems,
+
+=item *
+
+generates output that is easily assimilated by a wide variety of existing tools,
+
+=item *
+
+has built-in logging that is complete, precise, and useful for analysis purposes,
+
+=item *
+
+is accurate, efficient, and minimally invasive,
+
+=item *
+
+doesn't need to be "installed" on a given system to work on that system,
+
+=item *
+
+is small enough to run from floppy even if statically compiled, and
+
+=item *
+
+provides only a command line interface.
+
+=back
+

@@ -1,0 +1,114 @@
+=pod
+
+=head1 NAME
+
+zipmap - Map the contents of a ZIP archive.
+
+=head1 SYNOPSIS
+
+B<zipmap> B<[-m mask]> B<[-o option[,option[,...]]]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+B<ZipMap> is a utility for mapping the files in a ZIP archive without
+having to unpack and write them to disk first.  The output produced by
+this utility is roughly equivalent to FTimes output produced with the
+following FieldMask:
+
+    none+size+md5+sha1
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.
+
+=item B<-m mask>
+
+The field mask specifies which attributes to collect/compute while
+processing the archive.  The field mask value must comply with the
+following case-insensitive syntax:
+
+    ALL[<+|-><field>[...]]
+
+or
+
+    NONE<+|-><field>[<+|-><field>[...]]
+
+The following fields may be specified:
+
+    size   - Member size in bytes
+    md5    - Member MD5 digest
+    sha1   - Member SHA1 digest
+
+In addition to the standard fields, the following group fields may be
+specified:
+
+    hashes - Compute all supported digests
+
+The default field mask is 'all'.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item GrabberRanOnWindows
+
+Member names for archives created on WINX platforms using the
+ftimes-grabber(1) are stored in a UNIX format.  This flag indicates
+that those names should be converted back to their original format.
+
+=back
+
+=back
+
+=head1 EXAMPLES
+
+=head2 Example 1. Map the contents of a ZIP archive
+
+This example demonstrates how to map the contents of a ZIP archive
+called 'test.zip'.
+
+    zipmap -f test.zip
+
+If you're only interested in the size and MD5 attributes, you can
+specify a field mask to limit the output as follows:
+
+    zipmap -m none+size+md5 -f test.zip
+
+=head2 Example 2. Compare the contents of two ZIP archives
+
+This example demonstrates how to use this utility and ftimes(1) to
+compare the contents of two ZIP archives called 'test.old.zip' and
+'test.new.zip'.
+
+    zipmap -f test.old.zip > test.old.map
+    zipmap -f test.new.zip > test.new.map
+    ftimes --compare all test.old.map test.new.map -l 6
+
+=head1 AUTHORS
+
+Klayton Monroe and Jason Smith
+
+=head1 SEE ALSO
+
+ftimes(1), ftimes-grabber(1), tarmap(1), and unzip(1)
+
+=head1 HISTORY
+
+This utility was initially written to assist in validating the
+contents of ZIP archives created by ftimes-grabber(1).
+
+This utility first appeared in FTimes 3.9.0.
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

@@ -1,0 +1,226 @@
+=pod
+
+=head1 NAME
+
+ftimes-proximo - Locate a group of dig hits within a specified byte range
+
+=head1 SYNOPSIS
+
+B<ftimes-proximo> B<[-l limit]> B<[-r range]> B<{-G group=tag,tag[,tag[,...]][:range]|-g <groups-file>}> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility locates a group of dig hits within a specified byte
+range.  To work properly, the input must be sorted by 'hostname' (when
+present), 'name', and 'offset' in ascending order.  Note that this
+utility does not sort the input -- that step can be done with
+ftimes-sortini(1).  The input format can vary so long as it contains
+at least the 'name', 'tag', 'offset', and 'string' fields.  The two
+most common formats are:
+
+    name|type|tag|offset|string
+
+and
+
+    hostname|name|type|tag|offset|string|joiner
+
+The first is produced by ftimes(1) and hipdig(1), and the second is
+produced by ftimes-dig2dbi(1).  Each input record must contain a
+non-null tag value -- those that don't will be ignored.  Generally,
+each tag should correspond to a unique dig string.  However, tag
+overloading is allowed.
+
+This utility can also take its own output as input, thus providing a
+way to analyze groups of groups.  In that case, the input must contain
+at least the 'name', 'group', 'footprint', and 'offset' fields.
+
+Output is written to stdout in one of the following formats:
+
+    name|group|ordered|proximity|gap|limit|range|window|footprint|offset|offsets|tags
+
+or
+
+    hostname|name|group|ordered|proximity|gap|limit|range|window|footprint|offset|offsets|tags
+
+The breakdown of the output format is as follows:
+
+=over 4
+
+=item B<hostname>
+
+Hostname of the subject system.  This value is transferred directly
+from the input stream, but only if that field is present.
+
+=item B<name>
+
+URL-encoded filename.  This value is transferred directly from the
+input stream.
+
+=item B<group>
+
+Name of the group (as defined on the command line or in a group config
+file) that was matched.
+
+=item B<ordered>
+
+Boolean value (y/n) indicating whether the actual tag order matches
+the order specified in the group definition.  If order is important,
+be sure to specify group definitions using the desired order.
+
+=item B<proximity>
+
+A value from 0.00 to 1.00 indicating the relative proximity of the dig
+hits for a given group.  This value is computed as follows:
+
+    ( <limit> - <gap> ) / <limit>
+
+where the gap is the smaller of the specified limit (B<-l> option) or
+actual gap.
+
+=item B<gap>
+
+The average gap, in bytes, between adjacent dig hits.
+
+=item B<limit>
+
+The largest average gap between dig hits for them to be considered
+close.  As the actual gap approaches this number, proximity goes to
+zero.
+
+=item B<range>
+
+The number of bytes between the lowest and highest dig offsets for a
+given match.
+
+=item B<window>
+
+The number of bytes used to determine whether a given match is in
+range or not.
+
+=item B<footprint>
+
+The number of bytes between the beginning of the first and end of the
+last dig hits (inclusive).
+
+=item B<offset>
+
+The offset of the group hit.  This corresponds to the lowest offset
+within a group for a given match (hit).
+
+=item B<offsets>
+
+Comma delimited list of dig offsets in the order they were found.
+
+=item B<tags>
+
+Comma delimited list of dig tags in the order they were found.
+
+=back
+
+The trigger event for generating an output record is a group match.
+Each time a member offset changes for a given group, the entire group
+is evaluated to see if the resulting set of offsets fall within the
+specified range.  If that condition is met, then an output record is
+generated.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.  A value of '-' will cause the
+program to read from stdin.
+
+=item B<-G group=tag,tag[,tag[,...]][:range]>
+
+Specifies a group definition where
+
+=over 4
+
+=item B<group>
+
+The name of the group.
+
+=item B<tag,tag[,tag[,...]]>
+
+A comma delimited list of two or more unique dig tags.
+
+=item B<range>
+
+A decimal number or the word 'infinity'.  The range is optional in a
+group definition.
+
+=back
+
+=item B<-g groups-file>
+
+Specifies the name of a file containing one or more group definitions.
+The format is the same as that used for the B<-G> option.
+
+=item B<-l limit>
+
+Specifies the largest average gap between dig hits for them to be
+considered close.  As the gap approaches this number, proximity goes
+to zero.  The default gap is 100 bytes.
+
+=item B<-r range>
+
+A decimal number or the word 'infinity'.  If the latter is specified,
+then the range window is all bytes in a given file.  This is useful if
+you simply want to determine whether or not all tags occur in a given
+file.  The default range is 100 bytes.
+
+=back
+
+=head1 CAVEATS
+
+Group matching only maintains (i.e., remembers) the last offset of
+each group member.  This means that there are cases where a single
+group could have multiple matches in a specified range, but only one
+is reported.  For example, suppose you have the following group
+definition:
+
+    g_test=a1,b2,c3,d4:100
+
+Now suppose that you have the following dig records:
+
+    name|type|tag|offset|string
+    "file"|normal|a1|10|a1
+    "file"|normal|b2|20|b2
+    "file"|normal|c3|30|c3
+    "file"|normal|a1|40|a1
+    "file"|normal|d4|50|d4
+
+In this case, one could say that the group matches twice within the
+specified range of 100 bytes.  Once for offsets 10, 20, 30, and 50,
+and once for offsets 20, 30, 40, and 50.  Since this utility only
+maintains the last offset of each group member, only the second set of
+offsets is considered a match.  This happens because the 'a1' offset
+is reset from 10 to 40 when the fourth record (not counting the
+header) is porcessed.  Effectively, this means that given two
+potential matches within a specified range, the match where the
+offsets are the closest always wins.
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1), ftimes-dig2ctx(1), ftimes-dig2dbi(1), ftimes-sortini(1), hipdig(1)
+
+=head1 HISTORY
+
+This utility was initially written to perform proximity analysis in a
+case where we needed to identify last names in close proximity to
+their respective Social Security Numbers (SSN).
+
+This utility first appeared in FTimes 3.9.0.
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

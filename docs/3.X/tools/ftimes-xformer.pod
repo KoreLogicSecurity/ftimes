@@ -1,0 +1,272 @@
+=pod
+
+=head1 NAME
+
+ftimes-xformer - Tranform FTimes data based on user-specified input
+
+=head1 SYNOPSIS
+
+B<ftimes-xformer> B<[{-A|-a|-B|-b|-S|-s} eval-block]> B<[{-D|-d} delimiter]> B<[-I pattern]> B<[-i count]> B<[{-L|-l} field[,field[,...]]]> B<[-o option[,option[,...]]]> B<[-p count]> B<[-t template]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility takes FTimes data and transforms it according to
+user-specified criteria.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-A eval-block>
+
+Specifies a post-header eval-block to be executed by Perl after the
+output header has been formed.  The eval-block operates on a single
+line, which is stored in '$_'.
+
+=item B<-a eval-block>
+
+Specifies a post-record eval-block to be executed by Perl after the
+output record has been formed.  The eval-block operates on a single
+line, which is stored in '$_'.
+
+=item B<-B eval-block>
+
+Specifies a pre-header eval-block to be executed by Perl before the
+output header has been split into individual fields.  The eval-block
+operates on a single line, which is stored in '$_'.
+
+=item B<-b eval-block>
+
+Specifies a pre-record eval-block to be executed by Perl before the
+output record has been split into individual fields.  The eval-block
+operates on a single line, which is stored in '$_'.
+
+=item B<-D delimiter>
+
+Specifies the output field delimiter.  Valid delimiters include the
+following characters: tab ('\t'), space (' '), comma (','), colon
+(':'), semi-colon (';'), equal ('='), and pipe ('|').  The default
+delimiter is a pipe.
+
+=item B<-d delimiter>
+
+Specifies the input field delimiter.  Valid delimiters include the
+following characters: tab ('\t'), space (' '), comma (','), colon
+(':'), semi-colon (';'), equal ('='), and pipe ('|').  The default
+delimiter is a pipe.  Note that parse errors are likely to occur if
+the specified delimiter appears in any of the field values.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file. A value of '-' will cause the
+program to read from stdin.
+
+=item B<[-I pattern]>
+
+Specifies a regular expression pattern that is used to ignore matching
+input lines.
+
+=item B<[-i count]>
+
+Specifies the number of leading input lines to ignore.
+
+=item B<-L field,[field[,...]]>
+
+Specifies the list of output fields.  The order of the fields in this
+list determines their order in the output.  Fields in the input that
+are omitted from this list will be omitted from the output.  If the
+template option (B<-t>) is used, it takes precedence over this option.
+
+=item B<-l field,[field[,...]]>
+
+Specifies the list of valid input fields.  This option is only needed
+in cases where the input contains fields not known to FTimes.  If the
+input contains fields not known to FTimes or specified in this list,
+the script will abort.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item AddDepth
+
+Count the number of path elements in the name field and place the
+result into the depth field.  Note that the root path (i.e., '/')
+is not considered a path element for this calculation.  For Windows
+paths, the drive specification (e.g., 'C:') is deemed to be part
+of the root path.  Consequently, names such as '/foo', '\foo', and
+'C:\foo' will yield a depth of one.
+
+=item BeQuiet
+
+Don't print warning messages.
+
+=item CountTops
+
+Count the number of records that belong to each top-level (i.e.,
+left-most) path element in a given name as calculated by the depth
+function.  Note that the 'AddDepth' option is implicitly activated
+whenever this option is enabled.  Once all record processing is
+complete, a set of key/value pairs in the format shown below is
+logged to stderr in descending count order.
+
+    Top='<top>'; Count='<count>';
+
+=item DecodeAttributes
+
+Convert attributes into a human-readable form.
+
+=item DecodeMode
+
+Convert mode into a human-readable form -- similar to the output
+produced by ls(1).
+
+=item DeNeuter
+
+Remove URL encoding from the name and string fields, when present.
+Note that this may cause issues with how the output is rendered
+on your terminal (e.g., neutered values can contain special or
+non-printable characters).  You may selectively deneuter a given
+field using the following qualifying syntax:
+
+    -o DeNeuter:<field>
+
+where <field> is one of 'name' or 'string'.
+
+=item DeriveFields
+
+Assume there is no header, and create field names based on the numeric
+position of each field found in the first record.  The first field
+name would be '1', the second '2', and so on.  These fields may be
+accessed and/or operated on in a split-record eval-block using the
+standard notation (e.g., $R{'1'}).  They may also be used in output
+templates (e.g., %1). Refer to the B<-s> and B<-t> options for
+additional details.
+
+=item DeriveHeader
+
+Construct an artificial header from the list of input fields specified
+in the B<-l> command line argument and insert it into the input
+stream.  This option is useful in cases where the input file does not
+contain its own header.  The artificial header is constructed by
+joining the input fields (in the order they were specified) with the
+input delimiter (see B<-d> option).  Once inserted into the input
+stream, this header is subject to pre- and post-header eval-block
+operations (see B<-B> and B<-A> options, respectively).
+
+=item HexDump[:{string}]
+
+Insert a hex dump of the specified field's bytes into the output
+stream.
+
+=item NoHeader
+
+Don't print an output header.  Note that this overrides all other
+header transformations.
+
+=item NoQuotes
+
+Remove the double quotes that FTimes wraps around each name field.
+
+=item ParseName
+
+Split the name field into its components and place the results into
+the following fields: directory, filename, basename, and extension.
+The following regular expression is used to pick off the extension:
+
+    [.][^.]*$
+
+=item ParseOffset
+
+Convert the offset field from its default base to octal, decimal,
+and hexadecimal and place the results into the following fields,
+respectively: oct_offset, dec_offset, and hex_offset.  Values
+prefixed with '0x' will be treated as hexadecimal; those prefixed
+with a single leading '0' will be treated as octal; all others will
+be treated as decimal.  The default format for each field is "%o",
+"%d", and "%x", respectively.  If a different format is desired
+the 'OctFormat', 'DecFormat', or 'HexFormat' properties may be
+altered using a pre-header eval-block (i.e., B<-B>).  For example,
+the eval-block shown below causes the hex_offset field to be padded
+with leading zeros out to 8 upper case digits.
+
+    -B '$$phProperties{"HexFormat"} = "%08X";'
+
+=back
+
+=item B<-p count>
+
+Specifies a path strip count.  This value can be used to strip away
+leading path components in the name field.  This is useful in cases
+where you want to compare two snapshots that begin with different
+prefixes.  If the strip count is too high, the name field for various
+records will be obliterated, and that, in turn, will result in no
+output being printed for the affected records.
+
+=item B<-S eval-block>
+
+Specifies a split-header eval-block to be executed by Perl once the
+header fields have been split.  The eval-block operates on values
+stored in the '%H' hash.  The members of the hash are the field names
+obtained from the header line of the input file (e.g., $H{'name'},
+$H{'size'}, etc.).  Refer to the token lists documented in the B<-t>
+description for the complete list of FTimes fields.
+
+=item B<-s eval-block>
+
+Specifies a split-record eval-block to be executed by Perl once the
+record fields have been split.  The eval-block operates on values
+stored in the '%R' hash.  The members of the hash are the field names
+obtained from the header line of the input file (e.g., $R{'name'},
+$R{'size'}, etc.).  Refer to the token lists documented in the B<-t>
+description for the complete list of FTimes fields.
+
+=item B<-t template>
+
+Specifies a template for an alternate output format.  All occurrences
+of '\n', '\r', or '\t' will be converted to newline, carriage return,
+and tab, respectively.  The value '%%' will be converted to '%'.
+
+The following tokens, given that they are defined, may be used to
+create custom templates: %altstreams, %ams, %atime, %attributes,
+%basename %category, %changed, %chms, %chtime, %cms, %ctime,
+%ctx_offset, %ctx_string, %dev, %depth, %dig_name, %dig_offset,
+%dig_string, %directory, %extension, %filename, %findex, %gid,
+%hostname, %inode, %joiner, %lh_length, %magic, %md5, %mh_length,
+%mms, %mode, %mtime, %name, %nlink, %offset, %rdev, %records,
+%rh_length, %sha1, %sha256, %size, %string, %tag, %type, %uid,
+%unknown, %volume, %z_altstreams, %z_ams, %z_atime, %z_attributes,
+%z_chms, %z_chtime, %z_cms, %z_ctime, %z_dev, %z_findex, %z_gid,
+%z_inode, %z_magic, %z_md5, %z_mms, %z_mode, %z_mtime, %z_name,
+%z_nlink, %z_rdev, %z_sha1, %z_sha256, %z_size, %z_uid, and
+%z_volume.
+
+Note that the %directory, %filename, %basename, and %extension fields
+are defined only when the name field is in the input stream and the
+'ParseName' option is enabled.
+
+Note that the %depth field is defined only when the name field is
+in the input stream and the 'AddDepth' option is enabled.
+
+If the B<DeriveFields> option was specified, the tokens %1, %2, etc.
+will also be available for use.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

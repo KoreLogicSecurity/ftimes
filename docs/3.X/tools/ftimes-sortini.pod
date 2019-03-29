@@ -1,0 +1,79 @@
+=pod
+
+=head1 NAME
+
+ftimes-sortini - Sort dig output by hostname, name, and offset
+
+=head1 SYNOPSIS
+
+B<ftimes-sortini> B<[-r]> B<[-m mode]> B<[-s sort-utility]> B<[-T tmp-dir]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility sorts dig output by hostname (when present), name, and
+offset.  The input format can vary so long as it contains at least the
+'name' and 'offset' fields.  The two most common formats are:
+
+    name|type|tag|offset|string
+
+and
+
+    hostname|name|type|tag|offset|string|joiner
+
+The first is produced by ftimes(1) and hipdig(1), and the second is
+produced by ftimes-dig2dbi(1).
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.  A value of '-' will cause the
+program to read from stdin.
+
+=item B<-m mode>
+
+Sets the sort mode, which can be one of {e|ext|external} or
+{i|int|internal}.  The default mode is external.
+
+=item B<-r>
+
+Causes the input to be sorted in reverse order.
+
+=item B<-s sort-utility>
+
+Specifies the name of an alternate sort utility.  Names specified
+without a path should work if they can be found using the PATH
+environment variable.  GNU sort is the expected sort utility, but
+alternate utilities can be used if they support the '-k', '-r', '-T',
+and '-t' options in the same manner as the GNU implementation.
+
+=item B<-T tmp-dir>
+
+Specifies the directory sort(1) should use as its temporary work area.
+The default directory is that assigned to the TMPDIR environment
+variable, or /tmp if TMPDIR is not set.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1), ftimes-dig2dbi(1), hipdig(1)
+
+=head1 HISTORY
+
+This utility was initially written to support ftimes-proximo(1).
+
+This utility first appeared in FTimes 3.9.0.
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

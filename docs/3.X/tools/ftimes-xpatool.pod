@@ -1,0 +1,63 @@
+=pod
+
+=head1 NAME
+
+ftimes-xpatool - Manipulate XPA archives
+
+=head1 SYNOPSIS
+
+B<ftimes-xpatool> <{-d|--dump}> B<[-C dir]> B<[-o option[,option[,...]]]> B<-a {archive|-}>
+
+B<ftimes-xpatool> <{-f|--fold}> B<[-C dir]> B<[-o option[,option[,...]]]> B<-a {archive|-}>
+
+B<ftimes-xpatool> <{-l|--list}> B<-a {archive|-}>
+
+B<ftimes-xpatool> <{-t|--test}> B<-a {archive|-}>
+
+=head1 DESCRIPTION
+
+This utility manipulates XPA archives.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-a {archive|-}>
+
+Specifies the name of the XPA archive. A value of '-' will cause
+the program to read from stdin.
+
+=item B<-C dir>
+
+Specifies the name of a directory to change to prior to extracting
+archive members.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item ForceWrite
+
+Force existing files to be overwritten.  By default, no bundle member
+is extracted on top of an existing file.
+
+=back
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes-xpa(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+

@@ -1,0 +1,117 @@
+=pod
+
+=head1 NAME
+
+hashdig-resolve-sunsolve.pl - Resolve hashes against Sun's Solaris Fingerprint Database
+
+=head1 SYNOPSIS
+
+B<hashdig-resolve-sunsolve.pl> B<[-a]> B<[-c count]> B<[-d dir]> B<[-k count]> B<[-w count]> B<[-r block]> B<[-s count]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility resolves a list of hashes against Sun's Solaris
+Fingerprint Database. Input is expected to be plain text with one
+hash per line. Each line must match the following regular expression:
+
+    ^([0-9a-fA-F]{32})(?:\|[KU])?$
+
+Input that does not match this expression will cause the program
+to generate a warning. When the warning limit (see B<-w> option)
+has been exceeded, the program will abort.
+
+Output for each block of hashes is written to a pair of files in
+B<dir>. These files have the following naming convention:
+
+    hashdig-{getblock,sunsolve}.dddddd
+
+where 'dddddd' is a decimal number that represents the request ID.
+The first file, hashdig-getblock.dddddd, contains the list of hashes
+submitted. The second file, hashdig-sunsolve.dddddd, contains the
+raw HTML output returned by Sun's website.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-a>
+
+Enables auto-recover mode. Individual requests can fail from time
+to time, or the job may have been aborted or killed prior to
+completion. This option allows you to continue the resolution process
+where the last job left off. Along the way, it'll redo any getblocks
+that produced no output. The original output B<dir> must exist, and
+be specified if not the default value. More importantly, the original
+input must be used for this mode to work as intended.
+
+=item B<-c count>
+
+Specifies the number of hashes to include in each request. The default
+value is 256, which is the maximum number allowed by Sun.
+
+Note: If you intend to use the B<-a> option, you must use the same
+B<count> as was specified in the original job.
+
+=item B<-d dir>
+
+Specifies the name of the output directory. By default the output
+directory is called sunsolve. If the output directory exists, the
+program will abort.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file. A value of '-' will cause the
+program to read from stdin.
+
+=item B<-k count>
+
+Specifies the number of simultaneous kid processes to create -- one
+kid per request. The default value is 5.
+
+=item B<-r block>
+
+Specifies a particular request ID to redo. Individual requests can
+fail from time to time; this option allows you to selectively redo
+those requests as necessary. The original output B<dir> must exist,
+and be specified if not the default value. The B<file> argument
+should be the name of the original getblock file or '-' for stdin.
+However, no more than 256 valid records from the specified B<file>
+will be processed. Output will be written to the original sunsolve
+file whether it exists or not. A corresponding getblock file will
+be created only if it doesn't exist.
+
+=item B<-s count>
+
+Specifies the number of seconds to wait between subsequent requests.
+The default value is 0, which means do not wait.
+
+=item B<-w count>
+
+Specifies the number of warnings that will be tolerated before the
+program aborts. The default value is 1. If this option is set to
+0, no limit will be imposed.
+
+=back
+
+=head1 BUGS
+
+Under certain conditions (e.g., slow link, killed TCP sessions, too
+many kid processes, etc.), requests can fail without generating an
+error message. In these situations, output from the affected request
+is often invalid or incomplete. Currently, there is no mechanism
+to detect whether or not such is the case.
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+hashdig-dump(1), hashdig-harvest-sunsolve(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

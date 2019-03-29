@@ -1,0 +1,169 @@
+=pod
+
+=head1 NAME
+
+ftimes-encoder - Encode/Decode strings/records using various algorithms
+
+=head1 SYNOPSIS
+
+B<ftimes-encoder> B<[-o option[,option[,...]]]> B<[-t type]> B<[-x xformer[[:arg[,arg[...]][:slot]]]> B<-m mode> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility reads lines from a file or stdin and encodes or decodes
+them according to user-specified criteria.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.  A value of '-' will cause the
+program to read from stdin.
+
+=item B<-m mode>
+
+Specifies the mode of operation.  The mode can be one of
+{e|enc|encode}, {d|dec|decode}, or {c|con|convert}.  Note that the
+following conversion tuples are supported:
+
+    hex:base32      or  base32:hex
+    hex:base64      or  base64:hex
+    hex:base64url   or  base64url:hex
+    hex:ftimes-url  or  ftimes-url:hex
+    hex:url         or  url:hex
+
+Additionally, any type may be converted to itself (e.g., hex:hex).
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item NoNewline
+
+Don't add a newline character to the end of the output.  This option
+is primarily intended for single line decodes where the output is
+expected to be binary and subsequently redirected to a file or piped
+to another utility.  In both of these cases, the extra newline would
+be unwanted since it will pollute the output stream.
+
+=item OneString
+
+Treat the entire input stream as a single string.  This option is
+primarily intended for small- to medium-sized input streams that can
+easily be stored in memeory.
+
+=back
+
+=item B<-t type>
+
+Specifies the type of encoding or decoding to apply.  The type can be
+one of {b32,base32}, {b64,base64}, {b64url,base64url}, ftimes-nss,
+ftimes-sss, ftimes-url, hex, or url.  NSS is short for Neuter Safe
+String, and SSS is short for Shell Safe String.
+
+=item B<-x xformer[[:arg[,arg[...]][:slot]]>
+
+Specifies a transformer tuple used to manipulate the data before,
+between, or after the requested encoder, converter, or decoder
+operation where
+
+=over 4
+
+=item B<xformer[:arg[,arg[...]]]>
+
+Specifies a transformer function (including arguments if any) that is
+to be used to manipulate the data before encoding (in encode mode),
+after decoding (in decode mode), or between decoding/encoding (in
+convert mode).  Refer to the B<TRANSFORMERS> section for details
+on supported functions and their arguments.
+
+=item B<slot>
+
+Specifies the slot (or relative order) of this particular transformer
+when multiple transformers are in play.  For example, transformers
+with user-specified slots of 1, 2, and 3 will be executed 1st, 2nd,
+and 3rd, respectively.  If B<slot> is not specified, it will be
+assigned based on the order in which B<-x> arguments are processed.
+Numbering begins at 1 and increments by 1 thereafter.
+
+Note that the B<slot> designator is reserved for future use.  Thus,
+only one B<-x> argument per invocation is supported at this time.
+If multiple B<-x> arguments are specified, only the last one will
+be recognized.
+
+=back
+
+=back
+
+=head1 TRANSFORMERS
+
+Each transformer has an implicit B<data> argument, which is supplied
+as the first argument by this script.
+
+=over 4
+
+=item B<and(key)>
+
+This transformer ANDs each byte (or block of bytes) using the
+specified B<key>, which is expected to be a hex byte sequence of
+arbitrary size.  The size of the B<key> establishes the block size.
+If not specified, a default value of 0xff is used as the B<key>,
+which effectively makes this transformer perform the same as nop().
+
+=item B<nop()>
+
+This transformer does nothing.
+
+=item B<rot13()>
+
+This transformer performs the ROT13 substitution cipher on qualified
+bytes (i.e., bytes that map to characters in the set [A-Za-z]).
+
+=item B<rot47()>
+
+This transformer performs the ROT47 substitution cipher on qualified
+bytes (i.e., bytes that map to characters in the set [!-~]).
+
+=item B<not()>
+
+This transformer inverts (i.e., performs a 1's complement on)
+every byte.
+
+=item B<xor(key, padding)>
+
+This transformer XORs each byte (or block of bytes) using the
+specified B<key>, which is expected to be a hex byte sequence of
+arbitrary size.  The size of the B<key> establishes the block size.
+If not specified, a default value of 0x00 is used as the B<key>,
+which effectively makes this transformer perform the same as nop().
+
+If B<padding> is required, it must be specified as a hex byte
+sequence of arbitrary size.  Note that padding is only appended to
+B<data> if the result of (B<data> % B<key>) yields a remainder.
+Since any number mod 1 equals 0, do not expect padding to be
+appended when the key size is 1 byte.  Extra padding (i.e., anything
+beyond what is needed to reach the next block boundary) is ignored.
+If the B<data> buffer size is already an integral multiple of the
+block size, no padding will be added (even if it was specified).
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1), ftimes-xformer(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

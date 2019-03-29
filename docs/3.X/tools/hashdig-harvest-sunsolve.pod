@@ -1,0 +1,79 @@
+=pod
+
+=head1 NAME
+
+hashdig-harvest-sunsolve.pl - Harvest hashes from a directory of sunsolve output
+
+=head1 SYNOPSIS
+
+B<hashdig-harvest-sunsolve.pl> B<[-c {A|K|U}]> B<[-q]> B<[-s file]> B<[-T dir]> B<-o {file|-}> B<dir>
+
+=head1 DESCRIPTION
+
+This utility extracts MD5 hashes from a directory of files created
+by hashdig-resolve-sunsolve(1), filters them by category (see B<-c>),
+and writes the results to the specified output file (see B<-o>).
+Output is a sorted list of hash/category pairs having the following
+format:
+
+    hash|category
+
+Input files located in B<dir> are expected to contain HTML and have
+names that match the following regular expression:
+
+    ^hashdig-sunsolve.\d+$
+
+Filenames that do not match this expression are silently ignored.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-c category>
+
+Specifies the hash category, {A|K|U}, that is to be harvested.
+Currently, the following categories are supported: all (A), known
+(K), and unknown (U). The default category is known. Output returned
+by sunsolve specifies the number of times a given hash matched
+something in Sun's Solaris Fingerprint Database. Thus, if the number
+of matches is zero, the hash is tagged as unknown. Otherwise, it
+is tagged as known.
+
+=item B<-o {file|-}>
+
+Specifies the name of the output file. A value of '-' will cause
+the program to write to stdout.
+
+=item B<-q>
+
+Don't report errors (i.e., be quiet) while processing files.
+
+=item B<-s file>
+
+Specifies the name of an alternate sort utility. Relative paths are
+affected by your PATH envrionment variable. Alternate sort utilities
+must support the C<-o>, C<-T> and C<-u> options. This program was
+designed to work with GNU sort.
+
+=item B<-T dir>
+
+Specifies the directory sort should use as a temporary work area.
+The default directory is that specified by the TMPDIR environment
+variable, or /tmp if TMPDIR is not set.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+hashdig-harvest(1), hashdig-make(1), hashdig-resolve-sunsolve(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

@@ -1,0 +1,191 @@
+=pod
+
+=head1 NAME
+
+ftimes-crv2raw.pl - Carve blocks of data and assemble them into raw files
+
+=head1 SYNOPSIS
+
+B<ftimes-crv2raw.pl> B<[-FmU]> B<[-d dir]> B<[-e limit]> B<[-i count]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility carves blocks of data and assembles them into raw files.
+Input is taken from a '.crv' file, which has the following format:
+
+    name|type|offset|unit_size|range_list
+
+where
+
+=over 4
+
+=item name
+
+This field contains the URL-encoded name of the subject file.  This is
+the file that contains the data you wish to carve.  This field must
+conform to the following syntax:
+
+    "<name|path>"
+
+If your '.crv' file does not use URL-encoded name fields, you should
+also specify the B<-U> option to disable automatic URL-decoding.  If
+only a name is specified, the corresponding subject file must reside
+in the current working directory.  Both relative and full paths are
+supported.
+
+Note: The quotes in the above syntax are a required part of the field.
+
+=item type
+
+This field specifies the file type that is being carved from the
+subject.  The value for this field is used as an extension, and it is
+appended to the end of the output filename.  Type values are
+restricted to the following character set: [0-9A-Za-z_.-]
+
+=item offset
+
+This field specifies the SOF (Start Of File) offset (in bytes)
+relative to the beginning of the subject file.  The value for this
+field is used as a suffix, and it is appended to the end of the output
+filename.
+
+=item unit_size
+
+This field specifies the unit size (in bytes) of the blocks in the
+range_list.  This value must be one or a nonzero multiple of two.
+
+=item range_list
+
+This field contains a comma delimited (with no intervening whitespace)
+list of blocks or ranges that are to be carved.  The required syntax
+is as follows:
+
+    lower[[-upper][,lower[-upper]]...]
+
+As a convenience, a value may contain the %LAST token.  Prior to the
+carve operation, this value will be replaced with the actual offset of
+the last block.  Note, however, that the resulting expression must
+still represent a valid range list.
+
+If a lower range value is specified without a corresponding upper
+range value, the lower and upper values are assumed to be equal.  For
+example, the following range list:
+
+    0,512,1024
+
+is equivalent to:
+
+    0-0,512-512,1024-1024
+
+The amount of data that will be carved for a given range is computed
+as follows:
+
+    carve_amount = (upper - lower + 1) * unit_size
+
+Range lists are carved on a FIFO basis.  This makes it possible to
+assemble carved blocks in any arbitrary order -- simply specify the
+desired carve order when creating the '.crv' file.  For example, given
+a unit_size of one and the following range list:
+
+    512-1023,0-511,1024-1535
+
+the carver will extract and assemble bytes 512-1023 first, bytes 0-511
+second, and bytes 1024-1535 third.  Effectively, this represents a
+block ordering of 2,1,3.  This stands in contrast to the following
+range list, which has a block ordering of 1,2,3:
+
+    0-511,512-1023,1024-1535
+
+=back
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d dir>
+
+Specifies the name of the output directory.  This is where carved
+files will be stored.  If no directory is specified, a default
+directory called 'carve_tree' is created in the current working
+directory.  Carved output files are stored in directories/files that
+are derived from the subject name (and path) with intermediate
+directories being created as necessary.  The leading path prefix, if
+any, is removed in the process so that all output files are contained
+within the carve tree.  For example, the following input:
+
+    "/evidence_locker_1/subject_1"|doc|26214400|512|51200-51220
+    "/evidence_locker_2/subject_1"|doc|23533568|1|23533568-23544319
+    "/evidence_locker_2/subject_2"|zip|11776256|1|11776256-11829164
+
+will yield the following carve tree:
+
+    carve_tree
+      |
+      + evidence_locker_1
+      |   |
+      |   - subject_1_26214400.doc (10752 bytes)
+      |
+      + evidence_locker_2
+          |
+          - subject_1_23533568.doc (10752 bytes)
+          - subject_2_23552512.zip (52909 bytes)
+
+Note: Unless the B<-F> is specified, this utility will abort if a file
+in the output directory already exists.
+
+=item B<-e limit>
+
+Specifies the number of errors to allow before the carver will abort.
+The default value is 1.  A value of zero means do not impose an error
+limit.
+
+=item B<-F>
+
+Force existing output files to be overwritten.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.  A value of '-' will cause input
+to be read from stdin.
+
+=item B<-i count>
+
+Specifies the number of input lines to ignore.  By default, no lines
+are ignored.
+
+=item B<-m>
+
+Causes the carver to display various map attributes for each file
+carved.  This output is roughly equivalent to the following FTimes
+FieldMask:
+
+    none+size+md5+sha1
+
+However, there are two differences between this output and regular
+FTimes output: the name field is not URL-encoded, and it may be
+specified as a relative path (depending on how it was specified in the
+'.crv' file).
+
+=item B<-U>
+
+Do not attempt to URL-decode filenames -- i.e., assume that they are
+not encoded.  This option is useful when you want to supply input from
+a source other than FTimes-based utilities, which typically URL-encode
+filenames.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

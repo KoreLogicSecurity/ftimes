@@ -1,0 +1,140 @@
+=head1 NAME
+
+B<FTimesSrm> - Selectively remove enumerated files.
+
+=head1 SYNOPSIS
+
+B<ftimes-srm> B<[OPTION [...]]> -- B<{-|snapshot} [snapshot [...]]>
+
+B<ftimes-srm> B<{-v|--version}>
+
+=head1 DESCRIPTION
+
+The B<FTimesSrm> utility reads the contents of stdin and/or one or
+more FTimes snapshots and selectively removes the files enumerated
+within each.  Removal constraints are controlled through the
+B<FieldMask>, which has a default value of 'none+size+md5+sha1'.
+
+=head1 MODES OF OPERATION
+
+The modes of operation described in this section are mutually
+exclusive.  In other words, only one mode may be specified per
+invocation.
+
+=over 5
+
+=item B<{-|snapshot} [snapshot [...]]>
+
+Read the contents of one or more snapshots and selectively remove
+enumerated files using the attributes specified in the B<FieldMask>
+as constraints.
+
+=item B<{-v|--version}>
+
+Display version information and exit.
+
+=back
+
+=head1 OPTIONS
+
+=over 5
+
+=item B<{-1|--log-to-stdout}>
+
+Log errors to stdout rather than stderr, which is the default.
+
+=item B<{-m|--mask} {all|none}[{+|-}<field>[...]]>
+
+The B<FieldMask> specifies the attributes to be used in determining
+whether or not a given file is removed.  If the current set of
+attributes matches those specified in a given snapshot, the file is
+slated for removal.  Otherwise, the file's removal is abandoned.  A
+mask of 'none' causes files to be removed based on their name alone.
+The following fields are supported:
+
+    md5
+    sha1
+    sha256
+    size
+
+=item B<{-n|--dry-run}>
+
+Perform a dry run.  Don't actually remove any files.  Rather,
+generate output indicating what action(s) would be taken barring
+any technical issues.
+
+=back
+
+=head1 RETURN VALUES
+
+Upon successful completion, a value of B<0> (B<XER_OK>) is returned.
+Otherwise, one of the following error codes is returned:
+
+=over 5
+
+=item *
+
+B<1 => B<XER_Usage>
+
+=item *
+
+B<2 => B<XER_Abort>
+
+=item *
+
+B<3 => B<XER_BootStrap>
+
+=item *
+
+B<4 => B<XER_ProcessArguments>
+
+=back
+
+=head1 EXAMPLES
+
+=head2 Example 1. Normal Operation
+
+This example demonstrates how to remove files whose attributes match
+values specified in an B<FTimes> snapshot called 'snapshot.map'.
+
+Assume that the snapshot contains the following records:
+
+    --- snapshot.map ---
+    name|size|md5|sha1
+    "/tmp/foo"|5|aba0f47afec9a5d52812ace09d226641|74a39bb962c5f40b0c6ab1db1704405d33814b50
+    "/tmp/bar"|5|fe3fe3cd810a420a0d0be3be535d1c3e|d3e67cc9b12f89555a62e56149ca5db3fa80fb8a
+    "/tmp/com"|5|1cf92b09e67425473e9432657cca85bf|fb044d1d79299e9ff2dbf78dabc3e811cd49dd3a
+    --- snapshot.map ---
+
+Suppose you wish to remove all files whose size and MD5 hash match
+the values found in the snapshot.  The commands presented below
+provide equivalent ways to achieve that end goal:
+
+    ftimes-srm -m none+size+md5 snapshot.map
+or
+    ftimes-srm -m all-hashes+md5 snapshot.map
+or
+    ftimes-srm -m all-sha1-sha256 snapshot.map
+or
+    ftimes-xformer -f snapshot.map -L name,size,md5 | ftimes-srm -m none+size+md5 -
+
+If you wanted to take a more cautious approach, you could try a
+dry run simply by adding the B<--dry-run> (or B<-n>) option like so:
+
+    ftimes-srm -m none+size+md5 --dry-run snapshot.map
+
+=head1 SEE ALSO
+
+ftimes(1), ftimes-xformer(1), rm(1)
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 HISTORY
+
+This utility was initially written to selectively remove a large
+number of old files spread out over multiple shares/directories.
+
+This utility first appeared in B<FTimes> 3.12.0.
+

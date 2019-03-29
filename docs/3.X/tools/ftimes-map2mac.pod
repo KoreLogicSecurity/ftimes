@@ -1,0 +1,90 @@
+=pod
+
+=head1 NAME
+
+ftimes-map2mac.pl - Create MAC/MACH timelines using FTimes map data
+
+=head1 SYNOPSIS
+
+B<ftimes-map2mac.pl> B<{-e|--extsort}> B<[-d]> B<[-m]> B<[-q]> B<[-r]> B<[-s file]> B<[-T dir]> B<[-w]> B<-f {file|-}>
+
+B<ftimes-map2mac.pl> B<{-i|--intsort}> B<[-d]> B<[-m]> B<[-q]> B<[-r]> B<[-w]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility takes FTimes map data as input and produces a MAC or
+MACH timeline as output. The letters M, A, and C, have the usual
+meanings -- i.e., mtime, atime, and ctime. The H in MACH stands for
+chtime which is NTFS specific. Output is written to stdout and has
+the following format:
+
+    datetime|mac/mach|name
+
+Two sorting methods are supported: external and internal. The
+internal sorting method constructs timelines entirely within core
+memory. While this method is self-contained, its effectiveness
+deteriorates as the amount of data increases. The external sorting
+method, on the other hand, requires an external sort utility, but
+it is generally faster and can handle large data sets more effectively.
+The external sorting method was designed to work with GNU sort.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d>
+
+Enables URL decoding of filenames.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file. A value of '-' will cause the
+program to read from stdin.
+
+=item B<-m>
+
+Causes milliseconds to be included in the timeline. This option is
+specific to WINX map data, and it is silently ignored if C<-w> is not
+specified also.
+
+=item B<-q>
+
+Don't report errors (i.e., be quiet) while processing files.
+
+=item B<-r>
+
+Causes timeline to be output in reverse time order.
+
+=item B<-s file>
+
+Specifies the name of an alternate sort utility. Relative paths are
+affected by your PATH environment variable. Alternate sort utilities
+must support the C<-r>, C<-T>, and C<-u> options. This program's
+external sorting method was designed to work with GNU sort.
+
+=item B<-T dir>
+
+Specifies the directory sort should use as a temporary work area.
+The default directory is that specified by the TMPDIR environment
+variable, or /tmp if TMPDIR is not set.
+
+=item B<-w>
+
+Enables support for WINX map data.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

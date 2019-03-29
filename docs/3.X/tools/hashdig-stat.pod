@@ -1,0 +1,49 @@
+=pod
+
+=head1 NAME
+
+hashdig-stat.pl - Produce statistics on HashDig files
+
+=head1 SYNOPSIS
+
+B<hashdig-stat.pl> B<[-t {db|hd}]> B<file> B<[file ...]>
+
+=head1 DESCRIPTION
+
+This utility counts the number of known and unknown hashes in a
+HashDig file (either DB or HD format) and generates a report. Output
+is written to stdout and has the following fields: KCount, UCount,
+ICount, ACount, and Filename. The K, U, I, and A counts are short for
+known, unknown, indeterminate, and all, respectively.
+
+A non-zero ICount indicates that there were one or more parse errors
+within a given file. If this happens, check the file's integrity to
+ensure that it hasn't become corrupt.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-t {db|hd}>
+
+Specifies the type of files that are to be processed. All files
+processed in a given invocation must be of the same type. Currently,
+the following types are supported: DB and HD. The value for this
+option is not case sensitive.
+
+=back
+
+=head1 AUTHORS
+
+Andy Bair and Klayton Monroe
+
+=head1 SEE ALSO
+
+hashdig-dump(1), hashdig-make(1), hashdig-harvest(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

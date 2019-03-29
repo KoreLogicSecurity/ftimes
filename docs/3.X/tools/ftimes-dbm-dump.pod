@@ -1,0 +1,83 @@
+=pod
+
+=head1 NAME
+
+ftimes-dbm-dump - Enumerate a Berkeley database
+
+=head1 SYNOPSIS
+
+B<ftimes-dbm-dump> B<[-M pattern]> B<[-m pattern-file]> B<[-o option[,option[,...]]]> B<-d db>
+
+=head1 DESCRIPTION
+
+This utility enumerates a Berkeley database that has been created with
+ftimes-dbm-make(1).  Output is written to stdout and has the following
+format:
+
+    key|value
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d db>
+
+Specifies the name of the database to dump.
+
+=item B<-M>
+
+Specifies a pattern that is to be applied to the values.  The output
+records for any values not matched by the pattern will be discarded.
+Use the B<InvertMatch> option to invert the sense of the match.
+
+=item B<-m>
+
+Specifies a file containing zero or more patterns, one per line, that
+are to be applied to the values.  The output records for any values
+matched by the patterns will be discarded.  Use the B<InvertMatch>
+option to invert the sense of the match.  Use the B<MatchKeys> option
+to apply pattern matching to keys instead of values.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently the following
+options are supported:
+
+=over 4
+
+=item KeysOnly
+
+Output keys only.  By default, both keys and values are written to
+stdout.
+
+=item MatchKeys
+
+Apply pattern matching to keys instead of values.
+
+=item InvertMatch
+
+Invert the sense of pattern matching.
+
+=item ReverseFields
+
+Output keys and values in the reverse order (i.e., value|key).  This
+option is silently ignored if the B<KeysOnly> option has been set.
+
+=back
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes-dbm-dump(1), ftimes-dbm-make(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

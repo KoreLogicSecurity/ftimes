@@ -1,0 +1,129 @@
+=head1 NAME
+
+B<TarMap> - Map the contents of a tar archive
+
+=head1 SYNOPSIS
+
+B<tarmap> B<{-m|--map}> B<{-f|--file}> B<file|->
+
+B<tarmap> B<{-v|--version}>
+
+Note: Command line arguments are position dependent, and argument
+snuggling (e.g., '-mf') is not supported.  All arguments and their
+values (if any) must be separated by whitespace.
+
+=head1 DESCRIPTION
+
+B<TarMap> is a utility for mapping the files in a tar archive without
+having to unpack and write them to disk first.  The output produced by
+this utility is roughly equivalent to FTimes output produced with the
+following FieldMask:
+
+    none+size+md5+sha1
+
+=head1 MODES OF OPERATION
+
+The modes of operation described in this section are mutually
+exclusive.  In other words, only one mode may be specified per
+invocation.
+
+=over 5
+
+=item B<{-m|--map}> B<{-f|--file}> B<file|->
+
+Map the contents of the specified B<file>.
+
+=item B<{-v|--version}>
+
+Display version information and exit.
+
+=back
+
+=head1 RETURN VALUES
+
+Upon successful completion, a value of B<0> (B<XER_OK>) is returned.
+Otherwise, one of the following error codes is returned:
+
+=over 5
+
+=item *
+
+B<1 => B<XER_Usage>
+
+=item *
+
+B<2 => B<XER_BootStrap>
+
+=item *
+
+B<3 => B<XER_ProcessArguments>
+
+=item *
+
+B<4 => B<XER_WorkHorse>
+
+=item *
+
+B<5 => B<XER_RunMode>
+
+=back
+
+=head1 EXAMPLES
+
+=head2 Example 1. Map the contents of a normal tar ball
+
+This example demonstrates how to map the contents of a normal tar ball
+called test.tar.
+
+    tarmap -m -f test.tar
+
+=head2 Example 2. Map the contents of a compress'd tar ball
+
+This example demonstrates how to map the contents of a compress'd tar
+ball called test.tar.Z.
+
+    uncompress -c test.tar.Z | tarmap -m -f -
+
+=head2 Example 3. Map the contents of a gzip'd tar ball
+
+This example demonstrates how to map the contents of a gzip'd tar ball
+called test.tar.gz.
+
+    gunzip -c test.tar.gz | tarmap -m -f -
+
+=head2 Example 4. Map the contents of a bzip2'd tar ball
+
+This example demonstrates how to map the contents of a bzip2'd tar
+ball called test.tar.bz2.
+
+    bunzip -c test.tar.bz2 | tarmap -m -f -
+
+=head2 Example 5. Compare the contents of two tar balls
+
+This example demonstrates how to use tarmap and ftimes to compare the
+contents of two tar balls called test.old.tgz and test.new.tgz.
+
+    gunzip -c test.old.tgz | tarmap -m -f - > test.old.map
+    gunzip -c test.new.tgz | tarmap -m -f - > test.new.map
+    ftimes --compare all test.old.map test.new.map
+
+=head1 SEE ALSO
+
+bunzip2(1), ftimes(1), gunzip(1), uncompress(1)
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 HISTORY
+
+This utility was initially written to help determine if any files on a
+system with no prior baseline had been changed.  While the system in
+question didn't have a baseline, it did have several tar ball backups.
+The main issue was that the backups were so large that extracting them
+to temporary storage first would have been impractical.  This utility,
+allowed us to avoid that issue by directly processing an uncompressed
+stream of the backup (e.g., via gunzip or bunzip2).
+
+This utility first appeared in B<FTimes> 3.8.0.
+

@@ -1,0 +1,82 @@
+=pod
+
+=head1 NAME
+
+hashdig-find.pl - Find one or more hashes in a HashDig database
+
+=head1 SYNOPSIS
+
+B<hashdig-find.pl> B<[-qr]> B<[-a hash-type]> B<[-c {A|K|U}]> B<-d db> B<hash [hash ...]>
+
+=head1 DESCRIPTION
+
+This utility searches for a list of hashes from a HashDig database
+that has been created with hashdig-make(1). MD5 hashes must match the
+following regular expression:
+
+    ^[0-9a-fA-F]{32}$
+
+SHA1 hashes, must match the following regular expression:
+
+    ^[0-9a-fA-F]{40}$
+
+SHA256 hashes, must match the following regular expression:
+
+    ^[0-9a-fA-F]{64}$
+
+Input that does not match the required expression will cause the
+program to generate an error message, which will be conditionally
+printed based on whether or not the B<-q> flag has been set.
+
+The output produced by this utility has the following format:
+
+    hash|category|db
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-a hash-type>
+
+Specifies the type of hashes that are to be sought. Currently, the
+following hash types (or algorithms) are supported: 'MD5', 'SHA1', and
+'SHA256'. The default hash type is that specified by the HASH_TYPE
+environment variable or 'MD5' if HASH_TYPE is not set. The value for
+this option is not case sensitive.
+
+=item B<-c category>
+
+Specifies the hash category, {A|K|U}, to enumerate. Currently, the
+following categories are supported: all (A), known (K), and unknown
+(U). The default category is all.
+
+=item B<-d db>
+
+Specifies the name of the database to search.
+
+=item B<-q>
+
+Don't report errors (i.e., be quiet) while processing input.
+
+=item B<-r>
+
+Reverse the meaning of the B<db> and B<hash> arguments. This option
+allows you to search for a single hash in one or more HashDig
+databases.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+hashdig-dump(1), hashdig-make(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

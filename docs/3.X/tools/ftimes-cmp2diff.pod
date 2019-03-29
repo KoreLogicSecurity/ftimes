@@ -1,0 +1,144 @@
+=pod
+
+=head1 NAME
+
+ftimes-cmp2diff - Display diff-like results of an FTimes comparison
+
+=head1 SYNOPSIS
+
+B<ftimes-cmp2diff> B<[-c {compare|-}]> B<[-e {field|name:expr}[,{field|name:expr}[,...]]]> B<[-f format]> B<[-g group-file]> B<[-H ftimes-home]> B<[-m mask]> B<[-o option[,option[,...]]]> B<[-p password-file]> B<-b baseline> B<-s snapshot>
+
+=head1 DESCRIPTION
+
+This utility takes baseline and snapshot map files as input, compares
+them using a specified or derived field mask, and displays the results
+in a diff-like format.  This allows the user to see the details about
+what fields changed and how.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-b baseline>
+
+Specifies the name of an FTimes baseline map file.
+
+=item B<-c {compare|-}>
+
+Specifies the name of an FTimes compare file produced by comparing the
+snapshot to the baseline.  A value of '-' will cause the program to
+read from stdin.
+
+=item B<-e {field|name:expr}[,{field|name:expr}[,...]]>
+
+Specifies a list of map fields to exclude.  Differences for any
+field in this list except the name field will be ignored.  For the
+name field, the accompanying Perl regular expression governs whether
+or not a given record will be ignored/discarded.  Any record with
+name value that matches one of the supplied name expressions will
+be discarded.  Note that commas (i.e., ',') in expressions must
+be encoded as '\x2c' to prevent them from being interpolated as a
+field list delimiter.
+
+=item B<-f format>
+
+Specifies the type of diff format to display.  The format can be one
+of {f|field} or {s|short}.  The default value is 'short'.
+
+=item B<-g group-file>
+
+Specifies the name of a group file, in the traditional UNIX format, to
+use for decoding GIDs.
+
+=item B<-H ftimes-home>
+
+Specifies the location of FTimes components on the client system.  The
+default value is 'C:\Program Files\FTimes' and '/usr/local/ftimes' for
+WINX and UNIX platforms, respectively.
+
+=item B<-m mask>
+
+Specifies the field mask to use when generating output.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't report warnings (i.e., be quiet) while processing files/data.
+
+=item ForceBuild
+
+Force the decoding of map files and creation of offsets files even if
+they already exist.
+
+=item ForceClean
+
+Remove decoded map and offsets files upon program completion.
+
+=item GidDecode
+
+Converts the gid field into the name assigned to the corresponding
+group. Note that a value of '?' indicates that the decode operation
+failed.
+
+=item ModeDecode
+
+Converts the mode field into a standard UNIX representation (e.g.,
+'-rwxr-xr-x').
+
+=item NoDecode
+
+Do not decode the map files (i.e., assume that the baseline and
+snapshot are already decoded).
+
+Note: If you enable this option and fail to specify decoded map files,
+don't expect valid results.
+
+=item UidDecode
+
+Converts the uid field into the name assigned to the corresponding
+user. Note that a value of '?' indicates that the decode operation
+failed.
+
+=item UseBigIntegers
+
+Activate and use the Math::BigInt module for handling offset
+conversions.  Generally, this option should only be used for
+backwards compatibility on 32-bit platforms.  Enabling this option
+will impact performance, so use it only when necessary.
+
+=back
+
+=item B<-p password-file>
+
+Specifies the name of a password file, in the traditional UNIX format,
+to use for decoding UIDs.
+
+=item B<-s snapshot>
+
+Specifies the name of an FTimes snapshot map file.
+
+Note: While not strictly required, it's best if the field mask used
+when taking the snapshot matches the one used to create the baseline.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe and Jason Smith
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

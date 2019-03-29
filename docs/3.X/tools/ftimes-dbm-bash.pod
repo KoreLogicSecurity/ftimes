@@ -1,0 +1,58 @@
+=pod
+
+=head1 NAME
+
+ftimes-dbm-bash - Bash one Berkeley database against another
+
+=head1 SYNOPSIS
+
+B<ftimes-dbm-bash> B<[-i {REFERENCE|SUBJECT}]> B<-r db> B<-s db>
+
+=head1 DESCRIPTION
+
+This utility compares keys in the subject database to those in the
+reference database and updates subject values with values from the
+reference database.  The primary rule of engagement is that the value
+for a given reference key trumps the value for the corresponding
+subject key.  The reference database is not altered during this
+process.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-i {REFERENCE|SUBJECT}>
+
+Specifies the database, reference or subject, that will serve as the
+iterator during analysis.  By default, the smallest database is used.
+This decision is based on file size rather than the number of actual
+records -- checking the file size is quicker than counting the number
+of records.  Note, however, that some databases can have a deceivingly
+large size -- especially those that have been weeded.  The value for
+this option is not case sensitive.  Also, the following aliases are
+supported: 'R', 'REF', 'S', and 'SUB'.
+
+=item B<-r db>
+
+Specifies the name of the reference database.
+
+=item B<-s db>
+
+Specifies the name of the subject database.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes-dbm-dump(1), ftimes-dbm-make(1), ftimes-dbm-weed(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

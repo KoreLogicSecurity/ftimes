@@ -1,0 +1,120 @@
+=head1 NAME
+
+B<FTimesXpa> - Create a cross-platform archive.
+
+=head1 SYNOPSIS
+
+B<ftimes-xpa> B<{-a|--archive}> B<[{-b|--blocksize} bytes]> B<[{-l|--list} {file|-}]> -- B<[target [...]]>
+
+B<ftimes-xpa> B<{-v|--version}>
+
+=head1 DESCRIPTION
+
+The B<FTimesXpa> utility reads one or more files specified in a list
+or on the command line and creates a cross-platform archive, which is
+written to stdout.  Each specified filename is assumed to be encoded
+(i.e., neutered by FTimes), and it is automatically decoded to obtain
+the real name, which may contain special characters.  For WINX
+platforms, the decoded name is assumed to be a UTF-8 string.
+
+=head1 MODES OF OPERATION
+
+The modes of operation described in this section are mutually
+exclusive.  In other words, only one mode may be specified per
+invocation.
+
+=over 5
+
+=item B<{-a|--archive}> B<[{-b|--blocksize} bytes]> B<{-l|--list} {file|-}> -- B<[target [...]]>
+
+Create a cross-platform archive containing each file specified in the
+B<list> file or on the command line.
+
+=item B<{-v|--version}>
+
+Display version information and exit.
+
+=back
+
+=head1 RETURN VALUES
+
+Upon successful completion, a value of B<0> (B<XER_OK>) is returned.
+Otherwise, one of the following error codes is returned:
+
+=over 5
+
+=item *
+
+B<1 => B<XER_Usage>
+
+=item *
+
+B<2 => B<XER_Abort>
+
+=item *
+
+B<3 => B<XER_BootStrap>
+
+=item *
+
+B<4 => B<XER_ProcessArguments>
+
+=back
+
+=head1 EXAMPLES
+
+=head2 Example 1. Standard operation
+
+This example demonstrates how to create a cross-platform archive of a
+file with a neutered name.  In this case, the name contains space and
+newline characters.
+
+    ftimes-xpa --archive -- name+with+spaces%0aand%0anewlines > out.xpa
+
+Such a file can be created with the following Perl one-liner:
+
+    perl -e 'open(F, ">name with spaces\nand\nnewlines"); print F "jinx\n";'
+
+=head2 Example 2. Standard operation with input from stdin
+
+This example demonstrates how to create a cross-platform archive from
+a list of files passed on stdin.  The list for stdin will be generated
+by ftimes(1).
+
+    ftimes --mapauto none -l 6 *.o | ftimes-xpa --archive --list - > out.xpa
+
+=head2 Example 3. Files with alternate data streams
+
+This example demonstrates how to create a cross-platform archive of an
+alternate data stream called 'ads1'.
+
+    ftimes-xpa --archive -- some-file-with-a-stream:ads1
+
+If you believe a file contains an alternate data stream, you can use
+ftimes(1) to determine its name as follows:
+
+    ftimes --mapauto none -l 6 some-file-with-a-stream
+
+Note that alternate data streams are specific to WINX platforms and
+NTFS.
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 HISTORY
+
+This utility was initially written to support a forensic gig where we
+needed to create cross-platform archives with built-in integrity
+attributes that could be streamed over the network (e.g., via SSH).
+We also needed to harvest alternate data streams and handle files with
+awkward or mischievous names (i.e., names requiring special handling
+to prevent terminal rendering issues and errors in various tools and
+shell scripts).
+
+This utility first appeared in B<FTimes> 3.9.0.
+

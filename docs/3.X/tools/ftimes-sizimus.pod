@@ -1,0 +1,127 @@
+=pod
+
+=head1 NAME
+
+ftimes-sizimus - Tally bytes based on the size attribute.
+
+=head1 SYNOPSIS
+
+B<ftimes-sizimus> B<[-v]> B<[-d delimiter]> B<[-i count]> B<[-l field[,field[,...]]]> B<[-M pattern]> B<[-m pattern-file]> B<[-o option[,option[,...]]]> B<[-t template]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility takes FTimes map data and tallies bytes for regular files
+based on the size attribute.  The input format can vary so long as it
+contains at least the 'name', 'mode', and 'size' fields.  The most
+common input formats are produced by ftimes(1) and tarmap(1).  If the
+input does not contain the 'mode' field, you will need to specify the
+'NoMode' option to prevent a fatal error.  The reason for this is that
+directories and special files should generally be ignored when sizing
+map data.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-d delimiter>
+
+Specifies the input field delimiter.  Valid delimiters include the
+following characters: tab ('\t'), space (' '), comma (','), colon
+(':'), semi-colon (';'), equal ('='), and pipe ('|').  The default
+delimiter is a pipe.  Note that parse errors are likely to occur if
+the specified delimiter appears in any of the field values.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file. A value of '-' will cause the
+program to read from stdin.
+
+=item B<[-i count]>
+
+Specifies the number of leading input lines to ignore.
+
+=item B<-l field,[field[,...]]>
+
+Specifies the list of valid input fields.  This option is only needed
+in cases where the input contains unknown fields.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't print warning messages.
+
+=item DeriveHeader
+
+Construct an artificial header from the list of input fields specified
+in the B<-l> command line argument.  This option is useful in cases
+where the input file does not contain its own header.  The artificial
+header is constructed by joining the input fields (in the order they
+were specified).
+
+=item NoHeader
+
+Don't print an output header.
+
+=item NoMode
+
+Allow processing to continue even if the input has no 'mode' field.
+
+=back
+
+=item B<-M pattern>
+
+Specifies a pattern that is to be applied to the input records.  Any
+records not matched by the pattern will be discarded.  Use the B<-v>
+option to invert the sense of the match.
+
+=item B<-m pattern-file>
+
+Specifies a file containing zero or more patterns, one per line, that
+are to be applied to the input records.  Any records not matched by
+the pattern will be discarded.  Use the B<-v> option to invert the
+sense of the match.
+
+=item B<-t template>
+
+Specifies a template for an alternate output format.  All occurrences
+of '\n', '\r', or '\t' will be converted to newline, carriage return,
+and tab, respectively.  The value '%%' will be converted to '%'.
+
+The following tokens may be used to create a custom template:
+%bytes, %KB, %MB, %GB, %TB, and %files.
+
+=item B<-v>
+
+Invert the sense of pattern matching -- similar to the way that
+egrep(1) works.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1) and tarmap(1)
+
+=head1 HISTORY
+
+This utility was initially written to assist in sizing calculations in
+a case where we needed to pull a lot of files from a number of servers
+in a production environment.
+
+This utility first appeared in FTimes 3.9.0.
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

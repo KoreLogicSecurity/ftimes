@@ -1,0 +1,105 @@
+=pod
+
+=head1 NAME
+
+ftimes-dig2dbi.pl - Preprocess FTimes dig data for MySQL DB import
+
+=head1 SYNOPSIS
+
+B<ftimes-dig2dbi.pl> B<[-D {default|ignore|replace}]> B<[-d db]> B<[-h host]> B<[-m max-rows]> B<[-o option[,option[,...]]]> B<[-t table]> B<-f {file|-}>
+
+=head1 DESCRIPTION
+
+This utility takes FTimes dig data as input, processes it, and
+produces two output files having the extensions .sql and .dbi. The SQL
+statements in the .sql file may be used to import the .dbi data into
+MySQL -- dbi is short for DB Import. An extra field, joiner, is added
+to the .dbi file. This field serves as the primary index -- either
+alone or in conjunction with the hostname field. It can also be used
+as a joining key to tie map and dig tables together.
+
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-D {default|ignore|replace}>
+
+Add the IGNORE or REPLACE keyword to the LOAD statement. The default
+value is 'default', which means don't alter the LOAD statement.
+
+=item B<-d db>
+
+Specifies the name of the database to create/use. This value is passed
+directly into the .sql file. The default value is 'ftimes'.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file. A value of '-' will cause the
+program to read from stdin. If input is read from stdin, the output
+files will be placed in the current directory and have a basename of
+'stdin'.
+
+=item B<-h host>
+
+Specifies the name of the host to bind to the imported data. If
+specified, an additional field, hostname, is inserted in the .dbi file
+and filled with the appropriate value. By default, the hostname field
+is not used.
+
+=item B<-m max-rows>
+
+Limits the number of records that may be inserted into the specified
+database. This value is passed directly into the .sql file as
+MAX_ROWS.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item ForceWrite
+
+Force existing .sql and .dbi files to be truncated on open.
+
+=item LocalInFile
+
+Add the LOCAL keyword to the LOAD statement. When this keyword is
+specified, the .dbi file is read by the local MySQL client and sent to
+the remote MySQL server.
+
+=item UseMergeTables
+
+Append the hostname, if defined, as a suffix on the table name. This
+allows data for each unique host to be loaded into separate tables
+that can be linked together using MySQL MERGE tables.
+
+=back
+
+=item B<-t table>
+
+Specifies the name of the table to create/use. This value is passed
+directly into the .sql file. The default value is 'dig'.
+
+=back
+
+=head1 CAVEATS
+
+Don't mix host and non host .dbi files as they use different schemas.
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

@@ -1,0 +1,55 @@
+=pod
+
+=head1 NAME
+
+hashdig-bash.pl - Bash one HashDig database against another
+
+=head1 SYNOPSIS
+
+B<hashdig-bash.pl> B<[-i {R|S}]> B<-r db> B<-s db>
+
+=head1 DESCRIPTION
+
+This utility compares hashes in the subject database to those in
+the reference database. The result is an updated subject database
+where known hashes have been tagged as such. The primary rule of
+engagement is that known hashes trump unknown hashes. The reference
+database is not altered during this process.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-i {R|S}>
+
+Specifies the database, reference (R) or subject (S), that will
+serve as the iterator during analysis. By default, the smallest
+database is used -- a decision that is based on file size as opposed
+to the number of actual records. Databases that have been weeded
+can have a deceivingly large size. The value for this option is not
+case sensitive.
+
+=item B<-r db>
+
+Specifies the name of the reference database.
+
+=item B<-s db>
+
+Specifies the name of the subject database.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+hashdig-dump(1), hashdig-make(1), hashdig-weed(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

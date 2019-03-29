@@ -1,0 +1,56 @@
+=pod
+
+=head1 NAME
+
+hashdig-dump.pl - Enumerate a HashDig database
+
+=head1 SYNOPSIS
+
+B<hashdig-dump.pl> B<[-c {A|K|U}]> B<[-h|-r]> B<db>
+
+=head1 DESCRIPTION
+
+This utility enumerates a HashDig database that has been created
+with hashdig-make(1). Output is written to stdout and has the
+following format:
+
+    hash|category
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-c category>
+
+Specifies the hash category, {A|K|U}, to enumerate. Currently, the
+following categories are supported: all (A), known (K), and unknown
+(U). The default category is all.
+
+=item B<-h>
+
+Output hashes only. By default, hash and category information is
+written to stdout. This option is useful when feeding hashes to
+hashdig-resolve-sunsolve(1).
+
+=item B<-r>
+
+Output hash and category information in the reverse HashDig format
+(i.e., category|hash). This option is silently ignored if B<-h> has
+been specified.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+hashdig-dump(1), hashdig-make(1), hashdig-resolve-sunsolve(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

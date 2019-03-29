@@ -1,0 +1,160 @@
+=pod
+
+=head1 NAME
+
+hipdig.pl - Dig for hosts, IPs, passwords, and more...
+
+=head1 SYNOPSIS
+
+B<hipdig.pl> B<[-D type]> B<-l stdin-label> B<[-o option[,option[,...]]]> B<[-r read-buffer-size]> B<[-s save-buffer-size]> B<[-T dig-tag]> B<[-t {type|custom[=~]regexp}]> -- B<{-|file} [file ...]>
+
+=head1 DESCRIPTION
+
+This utility performs regular expression searches across one or
+more files.  Output is written to stdout in FTimes dig format which
+has the following fields:
+
+    name|type|tag|offset|string
+
+where name and string are the FTimes-encoded form of the raw data.
+
+Feeding the output of this utility to ftimes-dig2ctx(1) allows you
+to extract a variable amount of context surrounding each hit.
+
+Feeding the output of this utility to ftimes-xformer(1) allows you
+to isolate and/or manipulate field data.  Note that previous versions
+of this script would print offsets in hexadecimal when the B<-H>
+option was set.  Since that option is no longer supported, below is
+an example of how you may achieve the equivalent result:
+
+    hipdig.pl ... | ftimes-xformer -l name,type,tag,hex_offset,string \
+        -o ParseOffset -f -
+
+Filenames supplied as arguments may be expressed as either a
+native or FTimes-encoded path/name.  If the latter form is used,
+the path/name must be prefixed with 'file://' as shown in the
+example below.
+
+    file://some/path/that+has+been/neutered%25.txt
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-D>
+
+Dump the specified type information to stdout and exit.  Currently,
+the following types are supported: {DOMAIN|HOST}, DOMAIN_REGEX,
+{EIN|TIN}, {SSN|SOCIAL}, and STATE.
+
+=item B<-l stdin-label>
+
+Specifies an alternate label to use instead of "-" when digging
+on stdin.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't report warnings (i.e., be quiet) while processing files.
+
+=item MadMode
+
+Alter the output format to match FTimes made mode output.
+
+=item NoHeader
+
+Don't print an output header.
+
+=item RegularFilesOnly
+
+Operate on regular files only (i.e., no directories, specials, etc.).
+Note that a symbolic link that resolve to a regular file is allowed.
+
+=back
+
+=item B<-r read-buffer-size>
+
+Specifies the read buffer size.  The default value is 32,768 bytes.
+
+=item B<-s save-buffer-size>
+
+Specifies the save buffer size.  This is the maximum number of bytes
+to carry over from one search buffer to the next.  The default value
+is 64 bytes.  This value is limited to 1/10th the read buffer size.
+
+=item B<-T dig-tag>
+
+Specifies a tag that is assigned to each dig string.  This option is
+intended for use with the CUSTOM search type since internally-defined
+search types have a default tag value.  Note however, that the default
+tag value is trumped by this value, if specified.
+
+=item B<-t {type|custom[=~]regexp}>
+
+Specifies the type of search that is to be conducted.  Currently,
+the following types are supported: CUSTOM, HOST, IP, {PASS|PASSWORD},
+{SSN|SOCIAL}, {T1|TRACK1}, {T1S|TRACK1-STRICT}, {T2|TRACK2}, and
+{T2S|TRACK2-STRICT}.  The default value is IP.  The value for this
+option is not case sensitive.
+
+If the specified type is CUSTOM, then it must be accompanied by
+a valid Perl regular expression.  The required format for this
+argument is:
+
+    custom=<regex>
+
+or
+
+    custom~<regex>
+
+where B<custom> is the literal string 'custom' and B<regex> is Perl
+regular expression.  Note that if the '=' operator is specified,
+then the expression is automatically wrapped in a set of capturing
+parentheses such that $1 will be populated upon a successful match.
+If you wish to control what constitutes $1 (i.e., either the entire
+match or a particular submatch), you must use the '~' operator and
+explicitly place at least one set of capturing parentheses in the
+expression.
+
+Any whitespace surrounding these tokens is ignored, but whitespace
+within <regexp> is not.  Proper quoting is essential when specifying
+custom expressions.  When in doubt, use single quotes like so:
+
+    'custom=(?i)abc 123'
+
+or
+
+    'custom~(?i)abc (123)'
+
+To control $1 when more than one set of parentheses is required
+for grouping, use '?:' as demonstrated in the following example,
+which only returns '123' in $1 upon a successful match.
+
+    'custom~(?i)(?:abc|def) (123) (?:pdq|xyz)'
+
+Since searches are block-oriented, the use of begin/end anchors
+(i.e., '^' and '$') are of little value unless the pattern you seek
+is know to begin or end on a block boundary.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1), ftimes-dig2ctx(1), ftimes-xformer(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut

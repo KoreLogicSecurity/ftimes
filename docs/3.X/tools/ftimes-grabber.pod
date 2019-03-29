@@ -1,0 +1,111 @@
+=pod
+
+=head1 NAME
+
+ftimes-grabber - Parse FTimes output, grab files, and zip them up
+
+=head1 SYNOPSIS
+
+B<ftimes-grabber> B<[-b bytes]> B<[-c count]> B<[-e exclude]> B<[-i include]> B<[-o option[,option[,...]]]> B<-f {file|-}> B<-z {zip|-}>
+
+=head1 DESCRIPTION
+
+This utility reads FTimes map or dig data, conditionally filters
+records based on user-specified include/exclude patterns, and creates
+a list of files that are subsequently added to a ZIP archive.
+
+Pattern filtering (includes/excludes) occurs only when a pattern file
+has been specified.  Include filters are applied first, and then,
+exclude filters are applied.  Once pattern filtering is complete, byte
+and file count limits are checked/applied (in that order).
+
+Only files are archived by this utility -- all directories and special
+files (e.g., symbolic links) are ignored.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-b bytes>
+
+Specifies the maximum number of uncompressed bytes to put in the ZIP
+archive.  Once this limit has been reached, all remaining matches, if
+any, will be skipped.
+
+=item B<-c files>
+
+Specifies the maximum number of files to put in the ZIP archive.  Once
+this limit has been reached, all remaining matches, if any, will be
+skipped.
+
+=item B<-e exclude>
+
+Specifies a file containing zero or more regular expressions, one per
+line, that are to be applied to the 'name' field after it has been
+deneutered and dequoted.  Files that match any exclude pattern will
+not be added to the ZIP archive.
+
+=item B<-f {file|-}>
+
+Specifies the name of the input file.  A value of '-' will cause the
+program to read from stdin.
+
+=item B<-i include>
+
+Specifies a file containing zero or more regular expressions, one per
+line, that are to be applied to the 'name' field after it has been
+deneutered and dequoted.  Files that match any include pattern will be
+added to the ZIP archive unless they are subsequently matched by an
+exclude pattern.  If no include patterns are specified, all files are
+implicitly included.
+
+=item B<-o option,[option[,...]]>
+
+Specifies the list of options to apply.  Currently, the following
+options are supported:
+
+=over 4
+
+=item BeQuiet
+
+Don't list the files being added or skipped.
+
+=item DryRun
+
+Process the FTimes data, but do not create the ZIP archive.  Instead,
+simply report the number of files and uncompressed bytes the archive
+would contain.
+
+=item EnableZipErrorHandler
+
+Enable the error handler that comes with Archive::Zip.  This provides
+additional information that may be useful for debugging purposes.
+
+=item StopShort
+
+Terminate the filtering process as soon as the maximum number of files
+or bytes is reached, and proceed directly to ZIP archive creation.
+
+=back
+
+=item B<-z zip>
+
+Specifies the name of the ZIP archive to create.  A value of '-' will
+cause the program to write to stdout.
+
+=back
+
+=head1 AUTHOR
+
+Klayton Monroe
+
+=head1 SEE ALSO
+
+ftimes(1)
+
+=head1 LICENSE
+
+All documentation and code are distributed under same terms and
+conditions as FTimes.
+
+=cut
