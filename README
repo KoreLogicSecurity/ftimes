@@ -9,10 +9,10 @@ Table of Contents
 1 Overview
 
   FTimes is a forensic system baselining, searching, and evidence
-  collection tool.  The primary purpose of FTimes is to gather
-  and/or develop topographical information and attributes about
-  specified directories and files in a manner conducive to intrusion
-  and forensic analysis.  FTimes is available from these locations:
+  collection tool.  Its primary purpose is to gather and/or
+  develop topographical information and attributes about specified
+  directories and files in a manner conducive to intrusion and
+  forensic analysis.  FTimes is available from these locations:
 
     https://git.korelogic.com/ftimes.git
     https://github.com/KoreLogicSecurity/ftimes
@@ -120,9 +120,9 @@ Table of Contents
                                |                          S 4.0.1.{dsN,rc0}         |
                                R 3.12.0                   |                         |
                                |                          S 4.0.1.rc1               |
+                               R 3.13.0                   |                         |
+                               |                          S ...                     |
                                *                          |                         |
-                                                          S ...                     |
-                                                          |                         |
                                                           R 4.0.1.{rcN,sr0} / ds0   |
                                                           |\                        |
                                                           | \      alt merge -->    |
