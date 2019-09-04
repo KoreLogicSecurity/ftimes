@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: rtimes.h,v 1.24 2019/03/14 16:07:44 klm Exp $
+ * $Id: rtimes.h,v 1.25 2019/04/23 14:54:03 klm Exp $
  *
  ***********************************************************************
  *
@@ -122,7 +122,7 @@ int                 RTimesMd5ToHex(unsigned char *pucMd5, TCHAR *ptcHexHash);
 TCHAR              *RTimesNeuterEncodeData(unsigned char *pucData, int iLength, int iOptions, TCHAR *ptcError);
 TCHAR              *RTimesNewPath(TCHAR *ptcPath, TCHAR *ptcName, TCHAR *ptcDelimiter, TCHAR *ptcError);
 RTIMES_PROPERTIES  *RTimesNewProperties(TCHAR *ptcError);
-int                 RTimesOptionHandler(OPTIONS_TABLE *psOption, TCHAR *ptcValue, RTIMES_PROPERTIES *psProperties, TCHAR *ptcError);
+int                 RTimesOptionHandler(void *pvOption, TCHAR *ptcValue, void *pvProperties, TCHAR *ptcError);
 int                 RTimesProcessArguments(int iArgumentCount, TCHAR *pptcArgumentVector[], RTIMES_PROPERTIES *psProperties, TCHAR *ptcError);
 void                RTimesSetPropertiesReference(RTIMES_PROPERTIES *psProperties);
 TCHAR              *RTimesSidToString(SID *psSid, TCHAR *ptcError);

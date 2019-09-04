@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.c,v 1.65 2019/03/14 16:07:42 klm Exp $
+ * $Id: ftimes.c,v 1.68 2019/08/29 20:43:05 klm Exp $
  *
  ***********************************************************************
  *
@@ -28,6 +28,54 @@ xs_init(pTHX)
   char               *pcFile = __FILE__;
 
   newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, pcFile);
+}
+#endif
+
+#ifdef USE_EMBEDDED_PYTHON
+/*-
+ ***********************************************************************
+ *
+ * Code to export ftimes.neuter_string to Python scripts.
+ *
+ ***********************************************************************
+ */
+static PyObject* python_neuter_string(PyObject *self, PyObject *args)
+{
+  char                acLocalError[MESSAGE_SIZE] = "";
+  char               *pcNeutered = NULL;
+  char               *pcString = NULL;
+  int                 iLength = 0;
+
+  if (!PyArg_ParseTuple(args, "s", &pcString))
+  {
+    return NULL;
+  }
+
+  iLength = strlen(pcString);
+  pcNeutered = SupportNeuterString((char *)pcString, iLength, acLocalError);
+  if (pcNeutered == NULL)
+  {
+    return NULL;
+  }
+
+  return Py_BuildValue("s", pcNeutered);
+}
+
+static PyMethodDef EmbMethods[] =
+{
+  { "neuter_string", python_neuter_string, METH_VARARGS, "Return the neutered string." },
+  { NULL, NULL, 0, NULL }
+};
+
+static PyModuleDef EmbModule =
+{
+  PyModuleDef_HEAD_INIT, "ftimes", NULL, -1, EmbMethods, NULL, NULL, NULL, NULL
+};
+
+static PyObject *
+PyInit_neuter_string(void)
+{
+  return PyModule_Create(&EmbModule);
 }
 #endif
 
@@ -131,9 +179,9 @@ FTimesBootstrap(char *pcError)
    *
    *********************************************************************
    */
-  if (DECODE_FIELD_COUNT != MaskGetTableLength(MASK_RUNMODE_TYPE_CMP))
+  if (DECODE_FIELD_COUNT != MaskGetTableLength(MASK_MASK_TYPE_CMP))
   {
-    snprintf(pcError, MESSAGE_SIZE, "%s: DecodeFieldCount/CmpMaskTableSize mismatch!: %d != %d", acRoutine, DECODE_FIELD_COUNT, MaskGetTableLength(MASK_RUNMODE_TYPE_CMP));
+    snprintf(pcError, MESSAGE_SIZE, "%s: DecodeFieldCount/CmpMaskTableSize mismatch!: %d != %d", acRoutine, DECODE_FIELD_COUNT, MaskGetTableLength(MASK_MASK_TYPE_CMP));
     return ER;
   }
 
@@ -491,6 +539,7 @@ if (RUN_MODE_IS_SET(FTIMES_DIGMADMAP, psProperties->iRunMode))
    *
    *********************************************************************
    */
+  PyImport_AppendInittab("ftimes", &PyInit_neuter_string);
   Py_InitializeEx(0);
 
   /*-
@@ -764,12 +813,14 @@ FTimesNewProperties(char *pcError)
  ***********************************************************************
  */
 int
-FTimesOptionHandler(OPTIONS_TABLE *psOption, char *pcValue, FTIMES_PROPERTIES *psProperties, char *pcError)
+FTimesOptionHandler(void *pvOption, char *pcValue, void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "FTimesOptionHandler()";
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError = 0;
   int                 iLength = 0;
+  OPTIONS_TABLE      *psOption = (OPTIONS_TABLE *)pvOption;
 
   iLength = (pcValue == NULL) ? 0 : strlen(pcValue);
 
@@ -1249,7 +1300,7 @@ FTimesProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char
       snprintf(pcError, MESSAGE_SIZE, "%s: Unable to get mask argument.", acRoutine);
       return ER;
     }
-    psProperties->psFieldMask = MaskParseMask(pcMask, MASK_RUNMODE_TYPE_CMP, acLocalError);
+    psProperties->psFieldMask = MaskParseMask(pcMask, MASK_MASK_TYPE_CMP, acLocalError);
     if (psProperties->psFieldMask == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -1342,7 +1393,7 @@ FTimesProcessArguments(FTIMES_PROPERTIES *psProperties, int iArgumentCount, char
       snprintf(pcError, MESSAGE_SIZE, "%s: Unable to get mask argument.", acRoutine);
       return ER;
     }
-    psProperties->psFieldMask = MaskParseMask(pcMask, MASK_RUNMODE_TYPE_MAP, acLocalError);
+    psProperties->psFieldMask = MaskParseMask(pcMask, MASK_MASK_TYPE_MAP, acLocalError);
     if (psProperties->psFieldMask == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);

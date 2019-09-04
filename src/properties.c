@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: properties.c,v 1.72 2019/03/14 16:07:42 klm Exp $
+ * $Id: properties.c,v 1.75 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -64,9 +64,10 @@
  ***********************************************************************
  */
 int
-PropertiesTestFile(FTIMES_PROPERTIES *psProperties, char *pcError)
+PropertiesTestFile(void *pvProperties, char *pcError)
 {
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
 
   iError = PropertiesReadFile(psProperties->acConfigFile, psProperties, acLocalError);
@@ -685,7 +686,6 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
       return ER;
     }
-    psProperties->bHaveAttributeFilters = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_ExcludeFilterSha1) == 0 && RUN_MODE_IS_SET(MODES_ExcludeFilterSha1, iRunMode))
@@ -696,7 +696,6 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
       return ER;
     }
-    psProperties->bHaveAttributeFilters = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_ExcludeFilterSha256) == 0 && RUN_MODE_IS_SET(MODES_ExcludeFilterSha256, iRunMode))
@@ -707,7 +706,18 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
       return ER;
     }
-    psProperties->bHaveAttributeFilters = TRUE;
+  }
+#endif
+
+#ifdef USE_KLEL_FILTERS
+  else if (strcasecmp(pcControl, KEY_ExcludeFilterKlel) == 0 && RUN_MODE_IS_SET(MODES_ExcludeFilterKlel, iRunMode))
+  {
+    iError = FilterAddFilter(pc, &psProperties->psExcludeFilterListKlel, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
   }
 #endif
 
@@ -721,7 +731,7 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
   else if (strcasecmp(pcControl, KEY_FieldMask) == 0 && RUN_MODE_IS_SET(MODES_FieldMask, iRunMode))
   {
     DUPLICATE_ERROR(psProperties->sFound.bFieldMaskFound);
-    psProperties->psFieldMask = MaskParseMask(pc, MASK_RUNMODE_TYPE_MAP, acLocalError);
+    psProperties->psFieldMask = MaskParseMask(pc, MASK_MASK_TYPE_MAP, acLocalError);
     if (psProperties->psFieldMask == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s], %s", acRoutine, pcControl, acLocalError);
@@ -837,7 +847,6 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
       return ER;
     }
-    psProperties->bHaveAttributeFilters = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_IncludeFilterSha1) == 0 && RUN_MODE_IS_SET(MODES_IncludeFilterSha1, iRunMode))
@@ -848,7 +857,6 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
       return ER;
     }
-    psProperties->bHaveAttributeFilters = TRUE;
   }
 
   else if (strcasecmp(pcControl, KEY_IncludeFilterSha256) == 0 && RUN_MODE_IS_SET(MODES_IncludeFilterSha256, iRunMode))
@@ -859,9 +867,21 @@ PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError)
       snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
       return ER;
     }
-    psProperties->bHaveAttributeFilters = TRUE;
   }
 #endif
+
+#ifdef USE_KLEL_FILTERS
+  else if (strcasecmp(pcControl, KEY_IncludeFilterKlel) == 0 && RUN_MODE_IS_SET(MODES_IncludeFilterKlel, iRunMode))
+  {
+    iError = FilterAddFilter(pc, &psProperties->psIncludeFilterListKlel, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: Control = [%s]: %s", acRoutine, pcControl, acLocalError);
+      return ER;
+    }
+  }
+#endif
+
 
   else if (strcasecmp(pcControl, KEY_IncludesMustExist) == 0 && RUN_MODE_IS_SET(MODES_IncludesMustExist, iRunMode))
   {
@@ -1404,6 +1424,14 @@ PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties)
     snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_FieldMask, psProperties->psFieldMask->pcMask);
     MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   }
+  else
+  {
+    if (psProperties->iRunMode == FTIMES_DIGMODE)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s (immutable)", KEY_FieldMask, psProperties->psFieldMask->pcMask);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
 
   if (RUN_MODE_IS_SET(MODES_FileSizeLimit, psProperties->iRunMode))
   {
@@ -1821,6 +1849,28 @@ if (RUN_MODE_IS_SET(MODES_URLPutSnapshot, psProperties->iRunMode) && psPropertie
     for (psFilterList = psProperties->psExcludeFilterSha256List; psFilterList != NULL; psFilterList = psFilterList->psNext)
     {
       snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_ExcludeFilterSha256, psFilterList->pcFilter);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+#endif
+
+#ifdef USE_KLEL_FILTERS
+  if (RUN_MODE_IS_SET(MODES_IncludeFilterKlel, psProperties->iRunMode))
+  {
+    FILTER_LIST_KLEL *psFilterList = NULL;
+    for (psFilterList = psProperties->psIncludeFilterListKlel; psFilterList != NULL; psFilterList = psFilterList->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_IncludeFilterKlel, psFilterList->pcExpression);
+      MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
+    }
+  }
+
+  if (RUN_MODE_IS_SET(MODES_ExcludeFilterKlel, psProperties->iRunMode))
+  {
+    FILTER_LIST_KLEL *psFilterList = NULL;
+    for (psFilterList = psProperties->psExcludeFilterListKlel; psFilterList != NULL; psFilterList = psFilterList->psNext)
+    {
+      snprintf(acMessage, MESSAGE_SIZE, "%s=%s", KEY_ExcludeFilterKlel, psFilterList->pcExpression);
       MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
     }
   }

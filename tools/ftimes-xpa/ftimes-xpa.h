@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes-xpa.h,v 1.15 2019/03/14 16:07:44 klm Exp $
+ * $Id: ftimes-xpa.h,v 1.16 2019/04/23 13:08:58 klm Exp $
  *
  ***********************************************************************
  *
@@ -174,7 +174,7 @@ void                FTimesXpaFreeProperties(FTIMES_XPA_PROPERTIES *psProperties)
 FTIMES_XPA_HANDLE  *FTimesXpaGetHandle(char *pcDecodedName, char *pcError);
 FTIMES_XPA_PROPERTIES *FTimesXpaGetPropertiesReference(void);
 FTIMES_XPA_PROPERTIES *FTimesXpaNewProperties(char *ptcError);
-int                 FTimesXpaOptionHandler(OPTIONS_TABLE *psOption, char *pcValue, FTIMES_XPA_PROPERTIES *psProperties, char *pcError);
+int                 FTimesXpaOptionHandler(void *pvOption, char *pcValue, void *pvProperties, char *pcError);
 int                 FTimesXpaProcessArguments(int iArgumentCount, char *ppcArgumentVector[], FTIMES_XPA_PROPERTIES *psProperties, char *pcError);
 #ifdef WINNT
 int                 FTimesXpaSetPrivileges(char *pcError);

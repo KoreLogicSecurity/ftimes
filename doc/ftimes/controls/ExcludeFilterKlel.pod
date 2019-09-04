@@ -1,0 +1,25 @@
+=item B<ExcludeFilterKlel>: <klel-expr>
+
+Applies to B<mad> and B<map>. Conditionally applies to B<dig>
+(expressions may not utilize hash or magic attributes).
+
+B<ExcludeFilterKlel> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one control/value pair per line.
+
+Each include filter must be specified as a KLEL expression.  Refer
+to the B<VALUE EXPRESSIONS> section of klellang(3) for details.
+Information pertaining to the attributes available for use on
+UNIX/WINX platforms is given in the B<IncludeFilterKlel> section
+of this document.
+
+Any object matched by a given exclude filter will be rejected.  All
+other objects will be mapped subject to include filter processing.
+If no exclude filters are specified, exclude filter processing is
+implicitly disabled.
+
+Note: This control is only available if KLEL filters were enabled
+and KLEL support was compiled into the binary.
+
+Note: Support for this control was added in version 3.13.0.
+

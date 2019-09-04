@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: configure.in,v 1.120 2019/03/14 22:15:08 klm Exp $
+# $Id: configure.in,v 1.127 2019/09/03 19:05:19 klm Exp $
 #
 ########################################################################
 
@@ -249,23 +249,31 @@ AC_ARG_WITH(klel,
   [  --with-klel=DIR         Use KLEL with includes and libs from [DIR]/include and [DIR]/lib
   --without-klel          Disable KLEL support],
   [
-    dnl ################################################################
-    dnl #
-    dnl # Check the specified location only.
-    dnl #
-    dnl ################################################################
     case `echo ${withval} | tr "A-Z" "a-z"` in
     no)
       use_klel="2"
       ;;
+    yes)
+      use_klel="1" # Check common KLEL locations.
+      for basedir in /usr /usr/local /usr/pkg /opt /opt/local ; do
+        for dir in ${basedir} ${basedir}/klel ; do
+          CheckKlelComponents ${dir} && break 2
+        done
+      done
+      ;;
     *)
-      use_klel="1"
+      use_klel="1" # Check the specified location only.
       CheckKlelComponents "${withval}"
       ;;
     esac
   ],
   [
-    use_klel="0"
+    use_klel="1" # Check common KLEL locations.
+    for basedir in /usr /usr/local /usr/pkg /opt /opt/local ; do
+      for dir in ${basedir} ${basedir}/klel ; do
+        CheckKlelComponents ${dir} && break 2
+      done
+    done
   ]
 )
 if test ${use_klel} -eq 1 ; then
@@ -292,9 +300,81 @@ if test ${use_klel} -eq 1 ; then
     AC_SUBST(klel_libflags)
   fi
 elif test ${use_klel} -eq 2 ; then
-  AC_MSG_RESULT(check explicitly disabled)
+  AC_MSG_RESULT([KLEL support is required, but it has been explicitly disabled (aborting)])
+  exit 1
 else
-  AC_MSG_RESULT(not enabled)
+  AC_MSG_RESULT([KLEL support is required, but it has not been enabled (aborting)])
+  exit 1
+fi
+
+dnl ####################################################################
+dnl #
+dnl # Check for Lua.
+dnl #
+dnl ####################################################################
+
+CheckLua()
+{
+  LUADIR="$1"
+  INCLUDE_LIST="lua.h lualib.h lauxlib.h"
+  for INCLUDE_FILE in ${INCLUDE_LIST}; do
+    if test ! -f "${LUADIR}/include/${INCLUDE_FILE}"; then
+      return 1
+    fi
+  done
+  luadir=${LUADIR}
+  return 0
+}
+
+AC_MSG_CHECKING([for embedded Lua support])
+AC_ARG_WITH(lua,
+  [  --with-lua=DIR          Embed Lua with includes and libs from [DIR]/include and [DIR]/lib (disabled by default)],
+  [
+    dnl ################################################################
+    dnl #
+    dnl # Check the specified reference version only.
+    dnl #
+    dnl ################################################################
+    case `echo $withval | tr "A-Z" "a-z"` in
+    no)
+      use_lua=0
+      ;;
+    *)
+      use_lua=1
+      CheckLua "$withval"
+      ;;
+    esac
+  ],
+  [
+    use_lua=0
+  ]
+)
+if test ${use_lua} -ne 0; then
+  AC_DEFINE(USE_EMBEDDED_LUA, 1, [Define to 1 if embedded Lua support is enabled.])
+  if test -z "$luadir"; then
+
+    AC_MSG_RESULT(missing or incomplete)
+    echo
+    echo "Unable to locate required Lua components. Use --with-lua=DIR"
+    echo "to specify a known or different location. The files that must exist"
+
+    echo "for this check to pass are:"
+
+    echo
+    echo "  DIR/include/lua.h"
+    echo "  DIR/include/lualib.h"
+    echo "  DIR/include/lauxlib.h"
+    echo
+    exit 1
+  else
+    AC_MSG_RESULT($luadir)
+    lua_incflags="-I$luadir/include"
+    lua_libflags="-L$luadir/lib -llua -lm -ldl"
+    AC_SUBST(lua_incflags)
+    AC_SUBST(lua_libflags)
+  fi
+else
+  AC_MSG_RESULT(no)
 fi
 
 dnl ####################################################################
@@ -412,31 +492,31 @@ CheckPcreComponents()
 
 AC_MSG_CHECKING([for PCRE support])
 AC_ARG_WITH(pcre,
-  [  --with-pcre=DIR         Use PCRE with includes and libs from [DIR]/include and [DIR]/lib
-  --without-pcre          Disable PCRE support],
+  [  --with-pcre=DIR         Use PCRE with includes and libs from [DIR]/include and
+                          [DIR]/lib (required and enabled by default)
+  --without-pcre          Disable PCRE support (warning: specifying this will
+                          cause configure to abort)],
   [
-    dnl ################################################################
-    dnl #
-    dnl # Check the specified location only.
-    dnl #
-    dnl ################################################################
     case `echo ${withval} | tr "A-Z" "a-z"` in
     no)
-      use_pcre="0"
+      use_pcre="2"
+      ;;
+    yes)
+      use_pcre="1" # Check common PCRE locations.
+      for basedir in /usr /usr/local /usr/pkg /opt /opt/local ; do
+        for dir in ${basedir} ${basedir}/pcre ; do
+          CheckPcreComponents ${dir} && break 2
+        done
+      done
       ;;
     *)
-      use_pcre="1"
+      use_pcre="1" # Check the specified location only.
       CheckPcreComponents "${withval}"
       ;;
     esac
   ],
   [
-    dnl ################################################################
-    dnl #
-    dnl # Search common PCRE locations.
-    dnl #
-    dnl ################################################################
-    use_pcre="1"
+    use_pcre="1" # Check common PCRE locations.
     for basedir in /usr /usr/local /usr/pkg /opt /opt/local ; do
       for dir in ${basedir} ${basedir}/pcre ; do
         CheckPcreComponents ${dir} && break 2
@@ -444,14 +524,14 @@ AC_ARG_WITH(pcre,
     done
   ]
 )
-if test ${use_pcre} -ne 0 ; then
+if test ${use_pcre} -eq 1 ; then
   AC_DEFINE(USE_PCRE, 1, [Define to 1 if PCRE support is enabled.])
   if test -z "${pcredir}" ; then
     AC_MSG_RESULT(missing or incomplete)
     echo
     echo "Unable to locate required PCRE components. Use --with-pcre=DIR to"
-    echo "specify a known/different location, or use --without-pcre to disable"
-    echo "this support. The following files must exist for this check to pass:"
+    echo "specify a known/different location. The following files must exist"
+    echo "for this check to pass:"
     echo
     echo "  DIR/include/pcre.h"
     echo
@@ -476,8 +556,12 @@ if test ${use_pcre} -ne 0 ; then
     AC_SUBST(pcre_incflags)
     AC_SUBST(pcre_libflags)
   fi
+elif test ${use_pcre} -eq 2 ; then
+  AC_MSG_RESULT([PCRE support is required, but it has been explicitly disabled (aborting)])
+  exit 1
 else
-  AC_MSG_RESULT(check explicitly disabled)
+  AC_MSG_RESULT([PCRE support is required, but it has not been enabled (aborting)])
+  exit 1
 fi
 
 dnl ####################################################################
@@ -662,7 +746,7 @@ if test ${use_klel} -eq 1 ; then
       AC_LANG_SOURCE(
       [[
 #include <klel.h>
-int main() { return (KlelGetReleaseNumber() >= 0x10100800) ? 0 : 1; }
+int main() { return (KlelGetReleaseNumber() >= 0x10200800) ? 0 : 1; }
       ]]
       )
     ],
@@ -675,7 +759,7 @@ int main() { return (KlelGetReleaseNumber() >= 0x10100800) ? 0 : 1; }
   elif test ${klel_version_ok} -eq 2 ; then
     AC_MSG_RESULT([skipped (cross-compiling)])
   else
-    AC_MSG_RESULT([no (0x10100800 or higher required)])
+    AC_MSG_RESULT([no (0x10200800 or higher required)])
     exit 1
   fi
   CFLAGS=${OLD_CFLAGS}
@@ -782,6 +866,48 @@ AC_ARG_ENABLE(hash-pre-msmc,
   ],
   [ AC_MSG_RESULT(no) ]
 )
+
+dnl ####################################################################
+dnl #
+dnl # Check whether or not to enable KLEL-based include/exclude filters.
+dnl #
+dnl ####################################################################
+
+AC_MSG_CHECKING([whether to enable KLEL-based include/exclude filters])
+AC_ARG_ENABLE(klel-filters,
+  [  --enable-klel-filters   Enable KLEL-based include/exclude filters; implicitly
+                          converts legacy filters to equivalent KLEL filters at
+                          run time (disabled by default)],
+  [
+    case `echo ${enableval} | tr "A-Z" "a-z"` in
+    yes)
+      enable_klel_filters="1"
+      ;;
+    *)
+      enable_klel_filters="0"
+      ;;
+    esac
+  ],
+  [ enable_klel_filters="0" ]
+)
+if test ${enable_klel_filters} -eq 1 ; then
+  if test ${use_klel} -eq 1 ; then
+    AC_MSG_RESULT(yes)
+    AC_DEFINE(USE_KLEL_FILTERS, 1, [Define to 1 if KLEL-based include/exclude filters are enabled.])
+    klel_filter_srcs="filter.c"
+    klel_filter_incs="filter.h"
+    AC_SUBST(klel_filter_srcs)
+    AC_SUBST(klel_filter_incs)
+  elif test ${use_klel} -eq 2 ; then
+    AC_MSG_RESULT([KLEL support is required, but it has been explicitly disabled (aborting)])
+    exit 1
+  else
+    AC_MSG_RESULT([KLEL support is required, but it has not been explicitly enabled (aborting)])
+    exit 1
+  fi
+else
+  AC_MSG_RESULT(no)
+fi
 
 dnl ####################################################################
 dnl #

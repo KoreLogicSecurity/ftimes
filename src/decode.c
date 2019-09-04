@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: decode.c,v 1.58 2019/03/14 16:07:42 klm Exp $
+ * $Id: decode.c,v 1.60 2019/04/22 23:41:26 klm Exp $
  *
  ***********************************************************************
  *
@@ -559,7 +559,7 @@ DecodeNewSnapshotContext(char *pcError)
       return NULL;
     }
 
-    for (j = 0; j < DECODE_TABLE_SIZE; j++)
+    for (j = 0; j < (int)(DECODE_TABLE_SIZE); j++)
     {
       psSnapshot->asRecords[i].ppcFields[j] = (char *) calloc(DECODE_MAX_LINE, 1);
       if (psSnapshot->asRecords[i].ppcFields[j] == NULL)
@@ -615,7 +615,7 @@ DecodeNewSnapshotContext2(char *pcSnapshot, char *pcError)
       goto FAIL;
     }
 
-    for (j = 0; j < DECODE_TABLE_SIZE; j++)
+    for (j = 0; j < (int)(DECODE_TABLE_SIZE); j++)
     {
       psSnapshot->asRecords[i].ppcFields[j] = (char *)calloc(DECODE_MAX_LINE, 1);
       if (psSnapshot->asRecords[i].ppcFields[j] == NULL)
@@ -755,7 +755,7 @@ DecodeParseHeader(SNAPSHOT_CONTEXT *psSnapshot, char *pcError)
    */
   for (iIndex = 0, pc = strtok(psSnapshot->psCurrRecord->acLine, DECODE_SEPARATOR_S); pc != NULL; pc = strtok(NULL, DECODE_SEPARATOR_S), iIndex++)
   {
-    for (i = 0; i < DECODE_TABLE_SIZE; i++)
+    for (i = 0; i < (int)(DECODE_TABLE_SIZE); i++)
     {
       if (psSnapshot->iCompressed)
       {

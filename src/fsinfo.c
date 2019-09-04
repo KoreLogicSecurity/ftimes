@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.c,v 1.62 2019/03/14 16:07:42 klm Exp $
+ * $Id: fsinfo.c,v 1.64 2019/06/25 22:49:38 klm Exp $
  *
  ***********************************************************************
  *
@@ -26,6 +26,7 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "UNSUPPORTED",
   "AIX",
   "APFS",
+  "BTRFS",
   "CDFS",
   "CIFS",
   "CRAMFS",
@@ -35,6 +36,7 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "FAT",
   "FAT_Remote",
   "FFS",
+  "FUSE",
   "GETDATAFS",
   "HFS",
   "JFS",
@@ -44,7 +46,6 @@ char                gaacFSType[][FSINFO_MAX_STRING] =
   "NFS",
   "NFS3",
   "NTFS",
-  "NTFS3G",
   "NTFS_Remote",
   "NWCOMPAT",
   "NWCOMPAT_Remote",
@@ -149,6 +150,9 @@ GetFileSystemType(char *pcPath, char *pcError)
   {
     switch(sStatFS.f_type)
     {
+    case BTRFS_SUPER_MAGIC:
+      return FSTYPE_BTRFS;
+      break;
     case CIFS_SUPER_MAGIC:
       return FSTYPE_CIFS;
       break;
@@ -174,8 +178,8 @@ GetFileSystemType(char *pcPath, char *pcError)
     case NTFS_SUPER_MAGIC:
       return FSTYPE_NTFS;
       break;
-    case NTFS3G_SUPER_MAGIC:
-      return FSTYPE_NTFS3G;
+    case FUSE_SUPER_MAGIC:
+      return FSTYPE_FUSE;
       break;
     case OVERLAYFS_SUPER_MAGIC:
       return FSTYPE_OVERLAYFS;
@@ -292,9 +296,9 @@ GetFileSystemType(char *pcPath, char *pcError)
     {
       return FSTYPE_NTFS;
     }
-    else if (strstr(acFSName, "NTFS3G") != NULL)
+    else if (strstr(acFSName, "FUSE") != NULL)
     {
-      return FSTYPE_NTFS3G;
+      return FSTYPE_FUSE;
     }
     else if (strstr(acFSName, "DOS") != NULL)
     {
@@ -438,10 +442,6 @@ GetFileSystemType(char *pcPath, char *pcError)
     else if (strstr(acFSName, "NTFS") != NULL && uiDriveType != DRIVE_REMOTE)
     {
       return FSTYPE_NTFS;
-    }
-    else if (strstr(acFSName, "NTFS3G") != NULL && uiDriveType != DRIVE_REMOTE)
-    {
-      return FSTYPE_NTFS3G;
     }
     else if (strstr(acFSName, "FAT") != NULL && uiDriveType == DRIVE_REMOTE)
     {

@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: rtimes.c,v 1.28 2019/03/14 16:07:44 klm Exp $
+ * $Id: rtimes.c,v 1.30 2019/04/23 15:09:06 klm Exp $
  *
  ***********************************************************************
  *
@@ -987,9 +987,11 @@ RTimesNewProperties(TCHAR *ptcError)
  ***********************************************************************
  */
 int
-RTimesOptionHandler(OPTIONS_TABLE *psOption, TCHAR *ptcValue, RTIMES_PROPERTIES *psProperties, TCHAR *ptcError)
+RTimesOptionHandler(void *pvOption, TCHAR *ptcValue, void *pvProperties, TCHAR *ptcError)
 {
   int                 iLength = 0;
+  OPTIONS_TABLE      *psOption = (OPTIONS_TABLE *)pvOption;
+  RTIMES_PROPERTIES  *psProperties = (RTIMES_PROPERTIES *)pvProperties;
 
   iLength = (ptcValue == NULL) ? 0 : _tcslen(ptcValue);
 

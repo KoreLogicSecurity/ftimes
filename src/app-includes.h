@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: app-includes.h,v 1.42 2019/03/14 16:07:42 klm Exp $
+ * $Id: app-includes.h,v 1.44 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -31,6 +31,12 @@ typedef unsigned int APP_UI32;
     typedef unsigned __int64 APP_UI64;
 #endif
 
+#ifdef USE_EMBEDDED_LUA
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+#endif
+
 #ifdef USE_EMBEDDED_PERL
 #include <EXTERN.h>
 #include <perl.h>
@@ -48,6 +54,9 @@ typedef unsigned int APP_UI32;
 
 #ifdef USE_KLEL
 #include <klel.h>
+#ifdef USE_KLEL_FILTERS
+#include "filter.h"
+#endif
 #endif
 
 #ifdef USE_FILE_HOOKS

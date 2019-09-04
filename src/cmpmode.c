@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: cmpmode.c,v 1.39 2019/03/14 16:07:42 klm Exp $
+ * $Id: cmpmode.c,v 1.41 2019/07/23 20:27:01 klm Exp $
  *
  ***********************************************************************
  *
@@ -19,11 +19,12 @@
  ***********************************************************************
  */
 int
-CmpModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
+CmpModeInitialize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "CmpModeInitialize()";
   char                acLocalError[MESSAGE_SIZE] = "";
   CMP_PROPERTIES     *psCmpProperties = NULL;
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError = 0;
 
   /*-
@@ -81,9 +82,10 @@ CmpModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-CmpModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
+CmpModeCheckDependencies(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "CmpModeCheckDependencies()";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   if (psProperties->psFieldMask == NULL)
   {
@@ -115,13 +117,14 @@ CmpModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
+CmpModeFinalize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "CmpModeFinalize()";
   char                acLocalError[MESSAGE_SIZE] = "";
   char                acMessage[MESSAGE_SIZE] = { 0 };
   char               *pcMask = NULL;
   CMP_PROPERTIES     *psCmpProperties = CompareGetPropertiesReference();
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError = 0;
   int                 iLength = 0;
   struct stat         statEntry = { 0 };
@@ -279,7 +282,7 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
 
   PropertiesDisplaySettings(psProperties);
 
-  pcMask = MaskBuildMask(psProperties->psBaselineContext->ulFieldMask, MASK_RUNMODE_TYPE_CMP, acLocalError);
+  pcMask = MaskBuildMask(psProperties->psBaselineContext->ulFieldMask, MASK_MASK_TYPE_CMP, acLocalError);
   if (pcMask == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -289,7 +292,7 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   free(pcMask);
 
-  pcMask = MaskBuildMask(psProperties->psSnapshotContext->ulFieldMask, MASK_RUNMODE_TYPE_CMP, acLocalError);
+  pcMask = MaskBuildMask(psProperties->psSnapshotContext->ulFieldMask, MASK_MASK_TYPE_CMP, acLocalError);
   if (pcMask == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -299,7 +302,7 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
   MessageHandler(MESSAGE_QUEUE_IT, MESSAGE_INFORMATION, MESSAGE_PROPERTY_STRING, acMessage);
   free(pcMask);
 
-  pcMask = MaskBuildMask(psCmpProperties->psCompareMask->ulMask, MASK_RUNMODE_TYPE_CMP, acLocalError);
+  pcMask = MaskBuildMask(psCmpProperties->psCompareMask->ulMask, MASK_MASK_TYPE_CMP, acLocalError);
   if (pcMask == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -336,10 +339,11 @@ CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-CmpModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
+CmpModeWorkHorse(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "CmpModeWorkHorse()";
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError = 0;
 
   iError = CompareLoadBaselineData(psProperties->psBaselineContext, acLocalError);
@@ -372,9 +376,10 @@ CmpModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-CmpModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
+CmpModeFinishUp(void *pvProperties, char *pcError)
 {
   char                acMessage[MESSAGE_SIZE] = { 0 };
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   /*-
    *********************************************************************
@@ -431,9 +436,10 @@ CmpModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-CmpModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
+CmpModeFinalStage(void *pvProperties, char *pcError)
 {
   CMP_PROPERTIES     *psCmpProperties = CompareGetPropertiesReference();
+//FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   /*-
    *********************************************************************

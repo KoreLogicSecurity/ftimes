@@ -1,0 +1,352 @@
+=item B<IncludeFilterKlel>: <klel-expr>
+
+Applies to B<mad> and B<map>. Conditionally applies to B<dig>
+(expressions may not utilize hash or magic attributes).
+
+B<IncludeFilterKlel> controls are optional, and there is no predefined
+limit on the number that may be specified.  However, there can be only
+one control/value pair per line.
+
+Each include filter must be specified as a KLEL expression.
+Refer to the B<VALUE EXPRESSIONS> section of klellang(3) for details.
+Attribute values are strongly typed.  Possible types include boolean
+(KLEL_TYPE_BOOLEAN), integer (KLEL_TYPE_INT64), real (KLEL_TYPE_REAL),
+and string (KLEL_TYPE_STRING).  The following attributes are
+available for use on UNIX/WINX platforms (as noted below).
+
+=over 5
+
+=item B<f_altstreams>: KLEL_TYPE_INT64 (WINX)
+
+Number of alternate or named streams (NTFS only).
+
+=item B<f_atime>: KLEL_TYPE_INT64 (UNIX/WINX)
+
+Time of last file access in seconds since the UNIX epoch (1970-01-01
+00:00:00 UTC).
+
+=item B<f_attributes>: KLEL_TYPE_INT64 (WINX)
+
+File attributes expressed as a 20-bit hexadecimal mask.
+
+=item B<f_attributes_archive>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00020) indicating whether or not the file or
+directory has been marked as archive.
+
+=item B<f_attributes_compressed>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00800) indicating whether or not the file or
+directory has been compressed.
+
+=item B<f_attributes_device>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00040) indicating whether or not the file or
+directory has been marked as a device.  According to MSDN, this
+value is reserved for system use.
+
+=item B<f_attributes_directory>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00010) indicating that the object is a directory.
+
+=item B<f_attributes_encrypted>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x04000) indicating whether or not the file or
+directory has been encrypted.
+
+=item B<f_attributes_hidden>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00002) indicating whether or not the file or
+directory has been marked as hidden.
+
+=item B<f_attributes_normal>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00080) indicating whether or not the file has
+other attributes set.  According to MSDN, this attribute is valid
+only when used alone.
+
+=item B<f_attributes_not_content_indexed>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x02000) indicating that the file or directory is
+not to be indexed by the content indexing service.
+
+=item B<f_attributes_offline>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x01000) indicating that the data of the file are not
+immediately available.  According to MSDN, this attribute indicates
+that the file's data are physically moved to offline storage.
+
+=item B<f_attributes_read_only>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00001) indicating whether or not the file has been
+marked as read only.
+
+=item B<f_attributes_reparse_point>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00400) indicating whether or not the file or
+directory has an associated reparse point.  If the object is a file,
+it may also indicate that the file, itself, is a symbolic link.
+
+=item B<f_attributes_sparse_file>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00200) indicating whether or not the file is sparse.
+
+=item B<f_attributes_system>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00004) indicating whether or not the file or
+directory has been marked as being for system use either in part
+or whole.
+
+=item B<f_attributes_temporary>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x00100) indicating whether or not the file is
+temporary.  According to MSDN, the data for such files are not
+written to mass storage if sufficient cache memory is available.
+
+=item B<f_attributes_unknown_1>: KLEL_TYPE_BOOLEAN (WINX)
+
+Undocumented file attribute (0x00008).
+
+=item B<f_attributes_unknown_2>: KLEL_TYPE_BOOLEAN (WINX)
+
+Undocumented file attribute (0x08000).
+
+=item B<f_attributes_virtual>: KLEL_TYPE_BOOLEAN (WINX)
+
+File attribute (0x10000) indicating whether or not the file or
+directory has been marked as virtual.  According to MSDN, this
+value is reserved for system use.
+
+=item B<f_chtime>: KLEL_TYPE_INT64 (WINX)
+
+Undocumented time of last file change in seconds since the UNIX epoch
+(1970-01-01 00:00:00 UTC).
+
+=item B<f_ctime>: KLEL_TYPE_INT64 (UNIX/WINX)
+
+Time of last file status change (UNIX) or creation time (WINX)
+in seconds since the UNIX epoch (1970-01-01 00:00:00 UTC).
+
+=item B<f_dacl>: KLEL_TYPE_STRING (WINX)
+
+Discretionary access control list expressed using Security Descriptor
+Definition Language (SDDL).
+
+=item B<f_dev>: KLEL_TYPE_INT64 (UNIX)
+
+Device identification number.
+
+=item B<f_exists>: KLEL_TYPE_BOOLEAN (UNIX/WINX)
+
+Flag indicating whether or not a given object (file or directory)
+exists.
+
+=item B<f_findex>: KLEL_TYPE_INT64 (WINX)
+
+File serial number.
+
+=item B<f_fstype>: KLEL_TYPE_STRING (UNIX)
+
+File system type on which the object is stored.
+
+=item B<f_gid>: KLEL_TYPE_INT64 (UNIX)
+
+File's group ownership ID.
+
+=item B<f_gsid>: KLEL_TYPE_STRING (WINX)
+
+File's group ownership SID.
+
+=item B<f_inode>: KLEL_TYPE_INT64 (UNIX)
+
+File identification number.
+
+=item B<f_magic>: KLEL_TYPE_STRING (UNIX/WINX)
+
+File type based on XMagic analysis.
+
+=item B<f_md5>: KLEL_TYPE_STRING (UNIX/WINX)
+
+MD5 digest of the file's data stream.
+
+=item B<f_mode>: KLEL_TYPE_INT64 (UNIX)
+
+File attributes and permissions expressed as a 16-bit octal mask.
+
+=item B<f_mode_gr>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o000040) indicating file permissions grant group read
+(gr).
+
+=item B<f_mode_gw>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o000020) indicating file permissions grant group write
+(gw).
+
+=item B<f_mode_gx>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o000010) indicating file permissions grant group execute
+(gx).
+
+=item B<f_mode_or>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o000004) indicating file permissions grant other (i.e.,
+world) read (or).
+
+=item B<f_mode_ow>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o000002) indicating file permissions grant other (i.e.,
+world) write (ow).
+
+=item B<f_mode_ox>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o000001) indicating file permissions grant other (i.e.,
+world) execute (ox).
+
+=item B<f_mode_sg>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode for set group ID privilege on execution (sg).
+
+=item B<f_mode_st>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode for sticky access (st).
+
+=item B<f_mode_su>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode for set user ID privilege on execution (su).
+
+=item B<f_mode_tb>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o060000) indicating file type is a block device (tb).
+
+=item B<f_mode_tc>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o020000) indicating file type is a character device (tc).
+
+=item B<f_mode_td>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o040000) indicating file type is a directory (td).
+
+=item B<f_mode_tl>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o120000) indicating file type is a symbolic link (tl).
+
+=item B<f_mode_tp>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o010000) indicating file type is a named pipe (tp).
+
+=item B<f_mode_tr>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o100000) indicating file type is a regular file (tr).
+
+=item B<f_mode_ts>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o140000) indicating file type is a socket (ts).
+
+=item B<f_mode_tw>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o160000) indicating file type a whiteout (tw).
+
+=item B<f_mode_ur>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o000400) indicating file permissions grant user (i.e.,
+owner) read (ur).
+
+=item B<f_mode_uw>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o000200) indicating file permissions grant user (i.e.,
+owner) write (uw).
+
+=item B<f_mode_ux>: KLEL_TYPE_BOOLEAN (UNIX)
+
+File mode (0o000100) indicating file permissions grant user (i.e.,
+owner) execute (ux).
+
+=item B<f_mtime>: KLEL_TYPE_INT64 (UNIX/WINX)
+
+Time of last file modification in seconds since the UNIX epoch
+(1970-01-01 00:00:00 UTC).
+
+=item B<f_name>: KLEL_TYPE_STRING (UNIX/WINX)
+
+Filename (full path).
+
+=item B<f_nlink>: KLEL_TYPE_INT64 (UNIX)
+
+Number of hard links.
+
+=item B<f_osid>: KLEL_TYPE_STRING (WINX)
+
+File's user ownership SID.
+
+=item B<f_rdev>: KLEL_TYPE_INT64 (UNIX)
+
+Device type (contains major/minor numbers).
+
+=item B<f_sha1>: KLEL_TYPE_STRING (UNIX/WINX)
+
+SHA1 digest of the file's data stream.
+
+=item B<f_sha256>: KLEL_TYPE_STRING (UNIX/WINX)
+
+SHA256 digest of the file's data stream.
+
+=item B<f_size>: KLEL_TYPE_INT64 (UNIX/WINX)
+
+File size in bytes.
+
+=item B<f_uid>: KLEL_TYPE_INT64 (UNIX)
+
+File's user ownership ID.
+
+=item B<f_volume>: KLEL_TYPE_INT64 (WINX)
+
+Volume serial number.
+
+=back
+
+Any object matched by a given include filter will be recorded in the
+output stream. All other objects are implicitly excluded.  Note that
+include filter processing occurs after exclude filter processing, and
+once an object has been explicitly excluded, it will not be recorded
+in the output stream (even if a matching include filter exists).
+If no include filters are specified, include filter processing is
+implicitly disabled.
+
+Include filters are applied at various points in the mapping process,
+but they only interrupt that process at the point where sufficient
+information is available to make a determination.  Consequently,
+directory traversal and/or attribute production may be required.
+This has several implications:
+
+    - directory/file access times may be altered
+    - more data than anticipated may need to be processed
+    - run times may be significantly slower than expected
+
+To illustrate the case where directory traversal is required,
+suppose that you want to map all files whose filename ends with
+the string: '.pdf'.  The corresponding include filter would be
+specified as follows:
+
+    IncludeFilterKlel=f_name =~ "[.]pdf$"
+
+Since there is no way to know, a priori, where all such files are
+located, it becomes necessary to traverse all directories applying
+the filter to each path encountered.
+
+To illustrate the attribute production requirement, suppose that you
+want to map only those files having a particular MD5 message digest
+(e.g., "d41d8cd98f00b204e9800998ecf8427e").  The corresponding
+include filter would be specified as follows:
+
+    IncludeFilterKlel=f_md5 == "d41d8cd98f00b204e9800998ecf8427e"
+
+Since a given object's MD5 hash can't be produced without digesting
+its content, all object content (i.e., all files and directories)
+must be processed.
+
+Note: This control is only available if KLEL filters were enabled
+and KLEL support was compiled into the binary.
+
+Note: Support for this control was added in version 3.13.0.
+

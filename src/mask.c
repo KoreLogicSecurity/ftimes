@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: mask.c,v 1.26 2019/03/14 16:07:42 klm Exp $
+ * $Id: mask.c,v 1.28 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -59,6 +59,49 @@ static MASK_B2S_TABLE gasCmpMaskTable[] =
 };
 
 #ifdef WIN32
+static MASK_B2S_TABLE gasFilterMaskTable[] =
+{ 
+  { "volume",     1 },
+  { "findex",     1 },
+  { "attributes", 1 },
+  { "atime",      1 },
+  { "mtime",      1 },
+  { "ctime",      1 },
+  { "chtime",     1 },
+  { "size",       1 }, 
+  { "altstreams", 1 },
+  { "md5",        1 },
+  { "sha1",       1 },
+  { "sha256",     1 },
+  { "magic",      1 },
+  { "osid",       1 },
+  { "gsid",       1 },
+  { "dacl",       1 },
+  { "name",       1 },
+};
+#else
+static MASK_B2S_TABLE gasFilterMaskTable[] =
+{
+  { "dev",        1 },
+  { "inode",      1 },
+  { "mode",       1 },
+  { "nlink",      1 },
+  { "uid",        1 },
+  { "gid",        1 },
+  { "rdev",       1 },
+  { "atime",      1 },
+  { "mtime",      1 },
+  { "ctime",      1 },
+  { "size",       1 },
+  { "md5",        1 },
+  { "sha1",       1 },
+  { "sha256",     1 },
+  { "magic",      1 },
+  { "name",       1 },
+};
+#endif
+
+#ifdef WIN32
 static MASK_B2S_TABLE gasMapMaskTable[] =
 {
   { "volume",     1 },
@@ -110,6 +153,59 @@ static MASK_B2S_TABLE gasSrmMaskTable[] =
 /*-
  ***********************************************************************
  *
+ * MaskAppendToDynamicString
+ *
+ ***********************************************************************
+ */
+char *
+MaskAppendToDynamicString(char *pcTarget, char *pcStringToAppend, char *pcError)
+{
+  const char          acRoutine[] = "MaskAppendToDynamicString()";
+  char               *pcTemp = NULL;
+  int                 iStringToAppendLength = 0;
+  int                 iTargetLength = 0;
+
+  if (pcStringToAppend == NULL)
+  {
+    if (pcTarget == NULL)
+    {
+      pcTemp = (char *)realloc((void *)pcTarget, 1);
+      if (pcTemp == NULL)
+      {
+        snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): %s", acRoutine, strerror(errno));
+        return NULL;
+      }
+      pcTemp[0] = 0;
+      pcTarget = pcTemp;
+    }
+    return pcTarget;
+  }
+
+  iStringToAppendLength = strlen(pcStringToAppend);
+
+  if (pcTarget != NULL)
+  {
+    iTargetLength = strlen(pcTarget);
+  }
+
+  pcTemp = (char *)realloc((void *)pcTarget, iTargetLength + iStringToAppendLength + 1);
+  if (pcTemp == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: realloc(): %s", acRoutine, strerror(errno));
+    return NULL;
+  }
+
+  pcTarget = pcTemp;
+
+  strncpy(pcTarget + iTargetLength, pcStringToAppend, iStringToAppendLength + 1);
+
+  return pcTarget;
+}
+
+
+/*-
+ ***********************************************************************
+ *
  * MaskBuildMask
  *
  ***********************************************************************
@@ -137,10 +233,11 @@ MaskBuildMask(unsigned long ulMask, int iType, char *pcError)
    */
   switch (iType)
   {
-  case MASK_RUNMODE_TYPE_CMP:
-  case MASK_RUNMODE_TYPE_DIG:
-  case MASK_RUNMODE_TYPE_MAP:
-  case MASK_RUNMODE_TYPE_SRM:
+  case MASK_MASK_TYPE_CMP:
+  case MASK_MASK_TYPE_DIG:
+  case MASK_MASK_TYPE_FILTER:
+  case MASK_MASK_TYPE_MAP:
+  case MASK_MASK_TYPE_SRM:
     break;
   default:
     snprintf(pcError, MESSAGE_SIZE, "%s: Invalid type [%d]. That shouldn't happen.", acRoutine, iType);
@@ -231,16 +328,19 @@ MaskGetTableLength(int iType)
 {
   switch (iType)
   {
-  case MASK_RUNMODE_TYPE_CMP:
+  case MASK_MASK_TYPE_CMP:
     return (sizeof(gasCmpMaskTable) / sizeof(gasCmpMaskTable[0]));
     break;
-  case MASK_RUNMODE_TYPE_DIG:
+  case MASK_MASK_TYPE_DIG:
     return 0;
     break;
-  case MASK_RUNMODE_TYPE_MAP:
+  case MASK_MASK_TYPE_FILTER:
+    return (sizeof(gasFilterMaskTable) / sizeof(gasFilterMaskTable[0]));
+    break;
+  case MASK_MASK_TYPE_MAP:
     return (sizeof(gasMapMaskTable) / sizeof(gasMapMaskTable[0]));
     break;
-  case MASK_RUNMODE_TYPE_SRM:
+  case MASK_MASK_TYPE_SRM:
     return (sizeof(gasSrmMaskTable) / sizeof(gasSrmMaskTable[0]));
     break;
   default:
@@ -262,16 +362,19 @@ MaskGetTableReference(int iType)
 {
   switch (iType)
   {
-  case MASK_RUNMODE_TYPE_CMP:
+  case MASK_MASK_TYPE_CMP:
     return gasCmpMaskTable;
     break;
-  case MASK_RUNMODE_TYPE_DIG:
+  case MASK_MASK_TYPE_DIG:
     return NULL;
     break;
-  case MASK_RUNMODE_TYPE_MAP:
+  case MASK_MASK_TYPE_FILTER:
+    return gasFilterMaskTable;
+    break;
+  case MASK_MASK_TYPE_MAP:
     return gasMapMaskTable;
     break;
-  case MASK_RUNMODE_TYPE_SRM:
+  case MASK_MASK_TYPE_SRM:
     return gasSrmMaskTable;
     break;
   default:
@@ -349,16 +452,19 @@ MaskParseMask(char *pcMask, int iType, char *pcError)
    */
   switch (iType)
   {
-  case MASK_RUNMODE_TYPE_CMP:
+  case MASK_MASK_TYPE_CMP:
     ulAllMask = CMP_ALL_MASK;
     break;
-  case MASK_RUNMODE_TYPE_DIG:
+  case MASK_MASK_TYPE_DIG:
     ulAllMask = DIG_ALL_MASK;
     break;
-  case MASK_RUNMODE_TYPE_MAP:
+  case MASK_MASK_TYPE_FILTER:
+    ulAllMask = FILTER_ALL_MASK;
+    break;
+  case MASK_MASK_TYPE_MAP:
     ulAllMask = MAP_ALL_MASK;
     break;
-  case MASK_RUNMODE_TYPE_SRM:
+  case MASK_MASK_TYPE_SRM:
     ulAllMask = SRM_ALL_MASK;
     break;
   default:
@@ -538,26 +644,26 @@ MaskParseMask(char *pcMask, int iType, char *pcError)
          *
          ***************************************************************
          */
-        if (strcasecmp(pcToken, "hashes") == 0 && (iType == MASK_RUNMODE_TYPE_CMP || iType == MASK_RUNMODE_TYPE_MAP || iType == MASK_RUNMODE_TYPE_SRM))
+        if (strcasecmp(pcToken, "hashes") == 0 && (iType == MASK_MASK_TYPE_CMP || iType == MASK_MASK_TYPE_MAP || iType == MASK_MASK_TYPE_SRM))
         {
           if (cLastAction == '+')
           {
-            psMask->ulMask |= (iType == MASK_RUNMODE_TYPE_CMP) ? CMP_HASHES_MASK : (iType == MASK_RUNMODE_TYPE_MAP) ? MAP_HASHES_MASK : SRM_HASHES_MASK;
+            psMask->ulMask |= (iType == MASK_MASK_TYPE_CMP) ? CMP_HASHES_MASK : (iType == MASK_MASK_TYPE_MAP) ? MAP_HASHES_MASK : SRM_HASHES_MASK;
           }
           else
           {
-            psMask->ulMask &= (iType == MASK_RUNMODE_TYPE_CMP) ? ~CMP_HASHES_MASK : (iType == MASK_RUNMODE_TYPE_MAP) ? ~MAP_HASHES_MASK : ~SRM_HASHES_MASK;
+            psMask->ulMask &= (iType == MASK_MASK_TYPE_CMP) ? ~CMP_HASHES_MASK : (iType == MASK_MASK_TYPE_MAP) ? ~MAP_HASHES_MASK : ~SRM_HASHES_MASK;
           }
         }
-        else if (strcasecmp(pcToken, "times") == 0 && (iType == MASK_RUNMODE_TYPE_CMP || iType == MASK_RUNMODE_TYPE_MAP))
+        else if (strcasecmp(pcToken, "times") == 0 && (iType == MASK_MASK_TYPE_CMP || iType == MASK_MASK_TYPE_MAP))
         {
           if (cLastAction == '+')
           {
-            psMask->ulMask |= (iType == MASK_RUNMODE_TYPE_CMP) ? CMP_TIMES_MASK : MAP_TIMES_MASK;
+            psMask->ulMask |= (iType == MASK_MASK_TYPE_CMP) ? CMP_TIMES_MASK : MAP_TIMES_MASK;
           }
           else
           {
-            psMask->ulMask &= (iType == MASK_RUNMODE_TYPE_CMP) ? ~CMP_TIMES_MASK : ~MAP_TIMES_MASK;
+            psMask->ulMask &= (iType == MASK_MASK_TYPE_CMP) ? ~CMP_TIMES_MASK : ~MAP_TIMES_MASK;
           }
         }
         else

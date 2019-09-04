@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: tree_builder,v 1.18 2019/03/14 16:07:45 klm Exp $
+# $Id: tree_builder,v 1.20 2019/07/23 17:52:17 klm Exp $
 #
 ######################################################################
 #
@@ -77,9 +77,23 @@ BEGIN
 
   my (%hOptions);
 
-  if (!getopts("D:d:f:l:Mno:", \%hOptions))
+  if (!getopts("c:D:d:f:l:Mno:s:", \%hOptions))
   {
     Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # The Content, '-c', flag is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Content'} = (exists($hOptions{'c'})) ? lc($hOptions{'c'}) : "name";
+
+  if ($$phProperties{'Content'} !~ /^(name|null|rand|\d+)$/)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Value must be one of \"name\", \"null\", \"rand\", or an integer between 0 and 255 inclusive.'\n";
+    exit(2);
   }
 
   ####################################################################
@@ -183,6 +197,20 @@ BEGIN
   if (!defined($$phProperties{'OutDir'}))
   {
     Usage($$phProperties{'Program'});
+  }
+
+  ####################################################################
+  #
+  # The Size, '-s', flag is optional.
+  #
+  ####################################################################
+
+  $$phProperties{'Size'} = (exists($hOptions{'s'})) ? $hOptions{'s'} : undef;
+
+  if (defined($$phProperties{'Size'}) && $$phProperties{'Size'} !~ /^\d+$/ && $$phProperties{'Size'} <= 1024)
+  {
+    print STDERR "$$phProperties{'Program'}: Error='Size ($$phProperties{'Size'}) must be an integer value between 0 and 1024 inclusive.'\n";
+    exit(2);
   }
 
   ####################################################################
@@ -391,9 +419,17 @@ sub MkFiles
   {
     my $sName = $$phProperties{'FilenamePrefix'} . $i;
     my $sFile = $$phProperties{'WorkingDir'} . "/" . $sName;
+    my $sFill = $sName;
+    if ($$phProperties{'Content'} ne "name")
+    {
+      my $sByte = ($$phProperties{'Content'} =~ /^(\d+)$/) ? $1 % 256 : ($$phProperties{'Content'} eq "null") ? 0 : int(rand(256));
+      $sFill = pack("C", $sByte) x 4;
+    }
+    $sFill = substr($sFill x 1024, 0, $$phProperties{'Size'}) if (defined($$phProperties{'Size'}));
+    
     if (!$$phProperties{'DryRun'})
     {
-      if (!MkFile($sFile, $sName, $psError))
+      if (!MkFile($sFile, $sFill, $psError))
       {
         return undef;
       }
@@ -401,10 +437,10 @@ sub MkFiles
     if (!$$phProperties{'NoMap'})
     {
       my $oMd5 = Digest::MD5->new();
-      $oMd5->add($sName);
+      $oMd5->add($sFill);
       my $sMd5 = $oMd5->hexdigest;
       my $oSha1 = Digest::SHA->new(1);
-      $oSha1->add($sName);
+      $oSha1->add($sFill);
       my $sSha1 = $oSha1->hexdigest;
       PrintRecord("\"$sFile\"|$sMd5|$sSha1");
     }
@@ -626,7 +662,7 @@ sub Usage
 {
   my ($sProgram) = @_;
   print STDERR "\n";
-  print STDERR "Usage: $sProgram [-Mn] [-D depth] [-d dir-count] [-f file-count] [-l link-count] -o out-dir\n";
+  print STDERR "Usage: $sProgram [-Mn] [-c {name|null|rand|0-255}] [-D depth] [-d dir-count] [-f file-count] [-l link-count] [-s size] -o out-dir\n";
   print STDERR "\n";
   exit(1);
 }

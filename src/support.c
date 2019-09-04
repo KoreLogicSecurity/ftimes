@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: support.c,v 1.70 2019/03/14 17:45:58 klm Exp $
+ * $Id: support.c,v 1.75 2019/08/30 15:48:19 klm Exp $
  *
  ***********************************************************************
  *
@@ -12,11 +12,11 @@
 #include "all-includes.h"
 
 #ifdef WIN32
-static int (*CompareFunction)  () = strcasecmp;
-static int (*NCompareFunction) () = strncasecmp;
+static int (*CompareFunction)(const char *s1, const char *s2) = strcasecmp;
+static int (*NCompareFunction)(const char *s1, const char *s2, size_t n) = strncasecmp;
 #else
-static int (*CompareFunction)  () = strcmp;
-static int (*NCompareFunction) () = strncmp;
+static int (*CompareFunction)(const char *s1, const char *s2) = strcmp;
+static int (*NCompareFunction)(const char *s1, const char *s2, size_t n) = strncmp;
 #endif
 
 /*-
@@ -324,6 +324,263 @@ SupportAdjustPrivileges(LPCTSTR lpcPrivilege)
   }
 
   return TRUE;
+}
+#endif
+
+
+#ifdef USE_PCRE
+void
+SupportApplyFilters(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, int iFilterWhen)
+{
+  char                acMessage[MESSAGE_SIZE] = "";
+  FILTER_LIST        *psFilter = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally apply exclude filters. These filters take precedence
+   * over include filters. If there's a match, return immediately.
+   *
+   *********************************************************************
+   */
+  if (psProperties->psExcludeFilterList)
+  {
+    psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, psFTFileData->pcRawPath);
+    if (psFilter != NULL)
+    {
+      if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+      {
+        snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=[%s], RawPath=[%s]", psFilter->pcFilter, psFTFileData->pcRawPath);
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+      }
+      psFTFileData->iFiltered = FTIMES_FILTER_POST_ATTR;
+      return;
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally apply include filters. These filters do not actually
+   * get applied until the file's type (i.e., directory, special, etc.)
+   * is checked. Note that directories not specifically included must be
+   * traversed before being implicitly excluded (in the event that they
+   * contain other files/directories explicitly included.
+   *
+   *********************************************************************
+   */
+  if (psProperties->psIncludeFilterList)
+  {
+    psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, psFTFileData->pcRawPath);
+    if (psFilter != NULL)
+    {
+      if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+      {
+        snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=[%s], RawPath=[%s]", psFilter->pcFilter, psFTFileData->pcRawPath);
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+      }
+      psFTFileData->iFiltered = 0; /* We matched an include filter. Clear the filtered flag to indicate this object should not be filtered. */
+      return;
+    }
+    else
+    {
+      switch (iFilterWhen)
+      {
+      case FTIMES_FILTER_POST_NAME:
+        psFTFileData->iFiltered = FTIMES_FILTER_POST_ATTR; /* Defer until file type is known. */
+        break;
+      case FTIMES_FILTER_POST_ATTR:
+        psFTFileData->iFiltered = FTIMES_FILTER_POST_ATTR; /* No deferment needed. */
+        if (psFTFileData->ulAttributeMask != 0)
+        {
+#ifdef WIN32
+          if ((psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+#else
+          if (S_ISDIR(psFTFileData->sStatEntry.st_mode))
+#endif
+          {
+            psFTFileData->iFiltered = FTIMES_FILTER_POST_ATTR_SCAN; /* Defer until directory has been traversed. */
+          }
+        }
+        break;
+      case FTIMES_FILTER_POST_DATA:
+      default:
+        psFTFileData->iFiltered = FTIMES_FILTER_POST_DATA; /* Defer until file data have been processed. */
+        break;
+      }
+    }
+  }
+
+  return;
+}
+
+void
+SupportApplyFiltersForHashes(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, int iFilterWhen)
+{
+  char                acMessage[MESSAGE_SIZE] = "";
+  FILTER_LIST        *psFilter = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally apply exclude filters. These filters take precedence
+   * over include filters. If there's a match, return immediately.
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  {
+    char acHash[MD5_HASH_SIZE*2+1];
+    MD5HashToHex(psFTFileData->aucFileMd5, acHash);
+    if (psProperties->psExcludeFilterMd5List)
+    {
+      psFilter = SupportMatchFilter(psProperties->psExcludeFilterMd5List, acHash);
+      if (psFilter != NULL)
+      {
+        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilterMd5=[%s], RawPath=[%s]", psFilter->pcFilter, psFTFileData->pcRawPath);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+        }
+        psFTFileData->iFiltered = FTIMES_FILTER_POST_DATA;
+        return;
+      }
+    }
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+  {
+    char acHash[SHA1_HASH_SIZE*2+1];
+    SHA1HashToHex(psFTFileData->aucFileSha1, acHash);
+    if (psProperties->psExcludeFilterSha1List)
+    {
+      psFilter = SupportMatchFilter(psProperties->psExcludeFilterSha1List, acHash);
+      if (psFilter != NULL)
+      {
+        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilterSha1=[%s], RawPath=[%s]", psFilter->pcFilter, psFTFileData->pcRawPath);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+        }
+        psFTFileData->iFiltered = FTIMES_FILTER_POST_DATA;
+        return;
+      }
+    }
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+  {
+    char acHash[SHA256_HASH_SIZE*2+1];
+    SHA256HashToHex(psFTFileData->aucFileSha256, acHash);
+    if (psProperties->psExcludeFilterSha256List)
+    {
+      psFilter = SupportMatchFilter(psProperties->psExcludeFilterSha256List, acHash);
+      if (psFilter != NULL)
+      {
+        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilterSha256=[%s], RawPath=[%s]", psFilter->pcFilter, psFTFileData->pcRawPath);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+        }
+        psFTFileData->iFiltered = FTIMES_FILTER_POST_DATA;
+        return;
+      }
+    }
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Conditionally apply include filters. An explicit include trumps an
+   * implicit exclude. Note that the net effect of this policy is shown
+   * in the following truth table.
+   *
+   *                           S   S   M   F
+   *                           H   H   D   I
+   *                           A   A   5   L
+   *                           2   1       T
+   *                           5           E
+   *                           6           R
+   *   +---------------------+---+---+---+---+
+   *   | explicitly included | N | N | N | Y | (implicitly excluded)
+   *   | explicitly included | N | N | Y | N |
+   *   | explicitly included | N | Y | N | N |
+   *   | explicitly included | N | Y | Y | N |
+   *   | explicitly included | Y | N | N | N |
+   *   | explicitly included | Y | N | Y | N |
+   *   | explicitly included | Y | Y | N | N |
+   *   | explicitly included | Y | Y | Y | N |
+   *   +---------------------+---+---+---+---+
+   *
+   *********************************************************************
+   */
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
+  {
+    char acHash[MD5_HASH_SIZE*2+1];
+    MD5HashToHex(psFTFileData->aucFileMd5, acHash);
+    if (psProperties->psIncludeFilterMd5List)
+    {
+      psFilter = SupportMatchFilter(psProperties->psIncludeFilterMd5List, acHash);
+      if (psFilter != NULL)
+      {
+        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilterMd5=[%s], RawPath=[%s]", psFilter->pcFilter, psFTFileData->pcRawPath);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+        }
+        psFTFileData->iFiltered = 0; /* We matched an include filter. Clear the filtered flag to indicate this object should not be filtered. */
+        return; /* Since there's an explicit match, return now to avoid implicit filtering by a subsequent hash type. */
+      }
+      else
+      {
+        psFTFileData->iFiltered = FTIMES_FILTER_POST_DATA;
+      }
+    }
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
+  {
+    char acHash[SHA1_HASH_SIZE*2+1];
+    SHA1HashToHex(psFTFileData->aucFileSha1, acHash);
+    if (psProperties->psIncludeFilterSha1List)
+    {
+      psFilter = SupportMatchFilter(psProperties->psIncludeFilterSha1List, acHash);
+      if (psFilter != NULL)
+      {
+        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilterSha1=[%s], RawPath=[%s]", psFilter->pcFilter, psFTFileData->pcRawPath);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+        }
+        psFTFileData->iFiltered = 0; /* We matched an include filter. Clear the filtered flag to indicate this object should not be filtered. */
+        return; /* Since there's an explicit match, return now to avoid implicit filtering by a subsequent hash type. */
+      }
+      else
+      {
+        psFTFileData->iFiltered = FTIMES_FILTER_POST_DATA;
+      }
+    }
+  }
+  if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
+  {
+    char acHash[SHA256_HASH_SIZE*2+1];
+    SHA256HashToHex(psFTFileData->aucFileSha256, acHash);
+    if (psProperties->psIncludeFilterSha256List)
+    {
+      psFilter = SupportMatchFilter(psProperties->psIncludeFilterSha256List, acHash);
+      if (psFilter != NULL)
+      {
+        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
+        {
+          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilterSha256=[%s], RawPath=[%s]", psFilter->pcFilter, psFTFileData->pcRawPath);
+          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
+        }
+        psFTFileData->iFiltered = 0; /* We matched an include filter. Clear the filtered flag to indicate this object should not be filtered. */
+        return; /* Since there's an explicit match, return now to avoid implicit filtering by a subsequent hash type. */
+      }
+      else
+      {
+        psFTFileData->iFiltered = FTIMES_FILTER_POST_DATA;
+      }
+    }
+  }
 }
 #endif
 
@@ -1854,6 +2111,90 @@ SupportAddFilter(char *pcFilter, FILTER_LIST **psHead, char *pcError)
 {
   const char          acRoutine[] = "SupportAddFilter()";
   char                acLocalError[MESSAGE_SIZE] = "";
+#ifdef USE_KLEL_FILTERS
+  FTIMES_PROPERTIES  *psProperties = FTimesGetPropertiesReference();
+  char               *pcConversionPrefix = NULL;
+  char               *pcKlelFilter = NULL;
+  FILTER_LIST_KLEL  **ppsFilterList = NULL;
+
+  /*-
+   *********************************************************************
+   *
+   * Identify the filter list and establish a conversion prefix.
+   *
+   *********************************************************************
+   */
+  if (psHead == &psProperties->psExcludeFilterList)
+  {
+    ppsFilterList = &psProperties->psExcludeFilterListKlel;
+    pcConversionPrefix = FILTER_PREFIX_FOR_PCRE_NAME;
+  }
+  else if (psHead == &psProperties->psIncludeFilterList)
+  {
+    ppsFilterList = &psProperties->psIncludeFilterListKlel;
+    pcConversionPrefix = FILTER_PREFIX_FOR_PCRE_NAME;
+  }
+  else if (psHead == &psProperties->psExcludeFilterMd5List)
+  {
+    ppsFilterList = &psProperties->psExcludeFilterListKlel;
+    pcConversionPrefix = FILTER_PREFIX_FOR_PCRE_MD5;
+  }
+  else if (psHead == &psProperties->psIncludeFilterMd5List)
+  {
+    ppsFilterList = &psProperties->psIncludeFilterListKlel;
+    pcConversionPrefix = FILTER_PREFIX_FOR_PCRE_MD5;
+  }
+  else if (psHead == &psProperties->psExcludeFilterSha1List)
+  {
+    ppsFilterList = &psProperties->psExcludeFilterListKlel;
+    pcConversionPrefix = FILTER_PREFIX_FOR_PCRE_SHA1;
+  }
+  else if (psHead == &psProperties->psIncludeFilterSha1List)
+  {
+    ppsFilterList = &psProperties->psIncludeFilterListKlel;
+    pcConversionPrefix = FILTER_PREFIX_FOR_PCRE_SHA1;
+  }
+  else if (psHead == &psProperties->psExcludeFilterSha256List)
+  {
+    ppsFilterList = &psProperties->psExcludeFilterListKlel;
+    pcConversionPrefix = FILTER_PREFIX_FOR_PCRE_SHA256;
+  }
+  else if (psHead == &psProperties->psIncludeFilterSha256List)
+  {
+    ppsFilterList = &psProperties->psIncludeFilterListKlel;
+    pcConversionPrefix = FILTER_PREFIX_FOR_PCRE_SHA256;
+  }
+  else
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: Unidentified filter list. That should not happen.", acRoutine);
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Create an equivalent KLEL-based filter expression.
+   *
+   *********************************************************************
+   */
+  pcKlelFilter = FilterConvertFromPcre(pcFilter, pcConversionPrefix, acLocalError);
+  if (pcKlelFilter == NULL)
+  {
+    snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+    return ER;
+  }
+
+  /*-
+   *********************************************************************
+   *
+   * Add the equivalent filter expression to the appropriate list.
+   *
+   *********************************************************************
+   */
+  return FilterAddFilter(pcKlelFilter, ppsFilterList, pcError);
+
+#else /* Revert to using legacy PCRE-based filters. */
+
   FILTER_LIST        *psCurrent = NULL;
   FILTER_LIST        *psFilter = NULL;
 
@@ -1898,6 +2239,7 @@ SupportAddFilter(char *pcFilter, FILTER_LIST **psHead, char *pcError)
   }
 
   return ER_OK;
+#endif
 }
 
 

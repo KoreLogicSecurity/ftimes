@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: getmode.c,v 1.32 2019/03/14 16:07:42 klm Exp $
+ * $Id: getmode.c,v 1.33 2019/04/22 20:04:01 klm Exp $
  *
  ***********************************************************************
  *
@@ -19,10 +19,11 @@
  ***********************************************************************
  */
 int
-GetModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
+GetModeInitialize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "GetModeInitialize()";
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
 
   /*-
@@ -61,12 +62,13 @@ GetModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-GetModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
+GetModeCheckDependencies(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "GetModeCheckDependencies()";
 #ifdef USE_SSL
   char                acLocalError[MESSAGE_SIZE] = "";
 #endif
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   if (psProperties->acBaseName[0] == 0)
   {
@@ -121,9 +123,10 @@ GetModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-GetModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
+GetModeFinalize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "GetModeFinalize()";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   /*-
    *********************************************************************
@@ -182,10 +185,11 @@ GetModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-GetModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
+GetModeWorkHorse(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "GetModeWorkHorse()";
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
 
   iError = URLGetRequest(psProperties, acLocalError);
@@ -218,9 +222,10 @@ GetModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-GetModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
+GetModeFinishUp(void *pvProperties, char *pcError)
 {
   char                acMessage[MESSAGE_SIZE];
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   /*-
    *********************************************************************
@@ -256,10 +261,11 @@ GetModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-GetModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
+GetModeFinalStage(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "GetModeFinalStage()";
   char                acMode[6]; /* strlen("--map") + 1 */
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
 
   /*-

@@ -1,20 +1,20 @@
-=item B<ExcludeFilter>: <regexp>
+=item B<ExcludeFilter>: <pcre-expr>
 
 Applies to B<dig>, B<mad>, and B<map>.
 
 B<ExcludeFilter> controls are optional, and there is no predefined
 limit on the number that may be specified.  However, there can be only
-one B<ExcludeFilter> control/value pair per line.
+one control/value pair per line.
 
-Each B<ExcludeFilter> must be specified as a Perl compatible regular
+Each exclude filter must be specified as a Perl compatible regular
 expression with the caveat that no more than nine capturing '()'
 subpatterns for backreferences are allowed.  Use '(?:)' if you require
 parentheses for grouping purposes.
 
-Any path matched by an B<ExcludeFilter> will be rejected.  All other
-paths will be mapped subject to include filter processing.  If no
-exclude filters are specified, exclude filter processing is implicitly
-disabled.
+Any object matched by a given exclude filter will be rejected.  All
+other objects will be mapped subject to include filter processing.
+If no exclude filters are specified, exclude filter processing is
+implicitly disabled.
 
 Note: This control is only available if PCRE support was compiled
 into the binary.

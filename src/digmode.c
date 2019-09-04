@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: digmode.c,v 1.59 2019/03/14 16:07:42 klm Exp $
+ * $Id: digmode.c,v 1.63 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -19,12 +19,13 @@
  ***********************************************************************
  */
 int
-DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
+DigModeInitialize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "DigModeInitialize()";
   char                acLocalError[MESSAGE_SIZE] = "";
   char                acMapItem[FTIMES_MAX_PATH];
   char               *pcMapItem = NULL;
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError = 0;
 
   /*-
@@ -41,7 +42,7 @@ DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
     psProperties->bAnalyzeDeviceFiles = TRUE;
     psProperties->bAnalyzeRemoteFiles = TRUE;
   }
-  psProperties->psFieldMask = MaskParseMask("all", MASK_RUNMODE_TYPE_DIG, acLocalError); /* A mask is required by nph-ftimes.cgi. */
+  psProperties->psFieldMask = MaskParseMask("all-hashes-magic", MASK_MASK_TYPE_MAP, acLocalError); /* A mask is required by nph-ftimes.cgi as well as KLEL-based filters. */
   if (psProperties->psFieldMask == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
@@ -125,9 +126,10 @@ DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
+DigModeCheckDependencies(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "DigModeCheckDependencies()";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iLargestDigString = DigGetMaxStringLength();
 #ifdef USE_SSL
   char                acLocalError[MESSAGE_SIZE] = "";
@@ -183,7 +185,7 @@ DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (DigGetSearchList(DIG_STRING_TYPE_XMAGIC, 0) != NULL && psProperties->iAnalyzeCarrySize < sizeof(APP_UI32))
+  if (DigGetSearchList(DIG_STRING_TYPE_XMAGIC, 0) != NULL && psProperties->iAnalyzeCarrySize < (int) sizeof(APP_UI32))
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: AnalyzeCarrySize (%d) must be %d or larger when DigStringXMagic values are in use.", acRoutine, psProperties->iAnalyzeCarrySize, (int) sizeof(APP_UI32));
     return ER;
@@ -255,10 +257,11 @@ DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
+DigModeFinalize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "DigModeFinalize()";
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
 
   /*-
@@ -378,6 +381,39 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
       return iError;
     }
   }
+
+#ifdef USE_KLEL_FILTERS
+  /*-
+   *********************************************************************
+   *
+   * Conditionally check the Include and Exclude filters. Note that we
+   * manually include the name attribute bit since it's not present in
+   * a normal field mask.
+   *
+   *********************************************************************
+   */
+  if (psProperties->psExcludeFilterListKlel != NULL)
+  {
+    unsigned long ulMask = psProperties->psFieldMask->ulMask | FILTER_NAME;
+    iError = FilterCheckFilterMasks(psProperties->psExcludeFilterListKlel, ulMask, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return iError;
+    }
+  }
+
+  if (psProperties->psIncludeFilterListKlel != NULL)
+  {
+    unsigned long ulMask = psProperties->psFieldMask->ulMask | FILTER_NAME;
+    iError = FilterCheckFilterMasks(psProperties->psIncludeFilterListKlel, ulMask, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return iError;
+    }
+  }
+#endif
 
   /*-
    *********************************************************************
@@ -522,10 +558,11 @@ DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-DigModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
+DigModeWorkHorse(void *pvProperties, char *pcError)
 {
   char                acLocalError[MESSAGE_SIZE] = "";
   FILE_LIST           *psList = NULL;
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   /*-
    *********************************************************************
@@ -554,9 +591,10 @@ DigModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
+DigModeFinishUp(void *pvProperties, char *pcError)
 {
   char                acMessage[MESSAGE_SIZE];
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 i;
   int                 iFirst;
   int                 iIndex;
@@ -709,10 +747,11 @@ DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-DigModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
+DigModeFinalStage(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "DigModeFinalStage()";
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
 
   /*-

@@ -2,7 +2,7 @@
 ######################################################################
 ######################################################################
 #
-# $Id: ftimes-map.cfg.base,v 1.1 2012/05/05 22:49:46 mavrik Exp $
+# $Id: ftimes-map.cfg.base,v 1.2 2019/08/29 19:24:56 klm Exp $
 #
 ######################################################################
 ######################################################################
@@ -34,14 +34,16 @@
 #Import=                          # <file>
 #Include=                         # [<file>|<directory>|<link>]
 #Exclude=                         # [<file>|<directory>|<link>]
-#IncludeFilter=                   # <regexp>
-#ExcludeFilter=                   # <regexp>
-#IncludeFilterMd5=                # <regexp>
-#ExcludeFilterMd5=                # <regexp>
-#IncludeFilterSha1=               # <regexp>
-#ExcludeFilterSha1=               # <regexp>
-#IncludeFilterSha256=             # <regexp>
-#ExcludeFilterSha256=             # <regexp>
+#IncludeFilter=                   # <pcre-expr>
+#ExcludeFilter=                   # <pcre-expr>
+#IncludeFilterKlel=               # <klel-expr>
+#ExcludeFilterKlel=               # <klel-expr>
+#IncludeFilterMd5=                # <pcre-expr>
+#ExcludeFilterMd5=                # <pcre-expr>
+#IncludeFilterSha1=               # <pcre-expr>
+#ExcludeFilterSha1=               # <pcre-expr>
+#IncludeFilterSha256=             # <pcre-expr>
+#ExcludeFilterSha256=             # <pcre-expr>
 #
 #AnalyzeBlockSize=16384           # [1-1048576]
 #AnalyzeByteCount=0               # [0-18446744073709551615]

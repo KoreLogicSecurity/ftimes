@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: nph-ftimes.cgi,v 1.40 2019/03/14 16:07:44 klm Exp $
+# $Id: nph-ftimes.cgi,v 1.41 2019/08/29 19:24:56 klm Exp $
 #
 ######################################################################
 #
@@ -47,7 +47,7 @@ use Fcntl qw(:flock);
   ####################################################################
 
   $hProperties{'StartTime'} = time();
-  $hProperties{'Version'} = sprintf("%s %s", __FILE__, ('$Revision: 1.40 $' =~ /^.Revision: ([\d.]+)/));
+  $hProperties{'Version'} = sprintf("%s %s", __FILE__, ('$Revision: 1.41 $' =~ /^.Revision: ([\d.]+)/));
 
   ####################################################################
   #
@@ -569,7 +569,7 @@ sub GetGlobalConfigProperties
   #
   ####################################################################
 
-  $$phProperties{'RequiredDigMask'} = "all";
+  $$phProperties{'RequiredDigMask'} = "all-hashes-magic";
 
   ####################################################################
   #

@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 ######################################################################
 #
-# $Id: ftimes-encoder,v 1.35 2019/03/14 16:07:43 klm Exp $
+# $Id: ftimes-encoder,v 1.47 2019/05/30 13:03:55 klm Exp $
 #
 ######################################################################
 #
@@ -131,22 +131,33 @@ BEGIN
   #
   ####################################################################
 
-  $$phProperties{'NoNewline'} = 0;
-  $$phProperties{'OneString'} = 0;
+  my @sSupportedOptions =
+  (
+    'NoNewline',
+    'NixSpaces',
+    'OneString',
+  );
+  foreach my $sOption (@sSupportedOptions)
+  {
+    $$phProperties{$sOption} = 0;
+  }
 
   $$phProperties{'Options'} = (exists($hOptions{'o'})) ? $hOptions{'o'} : undef;
 
-  if (exists($hOptions{'o'}) && defined($hOptions{'o'}))
+  if (defined($$phProperties{'Options'}))
   {
-    foreach my $sActualOption (split(/,/, $$phProperties{'Options'}))
+    foreach my $sOption (split(/,/, $$phProperties{'Options'}))
     {
-      foreach my $sTargetOption ('NoNewline', 'OneString')
+      foreach my $sSupportedOption (@sSupportedOptions)
       {
-        if ($sActualOption =~ /^$sTargetOption$/i)
-        {
-          $$phProperties{$sTargetOption} = 1;
-        }
+        $sOption = $sSupportedOption if ($sOption =~ /^$sSupportedOption$/i);
       }
+      if (!exists($$phProperties{$sOption}))
+      {
+        print STDERR "$$phProperties{'Program'}: Error='Unknown or unsupported option ($sOption).'\n";
+        exit(2);
+      }
+      $$phProperties{$sOption} = 1;
     }
   }
 
@@ -163,7 +174,7 @@ BEGIN
     Usage($$phProperties{'Program'});
   }
 
-  if ($$phProperties{'Type'} !~ /^(?:b(?:ase)?(?:32|64)(?:[_-]?url)?|ftimes-(?:nss|sss|url)|hex|url)(?::(?:b(?:ase)?(?:32|64)(?:[_-]?url)?|ftimes-(?:nss|sss|url)|hex|url))?$/i)
+  if ($$phProperties{'Type'} !~ /^(?:b(?:ase)?(?:32|64)(?:[_-]?url)?|(?:safe-)?bookend-hex|ftimes-(?:nss|sss|url)|hex(?:-(?:array|cstring))?|url)(?::(?:b(?:ase)?(?:32|64)(?:[_-]?url)?|(?:safe-)?bookend-hex|ftimes-(?:nss|sss|url)|hex(?:-(?:array|cstring))?|url))?$/i)
   {
     print STDERR "$$phProperties{'Program'}: Error='Invalid type ($$phProperties{'Type'}). See man page for a list of valid types.'\n";
     exit(2);
@@ -239,6 +250,10 @@ BEGIN
     {
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64UrlDecode;
     }
+    elsif ($$phProperties{'Type'} =~ /^bookend-hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBookendHexDecode;
+    }
     elsif ($$phProperties{'Type'} =~ /^ftimes-nss$/i)
     {
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesNssDecode;
@@ -254,6 +269,18 @@ BEGIN
     elsif ($$phProperties{'Type'} =~ /^hex$/i)
     {
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex-array$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecodeArray;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex-cstring$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecodeCString;
+    }
+    elsif ($$phProperties{'Type'} =~ /^safe-bookend-hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadSafeBookendHexDecode;
     }
     elsif ($$phProperties{'Type'} =~ /^url$/i)
     {
@@ -305,6 +332,12 @@ BEGIN
       $sSlot = $sLastSlotUsed + 1;
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
     }
+    elsif ($$phProperties{'Type'} =~ /^bookend-hex:bookend-hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBookendHexDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBookendHexEncode;
+    }
     elsif ($$phProperties{'Type'} =~ /^ftimes-url:ftimes-url$/i)
     {
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesUrlDecode;
@@ -347,11 +380,65 @@ BEGIN
       $sSlot = $sLastSlotUsed + 1;
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
     }
+    elsif ($$phProperties{'Type'} =~ /^hex:hex-array$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncodeArray;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex:hex-cstring$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncodeCString;
+    }
     elsif ($$phProperties{'Type'} =~ /^hex:url$/i)
     {
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecode;
       $sSlot = $sLastSlotUsed + 1;
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadUrlEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex-array:hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecodeArray;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex-array:hex-array$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecodeArray;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncodeArray;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex-array:hex-cstring$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecodeArray;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncodeCString;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex-cstring:hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecodeCString;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex-cstring:hex-array$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecodeCString;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncodeArray;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex-cstring:hex-cstring$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexDecodeCString;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncodeCString;
+    }
+    elsif ($$phProperties{'Type'} =~ /^safe-bookend-hex:safe-bookend-hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadSafeBookendHexDecode;
+      $sSlot = $sLastSlotUsed + 1;
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadSafeBookendHexEncode;
     }
     elsif ($$phProperties{'Type'} =~ /^url:hex$/i)
     {
@@ -387,6 +474,10 @@ BEGIN
     {
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBase64UrlEncode;
     }
+    elsif ($$phProperties{'Type'} =~ /^bookend-hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadBookendHexEncode;
+    }
     elsif ($$phProperties{'Type'} =~ /^ftimes-nss$/i)
     {
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadFTimesNssEncode;
@@ -402,6 +493,18 @@ BEGIN
     elsif ($$phProperties{'Type'} =~ /^hex$/i)
     {
       $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncode;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex-array$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncodeArray;
+    }
+    elsif ($$phProperties{'Type'} =~ /^hex-cstring$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadHexEncodeCString;
+    }
+    elsif ($$phProperties{'Type'} =~ /^safe-bookend-hex$/i)
+    {
+      $$phProperties{'Routines'}{$sSlot}{'Routine'} = \&EadSafeBookendHexEncode;
     }
     elsif ($$phProperties{'Type'} =~ /^url$/i)
     {
@@ -429,6 +532,7 @@ BEGIN
     {
       $sOffset += $sNRead;
     }
+    $sData =~ s/ //g if ($$phProperties{'NixSpaces'});
     foreach my $sSlot (sort({ $a <=> $b } keys(%{$$phProperties{'Routines'}})))
     {
       my $pfRoutine = $$phProperties{'Routines'}{$sSlot}{'Routine'};
@@ -441,6 +545,7 @@ BEGIN
     while (my $sData = <$sFileHandle>)
     {
       $sData =~ s/[\r\n]+$//;
+      $sData =~ s/ //g if ($$phProperties{'NixSpaces'});
       foreach my $sSlot (sort({ $a <=> $b } keys(%{$$phProperties{'Routines'}})))
       {
         my $pfRoutine = $$phProperties{'Routines'}{$sSlot}{'Routine'};
@@ -595,11 +700,14 @@ Specifies the mode of operation.  The mode can be one of
 {e|enc|encode}, {d|dec|decode}, or {c|con|convert}.  Note that the
 following conversion tuples are supported:
 
-    hex:base32      or  base32:hex
-    hex:base64      or  base64:hex
-    hex:base64url   or  base64url:hex
-    hex:ftimes-url  or  ftimes-url:hex
-    hex:url         or  url:hex
+    hex:base32             or  base32:hex
+    hex:base64             or  base64:hex
+    hex:base64url          or  base64url:hex
+    hex:ftimes-url         or  ftimes-url:hex
+    hex:hex-array          or  hex-array:hex
+    hex:hex-cstring        or  hex-cstring:hex
+    hex-array:hex-cstring  or  hex-cstring:hex-array
+    hex:url                or  url:hex
 
 Additionally, any type may be converted to itself (e.g., hex:hex).
 
@@ -624,14 +732,20 @@ Treat the entire input stream as a single string.  This option is
 primarily intended for small- to medium-sized input streams that can
 easily be stored in memeory.
 
+=item NixSpaces
+
+Remove all spaces (i.e., ' ') from the input prior to operating on
+the remaining data.
+
 =back
 
 =item B<-t type>
 
 Specifies the type of encoding or decoding to apply.  The type can be
-one of {b32,base32}, {b64,base64}, {b64url,base64url}, ftimes-nss,
-ftimes-sss, ftimes-url, hex, or url.  NSS is short for Neuter Safe
-String, and SSS is short for Shell Safe String.
+one of {b32,base32}, {b64,base64}, {b64url,base64url}, bookend-hex,
+ftimes-nss, ftimes-sss, ftimes-url, hex, safe-bookend-hex, or url.
+NSS is short for Neuter Safe String, and SSS is short for Shell
+Safe String.
 
 =item B<-x xformer[[:arg[,arg[...]][:slot]]>
 
@@ -719,6 +833,87 @@ If the B<data> buffer size is already an integral multiple of the
 block size, no padding will be added (even if it was specified).
 
 =back
+
+=head1 EXAMPLES
+
+=head2 Example 1. Base64 Encode
+
+This example demonstrates how to base64-encode a given input string.
+
+    echo -n '{"a":1,"b":2,"c":3}' | \
+      ftimes-encoder -m encode -t base64 -f -
+
+=head2 Example 2. Base64 Decode
+
+This example demonstrates how to base64-decode a given input string.
+
+    echo -n 'eyJhIjoxLCJiIjoyLCJjIjozfQ==' | \
+      ftimes-encoder -m decode -t base64 -f -
+
+=head2 Example 3. Base64 to Hex Conversion
+
+This example demonstrates how to convert a base64 string to hex.
+
+    echo -n 'eyJhIjoxLCJiIjoyLCJjIjozfQ==' | \
+      ftimes-encoder -m convert -t base64:hex -f -
+
+=head2 Example 4. Hex to Base64 Conversion
+
+This example demonstrates how to convert a hex string to base64.
+
+    echo -n '7b2261223a312c2262223a322c2263223a337d' | \
+      ftimes-encoder -m convert -t hex:base64 -f -
+
+=head2 Example 5. JWT Token Decode
+
+This example demonstrates how to base64-decode a JWT token, which
+has the following format:
+
+    [base64url(header)].[base64url(payload)].[base64url(signature)]
+
+Given the following token components:
+
+    HEADER="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+    PAYLOAD="eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ"
+    SIGNATURE="SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+
+The JWT token becomes:
+
+    JWT_TOKEN="${HEADER}.${PAYLOAD}.${SIGNATURE}"
+
+Since the third field is a signature and its decoded output will
+likely consist of raw bytes, we'll want to break the decode process
+into two steps. In step one, we decode the header and payload
+like so:
+
+    echo -n "${JWT_TOKEN}" | tr '.' '\n' | head -n 2 | \
+      ftimes-encoder -m decode -t base64url -f -
+
+In step two, we convert the signature from base64 to hex like so:
+
+    echo -n "${JWT_TOKEN}" | tr '.' '\n' | tail -n 1 | \
+      ftimes-encoder -m convert -t base64url:hex -f -
+
+Note that the sole purpose of the JWT_TOKEN variable defined above
+was to make the commands presented in this example more readable.
+
+=head2 Example 6. XOR Transformer
+
+This example demonstrates how to base64-decode a string, and
+XOR every byte with a key of 0x20.
+
+    echo -n "WlpaWlpaWlo=" | \
+      ftimes-encoder -m decode -t base64 -x xor:20 -f -
+
+=head2 Example 7. XOR Transformer Multi-Byte Key
+
+This example demonstrates how to XOR two hex strings, one acting
+as input and the other the key.  Under the hood, each byte in the
+input string is being XOR'd against the corresponding byte in the
+key. Note that the key is reused for each block of input.
+
+    echo -n "a5a5a5a501010101" | \
+      ftimes-encoder -m convert -t hex:hex -x xor:5a5a5a5a -f -  
 
 =head1 AUTHOR
 

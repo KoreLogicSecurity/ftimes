@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: url.c,v 1.34 2019/03/14 16:07:43 klm Exp $
+ * $Id: url.c,v 1.35 2019/04/23 12:54:19 klm Exp $
  *
  ***********************************************************************
  *
@@ -414,6 +414,7 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
   int                 iEscaped;
   int                 iError;
   int                 iLimit;
+  long                lOffset;
   HTTP_URL           *psURL;
   HTTP_STREAM_LIST    sStreamList[2];
   HTTP_RESPONSE_HDR   sResponseHeader;
@@ -441,12 +442,13 @@ URLPutRequest(FTIMES_PROPERTIES *psProperties, char *pcError)
       snprintf(pcError, MESSAGE_SIZE, "%s: fseek(): File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
       return ER;
     }
-    sStreamList[i].ui32Size = (unsigned) ftell(sStreamList[i].pFile);
-    if (sStreamList[i].ui32Size == ER)
+    lOffset = ftell(sStreamList[i].pFile);
+    if (lOffset == -1)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s: ftell(): File = [%s]: %s", acRoutine, apcFilenames[i], strerror(errno));
       return ER;
     }
+    sStreamList[i].ui32Size = (unsigned)lOffset;
     rewind(sStreamList[i].pFile);
     sStreamList[i].psNext = (i < iLimit - 1) ? &sStreamList[i + 1] : NULL;
   }

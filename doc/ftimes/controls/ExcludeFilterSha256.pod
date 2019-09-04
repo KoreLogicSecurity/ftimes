@@ -1,28 +1,23 @@
-=item B<ExcludeFilterSha256>: <regexp>
+=item B<ExcludeFilterSha256>: <pcre-expr>
 
 Applies to B<mad>, and B<map>.
 
 B<ExcludeFilterSha256> controls are optional, and there is no predefined
 limit on the number that may be specified.  However, there can be only
-one B<ExcludeFilterSha256> control/value pair per line.
+one control/value pair per line.
 
-Each B<ExcludeFilterSha256> value must be specified as a Perl compatible
-regular expression with the exception that capturing '()' subpatterns
-and back references are not allowed.  You can use '(?:)' if you
-require parentheses for grouping purposes.
+Each exclude filter must be specified as a Perl compatible regular
+expression with the caveat that no more than nine capturing '()'
+subpatterns for backreferences are allowed.  Use '(?:)' if you require
+parentheses for grouping purposes.
 
-Any record containing an SHA256 that is matched by an B<ExcludeFilterSha256>
-value will be rejected.  All other records will be written to the
-output stream subject to the rules of include filter processing.  If
-no filters are specified, exclude filter processing is implicitly
-disabled.
+Any object matched by a given exclude filter will be rejected.  All
+other objects will be mapped subject to include filter processing.
+If no exclude filters are specified, exclude filter processing is
+implicitly disabled.
 
 Note: This control is only available if PCRE support was compiled into
 the binary.
-
-Note: This control is incompatible with the B<Compress> and
-B<HashDirectories> controls.  If either of those controls are set when
-attribute filtering is in play, the program will abort.
 
 Note: Support for this control was added in version 3.9.0.
 

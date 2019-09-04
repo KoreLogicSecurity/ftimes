@@ -4,6 +4,35 @@ The following examples are intended to demonstrate different ways
 of configuring and using B<FTimes>.  Any text encapsulated between
 '--- XXX ---' delimiters represents a file's content.
 
+=head2 Example 0. Basic mapping/digging
+
+To map the entire system with default settings:
+
+    ftimes --mapauto all /
+
+To map the entire system with default settings, but disable log
+output, exclude some unwanted path, and omit MD5/SHA1 hashes:
+
+    ftimes --map - -l 6 / << EOF
+    BaseName=-
+    Exclude=/some/unwanted/path
+    FieldMask=all-md5-sha1
+    EOF
+
+To search the entire system for the string "marbles" with default
+settings:
+
+    echo "DigStringNormal=marbles" | ftimes --digauto - /
+
+To map the entire system and simultaneously search for the regular
+expression "[0-9]{3}-[0-9]{2}-[0-9]{4}":
+
+    ftimes --mad - / << EOF
+    BaseName=-
+    DigStringRegExp=[0-9]{3}-[0-9]{2}-[0-9]{4}
+    FieldMask=all
+    EOF
+
 =head2 Example 1. Using map mode to baseline and upload
 
 This example demonstrates how to baseline a system and upload the

@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: xmagic.c,v 1.113 2019/03/15 01:09:59 klm Exp $
+ * $Id: xmagic.c,v 1.115 2019/04/17 19:16:14 klm Exp $
  *
  ***********************************************************************
  *
@@ -555,33 +555,33 @@ int
 XMagicConvert2charHex(char *pcSRC, char *pcDST)
 {
   int                 iConverted = 0;
-  unsigned int        uiResult1 = 0;
-  unsigned int        uiResult2 = 0;
+  int                 iResult1 = 0;
+  int                 iResult2 = 0;
 
   if (isxdigit((int) *(pcSRC + 1)) && isxdigit((int) *pcSRC))
   {
-    uiResult2 = XMagicConvertHexToInt(*pcSRC);
-    uiResult1 = XMagicConvertHexToInt(*(pcSRC + 1));
-    if (uiResult2 == ER || uiResult1 == ER)
+    iResult2 = XMagicConvertHexToInt(*pcSRC);
+    iResult1 = XMagicConvertHexToInt(*(pcSRC + 1));
+    if (iResult2 == ER || iResult1 == ER)
     {
       return -2;
     }
     else
     {
-      *pcDST = (unsigned char) ((uiResult2 << 4) + (uiResult1));
+      *pcDST = (unsigned char) ((iResult2 << 4) + (iResult1));
     }
     iConverted = 2;
   }
   else if (isxdigit((int) *pcSRC))
   {
-    uiResult1 = XMagicConvertHexToInt(*pcSRC);
-    if (uiResult1 == ER)
+    iResult1 = XMagicConvertHexToInt(*pcSRC);
+    if (iResult1 == ER)
     {
       return -1;
     }
     else
     {
-      *pcDST = (unsigned char) uiResult1;
+      *pcDST = (unsigned char) iResult1;
     }
     iConverted = 1;
   }
@@ -3154,7 +3154,7 @@ XMagicKlelGetTypeOfVar(const char *pcName, void *pvContext)
 {
   int                 i = 0;
 
-  for (i = 0; i < sizeof(gasKlelTypes) / sizeof(gasKlelTypes[0]); i++)
+  for (i = 0; i < (int) (sizeof(gasKlelTypes) / sizeof(gasKlelTypes[0])); i++)
   {
     if (strcmp(gasKlelTypes[i].pcName, pcName) == 0)
     {
@@ -3213,7 +3213,7 @@ XMagicKlelGetValueOfVar(const char *pcName, void *pvContext)
     return KlelCreateInteger(psData->iLength);
   }
 
-  return NULL; /* Returning NULL here causes KL-EL to retrieve the value of the specified variable, should it exist in the standard library. */
+  return NULL; /* Returning NULL here causes KLEL to retrieve the value of the specified variable, should it exist in the standard library. */
 }
 #endif
 
@@ -3531,7 +3531,7 @@ XMagicParseLine(char *pcLine, char *pcError)
   /*-
    *********************************************************************
    *
-   * This is where we bail out for KL-EL expressions.
+   * This is where we bail out for KLEL expressions.
    *
    *********************************************************************
    */
@@ -3759,10 +3759,10 @@ XMagicTestAverage(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, APP_S
   switch (psXMagic->iType)
   {
     case XMAGIC_ROW_AVERAGE_1:
-      psXMagic->dAverage = XMagicComputeRowAverage1(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength);
+      psXMagic->dAverage = XMagicComputeRowAverage1(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? (int) psXMagic->ui32Size : iLength);
       break;
     case XMAGIC_ROW_AVERAGE_2:
-      psXMagic->dAverage = XMagicComputeRowAverage2(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength);
+      psXMagic->dAverage = XMagicComputeRowAverage2(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? (int) psXMagic->ui32Size : iLength);
       break;
   default:
     return 0;
@@ -3893,10 +3893,10 @@ XMagicTestEntropy(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, APP_S
   switch (psXMagic->iType)
   {
     case XMAGIC_ROW_ENTROPY_1:
-      psXMagic->dEntropy = XMagicComputeRowEntropy1(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength);
+      psXMagic->dEntropy = XMagicComputeRowEntropy1(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? (int) psXMagic->ui32Size : iLength);
       break;
     case XMAGIC_ROW_ENTROPY_2:
-      psXMagic->dEntropy = XMagicComputeRowEntropy2(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength);
+      psXMagic->dEntropy = XMagicComputeRowEntropy2(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? (int) psXMagic->ui32Size : iLength);
       break;
   default:
     return 0;
@@ -4274,17 +4274,17 @@ XMagicTestHash(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, APP_SI32
   switch (psXMagic->iType)
   {
   case XMAGIC_MD5:
-    MD5HashString(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength, aucMd5);
+    MD5HashString(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? (int) psXMagic->ui32Size : iLength, aucMd5);
     iHashLength = MD5_HASH_SIZE;
     puc = aucMd5;
     break;
   case XMAGIC_SHA1:
-    SHA1HashString(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength, aucSha1);
+    SHA1HashString(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? (int) psXMagic->ui32Size : iLength, aucSha1);
     iHashLength = SHA1_HASH_SIZE;
     puc = aucSha1;
     break;
   case XMAGIC_SHA256:
-    SHA256HashString(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength, aucSha256);
+    SHA256HashString(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? (int) psXMagic->ui32Size : iLength, aucSha256);
     iHashLength = SHA256_HASH_SIZE;
     puc = aucSha256;
     break;
@@ -4469,7 +4469,7 @@ XMagicTestNumber64(XMAGIC *psXMagic, APP_UI64 ui64Value)
 int
 XMagicTestPercent(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, APP_SI32 iOffset, char *pcError)
 {
-  psXMagic->dPercent = XMagicComputePercentage(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength, psXMagic->iType);
+  psXMagic->dPercent = XMagicComputePercentage(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? (int) psXMagic->ui32Size : iLength, psXMagic->iType);
 
   switch (psXMagic->iTestOperator)
   {
@@ -4539,7 +4539,7 @@ XMagicTestPercentCombo(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, 
 {
   char               *pcCombo = NULL;
 
-  pcCombo = XMagicComputePercentageCombo(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? psXMagic->ui32Size : iLength, psXMagic->iType);
+  pcCombo = XMagicComputePercentageCombo(&pucBuffer[iOffset], ((int) psXMagic->ui32Size <= iLength) ? (int) psXMagic->ui32Size : iLength, psXMagic->iType);
   if (pcCombo == NULL)
   {
     psXMagic->pcCombo[0] = 0;
@@ -4606,7 +4606,7 @@ XMagicTestRegExp(XMAGIC *psXMagic, unsigned char *pucBuffer, int iLength, APP_SI
     psXMagic->psPcre,
     psXMagic->psPcreExtra,
     (char *) (pucBuffer + iOffset),
-    (psXMagic->ui32Size < (unsigned) iBytesLeft) ? psXMagic->ui32Size : iBytesLeft,
+    (psXMagic->ui32Size < (unsigned) iBytesLeft) ? (int) psXMagic->ui32Size : iBytesLeft,
     0,
     PCRE_NOTEMPTY,
     iPcreOVector,

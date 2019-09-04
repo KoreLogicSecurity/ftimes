@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: madmode.c,v 1.16 2019/03/14 16:07:42 klm Exp $
+ * $Id: madmode.c,v 1.19 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -19,12 +19,13 @@
  ***********************************************************************
  */
 int
-MadModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
+MadModeInitialize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "MadModeInitialize()";
   char                acLocalError[MESSAGE_SIZE] = "";
   char                acMapItem[FTIMES_MAX_PATH];
   char               *pcMapItem = NULL;
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError = 0;
 
   /*-
@@ -124,9 +125,10 @@ MadModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-MadModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
+MadModeCheckDependencies(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "MadModeCheckDependencies()";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iLargestDigString = DigGetMaxStringLength();
 #ifdef USE_SSL
   char                acLocalError[MESSAGE_SIZE] = "";
@@ -212,7 +214,7 @@ MadModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
    *
    *********************************************************************
    */
-  if (DigGetSearchList(DIG_STRING_TYPE_XMAGIC, 0) != NULL && psProperties->iAnalyzeCarrySize < sizeof(APP_UI32))
+  if (DigGetSearchList(DIG_STRING_TYPE_XMAGIC, 0) != NULL && psProperties->iAnalyzeCarrySize < (int) sizeof(APP_UI32))
   {
     snprintf(pcError, MESSAGE_SIZE, "%s: AnalyzeCarrySize (%d) must be %d or larger when DigStringXMagic values are in use.", acRoutine, psProperties->iAnalyzeCarrySize, (int) sizeof(APP_UI32));
     return ER;
@@ -276,28 +278,6 @@ MadModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * Attribute filters are not compatible with certain options.
-   *
-   *********************************************************************
-   */
-  if (psProperties->bHaveAttributeFilters)
-  {
-    if (psProperties->bCompress)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Attribute filters are not supported when compression (Compress) is enabled.", acRoutine);
-      return ER_IncompatibleOptions;
-    }
-
-    if (psProperties->bHashDirectories)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Attribute filters are not supported when directory hashing (HashDirectories) is enabled.", acRoutine);
-      return ER_IncompatibleOptions;
-    }
-  }
-
-  /*-
-   *********************************************************************
-   *
    * Attribute filters require the corresponding attribute to be set.
    *
    *********************************************************************
@@ -333,13 +313,14 @@ MadModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-MadModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
+MadModeFinalize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "MadModeFinalize()";
   char                acLocalError[MESSAGE_SIZE] = "";
 #ifdef USE_XMAGIC
   char                acMessage[MESSAGE_SIZE];
 #endif
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
 
   /*-
@@ -647,10 +628,11 @@ MadModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-MadModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
+MadModeWorkHorse(void *pvProperties, char *pcError)
 {
   char                acLocalError[MESSAGE_SIZE] = "";
   FILE_LIST           *psList = NULL;
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   /*-
    *********************************************************************
@@ -679,9 +661,10 @@ MadModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-MadModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
+MadModeFinishUp(void *pvProperties, char *pcError)
 {
   char                acMessage[MESSAGE_SIZE];
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 i;
   int                 iFirst;
   int                 iIndex;
@@ -847,10 +830,11 @@ MadModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-MadModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
+MadModeFinalStage(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "MadModeFinalStage()";
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
 
   /*-

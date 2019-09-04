@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: decoder.c,v 1.28 2019/03/14 16:07:42 klm Exp $
+ * $Id: decoder.c,v 1.29 2019/04/22 20:04:01 klm Exp $
  *
  ***********************************************************************
  *
@@ -19,8 +19,10 @@
  ***********************************************************************
  */
 int
-DecoderInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
+DecoderInitialize(void *pvProperties, char *pcError)
 {
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
+
   /*-
    *********************************************************************
    *
@@ -45,9 +47,10 @@ DecoderInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-DecoderCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
+DecoderCheckDependencies(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "DecoderCheckDependencies()";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   if (psProperties->psSnapshotContext->pcFile == NULL || psProperties->psSnapshotContext->pcFile[0] == 0)
   {
@@ -67,11 +70,12 @@ DecoderCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-DecoderFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
+DecoderFinalize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "DecoderFinalize()";
   char                acLocalError[MESSAGE_SIZE] = "";
   char                acMessage[MESSAGE_SIZE] = { 0 };
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError = 0;
 
   /*-
@@ -145,10 +149,11 @@ DecoderFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-DecoderWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
+DecoderWorkHorse(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "DecoderWorkHorse()";
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError = 0;
 
   /*-
@@ -193,9 +198,10 @@ DecoderWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-DecoderFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
+DecoderFinishUp(void *pvProperties, char *pcError)
 {
   char                acMessage[MESSAGE_SIZE] = { 0 };
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   /*-
    *********************************************************************
@@ -240,7 +246,9 @@ DecoderFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-DecoderFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
+DecoderFinalStage(void *pvProperties, char *pcError)
 {
+//FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
+
   return ER_OK;
 }

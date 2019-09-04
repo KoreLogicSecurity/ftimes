@@ -47,6 +47,7 @@ ${SRCDIR}/controls/DigStringXMagic.pod \
 ${SRCDIR}/controls/EnableRecursion.pod \
 ${SRCDIR}/controls/Exclude.pod \
 ${SRCDIR}/controls/ExcludeFilter.pod \
+${SRCDIR}/controls/ExcludeFilterKlel.pod \
 ${SRCDIR}/controls/ExcludeFilterMd5.pod \
 ${SRCDIR}/controls/ExcludeFilterSha1.pod \
 ${SRCDIR}/controls/ExcludeFilterSha256.pod \
@@ -61,6 +62,7 @@ ${SRCDIR}/controls/HashSymbolicLinks.pod \
 ${SRCDIR}/controls/Import.pod \
 ${SRCDIR}/controls/Include.pod \
 ${SRCDIR}/controls/IncludeFilter.pod \
+${SRCDIR}/controls/IncludeFilterKlel.pod \
 ${SRCDIR}/controls/IncludeFilterMd5.pod \
 ${SRCDIR}/controls/IncludeFilterSha1.pod \
 ${SRCDIR}/controls/IncludeFilterSha256.pod \

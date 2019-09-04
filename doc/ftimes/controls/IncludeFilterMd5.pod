@@ -1,27 +1,26 @@
-=item B<IncludeFilterMd5>: <regexp>
+=item B<IncludeFilterMd5>: <pcre-expr>
 
 Applies to B<mad>, and B<map>.
 
 B<IncludeFilterMd5> controls are optional, and there is no predefined
 limit on the number that may be specified.  However, there can be only
-one B<IncludeFilterMd5> control/value pair per line.
+one control/value pair per line.
 
-Each B<IncludeFilterMd5> value must be specified as a Perl compatible
+Each include filter value must be specified as a Perl compatible
 regular expression with the exception that capturing '()' subpatterns
 and back references are not allowed.  You can use '(?:)' if you
 require parentheses for grouping purposes.
 
-Any record containing an MD5 that is matched by an B<IncludeFilterMd5>
-value will be written to the output stream.  All other records will be
-rejected.  If no filters are specified, include filter processing is
+Any object matched by a given include filter will be recorded in the
+output stream. All other objects are implicitly excluded.  Note that
+include filter processing occurs after exclude filter processing, and
+once an object has been explicitly excluded, it will not be recorded
+in the output stream (even if a matching include filter exists).
+If no include filters are specified, include filter processing is
 implicitly disabled.
 
 Note: This control is only available if PCRE support was compiled into
 the binary.
-
-Note: This control is incompatible with the B<Compress> and
-B<HashDirectories> controls.  If either of those controls are set when
-attribute filtering is in play, the program will abort.
 
 Note: Support for this control was added in version 3.9.0.
 

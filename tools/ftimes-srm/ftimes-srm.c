@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes-srm.c,v 1.10 2019/03/14 16:07:44 klm Exp $
+ * $Id: ftimes-srm.c,v 1.12 2019/07/23 20:27:02 klm Exp $
  *
  ***********************************************************************
  *
@@ -541,7 +541,7 @@ FTimesSrmRemoveFile(SNAPSHOT_CONTEXT *psSnapshotContext, MASK_USS_MASK *psFieldM
   char               *pcTargetSize = NULL;
   FTIMES_FILE_DATA   *psFTFileData = NULL;
   FTIMES_SRM_HANDLE  *psHandle = NULL;
-  MASK_B2S_TABLE     *pasMaskTable = MaskGetTableReference(MASK_RUNMODE_TYPE_CMP);
+  MASK_B2S_TABLE     *pasMaskTable = MaskGetTableReference(MASK_MASK_TYPE_CMP);
   unsigned char       aucData[FTIMES_SRM_DEFAULT_BLOCKSIZE] = {};
   unsigned char       aucTargetMd5[MD5_HASH_SIZE] = {};
   unsigned char       aucTargetSha1[SHA1_HASH_SIZE] = {};
@@ -562,7 +562,7 @@ FTimesSrmRemoveFile(SNAPSHOT_CONTEXT *psSnapshotContext, MASK_USS_MASK *psFieldM
    *
    *********************************************************************
    */
-  for (i = 0; i < MaskGetTableLength(MASK_RUNMODE_TYPE_CMP); i++)
+  for (i = 0; i < MaskGetTableLength(MASK_MASK_TYPE_CMP); i++)
   {
     if (MASK_BIT_IS_SET(psSnapshotContext->ulFieldMask, 1 << i))
     {
@@ -1039,11 +1039,13 @@ FTimesSrmSetPropertiesReference(FTIMES_SRM_PROPERTIES *psProperties)
  ***********************************************************************
  */
 int
-FTimesSrmOptionHandler(OPTIONS_TABLE *psOption, char *pcValue, FTIMES_SRM_PROPERTIES *psProperties, char *pcError)
+FTimesSrmOptionHandler(void *pvOption, char *pcValue, void *pvProperties, char *pcError)
 {
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_SRM_PROPERTIES *psProperties = (FTIMES_SRM_PROPERTIES *)pvProperties;
 //int                 iLength = 0;
   MASK_USS_MASK      *psFieldMask = NULL;
+  OPTIONS_TABLE      *psOption = (OPTIONS_TABLE *)pvOption;
 
 //iLength = (pcValue == NULL) ? 0 : strlen(pcValue);
 
@@ -1053,7 +1055,7 @@ FTimesSrmOptionHandler(OPTIONS_TABLE *psOption, char *pcValue, FTIMES_SRM_PROPER
     psProperties->iDryRun = 1;
     break;
   case OPT_FieldMask:
-    psFieldMask = MaskParseMask(pcValue, MASK_RUNMODE_TYPE_SRM, acLocalError);
+    psFieldMask = MaskParseMask(pcValue, MASK_MASK_TYPE_SRM, acLocalError);
     if (psFieldMask == NULL)
     {
       snprintf(pcError, MESSAGE_SIZE, "%s", acLocalError);
@@ -1113,7 +1115,7 @@ FTimesSrmNewProperties(char *pcError)
    *
    *********************************************************************
    */
-  psFieldMask = MaskParseMask("none+size+md5+sha1", MASK_RUNMODE_TYPE_SRM, acLocalError);
+  psFieldMask = MaskParseMask("none+size+md5+sha1", MASK_MASK_TYPE_SRM, acLocalError);
   if (psFieldMask == NULL)
   {
     snprintf(pcError, MESSAGE_SIZE, "%s", acLocalError);
@@ -1485,8 +1487,8 @@ MapWriteHeader(MASK_USS_MASK *psFieldMask, char *pcError)
   int                 i = 0;
   int                 iError = 0;
   int                 iIndex = 0;
-  int                 iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_SRM);
-  MASK_B2S_TABLE     *psMaskTable = MaskGetTableReference(MASK_RUNMODE_TYPE_SRM);
+  int                 iMaskTableLength = MaskGetTableLength(MASK_MASK_TYPE_SRM);
+  MASK_B2S_TABLE     *psMaskTable = MaskGetTableReference(MASK_MASK_TYPE_SRM);
   unsigned long       ul = 0;
 
   /*-

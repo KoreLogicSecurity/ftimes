@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: map.c,v 1.117 2019/03/14 16:07:42 klm Exp $
+ * $Id: map.c,v 1.123 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -20,6 +20,35 @@ static int giStreams;
 
 static int giRecords;
 static int giIncompleteRecords;
+
+/*-
+ ***********************************************************************
+ *
+ * SupportNeuterStringLua
+ *
+ ***********************************************************************
+ */
+/* FIXME Find a better location to maintain our set of exported functions. */
+#ifdef USE_EMBEDDED_LUA
+static int lua_neuter_string(lua_State *psLuaState)
+{
+  char                acLocalError[MESSAGE_SIZE] = "";
+  char               *pcNeutered;
+  size_t              szLength = 0;
+
+  const char *pcString = lua_tolstring(psLuaState, 1, &szLength);
+  pcNeutered = SupportNeuterString((char *) pcString, szLength, acLocalError);
+  if (pcNeutered == NULL)
+  {
+    return 0;
+  }
+  lua_pushstring(psLuaState, pcNeutered);
+  free(pcNeutered);
+
+  return 1;
+}
+#endif
+
 
 #ifdef USE_EMBEDDED_PYTHON
 /*-
@@ -359,6 +388,9 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
 #define PIPE_WRITER_INDEX 1
   int                 aaiPipes[3][2];
   KLEL_COMMAND       *psCommand = NULL;
+#ifdef USE_EMBEDDED_LUA
+  lua_State          *psLuaState = NULL;
+#endif
 #ifdef USE_EMBEDDED_PERL
   SV                 *psScalarValue = NULL;
 #endif
@@ -446,6 +478,44 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
       KlelFreeCommand(psCommand);
       exit(-1);
     }
+#ifdef USE_EMBEDDED_LUA
+    else if (strcmp(psCommand->acInterpreter, "lua") == 0)
+    {
+      psLuaState = luaL_newstate();
+      if (psLuaState == NULL)
+      {
+        snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to load lua state \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName, psCommand->acProgram, strerror(errno));
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
+        exit(-2);
+      }
+      luaL_openlibs(psLuaState);
+
+      lua_register(psLuaState, "neuter_string", lua_neuter_string);
+
+      iError = luaL_loadfile(psLuaState, psCommand->ppcArgumentVector[0]);
+      if (iError != 0)
+      {
+        snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName, psCommand->acProgram, lua_tostring(psLuaState, -1));
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
+      }
+
+      lua_newtable(psLuaState);
+      lua_pushnumber(psLuaState, 1);                               /* Push the table index. */
+      lua_pushstring(psLuaState, psCommand->ppcArgumentVector[1]); /* Push the cell value. */
+      lua_rawset(psLuaState, -3);                                  /* Store the pair in the table. */
+      lua_setglobal(psLuaState, "aArgs");
+
+      iError = lua_pcall(psLuaState, 0, LUA_MULTRET, 0);
+      if (iError != 0)
+      {
+        snprintf(acMessage, MESSAGE_SIZE, "%s: NeuteredPath = [%s]: Interpreter = [%s]: Hook (%s) failed to execute \"%s\" (%s).", acRoutine, psFTFileData->pcNeuteredPath, psCommand->acInterpreter, psHook->pcName, psCommand->acProgram, lua_tostring(psLuaState, -1));
+        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_INFORMATION, MESSAGE_HOOK_STRING, acMessage);
+      }
+
+      lua_close(psLuaState);
+      exit(iError);
+    }
+#endif
 #ifdef USE_EMBEDDED_PERL
     else if (strcmp(psCommand->acInterpreter, "perl") == 0)
     {
@@ -626,6 +696,7 @@ MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
 #endif
 
 
+#ifdef USE_FILE_HOOKS
 #ifdef USE_EMBEDDED_PYTHON
 /*-
  ***********************************************************************
@@ -719,6 +790,7 @@ MapExecutePythonScript(FTIMES_PROPERTIES *psProperties, HOOK_LIST *psHook, KLEL_
 
   return iError;
 }
+#endif
 #endif
 
 
@@ -996,48 +1068,27 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
       continue;
     }
 
-#ifdef USE_PCRE
     /*-
      *******************************************************************
      *
-     * If the new path is matched by an exclude filter, continue with
-     * the next entry. If the new path is matched by an include
-     * filter, set a flag, but keep going. Include filters do not get
-     * applied until the file's type is known. This is because
-     * directories must be traversed before they can be filtered.
+     * Apply exclude/include filters (if any).
      *
      *******************************************************************
      */
-    if (psProperties->psExcludeFilterList)
+#ifdef USE_KLEL_FILTERS
+    FilterApplyFilters(psProperties, psFTFileData, FTIMES_FILTER_POST_ATTR);
+    if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR)
     {
-      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, psFTFileData->pcRawPath);
-      if (psFilter != NULL)
-      {
-        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
-        {
-          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
-          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
-        }
-        continue;
-      }
+      continue;
     }
-
-    if (psProperties->psIncludeFilterList)
+#else
+  #ifdef USE_PCRE
+    SupportApplyFilters(psProperties, psFTFileData, FTIMES_FILTER_POST_ATTR);
+    if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR)
     {
-      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, psFTFileData->pcRawPath);
-      if (psFilter == NULL)
-      {
-        psFTFileData->iFiltered = 1;
-      }
-      else
-      {
-        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
-        {
-          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
-          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
-        }
-      }
+      continue;
     }
+  #endif
 #endif
 
     /*-
@@ -1049,7 +1100,6 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
      */
     if (psFTFileData->ulAttributeMask == 0)
     {
-#ifdef USE_PCRE
       /*-
        *****************************************************************
        *
@@ -1057,10 +1107,18 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
        *
        *****************************************************************
        */
-      if (psFTFileData->iFiltered)
+#ifdef USE_KLEL_FILTERS
+      if (psFTFileData->iFiltered > 0 && psFTFileData->iFiltered <= FTIMES_FILTER_POST_ATTR)
       {
         continue;
       }
+#else
+  #ifdef USE_PCRE
+      if (psFTFileData->iFiltered > 0 && psFTFileData->iFiltered <= FTIMES_FILTER_POST_ATTR)
+      {
+        continue;
+      }
+  #endif
 #endif
 
       /*-
@@ -1224,8 +1282,8 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
         {
           MapTree(psProperties, psFTFileData, acLocalError);
         }
-#ifdef USE_PCRE
-        if (psFTFileData->iFiltered) /* We're done. */
+#if defined(USE_PCRE) || defined(USE_KLEL_FILTERS)
+        if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR_SCAN) /* We're done. */
         {
           continue;
         }
@@ -1233,12 +1291,6 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
       }
       else if (S_ISREG(psFTFileData->sStatEntry.st_mode))
       {
-#ifdef USE_PCRE
-        if (psFTFileData->iFiltered) /* We're done. */
-        {
-          continue;
-        }
-#endif
         giFiles++;
         if (psProperties->iLastAnalysisStage > 0)
         {
@@ -1252,12 +1304,6 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
       }
       else if (S_ISLNK(psFTFileData->sStatEntry.st_mode))
       {
-#ifdef USE_PCRE
-        if (psFTFileData->iFiltered) /* We're done. */
-        {
-          continue;
-        }
-#endif
         giSpecial++;
         if (psProperties->bHashSymbolicLinks)
         {
@@ -1298,12 +1344,6 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
       }
       else
       {
-#ifdef USE_PCRE
-        if (psFTFileData->iFiltered) /* We're done. */
-        {
-          continue;
-        }
-#endif
         giSpecial++;
 #ifdef USE_XMAGIC
         if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
@@ -1642,48 +1682,27 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
       continue;
     }
 
-#ifdef USE_PCRE
     /*-
      *******************************************************************
      *
-     * If the new path is matched by an exclude filter, continue with
-     * the next entry. If the new path is matched by an include
-     * filter, set a flag, but keep going. Include filters do not get
-     * applied until the file's type is known. This is because
-     * directories must be traversed before they can be filtered.
+     * Apply exclude/include filters (if any).
      *
      *******************************************************************
      */
-    if (psProperties->psExcludeFilterList)
+#ifdef USE_KLEL_FILTERS
+    FilterApplyFilters(psProperties, psFTFileData, FTIMES_FILTER_POST_ATTR);
+    if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR)
     {
-      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, psFTFileData->pcRawPath);
-      if (psFilter != NULL)
-      {
-        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
-        {
-          snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
-          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
-        }
-        continue;
-      }
+      continue;
     }
-
-    if (psProperties->psIncludeFilterList)
+#else
+  #ifdef USE_PCRE
+    SupportApplyFilters(psProperties, psFTFileData, FTIMES_FILTER_POST_ATTR);
+    if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR)
     {
-      FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, psFTFileData->pcRawPath);
-      if (psFilter == NULL)
-      {
-        psFTFileData->iFiltered = 1;
-      }
-      else
-      {
-        if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
-        {
-          snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
-          MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
-        }
-      }
+      continue;
     }
+  #endif
 #endif
 
     /*-
@@ -1695,7 +1714,6 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
      */
     if (psFTFileData->ulAttributeMask == 0)
     {
-#ifdef USE_PCRE
       /*-
        *****************************************************************
        *
@@ -1703,7 +1721,8 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
        *
        *****************************************************************
        */
-      if (psFTFileData->iFiltered)
+#if defined(USE_PCRE) || defined(USE_KLEL_FILTERS)
+      if (psFTFileData->iFiltered > 0 && psFTFileData->iFiltered <= FTIMES_FILTER_POST_ATTR)
       {
         continue;
       }
@@ -1877,8 +1896,8 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
             MapTree(psProperties, psFTFileData, acLocalError);
           }
         }
-#ifdef USE_PCRE
-        if (psFTFileData->iFiltered) /* We're done. */
+#if defined(USE_PCRE) || defined(USE_KLEL_FILTERS)
+        if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR_SCAN) /* We're done. */
         {
           continue;
         }
@@ -1886,12 +1905,6 @@ MapTree(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTTreeData, char *p
       }
       else
       {
-#ifdef USE_PCRE
-        if (psFTFileData->iFiltered) /* We're done. */
-        {
-          continue;
-        }
-#endif
         giFiles++;
         if (psProperties->iLastAnalysisStage > 0)
         {
@@ -2306,9 +2319,6 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   int                 iError = 0;
   int                 iFSType = 0;
   int                 iLength = strlen(pcPath);
-#ifdef USE_PCRE
-  char                acMessage[MESSAGE_SIZE] = "";
-#endif
 
   /*-
    *********************************************************************
@@ -2350,48 +2360,27 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     return ER_OK;
   }
 
-#ifdef USE_PCRE
   /*-
    *********************************************************************
    *
-   * If the path is matched by an exclude filter, just return. If the
-   * path is matched by an include filter, set a flag, but keep going.
-   * Include filters do not get applied until the file's type is
-   * known. This is because directories must be traversed before they
-   * can be filtered.
+   * Apply exclude/include filters (if any).
    *
    *********************************************************************
    */
-  if (psProperties->psExcludeFilterList)
+#ifdef USE_KLEL_FILTERS
+  FilterApplyFilters(psProperties, psFTFileData, FTIMES_FILTER_POST_ATTR);
+  if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR)
   {
-    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, psFTFileData->pcRawPath);
-    if (psFilter != NULL)
-    {
-      if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
-      {
-        snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
-        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
-      }
-      return ER_OK;
-    }
+    return ER_OK;
   }
-
-  if (psProperties->psIncludeFilterList)
+#else
+  #ifdef USE_PCRE
+  SupportApplyFilters(psProperties, psFTFileData, FTIMES_FILTER_POST_ATTR);
+  if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR)
   {
-    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, psFTFileData->pcRawPath);
-    if (psFilter == NULL)
-    {
-      psFTFileData->iFiltered = 1;
-    }
-    else
-    {
-      if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
-      {
-        snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
-        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
-      }
-    }
+    return ER_OK;
   }
+  #endif
 #endif
 
   /*-
@@ -2419,7 +2408,6 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    */
   if (psFTFileData->ulAttributeMask == 0)
   {
-#ifdef USE_PCRE
     /*-
      *******************************************************************
      *
@@ -2427,7 +2415,8 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
      *
      *******************************************************************
      */
-    if (psFTFileData->iFiltered)
+#if defined(USE_PCRE) || defined(USE_KLEL_FILTERS)
+    if (psFTFileData->iFiltered > 0 && psFTFileData->iFiltered <= FTIMES_FILTER_POST_ATTR)
     {
       MapFreeFTFileData(psFTFileData);
       return ER_OK;
@@ -2480,8 +2469,8 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     }
 #endif
     MapTree(psProperties, psFTFileData, acLocalError);
-#ifdef USE_PCRE
-    if (psFTFileData->iFiltered) /* We're done. */
+#if defined(USE_PCRE) || defined(USE_KLEL_FILTERS)
+    if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR_SCAN) /* We're done. */
     {
       MapFreeFTFileData(psFTFileData);
       return ER_OK;
@@ -2490,13 +2479,6 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   }
   else if (S_ISREG(psFTFileData->sStatEntry.st_mode) || ((S_ISBLK(psFTFileData->sStatEntry.st_mode) || S_ISCHR(psFTFileData->sStatEntry.st_mode)) && psProperties->bAnalyzeDeviceFiles))
   {
-#ifdef USE_PCRE
-    if (psFTFileData->iFiltered) /* We're done. */
-    {
-      MapFreeFTFileData(psFTFileData);
-      return ER_OK;
-    }
-#endif
     giFiles++;
     if (psProperties->iLastAnalysisStage > 0)
     {
@@ -2510,13 +2492,6 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   }
   else if (S_ISLNK(psFTFileData->sStatEntry.st_mode))
   {
-#ifdef USE_PCRE
-    if (psFTFileData->iFiltered) /* We're done. */
-    {
-      MapFreeFTFileData(psFTFileData);
-      return ER_OK;
-    }
-#endif
     giSpecial++;
     if (psProperties->bHashSymbolicLinks)
     {
@@ -2557,13 +2532,6 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   }
   else
   {
-#ifdef USE_PCRE
-    if (psFTFileData->iFiltered) /* We're done. */
-    {
-      MapFreeFTFileData(psFTFileData);
-      return ER_OK;
-    }
-#endif
     giSpecial++;
 #ifdef USE_XMAGIC
     if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MAGIC))
@@ -2642,9 +2610,6 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   int                 iError = 0;
   int                 iFSType = 0;
   int                 iLength = strlen(pcPath);
-#ifdef USE_PCRE
-  char                acMessage[MESSAGE_SIZE] = "";
-#endif
   wchar_t            *pwcPath = NULL;
 
   /*-
@@ -2716,48 +2681,27 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     return ER_OK;
   }
 
-#ifdef USE_PCRE
   /*-
    *********************************************************************
    *
-   * If the path is matched by an exclude filter, just return. If the
-   * path is matched by an include filter, set a flag, but keep going.
-   * Include filters do not get applied until the file's type is
-   * known. This is because directories must be traversed before they
-   * can be filtered.
+   * Apply exclude/include filters (if any).
    *
    *********************************************************************
    */
-  if (psProperties->psExcludeFilterList)
+#ifdef USE_KLEL_FILTERS
+  FilterApplyFilters(psProperties, psFTFileData, FTIMES_FILTER_POST_ATTR);
+  if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR)
   {
-    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psExcludeFilterList, psFTFileData->pcRawPath);
-    if (psFilter != NULL)
-    {
-      if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
-      {
-        snprintf(acMessage, MESSAGE_SIZE, "ExcludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
-        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
-      }
-      return ER_OK;
-    }
+    return ER_OK;
   }
-
-  if (psProperties->psIncludeFilterList)
+#else
+  #ifdef USE_PCRE
+  SupportApplyFilters(psProperties, psFTFileData, FTIMES_FILTER_POST_ATTR);
+  if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR)
   {
-    FILTER_LIST *psFilter = SupportMatchFilter(psProperties->psIncludeFilterList, psFTFileData->pcRawPath);
-    if (psFilter == NULL)
-    {
-      psFTFileData->iFiltered = 1;
-    }
-    else
-    {
-      if (psProperties->iLogLevel <= MESSAGE_DEBUGGER)
-      {
-        snprintf(acMessage, MESSAGE_SIZE, "IncludeFilter=%s RawPath=%s", psFilter->pcFilter, psFTFileData->pcRawPath);
-        MessageHandler(MESSAGE_FLUSH_IT, MESSAGE_DEBUGGER, MESSAGE_DEBUGGER_STRING, acMessage);
-      }
-    }
+    return ER_OK;
   }
+  #endif
 #endif
 
   /*-
@@ -2785,7 +2729,6 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
    */
   if (psFTFileData->ulAttributeMask == 0)
   {
-#ifdef USE_PCRE
     /*-
      *******************************************************************
      *
@@ -2793,7 +2736,8 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
      *
      *******************************************************************
      */
-    if (psFTFileData->iFiltered)
+#if defined(USE_PCRE) || defined(USE_KLEL_FILTERS)
+    if (psFTFileData->iFiltered > 0 && psFTFileData->iFiltered <= FTIMES_FILTER_POST_ATTR)
     {
       MapFreeFTFileData(psFTFileData);
       return ER_OK;
@@ -2852,8 +2796,8 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
     {
       MapTree(psProperties, psFTFileData, acLocalError);
     }
-#ifdef USE_PCRE
-    if (psFTFileData->iFiltered) /* We're done. */
+#if defined(USE_PCRE) || defined(USE_KLEL_FILTERS)
+    if (psFTFileData->iFiltered == FTIMES_FILTER_POST_ATTR_SCAN) /* We're done. */
     {
       MapFreeFTFileData(psFTFileData);
       return ER_OK;
@@ -2862,13 +2806,6 @@ MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError)
   }
   else
   {
-#ifdef USE_PCRE
-    if (psFTFileData->iFiltered) /* We're done. */
-    {
-      MapFreeFTFileData(psFTFileData);
-      return ER_OK;
-    }
-#endif
     giFiles++;
     if (psProperties->iLastAnalysisStage > 0)
     {
@@ -3033,6 +2970,29 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
   /*-
    *********************************************************************
    *
+   * Conditionally impose filters.
+   *
+   *********************************************************************
+   */
+#ifdef USE_KLEL_FILTERS
+  FilterApplyFilters(psProperties, psFTFileData, FTIMES_FILTER_POST_DATA);
+  if (psFTFileData->iFiltered == FTIMES_FILTER_POST_DATA)
+  {
+    return ER_OK;
+  }
+#else
+  #ifdef USE_PCRE
+  SupportApplyFiltersForHashes(psProperties, psFTFileData, FTIMES_FILTER_POST_DATA);
+  if (psFTFileData->iFiltered == FTIMES_FILTER_POST_DATA)
+  {
+    return ER_OK;
+  }
+  #endif
+#endif
+
+  /*-
+   *********************************************************************
+   *
    * Conditionally add a record prefix.
    *
    *********************************************************************
@@ -3056,12 +3016,6 @@ MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, 
     snprintf(pcError, MESSAGE_SIZE, "%s: NeuteredPath = [%s], NullFields = [%s]", acRoutine, psFTFileData->pcNeuteredPath, acLocalError);
     ErrorHandler(ER_Warning, pcError, ERROR_WARNING);
   }
-#ifdef USE_PCRE
-  else if (iError == ER_Filtered)
-  {
-    return ER_OK;
-  }
-#endif
   giRecords++;
   iWriteCount += iIndex;
 
@@ -3108,8 +3062,8 @@ MapWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError)
   int                 i = 0;
   int                 iError = 0;
   int                 iIndex = 0;
-  int                 iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_MAP);
-  MASK_B2S_TABLE     *psMaskTable = MaskGetTableReference(MASK_RUNMODE_TYPE_MAP);
+  int                 iMaskTableLength = MaskGetTableLength(MASK_MASK_TYPE_MAP);
+  MASK_B2S_TABLE     *psMaskTable = MaskGetTableReference(MASK_MASK_TYPE_MAP);
   unsigned long       ul = 0;
 
   /*-

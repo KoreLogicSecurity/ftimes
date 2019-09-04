@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: decode.h,v 1.31 2019/03/14 16:07:42 klm Exp $
+ * $Id: decode.h,v 1.32 2019/04/22 23:01:19 klm Exp $
  *
  ***********************************************************************
  *
@@ -63,13 +63,6 @@
  *
  ***********************************************************************
  */
-typedef struct _DECODE_TABLE
-{
-  char                acZName[DECODE_FIELDNAME_SIZE];
-  char                acUName[DECODE_FIELDNAME_SIZE];
-  int               (*piRoutine) ();
-} DECODE_TABLE;
-
 typedef struct _DECODE_RECORD
 {
   char                acLine[DECODE_MAX_LINE];
@@ -129,6 +122,13 @@ typedef struct _DECODE_STATS
   unsigned long       ulDecoded;
   unsigned long       ulSkipped;
 } DECODE_STATS;
+
+typedef struct _DECODE_TABLE
+{
+  char                acZName[DECODE_FIELDNAME_SIZE];
+  char                acUName[DECODE_FIELDNAME_SIZE];
+  int               (*piRoutine)(DECODE_STATE *psDecodeState, char *pcToken, int iLength, char *pcOutput, char *pcError);
+} DECODE_TABLE;
 
 typedef struct _SNAPSHOT_CONTEXT
 {

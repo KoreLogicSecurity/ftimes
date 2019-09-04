@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: develop.c,v 1.56 2019/03/14 16:07:42 klm Exp $
+ * $Id: develop.c,v 1.59 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -32,13 +32,14 @@ static unsigned char  gaucSha256ZeroHash[SHA256_HASH_SIZE] = {0,0,0,0,0,0,0,0,0,
  ***********************************************************************
  */
 int
-DevelopHaveNothingOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
+DevelopHaveNothingOutput(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 i = 0;
   int                 n = 0;
   int                 m = 0;
-  int                 iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_MAP);
-  MASK_B2S_TABLE     *psMaskTable = MaskGetTableReference(MASK_RUNMODE_TYPE_MAP);
+  int                 iMaskTableLength = MaskGetTableLength(MASK_MASK_TYPE_MAP);
+  MASK_B2S_TABLE     *psMaskTable = MaskGetTableReference(MASK_MASK_TYPE_MAP);
   unsigned long       ul = 0;
 
   /*-
@@ -88,8 +89,10 @@ DevelopHaveNothingOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *
  ***********************************************************************
  */
 int
-DevelopNoOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
+DevelopNoOutput(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
+//FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
+
   /*-
    *********************************************************************
    *
@@ -112,9 +115,10 @@ DevelopNoOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCou
  ***********************************************************************
  */
 int
-DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
+DevelopNormalOutput(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
   char                acTime[FTIMES_TIME_FORMAT_SIZE];
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 n;
   int                 iError;
   int                 iStatus = ER_OK;
@@ -326,9 +330,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
   {
-#ifdef USE_PCRE
-    int iFilterIndex = n + 1;
-#endif
     pcOutData[n++] = '|';
     if (S_ISDIR(psFTFileData->sStatEntry.st_mode))
     {
@@ -386,23 +387,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
         n += sprintf(&pcOutData[n], "SPECIAL");
       }
     }
-#ifdef USE_PCRE
-    /*-
-     *******************************************************************
-     *
-     * Conditionally filter this record based on its MD5 value.
-     *
-     *******************************************************************
-     */
-    if
-    (
-      (psProperties->psExcludeFilterMd5List && SupportMatchFilter(psProperties->psExcludeFilterMd5List, &pcOutData[iFilterIndex]) != NULL) ||
-      (psProperties->psIncludeFilterMd5List && SupportMatchFilter(psProperties->psIncludeFilterMd5List, &pcOutData[iFilterIndex]) == NULL)
-    )
-    {
-      return ER_Filtered;
-    }
-#endif
   }
 
   /*-
@@ -414,9 +398,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
   {
-#ifdef USE_PCRE
-    int iFilterIndex = n + 1;
-#endif
     pcOutData[n++] = '|';
     if (S_ISDIR(psFTFileData->sStatEntry.st_mode))
     {
@@ -474,23 +455,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
         n += sprintf(&pcOutData[n], "SPECIAL");
       }
     }
-#ifdef USE_PCRE
-    /*-
-     *******************************************************************
-     *
-     * Conditionally filter this record based on its SHA1 value.
-     *
-     *******************************************************************
-     */
-    if
-    (
-      (psProperties->psExcludeFilterSha1List && SupportMatchFilter(psProperties->psExcludeFilterSha1List, &pcOutData[iFilterIndex]) != NULL) ||
-      (psProperties->psIncludeFilterSha1List && SupportMatchFilter(psProperties->psIncludeFilterSha1List, &pcOutData[iFilterIndex]) == NULL)
-    )
-    {
-      return ER_Filtered;
-    }
-#endif
   }
 
   /*-
@@ -502,9 +466,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
   {
-#ifdef USE_PCRE
-    int iFilterIndex = n + 1;
-#endif
     pcOutData[n++] = '|';
     if (S_ISDIR(psFTFileData->sStatEntry.st_mode))
     {
@@ -562,23 +523,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
         n += sprintf(&pcOutData[n], "SPECIAL");
       }
     }
-#ifdef USE_PCRE
-    /*-
-     *******************************************************************
-     *
-     * Conditionally filter this record based on its SHA256 value.
-     *
-     *******************************************************************
-     */
-    if
-    (
-      (psProperties->psExcludeFilterSha256List && SupportMatchFilter(psProperties->psExcludeFilterSha256List, &pcOutData[iFilterIndex]) != NULL) ||
-      (psProperties->psIncludeFilterSha256List && SupportMatchFilter(psProperties->psIncludeFilterSha256List, &pcOutData[iFilterIndex]) == NULL)
-    )
-    {
-      return ER_Filtered;
-    }
-#endif
   }
 
   /*-
@@ -641,9 +585,10 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
  ***********************************************************************
  */
 int
-DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
+DevelopNormalOutput(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
   char                acTime[FTIMES_TIME_FORMAT_SIZE];
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
   int                 n;
   int                 iStatus = ER_OK;
@@ -913,9 +858,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_MD5))
   {
-#ifdef USE_PCRE
-    int iFilterIndex = n + 1;
-#endif
     pcOutData[n++] = '|';
     if ((psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
     {
@@ -943,23 +885,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
         iStatus = ER_NullFields;
       }
     }
-#ifdef USE_PCRE
-    /*-
-     *******************************************************************
-     *
-     * Conditionally filter this record based on its MD5 value.
-     *
-     *******************************************************************
-     */
-    if
-    (
-      (psProperties->psExcludeFilterMd5List && SupportMatchFilter(psProperties->psExcludeFilterMd5List, &pcOutData[iFilterIndex]) != NULL) ||
-      (psProperties->psIncludeFilterMd5List && SupportMatchFilter(psProperties->psIncludeFilterMd5List, &pcOutData[iFilterIndex]) == NULL)
-    )
-    {
-      return ER_Filtered;
-    }
-#endif
   }
 
   /*-
@@ -971,9 +896,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA1))
   {
-#ifdef USE_PCRE
-    int iFilterIndex = n + 1;
-#endif
     pcOutData[n++] = '|';
     if ((psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
     {
@@ -1001,23 +923,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
         iStatus = ER_NullFields;
       }
     }
-#ifdef USE_PCRE
-    /*-
-     *******************************************************************
-     *
-     * Conditionally filter this record based on its SHA1 value.
-     *
-     *******************************************************************
-     */
-    if
-    (
-      (psProperties->psExcludeFilterSha1List && SupportMatchFilter(psProperties->psExcludeFilterSha1List, &pcOutData[iFilterIndex]) != NULL) ||
-      (psProperties->psIncludeFilterSha1List && SupportMatchFilter(psProperties->psIncludeFilterSha1List, &pcOutData[iFilterIndex]) == NULL)
-    )
-    {
-      return ER_Filtered;
-    }
-#endif
   }
 
   /*-
@@ -1029,9 +934,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
    */
   if (MASK_BIT_IS_SET(psProperties->psFieldMask->ulMask, MAP_SHA256))
   {
-#ifdef USE_PCRE
-    int iFilterIndex = n + 1;
-#endif
     pcOutData[n++] = '|';
     if ((psFTFileData->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
     {
@@ -1059,23 +961,6 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
         iStatus = ER_NullFields;
       }
     }
-#ifdef USE_PCRE
-    /*-
-     *******************************************************************
-     *
-     * Conditionally filter this record based on its SHA256 value.
-     *
-     *******************************************************************
-     */
-    if
-    (
-      (psProperties->psExcludeFilterSha256List && SupportMatchFilter(psProperties->psExcludeFilterSha256List, &pcOutData[iFilterIndex]) != NULL) ||
-      (psProperties->psIncludeFilterSha256List && SupportMatchFilter(psProperties->psIncludeFilterSha256List, &pcOutData[iFilterIndex]) == NULL)
-    )
-    {
-      return ER_Filtered;
-    }
-#endif
   }
 
   /*-
@@ -1217,8 +1102,9 @@ DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWrit
  ***********************************************************************
  */
 int
-DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
+DevelopCompressedOutput(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 i;
   int                 n;
   int                 iStatus = ER_OK;
@@ -1860,9 +1746,10 @@ DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *i
  ***********************************************************************
  */
 int
-DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
+DevelopCompressedOutput(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError)
 {
   char                acTime[FTIMES_TIME_FORMAT_SIZE];
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 i;
   int                 n;
   int                 iError;

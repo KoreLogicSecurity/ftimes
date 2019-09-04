@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: fsinfo.h,v 1.56 2019/03/14 16:07:42 klm Exp $
+ * $Id: fsinfo.h,v 1.58 2019/06/25 22:49:39 klm Exp $
  *
  ***********************************************************************
  *
@@ -26,6 +26,7 @@ enum eFSTypes
   FSTYPE_UNSUPPORTED = 0,
   FSTYPE_AIX,
   FSTYPE_APFS,
+  FSTYPE_BTRFS,
   FSTYPE_CDFS,
   FSTYPE_CIFS,
   FSTYPE_CRAMFS,
@@ -35,6 +36,7 @@ enum eFSTypes
   FSTYPE_FAT,
   FSTYPE_FAT_REMOTE,
   FSTYPE_FFS,
+  FSTYPE_FUSE,
   FSTYPE_GETDATAFS,
   FSTYPE_HFS,
   FSTYPE_JFS,
@@ -44,7 +46,6 @@ enum eFSTypes
   FSTYPE_NFS,
   FSTYPE_NFS3,
   FSTYPE_NTFS,
-  FSTYPE_NTFS3G,
   FSTYPE_NTFS_REMOTE,
   FSTYPE_NWCOMPAT,
   FSTYPE_NWCOMPAT_REMOTE,
@@ -109,6 +110,9 @@ enum eFSTypes
 #endif
 
 #ifdef FTimes_LINUX
+#ifndef BTRFS_SUPER_MAGIC
+#define BTRFS_SUPER_MAGIC 0x9123683e
+#endif
 #ifndef CIFS_SUPER_MAGIC
 #define CIFS_SUPER_MAGIC 0xff534d42
 #endif
@@ -142,8 +146,8 @@ enum eFSTypes
 #ifndef NTFS_SUPER_MAGIC
 #define NTFS_SUPER_MAGIC  0x5346544e
 #endif
-#ifndef NTFS3G_SUPER_MAGIC
-#define NTFS3G_SUPER_MAGIC 0x65735546
+#ifndef FUSE_SUPER_MAGIC
+#define FUSE_SUPER_MAGIC 0x65735546
 #endif
 #ifndef OVERLAYFS_SUPER_MAGIC
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630

@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: version.c,v 1.14 2019/03/14 16:07:43 klm Exp $
+ * $Id: version.c,v 1.18 2019/08/29 20:49:38 klm Exp $
  *
  ***********************************************************************
  *
@@ -23,9 +23,11 @@ VersionGetVersion(void)
 {
   static char         acMyVersion[VERSION_MAX_VERSION_LENGTH] = "NA";
   static char         acMyState[3] = "";
+#if defined(USE_KLEL) || defined(USE_KLEL_FILTERS) || defined(USE_EMBEDDED_LUA) || defined(USE_PCRE) || defined(USE_EMBEDDED_PERL) || defined(USE_EMBEDDED_PYTHON) || defined(USE_SSL) || defined(USE_XMAGIC) || defined(USE_FILE_HOOKS)
   int                 iCount = 0;
   int                 iIndex = 0;
   int                 iSize = VERSION_MAX_VERSION_LENGTH;
+#endif
 
   /*-
    *********************************************************************
@@ -91,7 +93,10 @@ VersionGetVersion(void)
    */
   if (((VERSION >> 10) & 0x03) == 2 && ((VERSION & 0x3ff) == 0))
   {
-    iIndex = snprintf(acMyVersion, VERSION_MAX_VERSION_LENGTH, "%s %d.%d.%d %d-bit",
+#if defined(USE_KLEL) || defined(USE_KLEL_FILTERS) || defined(USE_EMBEDDED_LUA) || defined(USE_PCRE) || defined(USE_EMBEDDED_PERL) || defined(USE_EMBEDDED_PYTHON) || defined(USE_SSL) || defined(USE_XMAGIC) || defined(USE_FILE_HOOKS)
+    iIndex = 
+#endif
+    snprintf(acMyVersion, VERSION_MAX_VERSION_LENGTH, "%s %d.%d.%d %d-bit",
       PROGRAM_NAME,
       (VERSION >> 28) & 0x0f,
       (VERSION >> 20) & 0xff,
@@ -101,7 +106,10 @@ VersionGetVersion(void)
   }
   else
   {
-    iIndex = snprintf(acMyVersion, VERSION_MAX_VERSION_LENGTH, "%s %d.%d.%d (%s%d) %d-bit",
+#if defined(USE_KLEL) || defined(USE_KLEL_FILTERS) || defined(USE_EMBEDDED_LUA) || defined(USE_PCRE) || defined(USE_EMBEDDED_PERL) || defined(USE_EMBEDDED_PYTHON) || defined(USE_SSL) || defined(USE_XMAGIC) || defined(USE_FILE_HOOKS)
+    iIndex = 
+#endif
+    snprintf(acMyVersion, VERSION_MAX_VERSION_LENGTH, "%s %d.%d.%d (%s%d) %d-bit",
       PROGRAM_NAME,
       (VERSION >> 28) & 0x0f,
       (VERSION >> 20) & 0xff,
@@ -111,7 +119,9 @@ VersionGetVersion(void)
       (int) (sizeof(&VersionGetVersion) * 8)
       );
   }
+#if defined(USE_KLEL) || defined(USE_KLEL_FILTERS) || defined(USE_EMBEDDED_LUA) || defined(USE_PCRE) || defined(USE_EMBEDDED_PERL) || defined(USE_EMBEDDED_PYTHON) || defined(USE_SSL) || defined(USE_XMAGIC) || defined(USE_FILE_HOOKS)
   iSize = ((VERSION_MAX_VERSION_LENGTH - iIndex) <= 0) ? 0 : VERSION_MAX_VERSION_LENGTH - iIndex;
+#endif
 
   /*-
    *********************************************************************
@@ -122,6 +132,10 @@ VersionGetVersion(void)
    */
 #ifdef USE_KLEL
   iIndex += snprintf(&acMyVersion[iIndex], iSize, "%sklel(%s)", (iCount++ == 0) ? " " : ",", KlelGetReleaseString());
+  iSize = ((VERSION_MAX_VERSION_LENGTH - iIndex) <= 0) ? 0 : VERSION_MAX_VERSION_LENGTH - iIndex;
+#endif
+#ifdef USE_EMBEDDED_LUA
+  iIndex += snprintf(&acMyVersion[iIndex], iSize, "%slua(%d.%d)", (iCount++ == 0) ? " " : ",", LUA_VERSION_NUM / 100, LUA_VERSION_NUM % 100);
   iSize = ((VERSION_MAX_VERSION_LENGTH - iIndex) <= 0) ? 0 : VERSION_MAX_VERSION_LENGTH - iIndex;
 #endif
 #ifdef USE_PCRE
@@ -138,6 +152,19 @@ VersionGetVersion(void)
 #endif
 #ifdef USE_SSL
   iIndex += snprintf(&acMyVersion[iIndex], iSize, "%s%s", (iCount++ == 0) ? " " : ",", SslGetVersion());
+  iSize = ((VERSION_MAX_VERSION_LENGTH - iIndex) <= 0) ? 0 : VERSION_MAX_VERSION_LENGTH - iIndex;
+#endif
+#ifdef USE_KLEL_FILTERS
+  iIndex += snprintf(&acMyVersion[iIndex], iSize, "%sfilters(klel)", (iCount++ == 0) ? " " : ",");
+  iSize = ((VERSION_MAX_VERSION_LENGTH - iIndex) <= 0) ? 0 : VERSION_MAX_VERSION_LENGTH - iIndex;
+#else
+  #ifdef USE_PCRE
+  iIndex += snprintf(&acMyVersion[iIndex], iSize, "%sfilters(pcre)", (iCount++ == 0) ? " " : ",");
+  iSize = ((VERSION_MAX_VERSION_LENGTH - iIndex) <= 0) ? 0 : VERSION_MAX_VERSION_LENGTH - iIndex;
+  #endif
+#endif
+#ifdef USE_FILE_HOOKS
+  iIndex += snprintf(&acMyVersion[iIndex], iSize, "%shooks", (iCount++ == 0) ? " " : ",");
   iSize = ((VERSION_MAX_VERSION_LENGTH - iIndex) <= 0) ? 0 : VERSION_MAX_VERSION_LENGTH - iIndex;
 #endif
 #ifdef USE_XMAGIC

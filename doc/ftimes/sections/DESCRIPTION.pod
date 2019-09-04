@@ -131,6 +131,7 @@ optional, or conditionally required, respectively.
    EnableRecursion     .  .  .  O  .  O  .  O  .
    Exclude             .  .  .  O  .  O  .  O  .
    ExcludeFilter       .  .  .  O  .  O  .  O  .
+   ExcludeFilterKlel   .  .  .  O  .  O  .  O  .
    ExcludeFilterMd5    .  .  .  .  .  O  .  O  .
    ExcludeFilterSha1   .  .  .  .  .  O  .  O  .
    ExcludeFilterSha256 .  .  .  .  .  O  .  O  .
@@ -145,6 +146,7 @@ optional, or conditionally required, respectively.
    Import              .  .  .  O  O  O  .  O  .
    Include             .  .  .  O  .  O  .  O  .
    IncludeFilter       .  .  .  O  .  O  .  O  .
+   IncludeFilterKlel   .  .  .  O  .  O  .  O  .
    IncludeFilterMd5    .  .  .  .  .  O  .  O  .
    IncludeFilterSha1   .  .  .  .  .  O  .  O  .
    IncludeFilterSha256 .  .  .  .  .  O  .  O  .

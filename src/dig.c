@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: dig.c,v 1.57 2019/03/14 16:07:42 klm Exp $
+ * $Id: dig.c,v 1.58 2019/04/17 20:39:52 klm Exp $
  *
  ***********************************************************************
  *
@@ -1089,7 +1089,7 @@ DigSearchData(unsigned char *pucData, int iDataLength, int iStopShort, int iType
 #endif
 #ifdef USE_XMAGIC
   case DIG_STRING_TYPE_XMAGIC:
-    iMinSearchLength = iStopShort ? iCarrySize : sizeof(APP_UI32) - 1; /* The minimum search length is limited due to the way XMagicGetValueOffset() works. */
+    iMinSearchLength = iStopShort ? iCarrySize : (int) sizeof(APP_UI32) - 1; /* The minimum search length is limited due to the way XMagicGetValueOffset() works. */
     for ((psDigString = gppsSearchListXMagic[DIG_FIRST_CHAIN_INDEX]); psDigString != NULL; psDigString = psDigString->psNext)
     {
       iOffset = 0;

@@ -1,17 +1,17 @@
 
 1 Overview
 
-  FTimes is a system baselining and evidence collection tool.  The
-  primary purpose of FTimes is to gather and/or develop topographical
-  information and attributes about specified directories and files in
-  a manner conducive to intrusion and forensic analysis.  FTimes is
-  available at:
+  FTimes is a forensic system baselining, searching, and evidence
+  collection tool.  Its primary purpose is to gather and/or
+  develop topographical information and attributes about specified
+  directories and files in a manner conducive to intrusion and
+  forensic analysis.
 
   This document explains how to configure and build FTimes.
 
 1.1 Revision
 
-  $Id: README.INSTALL,v 1.26 2019/03/14 17:19:14 klm Exp $
+  $Id: README.INSTALL,v 1.28 2019/09/03 19:23:57 klm Exp $
 
 1.2 Table of Contents
 
@@ -23,8 +23,9 @@
   Section 2 .................... Building FTimes
   Section 2.1 .................. Requirements
   Section 2.2 .................. Unpack the Source Archive
-  Section 2.3 .................. Verify Installation of Optional Components
-  Section 2.3.1 ................ Verify Installation of PCRE
+  Section 2.3 .................. Verify Installation of Required Components
+  Section 2.3.1 ................ Verify Installation of KLEL
+  Section 2.3.2 ................ Verify Installation of PCRE
   Section 2.4 .................. UNIX Build Instructions
   Section 2.4.1 ................ UNIX Build Gotchas
   Section 2.5 .................. WINX MinGW/MSYS Build Instructions
@@ -72,6 +73,20 @@
 
 2.1 Requirements
 
+  FTimes depends on the following libraries:
+
+    libcrypto - optional, but deprecated (via --with-ssl)
+    libklel   - required (via --with-klel)
+    liblua    - optional (via --with-lua)
+    libpcre   - required (via --with-pcre)
+    libperl   - optional (via --with-perl)
+    libpython - optional (via --with-python)
+    libssl    - optional, but deprecated (via --with-ssl)
+
+  Required libraries must be present on the build system.  If configure
+  is unable to locate them under one of the standard install paths, use
+  '--with-<library>=<path>' to specify a valid alternate path.
+
   Building FTimes in UNIX environments requires:
 
     Make
@@ -92,12 +107,7 @@
   Building FTimes in WINX environments requires:
 
     MinGW+MSYS
-      FTimes can be built with PCRE support under MinGW 5.1.4 and
-      MSYS 1.0.10.  Avoid lower versions of MinGW and MSYS, or be
-      prepared to work through the warnings/issues.
-
-  By default, PCRE support is enabled in FTimes.  This means that
-  PCRE must be be installed and/or available on the build system.
+      MinGW 5.1.4 and MSYS 1.0.10 or higher is recommended.
 
 2.2 Unpack the Source Archive
 
@@ -115,14 +125,29 @@
 
     $ gunzip -c <archive> | tar -xvf -
 
-2.3 Verify Installation of Optional Components
+2.3 Verify Installation of Required Components
 
-2.3.1 Verify Installation of PCRE
+2.3.1 Verify Installation of KLEL
 
-  By default, PCRE support is enabled in FTimes.  This means that
-  PCRE libraries must be installed and/or available on the build
-  system.  The PCRE project is located at http://www.pcre.org.
-  Refer to PCRE's documentation for details on how to do this.
+  By default, KLEL support is required.  This means that KLEL
+  libraries must be installed and/or available on the build system.
+  Refer that project's documentation for details on how to do this.
+
+  See also:
+
+    https://git.korelogic.com/libklel.git
+    https://github.com/KoreLogicSecurity/libklel
+    https://sourceforge.net/projects/libklel
+
+2.3.2 Verify Installation of PCRE
+
+  By default, PCRE support is required.  This means that PCRE
+  libraries must be installed and/or available on the build system.
+  Refer that project's documentation for details on how to do this.
+
+  See also:
+
+    http://www.pcre.org
 
 2.4 UNIX Build Instructions
 
@@ -133,14 +158,14 @@
 
     $ ./configure && make
 
-  By default, PCRE support is enabled.  This means that the configure
-  script will attempt to locate PCRE components (e.g., libraries
-  and include files) on your system.  If these components are not
-  found in one of several common locations, the script will abort.
-  To override that behavior, you can specify alternate locations
-  using the --with-pcre=DIR configure option.  For example, if
-  your copy of PCRE was installed in /usr/local/my_pcre, the build
-  sequence would be as follows:
+  By default, certain support (KLEL and PCRE) is enabled.  This means
+  that the configure script will attempt to locate the necessary
+  components (e.g., libraries and include files) on your system.
+  If these components are not found in one of several common
+  locations, the script will abort.  To override that behavior, you
+  can specify alternate locations using the --with-<library>=<path>
+  configure option.  For example, if your copy of PCRE was installed
+  in /usr/local/my_pcre, the build sequence would be as follows:
 
     $ ./configure --with-pcre=/usr/local/my_pcre && make
 
@@ -173,7 +198,7 @@
   Executing the built-in tests (i.e., the test target) can take a
   considerable amount of time -- especially on older/slower systems.
   Also, these tests may fail if you don't have the necessary Perl
-  modules installed.
+  modules installed and available in the expected locations.
 
   Make sure pod2man and pod2html are installed and in your PATH.  The
   documentation will not build properly without these utilities.
@@ -183,8 +208,8 @@
 2.5 WINX MinGW/MSYS Build Instructions
 
   Typically, the build process is simply a matter of running configure
-  and make.  Going on the assumption that you have a static version of
-  PCRE (7.6 or higher), the most basic build sequence is as follows:
+  and make.  Going on the assumption that you have a static versions of
+  KLEL and PCRE, the most basic build sequence is as follows:
 
     $ ./configure CFLAGS=-DPCRE_STATIC && make
     $ make install
@@ -197,8 +222,8 @@
 2.5.1 WINX MinGW/MSYS Build Gotchas
 
   The process documented in the previous section is known to work
-  with the stated versions of Active Perl, MinGW, MSYS, and PCRE.
-  Other combinations are not supported at this time.
+  with the stated versions of MinGW+MSYS.  Other combinations are
+  not supported at this time.
 
   You may encounter errors building the man pages.  If that happens,
   put copies of pod2man and pod2html in MinGW's bin directory

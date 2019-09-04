@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes-srm.h,v 1.10 2019/03/14 16:07:44 klm Exp $
+ * $Id: ftimes-srm.h,v 1.11 2019/04/23 13:08:58 klm Exp $
  *
  ***********************************************************************
  *
@@ -244,7 +244,7 @@ int                 FTimesSrmGetAttributes(FTIMES_FILE_DATA *psFTFileData, char 
 FTIMES_SRM_HANDLE  *FTimesSrmGetHandle(char *pcDecodedName, char *pcError);
 FTIMES_SRM_PROPERTIES *FTimesSrmGetPropertiesReference(void);
 FTIMES_SRM_PROPERTIES *FTimesSrmNewProperties(char *pcError);
-int                 FTimesSrmOptionHandler(OPTIONS_TABLE *psOption, char *pcValue, FTIMES_SRM_PROPERTIES *psProperties, char *pcError);
+int                 FTimesSrmOptionHandler(void *pvOption, char *pcValue, void *pvProperties, char *pcError);
 int                 FTimesSrmProcessArguments(int iArgumentCount, char *ppcArgumentVector[], FTIMES_SRM_PROPERTIES *psProperties, char *pcError);
 int                 FTimesSrmRemoveFile(SNAPSHOT_CONTEXT *psSnapshotContext, MASK_USS_MASK *psFieldMask, int iDryRun, char *pcError);
 void                FTimesSrmSetPropertiesReference(FTIMES_SRM_PROPERTIES *psProperties);

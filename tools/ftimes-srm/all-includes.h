@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: all-includes.h,v 1.4 2019/03/14 16:07:44 klm Exp $
+ * $Id: all-includes.h,v 1.5 2019/04/18 20:04:25 klm Exp $
  *
  ***********************************************************************
  *
@@ -34,7 +34,9 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef FTimes_LINUX
 #include <sys/vfs.h>
+#endif
 #include <unistd.h>
 #endif
 #ifdef WIN32

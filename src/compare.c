@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: compare.c,v 1.57 2019/03/14 16:07:42 klm Exp $
+ * $Id: compare.c,v 1.58 2019/07/23 20:27:01 klm Exp $
  *
  ***********************************************************************
  *
@@ -39,7 +39,7 @@ CompareDecodeLine(char *pcLine, SNAPSHOT_CONTEXT *psBaseline, char **ppcDecodeFi
   int                 iFound = 0;
   int                 iField = 0;
   int                 iLength = 0;
-  int                 iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_CMP);
+  int                 iMaskTableLength = MaskGetTableLength(MASK_MASK_TYPE_CMP);
   unsigned long       ul = 0;
 
   /*-
@@ -134,7 +134,7 @@ CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSHOT_CONTEXT *psSnapsh
   int                 iError = 0;
   int                 iFound = 0;
   int                 iKeysIndex = 0;
-  int                 iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_CMP);
+  int                 iMaskTableLength = MaskGetTableLength(MASK_MASK_TYPE_CMP);
   unsigned long       ul = 0;
 
   /*-
@@ -992,8 +992,8 @@ CompareWriteRecord(CMP_PROPERTIES *psProperties, CMP_DATA *psData, char *pcError
    */
   if (pcOutput == NULL)
   {
-    iMaskTableLength = MaskGetTableLength(MASK_RUNMODE_TYPE_CMP);
-    pasMaskTable = MaskGetTableReference(MASK_RUNMODE_TYPE_CMP);
+    iMaskTableLength = MaskGetTableLength(MASK_MASK_TYPE_CMP);
+    pasMaskTable = MaskGetTableReference(MASK_MASK_TYPE_CMP);
     pcOutput = malloc(CMP_MAX_LINE + (2 * (iMaskTableLength * (MASK_NAME_SIZE))) + (2 * (FTIMES_MAX_32BIT_SIZE)) + 6);
     if (pcOutput == NULL)
     {

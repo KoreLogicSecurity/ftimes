@@ -1,6 +1,6 @@
 ######################################################################
 #
-# $Id: EadRoutines.pm,v 1.43 2019/03/14 16:07:42 klm Exp $
+# $Id: EadRoutines.pm,v 1.54 2019/06/26 14:15:16 klm Exp $
 #
 ######################################################################
 #
@@ -34,6 +34,8 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %ghUnixGidMap %ghUnixUidMap);
   EadBase64UrlEncode
   EadBase64UrlToHex
   EadBase64UrlToHexDump
+  EadBookendHexDecode
+  EadBookendHexEncode
   EadFTimesNssDecode
   EadFTimesNssEncode
   EadFTimesSssDecode
@@ -42,9 +44,13 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %ghUnixGidMap %ghUnixUidMap);
   EadFTimesUrlEncode
   EadGetDecoders
   EadHexDecode
+  EadHexDecodeArray
+  EadHexDecodeCString
   EadHexDump
   EadHexDumpRecords
   EadHexEncode
+  EadHexEncodeArray
+  EadHexEncodeCString
   EadHexToBase32
   EadHexToBase64
   EadHexToBase64Url
@@ -53,6 +59,8 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %ghUnixGidMap %ghUnixUidMap);
   EadNopEncode
   EadNotDecode
   EadNotEncode
+  EadSafeBookendHexDecode
+  EadSafeBookendHexEncode
   EadUnixModeDecode
   EadUnixGidDecode
   EadUnixUidDecode
@@ -61,6 +69,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %ghUnixGidMap %ghUnixUidMap);
   EadWinxAceDecode
   EadWinxAttributesDecode
   EadWinxDaclDecode
+  EadWrapInQuotes
   EadXformViaAnd
   EadXformViaNop
   EadXformViaNot
@@ -70,7 +79,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %ghUnixGidMap %ghUnixUidMap);
 );
 @EXPORT_OK = ();
 @ISA = qw(Exporter);
-$VERSION = do { my @r = (q$Revision: 1.43 $ =~ /(\d+)/g); sprintf("%d."."%03d" x $#r, @r); };
+$VERSION = do { my @r = (q$Revision: 1.54 $ =~ /(\d+)/g); sprintf("%d."."%03d" x $#r, @r); };
 
 ######################################################################
 #
@@ -773,6 +782,72 @@ sub EadBase64UrlToHexDump
 
 ######################################################################
 #
+# EadBookendHexDecode
+#
+######################################################################
+
+sub EadBookendHexDecode
+{
+  my ($sData, $sLBookend, $sRBookend) = @_;
+
+  if (!defined($sLBookend) && !defined($sRBookend)) # Conditionally define bookends.
+  {
+    $sLBookend //= '[';
+    $sRBookend //= ']';
+  }
+
+  if # Conditionally perform the operation. Otherwise, return data unmodified.
+  (
+       $sLBookend eq '(' && $sRBookend eq ')'
+    || $sLBookend eq '<' && $sRBookend eq '>'
+    || $sLBookend eq '[' && $sRBookend eq ']'
+    || $sLBookend eq '{' && $sRBookend eq '}'
+  )
+  {
+    $sData =~ s/[$sLBookend]\\n[$sRBookend]/pack('C', hex("0x0a"))/seg;
+    $sData =~ s/[$sLBookend]\\r[$sRBookend]/pack('C', hex("0x0d"))/seg;
+    $sData =~ s/[$sLBookend]0x([0-9a-fA-F]{1,2})[$sRBookend]/pack('C', hex($1))/seg;
+  }
+
+  return $sData;
+}
+
+
+######################################################################
+#
+# EadBookendHexEncode
+#
+######################################################################
+
+sub EadBookendHexEncode
+{
+  my ($sData, $sLBookend, $sRBookend) = @_;
+
+  if (!defined($sLBookend) && !defined($sRBookend)) # Conditionally define bookends.
+  {
+    $sLBookend //= '[';
+    $sRBookend //= ']';
+  }
+
+  if # Conditionally perform the operation. Otherwise, return data unmodified.
+  (
+       $sLBookend eq '(' && $sRBookend eq ')'
+    || $sLBookend eq '<' && $sRBookend eq '>'
+    || $sLBookend eq '[' && $sRBookend eq ']'
+    || $sLBookend eq '{' && $sRBookend eq '}'
+  )
+  {
+    $sData =~ s/\x0a/$sLBookend."\\n".$sRBookend/seg;
+    $sData =~ s/\x0d/$sLBookend."\\r".$sRBookend/seg;
+    $sData =~ s/([^\x20-\x7f])/sprintf("%s0x%02x%s", $sLBookend, unpack('C', $1), $sRBookend)/seg;
+  }
+
+  return $sData;
+}
+
+
+######################################################################
+#
 # EadFTimesNssDecode (NSS - Neuter Safe String)
 #
 ######################################################################
@@ -915,6 +990,35 @@ sub EadHexDecode
 
 ######################################################################
 #
+# EadHexDecodeArray
+#
+######################################################################
+
+sub EadHexDecodeArray
+{
+  my ($sData) = @_;
+  $sData =~ s/0x([0-9a-fA-F]{2})(?:,\s*)?/pack('C', hex($1))/seg;
+  return $sData;
+}
+
+
+
+######################################################################
+#
+# EadHexDecodeCString
+#
+######################################################################
+
+sub EadHexDecodeCString
+{
+  my ($sData) = @_;
+  $sData =~ s/\\x([0-9a-fA-F]{2})/pack('C', hex($1))/seg;
+  return $sData;
+}
+
+
+######################################################################
+#
 # EadHexDump
 #
 ######################################################################
@@ -1000,6 +1104,35 @@ sub EadHexEncode
 
 ######################################################################
 #
+# EadHexEncodeArray
+#
+######################################################################
+
+sub EadHexEncodeArray
+{
+  my ($sData) = @_;
+  $sData =~ s/([\x00-\xff])/sprintf(", 0x%02x", unpack('C',$1))/seg;
+  $sData =~ s/^, //;
+  return $sData;
+}
+
+
+######################################################################
+#
+# EadHexEncodeCString
+#
+######################################################################
+
+sub EadHexEncodeCString
+{
+  my ($sData) = @_;
+  $sData =~ s/([\x00-\xff])/sprintf("\\x%02x", unpack('C',$1))/seg;
+  return $sData;
+}
+
+
+######################################################################
+#
 # EadHexToBase32
 #
 ######################################################################
@@ -1067,6 +1200,82 @@ sub EadNopDecode
 sub EadNopEncode
 {
   return $_[0];
+}
+
+
+######################################################################
+#
+# EadSafeBookendHexDecode
+#
+######################################################################
+
+sub EadSafeBookendHexDecode
+{
+  my ($sData, $sLBookend, $sRBookend) = @_;
+
+  if (!defined($sLBookend) && !defined($sRBookend)) # Conditionally define bookends.
+  {
+    $sLBookend //= '[';
+    $sRBookend //= ']';
+  }
+
+  return EadBookendHexDecode($sData, $sLBookend, $sRBookend)
+}
+
+
+######################################################################
+#
+# EadSafeBookendHexEncode
+#
+######################################################################
+
+sub EadSafeBookendHexEncode
+{
+  my ($sData, $sLBookend, $sRBookend) = @_;
+
+  if (!defined($sLBookend) && !defined($sRBookend)) # Conditionally define bookends.
+  {
+    $sLBookend //= '[';
+    $sRBookend //= ']';
+  }
+
+  if # Conditionally perform the operation. Otherwise, return data unmodified.
+  (
+       $sLBookend eq '(' && $sRBookend eq ')'
+    || $sLBookend eq '<' && $sRBookend eq '>'
+    || $sLBookend eq '[' && $sRBookend eq ']'
+    || $sLBookend eq '{' && $sRBookend eq '}'
+  )
+  {
+    $sData =~ s/([\x00-\x09\x0b\x0c\x0e-\x1f\x20\x22\x27\x28\x29\x3c\x3e\x5b\x5d\x7b\x7d\x7f-\xff])/sprintf("%s0x%02x%s", $sLBookend, unpack('C', $1), $sRBookend)/seg;
+    #             |________________________|   |   |   |   |   |   |   |   |   |   |   ||_______|
+    #                         |                |   |   |   |   |   |   |   |   |   |   |    |
+    #  controls    <----------+                |   |   |   |   |   |   |   |   |   |   |    |
+    #  enc 0x20    <---------------------------+   |   |   |   |   |   |   |   |   |   |    |
+    #  enc 0x22 "  <-------------------------------+   |   |   |   |   |   |   |   |   |    |
+    #  enc 0x27 '  <-----------------------------------+   |   |   |   |   |   |   |   |    |
+    #  enc 0x28 (  <---------------------------------------+   |   |   |   |   |   |   |    |
+    #  enc 0x29 )  <-------------------------------------------+   |   |   |   |   |   |    |
+    #  enc 0x3c <  <-----------------------------------------------+   |   |   |   |   |    |
+    #  enc 0x3e >  <---------------------------------------------------+   |   |   |   |    |
+    #  enc 0x5b [  <-------------------------------------------------------+   |   |   |    |
+    #  enc 0x5d ]  <-----------------------------------------------------------+   |   |    |
+    #  enc 0x7b {  <---------------------------------------------------------------+   |    |
+    #  enc 0x7d }  <-------------------------------------------------------------------+    |
+    #  extended    <------------------------------------------------------------------------+
+    #
+    # Note that any character matched by the character set above
+    # will be encoded. Since we want safe encodings, we exclude (over
+    # and above the original bookend encoder) space, single/double
+    # quotes, all braces, and the delete character (i.e., 0x7f).
+    #
+    ##################################################################
+
+    $sData =~ s/\x0a/$sLBookend."\\n".$sRBookend/seg;
+    $sData =~ s/\x0d/$sLBookend."\\r".$sRBookend/seg;
+  }
+
+  return $sData;
 }
 
 
@@ -1778,6 +1987,34 @@ sub EadWinxDaclDecode
   }
 
   1;
+}
+
+
+######################################################################
+#
+# EadWrapInQuotes
+#
+######################################################################
+
+sub EadWrapInQuotes
+{
+  my ($sData, $sQChar, $sEChar) = @_;
+
+  if (!defined($sQChar) || length($sQChar) != 1)
+  {
+    $sQChar = chr(0x22); # This is '"'.
+  }
+  if (!defined($sEChar) || length($sEChar) != 1)
+  {
+    $sEChar = chr(0x5c); # This is '\'.
+  }
+  my $sEExpr = ($sEChar eq '\\') ? qr([\\]) : qr([$sEChar]);
+  my $sQExpr = ($sQChar eq '\\') ? qr([\\]) : qr([$sQChar]);
+  $sData .= "";
+  $sData =~ s/$sEExpr/$sEChar.$sEChar/seg;
+  $sData =~ s/$sQExpr/$sEChar.$sQChar/seg;
+
+  return $sQChar . $sData . $sQChar;
 }
 
 

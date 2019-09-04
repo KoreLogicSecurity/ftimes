@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: mapmode.c,v 1.60 2019/03/14 16:07:42 klm Exp $
+ * $Id: mapmode.c,v 1.62 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -19,12 +19,13 @@
  ***********************************************************************
  */
 int
-MapModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
+MapModeInitialize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "MapModeInitialize()";
   char                acLocalError[MESSAGE_SIZE] = "";
   char                acMapItem[FTIMES_MAX_PATH];
   char               *pcMapItem = NULL;
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError = 0;
 
   /*-
@@ -131,12 +132,13 @@ MapModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
+MapModeCheckDependencies(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "MapModeCheckDependencies()";
 #ifdef USE_SSL
   char                acLocalError[MESSAGE_SIZE] = "";
 #endif
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   if (psProperties->psFieldMask == NULL)
   {
@@ -220,28 +222,6 @@ MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
   /*-
    *********************************************************************
    *
-   * Attribute filters are not compatible with certain options.
-   *
-   *********************************************************************
-   */
-  if (psProperties->bHaveAttributeFilters)
-  {
-    if (psProperties->bCompress)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Attribute filters are not supported when compression (Compress) is enabled.", acRoutine);
-      return ER_IncompatibleOptions;
-    }
-
-    if (psProperties->bHashDirectories)
-    {
-      snprintf(pcError, MESSAGE_SIZE, "%s: Attribute filters are not supported when directory hashing (HashDirectories) is enabled.", acRoutine);
-      return ER_IncompatibleOptions;
-    }
-  }
-
-  /*-
-   *********************************************************************
-   *
    * Attribute filters require the corresponding attribute to be set.
    *
    *********************************************************************
@@ -277,13 +257,14 @@ MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
+MapModeFinalize(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "MapModeFinalize()";
   char                acLocalError[MESSAGE_SIZE] = "";
 #ifdef USE_XMAGIC
   char                acMessage[MESSAGE_SIZE];
 #endif
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
 
   /*-
@@ -406,6 +387,39 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
       return iError;
     }
   }
+
+#ifdef USE_KLEL_FILTERS
+  /*-
+   *********************************************************************
+   *
+   * Conditionally check the Include and Exclude filters. Note that we
+   * manually include the name attribute bit since it's not present in
+   * a normal field mask.
+   *
+   *********************************************************************
+   */
+  if (psProperties->psExcludeFilterListKlel != NULL)
+  {
+    unsigned long ulMask = psProperties->psFieldMask->ulMask | FILTER_NAME;
+    iError = FilterCheckFilterMasks(psProperties->psExcludeFilterListKlel, ulMask, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return iError;
+    }
+  }
+
+  if (psProperties->psIncludeFilterListKlel != NULL)
+  {
+    unsigned long ulMask = psProperties->psFieldMask->ulMask | FILTER_NAME;
+    iError = FilterCheckFilterMasks(psProperties->psIncludeFilterListKlel, ulMask, acLocalError);
+    if (iError != ER_OK)
+    {
+      snprintf(pcError, MESSAGE_SIZE, "%s: %s", acRoutine, acLocalError);
+      return iError;
+    }
+  }
+#endif
 
   /*-
    *********************************************************************
@@ -561,10 +575,11 @@ MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-MapModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
+MapModeWorkHorse(void *pvProperties, char *pcError)
 {
   char                acLocalError[MESSAGE_SIZE] = "";
   FILE_LIST           *psList = NULL;
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
 
   /*-
    *********************************************************************
@@ -593,12 +608,13 @@ MapModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
+MapModeFinishUp(void *pvProperties, char *pcError)
 {
   char                acMessage[MESSAGE_SIZE];
   int                 i;
   int                 iFirst;
   int                 iIndex;
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   unsigned char       aucFileHash[MD5_HASH_SIZE];
 
   /*-
@@ -722,10 +738,11 @@ MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError)
  ***********************************************************************
  */
 int
-MapModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError)
+MapModeFinalStage(void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "MapModeFinalStage()";
   char                acLocalError[MESSAGE_SIZE] = "";
+  FTIMES_PROPERTIES  *psProperties = (FTIMES_PROPERTIES *)pvProperties;
   int                 iError;
 
   /*-

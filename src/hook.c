@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: hook.c,v 1.16 2019/03/14 16:07:42 klm Exp $
+ * $Id: hook.c,v 1.18 2019/04/23 12:54:18 klm Exp $
  *
  ***********************************************************************
  *
@@ -89,7 +89,7 @@ HookFreeHook(HOOK_LIST *psHook)
 {
   if (psHook != NULL)
   {
-// NOTE: This string is owned by KL-EL and should not be freed.
+// NOTE: This string is owned by KLEL and should not be freed.
 //  if (psHook->pcName != NULL)
 //  {
 //    free(psHook->pcName);
@@ -98,12 +98,12 @@ HookFreeHook(HOOK_LIST *psHook)
     {
       free(psHook->pcExpression);
     }
-// NOTE: This string is owned by KL-EL and should not be freed.
+// NOTE: This string is owned by KLEL and should not be freed.
 //  if (psHook->pcInterpreter != NULL)
 //  {
 //    free(psHook->pcInterpreter);
 //  }
-// NOTE: This string is owned by KL-EL and should not be freed.
+// NOTE: This string is owned by KLEL and should not be freed.
 //  if (psHook->pcProgram != NULL)
 //  {
 //    free(psHook->pcProgram);
@@ -198,7 +198,7 @@ HookGetTypeOfVar(const char *pcName, void *pvContext)
     { "p_name",        KLEL_EXPR_STRING  }, /* parent name (full path) */
   };
 
-  for (i = 0; i < sizeof(asTypes) / sizeof(asTypes[0]); i++)
+  for (i = 0; i < (int)(sizeof(asTypes) / sizeof(asTypes[0])); i++)
   {
     if (strcmp(asTypes[i].pcName, pcName) == 0)
     {
@@ -207,7 +207,7 @@ HookGetTypeOfVar(const char *pcName, void *pvContext)
     }
   }
 
-  return KLEL_TYPE_UNKNOWN; /* This causes KL-EL to retrieve the type of the specified variable, should it exist in the standard library. */
+  return KLEL_TYPE_UNKNOWN; /* This causes KLEL to retrieve the type of the specified variable, should it exist in the standard library. */
 }
 
 
@@ -559,7 +559,7 @@ HookGetValueOfVar(const char *pcName, void *pvContext)
   }
 #endif
 
-  return KlelCreateUnknown(); /* This causes KL-EL to retrieve the value of the specified variable, should it exist in the standard library. */
+  return KlelCreateUnknown(); /* This causes KLEL to retrieve the value of the specified variable, should it exist in the standard library. */
 }
 
 
@@ -614,7 +614,7 @@ HookNewHook(char *pcExpression, char *pcError)
   char                acLocalError[MESSAGE_SIZE] = "";
 #endif
   HOOK_LIST          *psHook = NULL;
-#if defined(USE_EMBEDDED_PERL) || defined(USE_EMBEDDED_PYTHON)
+#if defined(USE_EMBEDDED_PERL)
   int                 iError = 0;
 #endif
   int                 iLength = 0;
@@ -727,6 +727,12 @@ HookNewHook(char *pcExpression, char *pcError)
   {
     /* Empty */
   }
+#ifdef USE_EMBEDDED_LUA
+  else if (strcmp(psHook->pcInterpreter, "lua") == 0)
+  {
+    /* Empty */
+  }
+#endif
 #ifdef USE_EMBEDDED_PERL
   else if (strcmp(psHook->pcInterpreter, "perl") == 0)
   {
@@ -830,7 +836,7 @@ HookLoadPythonScript(HOOK_LIST *psHook, char *pcError)
     fclose(pFile);
     return ER;
   }
-  if (szNRead != sStatEntry.st_size || strlen(pcPyScript) != sStatEntry.st_size)
+  if ((off_t)szNRead != sStatEntry.st_size || (off_t)strlen(pcPyScript) != sStatEntry.st_size)
   {
     snprintf(pcError, MESSAGE_SIZE, "byte count mismatch");
     free(pcPyScript);

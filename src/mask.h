@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: mask.h,v 1.25 2019/03/14 16:07:42 klm Exp $
+ * $Id: mask.h,v 1.28 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -61,6 +61,51 @@
 /*--------------------------------*/
 
 #ifdef WIN32
+/*-----------------------------------*/
+#define FILTER_VOLUME      0x00000001
+#define FILTER_FINDEX      0x00000002
+#define FILTER_ATTRIBUTES  0x00000004
+#define FILTER_ATIME       0x00000008
+#define FILTER_MTIME       0x00000010
+#define FILTER_CTIME       0x00000020
+#define FILTER_CHTIME      0x00000040
+#define FILTER_SIZE        0x00000080
+#define FILTER_ALTSTREAMS  0x00000100
+#define FILTER_MD5         0x00000200
+#define FILTER_SHA1        0x00000400
+#define FILTER_SHA256      0x00000800
+#define FILTER_MAGIC       0x00001000
+#define FILTER_OWNER       0x00002000
+#define FILTER_GROUP       0x00004000
+#define FILTER_DACL        0x00008000
+#define FILTER_NAME        0x00010000
+/*-----------------------------------*/
+#define FILTER_ALL_MASK    0x0001ffff
+/*-----------------------------------*/
+#else
+/*-----------------------------------*/
+#define FILTER_DEV         0x00000001
+#define FILTER_INODE       0x00000002
+#define FILTER_MODE        0x00000004
+#define FILTER_NLINK       0x00000008
+#define FILTER_UID         0x00000010
+#define FILTER_GID         0x00000020
+#define FILTER_RDEV        0x00000040
+#define FILTER_ATIME       0x00000080
+#define FILTER_MTIME       0x00000100
+#define FILTER_CTIME       0x00000200
+#define FILTER_SIZE        0x00000400
+#define FILTER_MD5         0x00000800
+#define FILTER_SHA1        0x00001000
+#define FILTER_SHA256      0x00002000
+#define FILTER_MAGIC       0x00004000
+#define FILTER_NAME        0x00008000
+/*-----------------------------------*/
+#define FILTER_ALL_MASK    0x0000ffff
+/*-----------------------------------*/
+#endif
+
+#ifdef WIN32
 /*--------------------------------*/
 #define MAP_VOLUME      0x00000001
 #define MAP_FINDEX      0x00000002
@@ -118,12 +163,11 @@
 #define SRM_HASHES_MASK 0x0000000e
 /*--------------------------------*/
 
-#define MASK_MASK_TYPE_USS 1
-
-#define MASK_RUNMODE_TYPE_CMP 1
-#define MASK_RUNMODE_TYPE_DIG 2
-#define MASK_RUNMODE_TYPE_MAP 3
-#define MASK_RUNMODE_TYPE_SRM 4
+#define MASK_MASK_TYPE_CMP 1
+#define MASK_MASK_TYPE_DIG 2
+#define MASK_MASK_TYPE_MAP 3
+#define MASK_MASK_TYPE_SRM 4
+#define MASK_MASK_TYPE_FILTER 5
 
 #define MASK_TABLE_TYPE_B2S 1
 
@@ -162,6 +206,7 @@ typedef struct _MASK_USS_MASK /* USS - User Supplied String */
  *
  ***********************************************************************
  */
+char               *MaskAppendToDynamicString(char *pcTarget, char *pcStringToAppend, char *pcError);
 char               *MaskBuildMask(unsigned long ulMask, int iType, char *pcError);
 void                MaskFreeMask(MASK_USS_MASK *psMask);
 int                 MaskGetTableLength(int iType);

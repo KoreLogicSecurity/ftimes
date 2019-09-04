@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes-xpa.c,v 1.13 2019/03/14 16:07:44 klm Exp $
+ * $Id: ftimes-xpa.c,v 1.14 2019/04/23 13:08:58 klm Exp $
  *
  ***********************************************************************
  *
@@ -1836,10 +1836,12 @@ FTimesXpaSetPropertiesReference(FTIMES_XPA_PROPERTIES *psProperties)
  ***********************************************************************
  */
 int
-FTimesXpaOptionHandler(OPTIONS_TABLE *psOption, char *pcValue, FTIMES_XPA_PROPERTIES *psProperties, char *pcError)
+FTimesXpaOptionHandler(void *pvOption, char *pcValue, void *pvProperties, char *pcError)
 {
   const char          acRoutine[] = "FTimesXpaOptionHandler()";
+  FTIMES_XPA_PROPERTIES *psProperties = (FTIMES_XPA_PROPERTIES *)pvProperties;
   int                 iLength = 0;
+  OPTIONS_TABLE      *psOption = (OPTIONS_TABLE *)pvOption;
 
   iLength = (pcValue == NULL) ? 0 : strlen(pcValue);
 

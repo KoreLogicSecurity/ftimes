@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: options.h,v 1.10 2019/03/14 16:07:42 klm Exp $
+ * $Id: options.h,v 1.11 2019/04/22 23:36:04 klm Exp $
  *
  ***********************************************************************
  *
@@ -71,7 +71,7 @@ typedef struct _OPTIONS_TABLE
   int                 iFound;
   int                 iNArguments; /* 0, 1, or possibly more */
   int                 iRequired;
-  int               (*piHandler)();
+  int               (*piHandler)(void *pvOption, char *pcValue, void *pvProperties, char *pcError);
 } OPTIONS_TABLE;
 
 typedef struct _OPTIONS_CONTEXT

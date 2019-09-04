@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: ftimes.h,v 1.172 2019/03/14 16:07:42 klm Exp $
+ * $Id: ftimes.h,v 1.181 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -161,6 +161,12 @@ typedef enum _FTIMES_OPTION_IDS
 #define FTIMES_FILETYPE_SOCKET             8
 #define FTIMES_FILETYPE_WHITEOUT           9
 #define FTIMES_FILETYPE_UNKNOWN           10
+
+#define FTIMES_FILTER_UNDEFINED            0
+#define FTIMES_FILTER_POST_NAME            1
+#define FTIMES_FILTER_POST_ATTR            2
+#define FTIMES_FILTER_POST_ATTR_SCAN       3
+#define FTIMES_FILTER_POST_DATA            4
 
 #ifdef WIN32
 #ifndef IDLE_PRIORITY_CLASS
@@ -381,6 +387,10 @@ typedef struct _FILTER_LIST
 #define MODES_SSLUseCertificate   ((FTIMES_DIGMADMAP) | (FTIMES_GETMODE))
 #define MODES_SSLVerifyPeerCert   ((FTIMES_DIGMADMAP) | (FTIMES_GETMODE))
 #endif
+#ifdef USE_KLEL_FILTERS
+#define MODES_ExcludeFilterKlel   ((FTIMES_DIGAUTO) | (FTIMES_MAPAUTO) | (FTIMES_DIGMADMAP))
+#define MODES_IncludeFilterKlel   ((FTIMES_DIGAUTO) | (FTIMES_MAPAUTO) | (FTIMES_DIGMADMAP))
+#endif
 
 #define KEY_AnalyzeBlockSize    "AnalyzeBlockSize"
 #define KEY_AnalyzeByteCount    "AnalyzeByteCount"
@@ -461,6 +471,10 @@ typedef struct _FILTER_LIST
 #define KEY_SSLUseCertificate   "SSLUseCertificate"
 #define KEY_SSLVerifyPeerCert   "SSLVerifyPeerCert"
 #endif
+#ifdef USE_KLEL_FILTERS
+#define KEY_ExcludeFilterKlel   "ExcludeFilterKlel"
+#define KEY_IncludeFilterKlel   "IncludeFilterKlel"
+#endif
 
 typedef struct _CONTROLS_FOUND
 {
@@ -521,14 +535,14 @@ typedef struct _ANALYSIS_STAGES
 #define STAGE_DESCRIPTION_SIZE 64
   char                acDescription[STAGE_DESCRIPTION_SIZE];
   int                 iError;
-  int               (*piRoutine)();
+  int               (*piRoutine)(unsigned char *pucBuffer, int iBufferLength, int iBlockTag, int iBufferOverhead, FTIMES_FILE_DATA *psFTFileData, char *pcError);
 } ANALYSIS_STAGES;
 
 typedef struct _RUNMODE_STAGES
 {
   char                acDescription[STAGE_DESCRIPTION_SIZE];
   int                 iError;
-  int               (*piRoutine)();
+  int               (*piRoutine)(void *pvProperties, char *pcError);
 } RUNMODE_STAGES;
 
 typedef struct _FTIMES_PROPERTIES
@@ -549,7 +563,6 @@ typedef struct _FTIMES_PROPERTIES
   BOOL                bGetAndExec;
   BOOL                bHashDirectories;
   BOOL                bHashSymbolicLinks;
-  BOOL                bHaveAttributeFilters;
   BOOL                bIncludesMustExist;
   BOOL                bLogDigStrings;
   BOOL                bRequirePrivilege;
@@ -606,6 +619,10 @@ typedef struct _FTIMES_PROPERTIES
   FILTER_LIST        *psExcludeFilterSha256List;
   FILTER_LIST        *psIncludeFilterSha256List;
 #endif
+#ifdef USE_KLEL_FILTERS
+  FILTER_LIST_KLEL   *psExcludeFilterListKlel;
+  FILTER_LIST_KLEL   *psIncludeFilterListKlel;
+#endif
 #ifdef USE_FILE_HOOKS
   HOOK_LIST          *psFileHookList;
 #endif
@@ -632,9 +649,9 @@ typedef struct _FTIMES_PROPERTIES
   int                 iTestLevel;
   int                 iTestRunMode;
   int                 iURLAuthType;
-  int               (*piDevelopDigOutput)();
-  int               (*piDevelopMapOutput)();
-  int               (*piRunModeFinalStage)();
+//int               (*piDevelopDigOutput)();
+  int               (*piDevelopMapOutput)(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError);
+  int               (*piRunModeFinalStage)(void *pvProperties, char *pcError);
   APP_UI64            ui64AnalyzeByteCount;
   APP_UI64            ui64AnalyzeStartOffset;
   MASK_USS_MASK      *psFieldMask;
@@ -716,10 +733,10 @@ int                 CompareEnumerateChanges(SNAPSHOT_CONTEXT *psBaseline, SNAPSH
  *
  ***********************************************************************
  */
-int                 DevelopHaveNothingOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError);
-int                 DevelopNoOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError);
-int                 DevelopNormalOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError);
-int                 DevelopCompressedOutput(FTIMES_PROPERTIES *psProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError);
+int                 DevelopHaveNothingOutput(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError);
+int                 DevelopNoOutput(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError);
+int                 DevelopNormalOutput(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError);
+int                 DevelopCompressedOutput(void *pvProperties, char *pcOutData, int *iWriteCount, FTIMES_FILE_DATA *psFTFileData, char *pcError);
 int                 DevelopCompressHex(char *pcData, unsigned long ulHex, unsigned long ulOldHex);
 int                 DevelopCountHexDigits(unsigned long ulHex);
 
@@ -737,7 +754,7 @@ int                 FTimesFinalize(FTIMES_PROPERTIES *psProperties, char *pcErro
 int                 FTimesStagesLoop(FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 FTimesFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
 void                FTimesDisplayStatistics(FTIMES_PROPERTIES *psProperties);
-int                 FTimesOptionHandler(OPTIONS_TABLE *psOption, char *pcValue, FTIMES_PROPERTIES *psProperties, char *pcError);
+int                 FTimesOptionHandler(void *pvOption, char *pcValue, void *pvProperties, char *pcError);
 
 void                FTimesUsage(void);
 void                FTimesVersion(void);
@@ -761,47 +778,47 @@ int                 SeedRandom(unsigned long ulTime1, unsigned long ulTime2, cha
  *
  ***********************************************************************
  */
-int                 CmpModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DecoderInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DigModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 GetModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MadModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MapModeInitialize(FTIMES_PROPERTIES *psProperties, char *pcError);
+int                 CmpModeInitialize(void *pvProperties, char *pcError);
+int                 DecoderInitialize(void *pvProperties, char *pcError);
+int                 DigModeInitialize(void *pvProperties, char *pcError);
+int                 GetModeInitialize(void *pvProperties, char *pcError);
+int                 MadModeInitialize(void *pvProperties, char *pcError);
+int                 MapModeInitialize(void *pvProperties, char *pcError);
 
-int                 CmpModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DecoderCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DigModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 GetModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MadModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MapModeCheckDependencies(FTIMES_PROPERTIES *psProperties, char *pcError);
+int                 CmpModeCheckDependencies(void *pvProperties, char *pcError);
+int                 DecoderCheckDependencies(void *pvProperties, char *pcError);
+int                 DigModeCheckDependencies(void *pvProperties, char *pcError);
+int                 GetModeCheckDependencies(void *pvProperties, char *pcError);
+int                 MadModeCheckDependencies(void *pvProperties, char *pcError);
+int                 MapModeCheckDependencies(void *pvProperties, char *pcError);
 
-int                 CmpModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DecoderFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DigModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 GetModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MadModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MapModeFinalize(FTIMES_PROPERTIES *psProperties, char *pcError);
+int                 CmpModeFinalize(void *pvProperties, char *pcError);
+int                 DecoderFinalize(void *pvProperties, char *pcError);
+int                 DigModeFinalize(void *pvProperties, char *pcError);
+int                 GetModeFinalize(void *pvProperties, char *pcError);
+int                 MadModeFinalize(void *pvProperties, char *pcError);
+int                 MapModeFinalize(void *pvProperties, char *pcError);
 
-int                 CmpModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DecoderWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DigModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 GetModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MadModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MapModeWorkHorse(FTIMES_PROPERTIES *psProperties, char *pcError);
+int                 CmpModeWorkHorse(void *pvProperties, char *pcError);
+int                 DecoderWorkHorse(void *pvProperties, char *pcError);
+int                 DigModeWorkHorse(void *pvProperties, char *pcError);
+int                 GetModeWorkHorse(void *pvProperties, char *pcError);
+int                 MadModeWorkHorse(void *pvProperties, char *pcError);
+int                 MapModeWorkHorse(void *pvProperties, char *pcError);
 
-int                 CmpModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DecoderFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DigModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 GetModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MadModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MapModeFinishUp(FTIMES_PROPERTIES *psProperties, char *pcError);
+int                 CmpModeFinishUp(void *pvProperties, char *pcError);
+int                 DecoderFinishUp(void *pvProperties, char *pcError);
+int                 DigModeFinishUp(void *pvProperties, char *pcError);
+int                 GetModeFinishUp(void *pvProperties, char *pcError);
+int                 MadModeFinishUp(void *pvProperties, char *pcError);
+int                 MapModeFinishUp(void *pvProperties, char *pcError);
 
-int                 CmpModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DecoderFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 DigModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 GetModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MadModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 MapModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcError);
+int                 CmpModeFinalStage(void *pvProperties, char *pcError);
+int                 DecoderFinalStage(void *pvProperties, char *pcError);
+int                 DigModeFinalStage(void *pvProperties, char *pcError);
+int                 GetModeFinalStage(void *pvProperties, char *pcError);
+int                 MadModeFinalStage(void *pvProperties, char *pcError);
+int                 MapModeFinalStage(void *pvProperties, char *pcError);
 
 /*-
  ***********************************************************************
@@ -813,6 +830,18 @@ int                 MapModeFinalStage(FTIMES_PROPERTIES *psProperties, char *pcE
 int                 DigDevelopOutput(FTIMES_PROPERTIES *psProperties, DIG_SEARCH_DATA *psSearchData, char *pcError);
 void                DigSetPropertiesReference(FTIMES_PROPERTIES *psProperties);
 int                 DigWriteHeader(FTIMES_PROPERTIES *psProperties, char *pcError);
+
+/*-
+ ***********************************************************************
+ *
+ * Function Prototypes (filter.c)
+ *
+ ***********************************************************************
+ */
+#ifdef USE_KLEL_FILTERS
+void                FilterApplyFilters(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, int iFilterWhen);
+FILTER_LIST_KLEL   *FilterMatchFilter(FILTER_LIST_KLEL *psFilterList, FTIMES_FILE_DATA *psFTFileData, int iFilterWhen);
+#endif
 
 /*-
  ***********************************************************************
@@ -842,18 +871,18 @@ void                MapDirHashOmega(FTIMES_PROPERTIES *psProperties, FTIMES_HASH
 char               *MapDirname(char *pcPath);
 #ifdef USE_FILE_HOOKS
 int                 MapExecuteHook(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, char *pcError);
-#endif
 #ifdef USE_EMBEDDED_PYTHON
 int                 MapExecutePythonScript(FTIMES_PROPERTIES *psProperties, HOOK_LIST *psHook, KLEL_COMMAND *psCommand, FTIMES_FILE_DATA *psFTFileData, char *pcMessage);
+#endif
 #endif
 int                 MapFile(FTIMES_PROPERTIES *psProperties, char *pcPath, char *pcError);
 void                MapFreeFTFileData(FTIMES_FILE_DATA *psFTFileData);
 unsigned long       MapGetAttributes(FTIMES_FILE_DATA *psFTFileData);
-int                 MapGetDirectoryCount();
-int                 MapGetFileCount();
-int                 MapGetIncompleteRecordCount();
-int                 MapGetRecordCount();
-int                 MapGetSpecialCount();
+int                 MapGetDirectoryCount(void);
+int                 MapGetFileCount(void);
+int                 MapGetIncompleteRecordCount(void);
+int                 MapGetRecordCount(void);
+int                 MapGetSpecialCount(void);
 #ifndef WINNT
 FTIMES_FILE_DATA   *MapNewFTFileData(FTIMES_FILE_DATA *psParentFTFileData, char *pcName, char *pcError);
 #endif
@@ -863,7 +892,7 @@ int                 MapWriteRecord(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_
 #ifdef WINNT
 int                 MapCountNamedStreams(HANDLE hFile, int *piStreamCount, unsigned char **ppucStreamInfo, char *pcError);
 HANDLE              MapGetFileHandleW(wchar_t *pwcPath);
-int                 MapGetStreamCount();
+int                 MapGetStreamCount(void);
 FTIMES_FILE_DATA   *MapNewFTFileDataW(FTIMES_FILE_DATA *psParentFTFileData, wchar_t *pwcName, char *pcError);
 void                MapStream(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, FTIMES_HASH_DATA *psDirFTHashData, char *pcError);
 wchar_t            *MapUtf8ToWide(char *pcString, int iUtf8Size, char *pcError);
@@ -880,7 +909,7 @@ char               *MapWideToUtf8(wchar_t *pwcString, int iWideSize, char *pcErr
 void                PropertiesDisplaySettings(FTIMES_PROPERTIES *psProperties);
 int                 PropertiesReadFile(char *pcFilename, FTIMES_PROPERTIES *psProperties, char *pcError);
 int                 PropertiesReadLine(char *pcLine, FTIMES_PROPERTIES *psProperties, char *pcError);
-int                 PropertiesTestFile(FTIMES_PROPERTIES *psProperties, char *pcError);
+int                 PropertiesTestFile(void *pvProperties, char *pcError);
 
 /*-
  ***********************************************************************
@@ -894,6 +923,8 @@ int                 SupportAddToList(char *pcPath, FILE_LIST **ppList, char *pcL
 #ifdef WIN32
 BOOL                SupportAdjustPrivileges(LPCTSTR lpcPrivilege);
 #endif
+void                SupportApplyFilters(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, int iFilterWhen);
+void                SupportApplyFiltersForHashes(FTIMES_PROPERTIES *psProperties, FTIMES_FILE_DATA *psFTFileData, int iFilterWhen);
 int                 SupportCheckList(FILE_LIST *psHead, char *pcListName, char *pcError);
 int                 SupportChopEOLs(char *pcLine, int iStrict, char *pcError);
 void                SupportDisplayRunStatistics(FTIMES_PROPERTIES *psProperties);

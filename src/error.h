@@ -1,7 +1,7 @@
 /*-
  ***********************************************************************
  *
- * $Id: error.h,v 1.29 2019/03/14 16:07:42 klm Exp $
+ * $Id: error.h,v 1.30 2019/08/29 19:24:56 klm Exp $
  *
  ***********************************************************************
  *
@@ -46,9 +46,6 @@ enum InternalErrors
   ER_DoXMagic,
   ER_Failure,
   ER_FileSystem,
-#ifdef USE_PCRE
-  ER_Filtered,
-#endif
   ER_FindFirstFile,
   ER_Header,
   ER_InvalidSeverity,
